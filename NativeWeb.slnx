@@ -8,4 +8,9 @@
     <Project Path="libs/epass.auth/epass.auth.csproj" />
     <Project Path="libs/epass.mail/epass.mail.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/epass.web.tests.unit/epass.web.tests.unit.csproj" />
+    <Project Path="tests/epass.web.tests.integration/epass.web.tests.integration.csproj" />
+    <Project Path="tests/epass.web.tests.e2e/epass.web.tests.e2e.csproj" />
+  </Folder>
 </Solution>
