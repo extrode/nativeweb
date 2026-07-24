@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible and analyzer settings come from Directory.Build.props. -->
+
+  <ItemGroup>
+    <!-- Geralt: libsodium wrapper. Provides Argon2id (PHC strings) and a
+         cryptographically secure RNG. Version pinned in Directory.Packages.props. -->
+    <PackageReference Include="Geralt" />
+  </ItemGroup>
+
+</Project>

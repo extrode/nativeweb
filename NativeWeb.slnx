@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/apps/">
+    <Project Path="apps/web/epass.web.csproj" />
+  </Folder>
+  <Folder Name="/libs/">
+    <Project Path="libs/epass.data/epass.data.csproj" />
+    <Project Path="libs/epass.security/epass.security.csproj" />
+    <Project Path="libs/epass.auth/epass.auth.csproj" />
+    <Project Path="libs/epass.mail/epass.mail.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/epass.web.tests.unit/epass.web.tests.unit.csproj" />
+    <Project Path="tests/epass.web.tests.integration/epass.web.tests.integration.csproj" />
+    <Project Path="tests/epass.web.tests.e2e/epass.web.tests.e2e.csproj" />
+  </Folder>
+</Solution>
