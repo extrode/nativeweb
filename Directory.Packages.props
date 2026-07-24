@@ -1,0 +1,38 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- Central package versions. Add PackageReference in csproj without Version.
+       Pins follow the shared .NET toolchain. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+    <!-- Pin transitive Microsoft.OpenApi above the vulnerable 2.0.0 pulled in by
+         Microsoft.AspNetCore.OpenApi (GHSA-v5pm-xwqc-g5wc / CVE-2026-49451). -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <!-- libsodium wrapper (span-based, AOT-friendly): CSPRNG + hashing for
+         secret/ticket material. -->
+    <PackageVersion Include="Geralt" Version="4.3.0" />
+    <!-- JauntyQ pin: used only when building without a local jauntyq checkout
+         (package mode, e.g. CI, -p:JauntyQUsePackages=true). Bump deliberately
+         after a new jauntyq v* tag publishes. -->
+    <PackageVersion Include="JauntyQ.Generator" Version="0.1.0" />
+    <PackageVersion Include="JauntyQ.Runtime" Version="0.1.0" />
+  </ItemGroup>
+
+  <!-- Test-only packages. Referenced solely by tests/*, never by shipping code. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- Integration tests: WebApplicationFactory host. Matched to the AspNetCore
+         10.0.x line (no sibling pin exists to mirror). -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
+    <!-- End-to-end browser tests. Net-new to this repo (no sibling reference);
+         pinned to a recent 1.x. -->
+    <PackageVersion Include="Microsoft.Playwright" Version="1.49.0" />
+  </ItemGroup>
+
+</Project>

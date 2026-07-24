@@ -1,0 +1,46 @@
+# .NET
+bin/
+obj/
+*.user
+artifacts/
+*.binlog
+*.pdb
+
+# NativeAOT / publish build output.
+# Sibling justsmtp.com deliberately COMMITS a top-level publish/ (vendored
+# JauntyQ.Runtime artifacts), so we do NOT blanket-ignore publish/. Ignore only
+# per-project publish output under bin/ and app publish dirs.
+**/bin/publish/
+apps/**/publish/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+*.pfx
+*.key
+secrets/
+
+# Node / Playwright / npm (vendoring + e2e).
+node_modules/
+dist/
+playwright-report/
+test-results/
+
+# Test / coverage
+[Tt]est[Rr]esults/
+coverage/
+*.trx
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vs/
+*.swp
+
+# Local agent tooling (not committed, matches sibling repos)
+.claude/
+.specify/
+.worktrees/
