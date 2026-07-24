@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible and analyzer settings come from Directory.Build.props. -->
+
+  <ItemGroup>
+    <!-- ILoginLinkSender / ICodeSender abstractions and CodeChannel. -->
+    <ProjectReference Include="..\epass.auth\epass.auth.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AOT-guaranteed SMTP submission (Lite variants). -->
+    <PackageReference Include="MailKitLite" />
+    <PackageReference Include="MimeKitLite" />
+    <!-- ILogger abstractions for the SMTP code sender's warning path. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+</Project>

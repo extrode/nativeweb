@@ -15,6 +15,11 @@
     <!-- libsodium wrapper (span-based, AOT-friendly): CSPRNG + hashing for
          secret/ticket material. -->
     <PackageVersion Include="Geralt" Version="4.3.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <!-- Trimmed MimeKit/MailKit forks (no legacy charset tables), used by
+         libs/epass.mail for SMTP send + templating. Pins mirror epass.io. -->
+    <PackageVersion Include="MailKitLite" Version="4.17.0" />
+    <PackageVersion Include="MimeKitLite" Version="4.17.0" />
     <!-- JauntyQ pin: used only when building without a local jauntyq checkout
          (package mode, e.g. CI, -p:JauntyQUsePackages=true). Bump deliberately
          after a new jauntyq v* tag publishes. -->

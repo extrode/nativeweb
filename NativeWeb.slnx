@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/libs/">
+    <Project Path="libs/epass.data/epass.data.csproj" />
+    <Project Path="libs/epass.security/epass.security.csproj" />
+    <Project Path="libs/epass.auth/epass.auth.csproj" />
+    <Project Path="libs/epass.mail/epass.mail.csproj" />
+  </Folder>
+</Solution>
