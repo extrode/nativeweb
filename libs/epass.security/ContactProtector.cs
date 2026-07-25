@@ -12,11 +12,12 @@ namespace Epass.Security;
 // keyed HMAC of the normalized value, deterministic and non-reversible, stored beside
 // the ciphertext and queried instead of the plaintext.
 //
-// Two independent subkeys are derived from one configured secret (`Epass:ContactKey`)
-// so the encryption key and the index key are never the same value:
-//   master   = StoreDataProtector.DeriveKey(secret)         (32 bytes)
-//   encKey   = SHA-256(master ‖ "enc")   -> AES-256-GCM (via StoreDataProtector)
-//   indexKey = SHA-256(master ‖ "index") -> HMAC-SHA-256 blind index
+// Three independent subkeys are derived from one configured secret (`Epass:ContactKey`)
+// so the encryption key, the index key, and the fake-mask key are never the same value:
+//   master       = StoreDataProtector.DeriveKey(secret)         (32 bytes)
+//   encKey       = SHA-256(master ‖ "enc")      -> AES-256-GCM (via StoreDataProtector)
+//   indexKey     = SHA-256(master ‖ "index")    -> HMAC-SHA-256 blind index
+//   fakeMaskKey  = SHA-256(master ‖ "fakemask") -> HMAC-SHA-256 enumeration-defense digest
 /// <summary>
 /// At-rest protection for contact PII (the <c>value</c> column of email_addresses and
 /// phone_numbers): AES-256-GCM encryption for plaintext round-trip, plus a realm-scoped
@@ -28,8 +29,9 @@ public sealed class ContactProtector
 {
     private readonly StoreDataProtector _cipher;
     private readonly byte[] _indexKey;
+    private readonly byte[] _fakeMaskKey;
 
-    /// <summary>Derives the encryption and index subkeys from a 32-byte master key (see <see cref="DeriveKey"/>).</summary>
+    /// <summary>Derives the encryption, index, and fake-mask subkeys from a 32-byte master key (see <see cref="DeriveKey"/>).</summary>
     public ContactProtector(byte[] masterKey)
     {
         if (masterKey.Length != StoreDataProtector.KeyBytes)
@@ -38,6 +40,7 @@ public sealed class ContactProtector
         }
         _cipher = new StoreDataProtector(Subkey(masterKey, "enc"));
         _indexKey = Subkey(masterKey, "index");
+        _fakeMaskKey = Subkey(masterKey, "fakemask");
     }
 
     // Same decoding rule as the store key: a 32-byte base64/hex value is used verbatim,
@@ -80,6 +83,18 @@ public sealed class ContactProtector
         HMACSHA256.HashData(_indexKey, buf[..(8 + written)], mac);
         return Convert.ToHexStringLower(mac);
     }
+
+    // Keyed HMAC-SHA-256 of a normalized identifier -- NOT a blind index (never
+    // queried against, no realm scoping needed). Used only to derive
+    // FakeIdentifierResponses' enumeration-defense fake mask: deterministic per
+    // identifier (same input -> same output, so repeated probing can't reveal
+    // it's synthetic) but unpredictable without the configured Epass:ContactKey
+    // secret -- unlike a plain unkeyed hash, an attacker who doesn't hold the
+    // secret cannot precompute the fake value for a candidate identifier and
+    // compare it against a real response to detect account existence.
+    /// <summary>Keyed digest of a normalized identifier used to derive a deterministic-but-unpredictable enumeration-defense fake value.</summary>
+    public byte[] FakeMaskDigest(string identifier) =>
+        HMACSHA256.HashData(_fakeMaskKey, Encoding.UTF8.GetBytes(identifier.Trim().ToLowerInvariant()));
 
     private static byte[] Subkey(byte[] master, string label)
     {
