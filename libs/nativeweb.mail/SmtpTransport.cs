@@ -2,7 +2,7 @@ using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 
-namespace Epass.Mail;
+namespace NativeWeb.Mail;
 
 /// <summary>
 /// Sends a single email over SMTP using MailKit, opening a fresh connection per send.

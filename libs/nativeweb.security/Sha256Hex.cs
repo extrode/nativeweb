@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Epass.Security;
+namespace NativeWeb.Security;
 
 // The codebase's single at-rest hash routine: SHA-256 of a string's UTF-8 bytes,
 // rendered as 64-char lowercase hex (the CHAR(64) *_hash convention). This is the most

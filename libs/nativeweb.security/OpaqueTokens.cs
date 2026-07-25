@@ -1,6 +1,6 @@
 using Geralt;
 
-namespace Epass.Security;
+namespace NativeWeb.Security;
 
 /// <summary>
 /// Primitives for opaque bearer tokens (access tokens, secrets).

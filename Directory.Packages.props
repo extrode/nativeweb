@@ -17,7 +17,7 @@
     <PackageVersion Include="Geralt" Version="4.3.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <!-- Trimmed MimeKit/MailKit forks (no legacy charset tables), used by
-         libs/epass.mail for SMTP send + templating. Pins mirror epass.io. -->
+         libs/nativeweb.mail for SMTP send + templating. Pins mirror epass.io. -->
     <PackageVersion Include="MailKitLite" Version="4.17.0" />
     <PackageVersion Include="MimeKitLite" Version="4.17.0" />
     <!-- JauntyQ pin: used only when building without a local jauntyq checkout

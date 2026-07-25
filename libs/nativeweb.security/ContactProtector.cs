@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Epass.Security;
+namespace NativeWeb.Security;
 
 // At-rest protection for contact PII — the `value` column of email_addresses and
 // phone_numbers. Unlike hashed secrets, a contact value must round-trip in plaintext
@@ -12,7 +12,7 @@ namespace Epass.Security;
 // keyed HMAC of the normalized value, deterministic and non-reversible, stored beside
 // the ciphertext and queried instead of the plaintext.
 //
-// Three independent subkeys are derived from one configured secret (`Epass:ContactKey`)
+// Three independent subkeys are derived from one configured secret (`NativeWeb:ContactKey`)
 // so the encryption key, the index key, and the fake-mask key are never the same value:
 //   master       = StoreDataProtector.DeriveKey(secret)         (32 bytes)
 //   encKey       = SHA-256(master ‖ "enc")      -> AES-256-GCM (via StoreDataProtector)
@@ -23,7 +23,7 @@ namespace Epass.Security;
 /// phone_numbers): AES-256-GCM encryption for plaintext round-trip, plus a realm-scoped
 /// HMAC-SHA-256 blind index for equality lookup/uniqueness, since the ciphertext itself
 /// cannot back either. Encryption and index keys are independent subkeys of one
-/// configured secret (<c>Epass:ContactKey</c>).
+/// configured secret (<c>NativeWeb:ContactKey</c>).
 /// </summary>
 public sealed class ContactProtector
 {
@@ -44,9 +44,9 @@ public sealed class ContactProtector
     }
 
     // Same decoding rule as the store key: a 32-byte base64/hex value is used verbatim,
-    // anything else is SHA-256'd — so operators configure Epass:ContactKey exactly like
-    // Epass:StoreEncryptionKey.
-    /// <summary>Derives the 32-byte master key from a configured <c>Epass:ContactKey</c> secret.</summary>
+    // anything else is SHA-256'd — so operators configure NativeWeb:ContactKey exactly like
+    // NativeWeb:StoreEncryptionKey.
+    /// <summary>Derives the 32-byte master key from a configured <c>NativeWeb:ContactKey</c> secret.</summary>
     public static byte[] DeriveKey(string secret) => StoreDataProtector.DeriveKey(secret);
 
     // AES-256-GCM ciphertext (enc:v1: envelope). Unprotect passes a value with no
@@ -88,7 +88,7 @@ public sealed class ContactProtector
     // queried against, no realm scoping needed). Used only to derive
     // FakeIdentifierResponses' enumeration-defense fake mask: deterministic per
     // identifier (same input -> same output, so repeated probing can't reveal
-    // it's synthetic) but unpredictable without the configured Epass:ContactKey
+    // it's synthetic) but unpredictable without the configured NativeWeb:ContactKey
     // secret -- unlike a plain unkeyed hash, an attacker who doesn't hold the
     // secret cannot precompute the fake value for a candidate identifier and
     // compare it against a real response to detect account existence.

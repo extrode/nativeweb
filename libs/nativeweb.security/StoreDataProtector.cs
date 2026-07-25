@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Epass.Security;
+namespace NativeWeb.Security;
 
 // Authenticated encryption for the BFF durable store's `data` column. The store
 // holds material that MUST round-trip in plaintext to the server (live access/
