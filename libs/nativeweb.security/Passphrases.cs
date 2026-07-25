@@ -1,7 +1,7 @@
 using System.Text;
 using Geralt;
 
-namespace Epass.Security;
+namespace NativeWeb.Security;
 
 /// <summary>
 /// Argon2id passphrase hashing (via Geralt / libsodium). Produces PHC-encoded

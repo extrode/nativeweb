@@ -23,6 +23,10 @@ jobs:
       postgres:
         image: postgres:18
         env:
+          # epass_app survives the neutral-naming rename on purpose: it is the
+          # role the vendored db/ migrations grant against, and db/ is
+          # feature-frozen from epass.io. Renaming it needs its own migration
+          # plus a local reprovision, so it is tracked separately.
           POSTGRES_USER: epass_app
           POSTGRES_PASSWORD: ci_test_password
           POSTGRES_DB: nativeweb_test
@@ -34,7 +38,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      ConnectionStrings__Epass: "Host=localhost;Database=nativeweb_test;Username=epass_app;Password=ci_test_password"
+      ConnectionStrings__NativeWeb: "Host=localhost;Database=nativeweb_test;Username=epass_app;Password=ci_test_password"
     steps:
       - uses: actions/checkout@v4
 
@@ -56,16 +60,16 @@ jobs:
         run: dotnet build --no-restore $DOTNET_BUILD_ARGS
 
       - name: Install Playwright browsers
-        run: pwsh tests/epass.web.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+        run: pwsh tests/nativeweb.web.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Unit tests
-        run: dotnet test tests/epass.web.tests.unit --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test tests/nativeweb.web.tests.unit --no-build $DOTNET_BUILD_ARGS
 
       - name: Integration tests
-        run: dotnet test tests/epass.web.tests.integration --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test tests/nativeweb.web.tests.integration --no-build $DOTNET_BUILD_ARGS
 
       - name: E2E tests
-        run: dotnet test tests/epass.web.tests.e2e --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test tests/nativeweb.web.tests.e2e --no-build $DOTNET_BUILD_ARGS
 
   aot-publish:
     # The NativeAOT gate: MSVC's cl.exe/link.exe (via vcvars) are only
@@ -86,4 +90,4 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Publish (NativeAOT)
-        run: dotnet publish apps/web/epass.web.csproj -c Release -p:JauntyQUsePackages=true
+        run: dotnet publish apps/web/nativeweb.web.csproj -c Release -p:JauntyQUsePackages=true

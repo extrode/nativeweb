@@ -5,7 +5,7 @@
 
   <ItemGroup>
     <!-- ILoginLinkSender / ICodeSender abstractions and CodeChannel. -->
-    <ProjectReference Include="..\epass.auth\epass.auth.csproj" />
+    <ProjectReference Include="..\nativeweb.auth\nativeweb.auth.csproj" />
   </ItemGroup>
 
   <ItemGroup>

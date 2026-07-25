@@ -1,4 +1,4 @@
-namespace Epass.Mail;
+namespace NativeWeb.Mail;
 
 /// <summary>
 /// Transport security applied when connecting to the SMTP server.
@@ -18,7 +18,7 @@ public enum SmtpSecurityMode
 }
 
 /// <summary>
-/// Configuration for outbound SMTP delivery. Binds from the <c>Epass:Smtp</c>
+/// Configuration for outbound SMTP delivery. Binds from the <c>NativeWeb:Smtp</c>
 /// configuration section.
 /// </summary>
 /// <remarks>
@@ -98,7 +98,7 @@ public sealed class SmtpOptions
 
         if (string.IsNullOrWhiteSpace(FromAddress))
         {
-            throw new InvalidOperationException("Epass:Smtp:FromAddress is required when SMTP is enabled.");
+            throw new InvalidOperationException("NativeWeb:Smtp:FromAddress is required when SMTP is enabled.");
         }
 
         // Enforce the SecurityMode.None contract: it is test-only, so it is permitted
@@ -108,7 +108,7 @@ public sealed class SmtpOptions
         if (SecurityMode == SmtpSecurityMode.None && !IsLoopbackHost(Host))
         {
             throw new InvalidOperationException(
-                "Epass:Smtp:SecurityMode=None is permitted only for a loopback host "
+                "NativeWeb:Smtp:SecurityMode=None is permitted only for a loopback host "
                 + "(localhost/127.0.0.1/::1); use StartTls for any real SMTP server.");
         }
     }
