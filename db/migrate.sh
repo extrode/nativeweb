@@ -2,10 +2,9 @@
 #
 # Applies db/migrations/*.sql to a database in order, tracking applied
 # versions in schema_migrations so re-runs skip what's already there. This is
-# the primary way to bring a database up to date; see "Database setup /
-# reset" in docs/RUNNING.md for the manual equivalent this automates.
+# the primary way to bring a database up to date.
 #
-# Env (all optional, defaults match local dev per db/README.md):
+# Env (all optional; the defaults are the local dev setup):
 #   PGHOST            default 127.0.0.1
 #   PGPORT            default 5432
 #   PGDATABASE        default nativeweb_dev -- this repo provisions its own
