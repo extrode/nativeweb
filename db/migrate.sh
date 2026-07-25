@@ -8,7 +8,9 @@
 # Env (all optional, defaults match local dev per db/README.md):
 #   PGHOST            default 127.0.0.1
 #   PGPORT            default 5432
-#   PGDATABASE        default epass_dev
+#   PGDATABASE        default nativeweb_dev -- this repo provisions its own
+#                     database (never epass.io's live one); the test tiers'
+#                     fallback connection strings assume the same name
 #   APP_ROLE          default epass_app -- PGPASSWORD (or ~/.pgpass) must
 #                     authenticate this role for every migration except 0002
 #   SUPERUSER_ROLE    default postgres -- must authenticate for 0002 only
@@ -23,7 +25,7 @@ set -euo pipefail
 
 PGHOST="${PGHOST:-127.0.0.1}"
 PGPORT="${PGPORT:-5432}"
-PGDATABASE="${PGDATABASE:-epass_dev}"
+PGDATABASE="${PGDATABASE:-nativeweb_dev}"
 APP_ROLE="${APP_ROLE:-epass_app}"
 SUPERUSER_ROLE="${SUPERUSER_ROLE:-postgres}"
 
