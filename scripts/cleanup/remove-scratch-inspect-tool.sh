@@ -1,16 +1,27 @@
 #!/usr/bin/env bash
-# Removes the throwaway "jq-inspect" reflection scratch console app used to
-# discover exact JauntyQ-generated method signatures (created ad hoc under the
-# OS temp dir, referencing already-built repo DLLs via <HintPath> so it never
-# needs a ProjectReference or its own copy of the generator). Only ever
-# touches the temp-dir scratch copy -- never anything inside the repo.
+# Removes throwaway console apps used for one-off investigation (reflecting over
+# JauntyQ-generated signatures, spiking a candidate NuGet package's NativeAOT
+# compatibility, etc.), created ad hoc under the OS temp dir so they never need a
+# ProjectReference into this repo. Only ever touches temp-dir scratch copies --
+# never anything inside the repo.
 set -euo pipefail
 
-SCRATCH_DIR="${TEMP:-$HOME/AppData/Local/Temp}/jq-inspect"
+TEMP_ROOT="${TEMP:-$HOME/AppData/Local/Temp}"
+SCRATCH_DIRS=(
+    "jq-inspect"
+    "fido2-aot-spike"
+    "fido2-reflect"
+    "fido2-props-check"
+    "fido2-props-check2"
+    "fido2check3"
+)
 
-if [ -d "$SCRATCH_DIR" ]; then
-    echo "Removing scratch reflection tool: $SCRATCH_DIR"
-    rm -rf "$SCRATCH_DIR"
-else
-    echo "Nothing to clean up: $SCRATCH_DIR does not exist."
-fi
+for name in "${SCRATCH_DIRS[@]}"; do
+    dir="$TEMP_ROOT/$name"
+    if [ -d "$dir" ]; then
+        echo "Removing scratch tool: $dir"
+        rm -rf "$dir"
+    else
+        echo "Nothing to clean up: $dir does not exist."
+    fi
+done
