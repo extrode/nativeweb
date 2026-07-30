@@ -15,7 +15,7 @@ merges back `--no-ff` when green. Requirement numbers refer to the spec.
       removed (R5, R8, R9, R13). Done when: CRUD flows pass all three tiers against Postgres.
 - [x] T4 Metadata fetch — SSRF-guarded fetcher, title/description/favicon, favicon endpoint
       (R6, R7). Done when: guard unit tests (incl. redirect re-checks) and fetch flow pass.
-- [ ] T5 Tags — implicit create, rename/merge, delete, counts, filter (R10, R11).
+- [x] T5 Tags — implicit create, rename/merge, delete, counts, filter (R10, R11).
       Done when: tag flows pass unit + integration.
 - [ ] T6 Search — Postgres FTS via the expression GIN index, ranking, combined with tag filter
       (R14). Done when: ranked search integration tests pass and EXPLAIN uses the index.
