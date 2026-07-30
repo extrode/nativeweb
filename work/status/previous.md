@@ -5,5 +5,8 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **T5 Tags (spec 001, DevMarks)** — implicit create on save, chips + `?tag=` filter,
-  rename/merge, delete with confirm page (R10, R11). Merged to dev as 7a9a1e5.
+- **T6 Search + T8 Import/export (spec 001, DevMarks)** — the two parallel-worker slices, both
+  merged to dev: search as 1c7daf4 (FTS via `search_match()` in migration 0006 because JauntyQ
+  can't parse `@@`; EXPLAIN confirmed `bookmarks_search_idx` applies), import/export as b5dc22f
+  (format-sniffing POST /import, idempotent dedup, byte-identical JSON round trip proven in
+  tests). Suites at merge: 196 unit / 49 integration / 5 e2e, zero AOT warnings.
