@@ -5,7 +5,6 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **T2 Accounts (spec 001, DevMarks)** — register/sign-in/sign-out/settings, opaque-cookie DB
-  sessions (14-day sliding), lockout via LockoutPolicy, offline+HIBP breach checking, uniform
-  sign-in failures (R3), real no-JS forms. 51 unit / 16 integration / 4 e2e green. Merged to
-  `dev` alongside the T4 metadata-fetcher and T8 codec components.
+- **T3 Bookmarks core + T4 metadata (spec 001, DevMarks)** — CRUD, canonical-URL dedup-on-save,
+  pagination, fetch-on-save + favicon endpoint; anonymous list now redirects to sign-in.
+  Merged to dev as 45bca91 (T3) on top of efe8ed9 (T4 component).
