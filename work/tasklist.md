@@ -33,8 +33,8 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: DevMarks (spec 001)
+## Current work: (between bodies of work)
 
-Durable-tier work — the task list lives at
-`docs/specs/001-devmarks-bookmarking-app/001-tasks.md` (T1 scaffold … T9 hardening).
-This file points at it rather than duplicating it.
+Spec 001 (DevMarks) shipped and archived to `archive/2026-07-30-devmarks-bookmarking-app.md`.
+The next body of work is the epass.io v2 green UI on the IdP (see `status/next.md` and
+`milestones.md`); this list is refilled when it starts.

@@ -14,6 +14,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **DevMarks** (`apps/devmarks`, spec 001) — a complete bookmarking app for software engineers
+  and the first full application on the Lean Native Web template: accounts (Argon2id
+  passphrases, lockout, breach checking), bookmark CRUD with SSRF-guarded metadata/favicon
+  fetch, tags with rename-merge and per-tag visibility, ranked Postgres full-text search
+  (title/description/notes/URL/tag names), private-by-default public pages (`/u/{username}`,
+  `/u/{username}/t/{tag}`, indistinguishable 404s), Netscape HTML + JSON import/export with
+  idempotent re-import and lossless JSON round-trip, fixed-window rate limiting, structured
+  request logging, health endpoints. Every core flow works without JavaScript. Own database
+  (`db/devmarks`), JauntyQ data layer (`libs/nativeweb.devmarks.data`), three test tiers
+  (196 unit / 56 integration / 7 e2e), zero-warning NativeAOT publish, CI coverage.
+
 ### Changed
 ### Fixed
 ### Removed
