@@ -17,11 +17,11 @@ merges back `--no-ff` when green. Requirement numbers refer to the spec.
       (R6, R7). Done when: guard unit tests (incl. redirect re-checks) and fetch flow pass.
 - [x] T5 Tags — implicit create, rename/merge, delete, counts, filter (R10, R11).
       Done when: tag flows pass unit + integration.
-- [ ] T6 Search — Postgres FTS via the expression GIN index, ranking, combined with tag filter
+- [x] T6 Search — Postgres FTS via the expression GIN index, ranking, combined with tag filter
       (R14). Done when: ranked search integration tests pass and EXPLAIN uses the index.
 - [ ] T7 Public pages — visibility flags, `/u/{username}` (+ per-tag), 404-indistinguishability
       (R12, R15–R17). Done when: anonymous flows pass all three tiers.
-- [ ] T8 Import/export — Netscape HTML + JSON codecs, idempotent import with report, lossless
+- [x] T8 Import/export — Netscape HTML + JSON codecs, idempotent import with report, lossless
       JSON round-trip (R18–R20). Done when: round-trip property holds in tests.
 - [ ] T9 Hardening — rate limiters, request logging, no-JS sweep, small screens, formatted HTML
       source, README, full acceptance-criteria sweep (R21–R24). Done when: every spec
