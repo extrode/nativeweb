@@ -2,15 +2,24 @@
   <Folder Name="/apps/">
     <Project Path="apps/web/nativeweb.web.csproj" />
   </Folder>
+  <Folder Name="/apps/devmarks/">
+    <Project Path="apps/devmarks/nativeweb.devmarks.csproj" />
+  </Folder>
   <Folder Name="/libs/">
     <Project Path="libs/nativeweb.data/nativeweb.data.csproj" />
     <Project Path="libs/nativeweb.security/nativeweb.security.csproj" />
     <Project Path="libs/nativeweb.auth/nativeweb.auth.csproj" />
+    <Project Path="libs/nativeweb.devmarks.data/nativeweb.devmarks.data.csproj" />
     <Project Path="libs/nativeweb.mail/nativeweb.mail.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/nativeweb.web.tests.unit/nativeweb.web.tests.unit.csproj" />
     <Project Path="tests/nativeweb.web.tests.integration/nativeweb.web.tests.integration.csproj" />
+    <Project Path="tests/nativeweb.devmarks.tests.e2e/nativeweb.devmarks.tests.e2e.csproj" />
+    <Project Path="tests/nativeweb.devmarks.tests.integration/nativeweb.devmarks.tests.integration.csproj" />
+    <Project Path="tests/nativeweb.devmarks.tests.unit/nativeweb.devmarks.tests.unit.csproj" />
     <Project Path="tests/nativeweb.web.tests.e2e/nativeweb.web.tests.e2e.csproj" />
   </Folder>
+  <Project Path="../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj" />
+  <Project Path="../jauntyq/src/JauntyQ.Runtime/JauntyQ.Runtime.csproj" />
 </Solution>
