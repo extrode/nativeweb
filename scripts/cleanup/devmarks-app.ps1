@@ -1,4 +1,4 @@
-# Cleanup for the DevMarks build-out (spec 001, slices 1-9), written 2026-07-30.
+﻿# Cleanup for the DevMarks build-out (spec 001, slices 1-9), written 2026-07-30.
 # Produced by the DevMarks implementation sessions: parallel worktrees under
 # .worktrees/, their prompt files, the merged feat/devmarks-* branches, and the
 # stale epass.* bin/obj leftovers from the N4 neutral-naming rename.
@@ -10,13 +10,24 @@
 #                         feat-devmarks-transfer-codecs dir, libs/tests epass.* bin/obj
 #
 # NOT handled here (tracked files; needs a chore branch, noted in work/todo.md):
-#   apps/devmarks/wwwroot/vendor/webauthn  — unused copy from the IdP vendor dir.
+#   apps/devmarks/wwwroot/vendor/webauthn  -- unused copy from the IdP vendor dir.
 
 param(
     [Alias('e')][switch]$Execute,
-    [switch]$DeleteFiles
+    [switch]$DeleteFiles,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
 $ErrorActionPreference = 'Stop'
+
+# PowerShell binds -Execute / -e; accept the POSIX spellings too so the
+# interface is identical in both shells.
+foreach ($a in $Rest) {
+    switch ($a) {
+        '--execute'      { $Execute = $true }
+        '--delete-files' { $DeleteFiles = $true }
+        default { Write-Host "unknown argument: $a" -ForegroundColor Red; exit 2 }
+    }
+}
 
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $repo
@@ -27,7 +38,7 @@ if ($Execute -and $branch -ne 'dev') {
     Write-Error "On '$branch', expected 'dev'. Refusing to execute."
     exit 1
 }
-if (-not $Execute) { Write-Host "DRY RUN — nothing will change. Pass --execute to act.`n" }
+if (-not $Execute) { Write-Host "DRY RUN -- nothing will change. Pass --execute to act.`n" }
 
 $worktrees = @(
     'feat-devmarks-accounts', 'feat-devmarks-bookmarks', 'feat-devmarks-metadata',
