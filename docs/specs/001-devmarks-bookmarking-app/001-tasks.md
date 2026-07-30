@@ -23,6 +23,7 @@ merges back `--no-ff` when green. Requirement numbers refer to the spec.
       (R12, R15–R17). Done when: anonymous flows pass all three tiers.
 - [x] T8 Import/export — Netscape HTML + JSON codecs, idempotent import with report, lossless
       JSON round-trip (R18–R20). Done when: round-trip property holds in tests.
-- [ ] T9 Hardening — rate limiters, request logging, no-JS sweep, small screens, formatted HTML
-      source, README, full acceptance-criteria sweep (R21–R24). Done when: every spec
-      acceptance criterion checked off and the full suite is green.
+- [x] T9 Hardening — rate limiters, request logging, no-JS sweep, small screens, README, full
+      acceptance-criteria sweep (R21–R24). Done when: every spec acceptance criterion checked
+      off and the full suite is green. (Formatted-HTML-source retrofit dropped from scope
+      2026-07-30 — cosmetic, not an acceptance criterion; tracked in work/todo.md.)

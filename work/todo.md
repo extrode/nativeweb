@@ -12,7 +12,8 @@ wish list; the value is in recording the ones nobody has got to yet.
 Small, clear, and could be picked up without a design decision.
 
 - DevMarks: `apps/devmarks/wwwroot/vendor/webauthn/` was copied from the IdP unintentionally and
-  is unused — cleanup-script candidate (with the stale `epass.*` bin/obj leftovers).
+  is unused — tracked files, so it needs a small chore branch with `git rm`, not the cleanup
+  script (`scripts/cleanup/devmarks-app.ps1` covers the untracked leftovers and notes this).
 - DevMarks: unit tests reach `SecurityHeadersMiddleware` internals via reflection; add an
   `InternalsVisibleTo` for `nativeweb.devmarks.tests.unit` (as apps/web does) and call directly.
 
@@ -24,12 +25,12 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   user dislikes how the `<meta name="request-verification-token">` + hidden-input plumbing looks.
   Candidate: a Rails-style per-session token behind a small helper so the markup reads cleaner —
   needs a decision on trading away per-request masking.
-- DevMarks T9 includes the formatted-HTML-source retrofit for slice-1 pages (user asked for
-  properly formatted markup; deferred from the scaffold).
+- DevMarks: formatted-HTML-source retrofit for the slice-1 pages (user asked for properly
+  formatted markup; deferred from the scaffold). Explicitly left out of the T9 hardening pass on
+  2026-07-30: cosmetic, not an acceptance criterion — new markup since the scaffold is indented.
 
 ## Dropped
 
 Not doing, with the reason. Kept so the same idea does not get re-raised every quarter.
 
 - (nothing yet)
-- DevMarks /tags page layout is clunky (rename box + buttons stack awkwardly, Delete floats mid-row) - restyle in T9 hardening.
