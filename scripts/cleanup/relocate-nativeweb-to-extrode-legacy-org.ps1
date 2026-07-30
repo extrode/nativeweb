@@ -26,15 +26,20 @@ foreach ($a in $Rest) {
   switch ($a) {
     '--execute'                  { $Execute = $true }
     '--remove-stray-dry-run-dir' { $RemoveStrayDryRunDir = $true }
-    default { Write-Error "unknown argument: $a"; exit 2 }
+    # Write-Host, not Write-Error: $ErrorActionPreference = 'Stop' turns
+    # Write-Error into a terminating error, which exits before the `exit`
+    # below and so replaces the intended code with pwsh's own 1.
+    default { Write-Host "unknown argument: $a" -ForegroundColor Red; exit 2 }
   }
 }
 
 # ---- safety gate -----------------------------------------------------------
+# A dry run always exits 0, so a failed gate is fatal only under --execute.
 $repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
 if (-not (Test-Path (Join-Path $repo 'AGENTS.md'))) {
-  Write-Error "expected repo not found at $repo; refusing to run"
+  Write-Host "expected repo not found at $repo; refusing to run" -ForegroundColor Red
   if ($Execute) { exit 1 }
+  exit 0
 }
 
 $claude = Join-Path $env:USERPROFILE '.claude'
@@ -67,7 +72,11 @@ if (Test-Path $map) {
     Write-Host "  drop  $stale  # dir C:\home\code\extrode.com\NativeWeb no longer exists"
     if ($Execute) {
       $json.projects.PSObject.Properties.Remove($stale)
-      $json | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $map -Encoding utf8
+      # memory-sync writes `JSON.stringify(map, null, 2) + '\n'`. Match it:
+      # WriteAllText avoids Set-Content's BOM and CRLF, so the diff stays to
+      # the removed entry instead of the whole file.
+      $text = ($json | ConvertTo-Json -Depth 20).Replace("`r`n", "`n") + "`n"
+      [System.IO.File]::WriteAllText($map, $text, (New-Object System.Text.UTF8Encoding($false)))
       Write-Host '  edited project-map.json — commit it in the vault repo'
     }
   } else {
@@ -97,6 +106,7 @@ if (Test-Path $stray) {
 Write-Host 'left alone (historical records, still referencing the old path):'
 Write-Host '  ~/.claude/file-history/, backups/, history.jsonl, jobs/60fa6b24/'
 Write-Host '  ~/.claude/lessons/queue.jsonl.bak'
+Write-Host '  ~/.claude/tools/fixtures/memory-audit-2026-07-26.json (dated test oracle)'
 Write-Host '  vault audit/reports/, audit/snapshots/, .sync-backup/'
 Write-Host '  old-path cwd values recorded inside session transcripts'
 
