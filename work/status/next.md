@@ -4,5 +4,5 @@ Exactly **one** task, the next one to start, pulled from `../tasklist.md` when t
 advances. The full task list for this body of work is `../tasklist.md`; the unscheduled backlog is
 `../todo.md`; where the project is going is `../milestones.md`.
 
-- **T3 Bookmarks core (spec 001, DevMarks)** — CRUD, dedup-on-save, pagination; demo data
-  removed (R5, R8, R9, R13).
+- **T5 Tags (spec 001, DevMarks)** — implicit create, rename/merge, delete, counts, filter
+  (R10, R11). T4/T8 endpoint halves fold into T3's and T8's remaining work.
