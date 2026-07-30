@@ -11,9 +11,9 @@ merges back `--no-ff` when green. Requirement numbers refer to the spec.
 - [ ] T2 Accounts — register / sign-in / sign-out / settings, DB-backed sessions, lockout
       (reused `LockoutPolicy`), breach-checked passphrases; real no-JS forms (R1–R4, R24).
       Done when: full account lifecycle passes all three tiers, JS disabled included.
-- [ ] T3 Bookmarks core — CRUD, canonical-URL dedup-on-save, list + pagination, demo data
+- [x] T3 Bookmarks core — CRUD, canonical-URL dedup-on-save, list + pagination, demo data
       removed (R5, R8, R9, R13). Done when: CRUD flows pass all three tiers against Postgres.
-- [ ] T4 Metadata fetch — SSRF-guarded fetcher, title/description/favicon, favicon endpoint
+- [x] T4 Metadata fetch — SSRF-guarded fetcher, title/description/favicon, favicon endpoint
       (R6, R7). Done when: guard unit tests (incl. redirect re-checks) and fetch flow pass.
 - [ ] T5 Tags — implicit create, rename/merge, delete, counts, filter (R10, R11).
       Done when: tag flows pass unit + integration.
