@@ -33,7 +33,8 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: <name it>
+## Current work: DevMarks (spec 001)
 
-- [ ] T1 <title> — done when: <acceptance>
-- [ ] T2 …
+Durable-tier work — the task list lives at
+`docs/specs/001-devmarks-bookmarking-app/001-tasks.md` (T1 scaffold … T9 hardening).
+This file points at it rather than duplicating it.

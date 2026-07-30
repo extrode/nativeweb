@@ -39,6 +39,7 @@ jobs:
           --health-retries 5
     env:
       ConnectionStrings__NativeWeb: "Host=localhost;Database=nativeweb_test;Username=epass_app;Password=ci_test_password"
+      ConnectionStrings__DevMarks: "Host=localhost;Database=devmarks_test;Username=devmarks_app;Password=ci_test_password"
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +52,27 @@ jobs:
           for f in db/migrations/*.sql; do
             echo "Applying $f"
             PGPASSWORD=ci_test_password psql -h localhost -U epass_app -d nativeweb_test -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Provision DevMarks database
+        # DevMarks has its own database and role, mirroring local dev
+        # (db/devmarks/README.md). The service container's POSTGRES_USER is a
+        # superuser, so it can create both and run the citext migration.
+        run: |
+          PGPASSWORD=ci_test_password psql -h localhost -U epass_app -d nativeweb_test -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE devmarks_app LOGIN PASSWORD 'ci_test_password';" \
+            -c "CREATE DATABASE devmarks_test OWNER devmarks_app;"
+
+      - name: Apply DevMarks migrations
+        # 0001 (citext) needs a superuser; everything else runs as devmarks_app
+        # so the created tables are owned by the role the app connects as --
+        # same split db/devmarks/migrate.sh makes locally.
+        run: |
+          for f in db/devmarks/migrations/*.sql; do
+            echo "Applying $f"
+            role=devmarks_app
+            [ "$(basename "$f")" = "0001_extensions.sql" ] && role=epass_app
+            PGPASSWORD=ci_test_password psql -h localhost -U "$role" -d devmarks_test -v ON_ERROR_STOP=1 -f "$f"
           done
 
       - name: Restore
@@ -70,6 +92,17 @@ jobs:
 
       - name: E2E tests
         run: dotnet test tests/nativeweb.web.tests.e2e --no-build $DOTNET_BUILD_ARGS
+
+      - name: DevMarks unit tests
+        run: dotnet test tests/nativeweb.devmarks.tests.unit --no-build $DOTNET_BUILD_ARGS
+
+      - name: DevMarks integration tests
+        run: dotnet test tests/nativeweb.devmarks.tests.integration --no-build $DOTNET_BUILD_ARGS
+
+      - name: DevMarks E2E tests
+        # DevMarksProcessFixture publishes apps/devmarks itself (Release, no
+        # --no-build shortcut applies to that inner publish).
+        run: dotnet test tests/nativeweb.devmarks.tests.e2e --no-build $DOTNET_BUILD_ARGS
 
   aot-publish:
     # The NativeAOT gate: MSVC's cl.exe/link.exe (via vcvars) are only
@@ -91,3 +124,6 @@ jobs:
 
       - name: Publish (NativeAOT)
         run: dotnet publish apps/web/nativeweb.web.csproj -c Release -p:JauntyQUsePackages=true
+
+      - name: Publish DevMarks (NativeAOT)
+        run: dotnet publish apps/devmarks/nativeweb.devmarks.csproj -c Release -p:JauntyQUsePackages=true

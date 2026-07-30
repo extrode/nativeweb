@@ -11,13 +11,21 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 Small, clear, and could be picked up without a design decision.
 
-- (nothing yet)
+- DevMarks: `apps/devmarks/wwwroot/vendor/webauthn/` was copied from the IdP unintentionally and
+  is unused — cleanup-script candidate (with the stale `epass.*` bin/obj leftovers).
+- DevMarks: unit tests reach `SecurityHeadersMiddleware` internals via reflection; add an
+  `InternalsVisibleTo` for `nativeweb.devmarks.tests.unit` (as apps/web does) and call directly.
 
 ## Later
 
 Real, but needs a decision, a dependency, or more information first. Say which.
 
-- (nothing yet)
+- CSRF (user, 2026-07-30): the framework antiforgery is kept for its BREACH-masked token, but the
+  user dislikes how the `<meta name="request-verification-token">` + hidden-input plumbing looks.
+  Candidate: a Rails-style per-session token behind a small helper so the markup reads cleaner —
+  needs a decision on trading away per-request masking.
+- DevMarks T9 includes the formatted-HTML-source retrofit for slice-1 pages (user asked for
+  properly formatted markup; deferred from the scaffold).
 
 ## Dropped
 
