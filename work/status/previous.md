@@ -5,6 +5,5 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **T3 Bookmarks core + T4 metadata (spec 001, DevMarks)** — CRUD, canonical-URL dedup-on-save,
-  pagination, fetch-on-save + favicon endpoint; anonymous list now redirects to sign-in.
-  Merged to dev as 45bca91 (T3) on top of efe8ed9 (T4 component).
+- **T5 Tags (spec 001, DevMarks)** — implicit create on save, chips + `?tag=` filter,
+  rename/merge, delete with confirm page (R10, R11). Merged to dev as 7a9a1e5.

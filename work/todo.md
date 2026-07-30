@@ -32,3 +32,4 @@ Real, but needs a decision, a dependency, or more information first. Say which.
 Not doing, with the reason. Kept so the same idea does not get re-raised every quarter.
 
 - (nothing yet)
+- DevMarks /tags page layout is clunky (rename box + buttons stack awkwardly, Delete floats mid-row) - restyle in T9 hardening.
