@@ -6,6 +6,6 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **H1 (spec 002, IdP hardening)** — `fix/e2e-appprocess-fixture`: port the DevMarks
-  AppProcessFixture fixes to `tests/nativeweb.web.tests.e2e/` (dispose on timeout, derive the
-  RID). First branch of the spec-002 run; carries the promoted plan + tasks files.
+- **Spec 002 close-out** — `docs/spec-002-closeout`: spec status → implemented, tasks all
+  ticked with as-built notes, tasklist archived to `../archive/2026-07-31-idp-hardening.md`,
+  CHANGELOG entry, screenshot check, final three-tier suite + zero-warning AOT publish on `dev`.

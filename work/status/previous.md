@@ -5,7 +5,8 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **Spec 001 close-out (DevMarks)** — tasklist archived to
-  `../archive/2026-07-30-devmarks-bookmarking-app.md`, CHANGELOG entry written, cleanup script
-  parse-fixed (merged as 8a1ace3, pushed). Spec 001 fully shipped: 196 unit / 56 integration /
-  7 e2e, zero-warning AOT publish.
+- **H7 (spec 002, IdP hardening)** — `chore/db-role-rename`: neutral `nativeweb_app` role in
+  `db/migrate.sh`, ci.yml and local dev (merged aa8829f). As built: created `nativeweb_app` +
+  `REASSIGN OWNED` of `nativeweb_dev` instead of a cluster-wide rename, because `epass_app`
+  also owns other projects' local databases. Last of the seven H-branches; H1–H6
+  merged earlier the same day (4011ea4 H5, 2aff254 H6, see `git log dev`).
