@@ -1,5 +1,7 @@
 using System.Net;
+
 using NativeWeb.Web.Middleware;
+
 using Xunit;
 
 namespace NativeWeb.Web.Tests.Unit;
@@ -13,7 +15,7 @@ public class ErrorPageMiddlewareTests
     [InlineData(HttpStatusCode.TooManyRequests, "Too many requests")]
     public void Describe_KnownStatusCode_ReturnsExpectedTitle(HttpStatusCode statusCode, string expectedTitle)
     {
-        var (title, _) = ErrorPageMiddleware.Describe((int)statusCode);
+        (string? title, string _) = ErrorPageMiddleware.Describe((int)statusCode);
 
         Assert.Equal(expectedTitle, title);
     }
@@ -21,7 +23,7 @@ public class ErrorPageMiddlewareTests
     [Fact]
     public void Describe_UnmappedStatusCode_FallsBackToGenericMessage()
     {
-        var (title, message) = ErrorPageMiddleware.Describe((int)HttpStatusCode.InternalServerError);
+        (string? title, string? message) = ErrorPageMiddleware.Describe((int)HttpStatusCode.InternalServerError);
 
         Assert.Equal("Something went wrong", title);
         Assert.False(string.IsNullOrWhiteSpace(message));

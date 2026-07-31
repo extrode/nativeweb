@@ -1,5 +1,6 @@
 using MailKit.Net.Smtp;
 using MailKit.Security;
+
 using MimeKit;
 
 namespace NativeWeb.Mail;
