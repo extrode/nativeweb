@@ -213,6 +213,32 @@ public sealed class GeneratorDiagnosticsTests
         AssertSingleDiagnostic("NWT001", ("templates/page.html", "<!--#template\n@param string writer\n--><p>x</p>"));
 
     [Fact]
+    public void UnknownLocaleKey_ReportsNwt013() =>
+        AssertSingleDiagnostic(
+            "NWT013",
+            ("locales/en.json", "{ \"app\": { \"title\": \"x\" } }"),
+            ("templates/page.html", "<h1>{{t:app.missing}}</h1>"));
+
+    [Fact]
+    public void LocaleKeyUsedWithoutAnyCatalog_ReportsNwt013() =>
+        AssertSingleDiagnostic("NWT013", ("templates/page.html", "<h1>{{t:app.title}}</h1>"));
+
+    [Fact]
+    public void OrphanOverrideKey_ReportsNwt014() =>
+        AssertSingleDiagnostic(
+            "NWT014",
+            ("locales/en.json", "{ \"app\": { \"title\": \"x\" } }"),
+            ("locales/ms.json", "{ \"app\": { \"tittle\": \"y\" } }"));
+
+    [Fact]
+    public void MalformedLocaleJson_ReportsNwt015() =>
+        AssertSingleDiagnostic("NWT015", ("locales/en.json", "{ \"app\": [1, 2] }"));
+
+    [Fact]
+    public void MissingEnglishRootCatalog_ReportsNwt015() =>
+        AssertSingleDiagnostic("NWT015", ("locales/ms.json", "{ \"app\": { \"title\": \"y\" } }"));
+
+    [Fact]
     public void FileOutsideTemplatesDirectory_IsIgnored()
     {
         ImmutableArray<Diagnostic> diagnostics = Run(("wwwroot/pages/landing.html", "{{if Broken}}"));
