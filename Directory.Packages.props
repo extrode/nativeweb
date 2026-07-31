@@ -60,6 +60,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
     <!-- End-to-end browser tests. Net-new to this repo (no sibling reference);
          pinned to a recent 1.x. -->
+    <PackageVersion Include="Deque.AxeCore.Playwright" Version="4.12.0" />
     <PackageVersion Include="Microsoft.Playwright" Version="1.49.0" />
   </ItemGroup>
 

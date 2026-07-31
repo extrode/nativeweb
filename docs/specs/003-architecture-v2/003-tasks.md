@@ -14,7 +14,7 @@ this body of work; `work/tasklist.md` points here.
   `TemplateWriter`, `Html` type, `IResult` adapters) + `libs/nativeweb.render.generator`
   (templates as AdditionalFiles → static classes, UTF-8 literals, encoded-by-default,
   partials/layouts/required slots, diagnostics). AngleSharp well-formedness test harness.
-- [ ] V3 `feat/i18n` — R14–R17, R45. Catalog generator with dialect fallthrough (en root,
+- [x] V3 `feat/i18n` — R14–R17, R45. Catalog generator with dialect fallthrough (en root,
   build-time-resolved FrozenDictionary tables), `CultureNegotiationMiddleware`, lang/dir,
   en+ms catalogs, migration 0053 `users.locale`; e-mail content templates out of
   `nativeweb.mail` into app templates, rendered per recipient locale.
