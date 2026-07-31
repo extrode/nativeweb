@@ -18,7 +18,7 @@ this body of work; `work/tasklist.md` points here.
   build-time-resolved FrozenDictionary tables), `CultureNegotiationMiddleware`, lang/dir,
   en+ms catalogs, migration 0053 `users.locale`; e-mail content templates out of
   `nativeweb.mail` into app templates, rendered per recipient locale.
-- [ ] V4 `feat/devmarks-templates` — R18–R20, R42. Scripted conversion of the 16 DevMarks
+- [x] V4 `feat/devmarks-templates` — R18–R20, R42. Scripted conversion of the 16 DevMarks
   render files to `templates/`; accessible form-field partial + aria-live announcements;
   axe-core gate in the DevMarks e2e fixture; conversion script kept for the IdP's later spec.
 - [ ] V5 `feat/bot-traps` — R21–R24. `BotTraps` in `nativeweb.security` (4 honeypots + signed

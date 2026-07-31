@@ -5,11 +5,11 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **V3 (spec 003)** — `feat/i18n` (merged e3f5c01): locale catalogs as AdditionalFiles with
-  build-time dialect fallthrough (en root → base language → dialect, complete per-locale
-  tables in a generated `Locales` class), `{{t:}}` keys compile-checked (NWT013–NWT015),
-  implicit `LocaleCatalog locale` param threaded transitively, LocaleNegotiation middleware
-  (pref → cookie → Accept-Language → default), migration 0053 `users.locale`, and the R45
-  mail refactor: nativeweb.mail transport-only, `LocalizedEmailRenderer` renders in the
-  recipient's stored locale. Opus review: 17 findings, 10 fixed in-branch (+11 regression
-  tests), 6 deferred to work/todo.md. 75 render tests + all existing suites green.
+- **V4 (spec 003)** — `feat/devmarks-templates` (merged fe55bf7): all 16 DevMarks
+  string-builder pages replaced by compiled templates + full en/ms catalogs (English
+  byte-identical), endpoints rewritten via the R42 scripts kept under `tools/`, old Render
+  pages deleted. New axe-core e2e gate (Deque.AxeCore.Playwright) over every e2e-covered
+  page caught four real WCAG failures (light --t3 on --bg, color-only auth links, active
+  nav at 4.1:1, private badge at 4.37:1), all fixed. Review (3 opus workers): 13+10+13
+  findings, the conversion-scope ones fixed in-branch, parity/pre-existing ones deferred
+  to work/todo.md. 196 unit + 56 integration + 8 e2e green, zero-warning build.
