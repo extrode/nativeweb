@@ -38,19 +38,58 @@ public sealed class LocaleCatalog
 
     /// <summary>
     /// Looks up a catalog string and substitutes <c>{name}</c> placeholders.
-    /// Placeholders with no matching argument are left in place.
+    /// Placeholders with no matching argument are left in place. A single
+    /// left-to-right scan over the catalog string: placeholders occurring in a
+    /// substituted VALUE are never re-substituted, so argument order cannot
+    /// splice one argument into another.
     /// </summary>
     public string Format(string key, params ReadOnlySpan<(string Name, string? Value)> args)
     {
-        string result = this[key];
-        foreach ((string name, string? value) in args)
+        string template = this[key];
+        var result = new System.Text.StringBuilder(template.Length + 32);
+        int position = 0;
+        while (position < template.Length)
         {
-            result = result.Replace("{" + name + "}", value ?? "", StringComparison.Ordinal);
+            int open = template.IndexOf('{', position);
+            if (open < 0)
+            {
+                result.Append(template, position, template.Length - position);
+                break;
+            }
+
+            int close = template.IndexOf('}', open + 1);
+            if (close < 0)
+            {
+                result.Append(template, position, template.Length - position);
+                break;
+            }
+
+            result.Append(template, position, open - position);
+            ReadOnlySpan<char> name = template.AsSpan(open + 1, close - open - 1);
+            bool substituted = false;
+            foreach ((string argName, string? argValue) in args)
+            {
+                if (name.SequenceEqual(argName))
+                {
+                    result.Append(argValue);
+                    substituted = true;
+                    break;
+                }
+            }
+
+            if (!substituted)
+            {
+                result.Append(template, open, close - open + 1);
+            }
+
+            position = close + 1;
         }
 
-        return result;
+        return result.ToString();
     }
 
+    // Two-subtag ids only ("en-us" -> "en-US"): a three-subtag id like
+    // "zh-hans-cn" would need script-aware casing, which no shipped locale has.
     private static string ToHtmlLang(string locale)
     {
         int dash = locale.IndexOf('-');

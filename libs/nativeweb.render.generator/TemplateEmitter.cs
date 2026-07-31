@@ -170,6 +170,25 @@ internal static class TemplateEmitter
             }
         }
 
+        // Ids become field names via Pascal(): they must not collide with each
+        // other ("pt-br" vs "pt.br") or with the class's own members. And _dir
+        // reaches the html dir attribute, so anything but ltr/rtl is a mistake.
+        HashSet<string> memberNames = new(StringComparer.Ordinal) { "All", "Get" };
+        foreach (LocaleModel locale in locales.OrderBy(l => l.Id, StringComparer.Ordinal))
+        {
+            if (locale.DirOverride is not null and not ("ltr" or "rtl"))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(TemplateDiagnostics.LocaleMalformed, Location.None, locale.Id, $"\"_dir\" must be \"ltr\" or \"rtl\", not \"{locale.DirOverride}\""));
+                anyBroken = true;
+            }
+
+            if (!memberNames.Add(Pascal(locale.Id)))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(TemplateDiagnostics.LocaleMalformed, Location.None, locale.Id, $"id maps to the member name \"{Pascal(locale.Id)}\", which collides with another locale or with Locales.All/Get"));
+                anyBroken = true;
+            }
+        }
+
         if (anyBroken)
         {
             return enKeys;
@@ -356,7 +375,10 @@ internal static class TemplateEmitter
                     literal.Append("\\t");
                     break;
                 default:
-                    if (c is < (char)0x20)
+                    // Everything outside printable ASCII is escaped: U+2028/U+2029
+                    // are line terminators to the C# lexer, and a lone surrogate
+                    // would corrupt when AddSource encodes the text as UTF-8.
+                    if (c is < (char)0x20 or > (char)0x7e)
                     {
                         literal.Append("\\u").Append(((int)c).ToString("x4"));
                     }

@@ -74,18 +74,26 @@ internal sealed class LocaleModel
             Expect(s, ref p, ':');
             SkipWhitespace(s, ref p);
 
+            // Metadata is per segment name, not per flattened key: {"app":
+            // {"_dir": ...}} is metadata under app, not a string key "app._dir".
+            bool isMetadata = name.StartsWith("_", StringComparison.Ordinal);
             string key = prefix.Length == 0 ? name : prefix + "." + name;
             char next = Peek(s, p);
             if (next == '{')
             {
+                if (isMetadata)
+                {
+                    throw new FormatException($"metadata key '{key}' must have a string value, not an object");
+                }
+
                 ParseObject(s, ref p, key, model);
             }
             else if (next == '"')
             {
                 string value = ParseString(s, ref p);
-                if (key.StartsWith("_", StringComparison.Ordinal))
+                if (isMetadata)
                 {
-                    if (key == "_dir")
+                    if (name == "_dir" && prefix.Length == 0)
                     {
                         model.DirOverride = value;
                     }
@@ -159,13 +167,16 @@ internal sealed class LocaleModel
                 case 'r': value.Append('\r'); break;
                 case 't': value.Append('\t'); break;
                 case 'u':
+                    // Not ushort.TryParse(HexNumber): that permits leading and
+                    // trailing whitespace, so "\u 41" would parse as U+0041.
                     if (p + 4 > s.Length
-                        || !ushort.TryParse(s.Substring(p, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ushort code))
+                        || !Uri.IsHexDigit(s[p]) || !Uri.IsHexDigit(s[p + 1])
+                        || !Uri.IsHexDigit(s[p + 2]) || !Uri.IsHexDigit(s[p + 3]))
                     {
                         throw new FormatException($"invalid \\u escape at offset {p}");
                     }
 
-                    value.Append((char)code);
+                    value.Append((char)ushort.Parse(s.Substring(p, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
                     p += 4;
                     break;
                 default:

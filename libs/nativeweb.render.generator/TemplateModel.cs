@@ -284,9 +284,9 @@ internal sealed class TemplateModel
                 {
                     string variable = spec.Substring(0, inIndex).Trim();
                     string expression = CheckExpr(model, spec.Substring(inIndex + 4).Trim());
-                    if (!IsIdentifier(variable))
+                    if (!IsIdentifier(variable) || ReservedParamNames.Contains(variable))
                     {
-                        model.Errors.Add(new ParseError($"'{{{{for}}}}' loop variable '{variable}' is not a valid identifier"));
+                        model.Errors.Add(new ParseError($"'{{{{for}}}}' loop variable '{variable}' is not a valid identifier or is reserved"));
                     }
 
                     ForNode node = new(variable, expression);

@@ -35,7 +35,7 @@
 
   <ItemGroup>
     <AdditionalFiles Include="templates\**\*.html" />
-    <AdditionalFiles Include="locales\**\*.json" />
+    <AdditionalFiles Include="locales\*.json" />
   </ItemGroup>
 
 </Project>

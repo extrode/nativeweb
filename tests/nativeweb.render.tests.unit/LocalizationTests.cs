@@ -62,6 +62,22 @@ public sealed class LocalizationTests
     }
 
     [Fact]
+    public void Format_DoesNotResubstitutePlaceholdersInValues()
+    {
+        // "Sign in to {product}" with a product that itself contains "{product}":
+        // a naive sequential Replace would loop the value back through.
+        Assert.Equal(
+            "Sign in to see {product}",
+            Locales.En.Format("emails.subject", ("product", "see {product}")));
+    }
+
+    [Fact]
+    public void Format_LeavesUnmatchedPlaceholdersInPlace()
+    {
+        Assert.Equal("Sign in to {product}", Locales.En.Format("emails.subject"));
+    }
+
+    [Fact]
     public void UnknownKey_RendersTheKeyItself()
     {
         Assert.Equal("no.such.key", Locales.En["no.such.key"]);
@@ -106,6 +122,16 @@ public sealed class LocalizationTests
         string[] order = [.. LocaleNegotiation.AcceptLanguageOrder("ms;q=0.8, en-US, *;q=0.1, ar;q=0")];
 
         Assert.Equal(["en-US", "ms"], order);
+    }
+
+    [Fact]
+    public void AcceptLanguageOrder_RejectsNonRfcQValues()
+    {
+        // RFC 9110 qvalue is a plain decimal in [0, 1]: exponents and
+        // out-of-range values fall back to the default quality of 1.
+        string[] order = [.. LocaleNegotiation.AcceptLanguageOrder("ms;q=1e9, en;q=0.5, ar")];
+
+        Assert.Equal(["ms", "ar", "en"], order);
     }
 
     [Fact]

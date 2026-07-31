@@ -119,8 +119,11 @@ public static class LocaleNegotiation
             for (int i = 1; i < pieces.Length; i++)
             {
                 string piece = pieces[i].Trim();
+                // RFC 9110 qvalue: plain decimal in [0, 1] — no exponents, no
+                // sign — so "q=1e9" is rejected rather than sorted first.
                 if (piece.StartsWith("q=", StringComparison.OrdinalIgnoreCase)
-                    && double.TryParse(piece[2..], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double parsed))
+                    && double.TryParse(piece[2..], System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.CultureInfo.InvariantCulture, out double parsed)
+                    && parsed is >= 0 and <= 1)
                 {
                     quality = parsed;
                 }
