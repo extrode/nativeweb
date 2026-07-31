@@ -33,9 +33,9 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: IdP hardening (spec 002)
+## Current work: (none)
 
-Durable tier — the task breakdown lives at `docs/specs/002-idp-hardening/002-tasks.md`
-(H1 fixture fix … H7 role rename); this list points at it rather than duplicating it. Started
-2026-07-31. (The "epass.io v2 green UI" previously named here was stale: the v2 look shipped on
-the IdP with Slices 1–10 on 2026-07-26; what remained was this hardening backlog.)
+Spec 002 (IdP hardening, H1–H7) shipped 2026-07-31 — archived to
+`archive/2026-07-31-idp-hardening.md`, summarised in `CHANGELOG.md` under Unreleased. The next
+body of work is the sign-off-gated production cutover replacing epass.io; it starts only when
+the user calls it. Unscheduled items live in `todo.md`.

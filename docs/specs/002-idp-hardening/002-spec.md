@@ -1,5 +1,5 @@
 # 002 — IdP hardening: security & conformance backlog close-out
-Status: draft
+Status: implemented (H1–H7 merged to dev 2026-07-31; R7 amended at H4, R11 mechanism amended at H7 — see tasks)
 Created: 2026-07-31
 
 ## Problem
@@ -60,8 +60,10 @@ and they must close before the production cutover replacing epass.io.
 - **R6** The step-up ceremony guarding passphrase creation on passwordless accounts requires
   user verification; a credential that cannot verify the user is rejected.
 - **R7** An operator can clear a forced-reset flag via the same stateless (realm, username)
-  lookup used to set it. Clearing an unflagged or unknown account is indistinguishable from
-  success to an observer, and the action is covered by all three test tiers.
+  lookup used to set it, with the same explicit feedback the setter gives (unknown realm or
+  username is reported to the operator; the admin surface is operator-only, so enumeration
+  defense does not apply there — amended at H4 implementation to match the setter's shipped
+  design). The action is covered by all three test tiers.
 - **R8** The network breach check runs at most once per account per configurable window; a
   sign-in inside the window skips the network call entirely. The offline common-passphrase check
   still runs on every sign-in. The existing kill-switch configuration keeps working.
@@ -92,7 +94,7 @@ and they must close before the production cutover replacing epass.io.
   creation, then the ceremony fails (R6).
 - Given a flagged account, when an operator submits the clear form for it, then the user signs
   in without being forced to reset; given an unknown username, the operator sees the same
-  response (R7).
+  explicit not-found feedback the setter gives (R7, amended at H4).
 - Given two sign-ins to one account within the window, when traffic to the breach service is
   observed, then at most one request was made; given the kill-switch off, none (R8).
 - Given every e2e journey, when CSP reports are collected, then the list is empty (R9).
