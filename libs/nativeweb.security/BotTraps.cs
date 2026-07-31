@@ -66,6 +66,13 @@ public static partial class BotTraps
     /// Issues the signed canary value for a form being rendered now. The
     /// payload is the render instant; expiry enforces MaxAge, the embedded
     /// instant enforces MinAge.
+    ///
+    /// Known bypass, accepted by design: the canary is bound to the app, not
+    /// to a session, path, or single use, so one canary harvested from any
+    /// form GET satisfies the timing check on every form until MaxAge runs
+    /// out. The mechanism targets bots that fetch-and-post atomically (the
+    /// overwhelming spam pattern); a bot tooled up to harvest and age canaries
+    /// has graduated past what honeypot fields can catch either.
     /// </summary>
     public static string IssueCanary(HttpContext context)
     {
