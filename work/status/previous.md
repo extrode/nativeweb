@@ -5,9 +5,7 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **T9 Hardening (spec 001, DevMarks)** — fixed-window rate limiting (auth/public by IP,
-  save/import by user, `DevMarks:RateLimit:*` config, 429 tested), request-logging middleware,
-  no-JS e2e flow (register/save/search/sign-out with JS off at the browser), small-screen pass
-  (topbar wrap fix), `/tags` restyle, `apps/devmarks/README.md`, acceptance-criteria sweep,
-  `scripts/cleanup/devmarks-app.ps1`. Merged to dev as 6329966. Suites: 196 unit /
-  56 integration / 7 e2e; Release AOT publish clean. Spec 001 fully ticked.
+- **Spec 001 close-out (DevMarks)** — tasklist archived to
+  `../archive/2026-07-30-devmarks-bookmarking-app.md`, CHANGELOG entry written, cleanup script
+  parse-fixed (merged as 8a1ace3, pushed). Spec 001 fully shipped: 196 unit / 56 integration /
+  7 e2e, zero-warning AOT publish.
