@@ -22,6 +22,11 @@ Small, clear, and could be picked up without a design decision.
   fallback completes the reset but shows a blank page. Return a plain 303 for non-htmx requests
   (H5 review nit, 2026-07-31).
 
+- DevMarks: local `devmarks_dev` has drift — `db/devmarks/migrate.sh` fails on 0006
+  ("search_match already exists") because the function was applied without being recorded in
+  schema_migrations. Needs a one-line `INSERT INTO schema_migrations (version) VALUES ('0006')`
+  or an idempotent CREATE OR REPLACE in 0006 (noticed 2026-07-31 during the role-rename check).
+
 ## Later
 
 Real, but needs a decision, a dependency, or more information first. Say which.

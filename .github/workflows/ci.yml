@@ -23,11 +23,13 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          # epass_app survives the neutral-naming rename on purpose: it is the
-          # role the vendored db/ migrations grant against, and db/ is
-          # feature-frozen from epass.io. Renaming it needs its own migration
-          # plus a local reprovision, so it is tracked separately.
-          POSTGRES_USER: epass_app
+          # nativeweb_app completes the neutral-naming rename (spec 002 R11):
+          # no migration references the role by name, so CI just provisions
+          # the neutral name and local dev carries a nativeweb_app role that
+          # owns nativeweb_dev (created 2026-07-31; epass_app itself was left
+          # untouched because it also owns other projects' local
+          # databases).
+          POSTGRES_USER: nativeweb_app
           POSTGRES_PASSWORD: ci_test_password
           POSTGRES_DB: nativeweb_test
         ports:
@@ -38,7 +40,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      ConnectionStrings__NativeWeb: "Host=localhost;Database=nativeweb_test;Username=epass_app;Password=ci_test_password"
+      ConnectionStrings__NativeWeb: "Host=localhost;Database=nativeweb_test;Username=nativeweb_app;Password=ci_test_password"
       ConnectionStrings__DevMarks: "Host=localhost;Database=devmarks_test;Username=devmarks_app;Password=ci_test_password"
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +53,7 @@ jobs:
         run: |
           for f in db/migrations/*.sql; do
             echo "Applying $f"
-            PGPASSWORD=ci_test_password psql -h localhost -U epass_app -d nativeweb_test -v ON_ERROR_STOP=1 -f "$f"
+            PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_test -v ON_ERROR_STOP=1 -f "$f"
           done
 
       - name: Provision DevMarks database
@@ -59,7 +61,7 @@ jobs:
         # (db/devmarks/README.md). The service container's POSTGRES_USER is a
         # superuser, so it can create both and run the citext migration.
         run: |
-          PGPASSWORD=ci_test_password psql -h localhost -U epass_app -d nativeweb_test -v ON_ERROR_STOP=1 \
+          PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_test -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE devmarks_app LOGIN PASSWORD 'ci_test_password';" \
             -c "CREATE DATABASE devmarks_test OWNER devmarks_app;"
 
@@ -71,7 +73,7 @@ jobs:
           for f in db/devmarks/migrations/*.sql; do
             echo "Applying $f"
             role=devmarks_app
-            [ "$(basename "$f")" = "0001_extensions.sql" ] && role=epass_app
+            [ "$(basename "$f")" = "0001_extensions.sql" ] && role=nativeweb_app
             PGPASSWORD=ci_test_password psql -h localhost -U "$role" -d devmarks_test -v ON_ERROR_STOP=1 -f "$f"
           done
 
