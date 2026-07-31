@@ -12,6 +12,20 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
+# Web assets and config follow the repo's existing 2-space convention.
+[*.{json,css,js,html}]
+indent_size = 2
+
+# Vendored third-party assets must stay byte-identical to upstream: no
+# whitespace normalization of any kind.
+[**/wwwroot/vendor/**]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset
+
 # C# files
 [*.cs]
 
@@ -128,7 +142,7 @@ csharp_style_conditional_delegate_call = true
 # Modifier preferences
 csharp_prefer_static_anonymous_function = true
 csharp_prefer_static_local_function = true
-csharp_preferred_modifier_order = public,private,protected,internal,file,static,extern,new,virtual,abstract,closed,sealed,override,readonly,unsafe,required,volatile,async
+csharp_preferred_modifier_order = public,private,protected,internal,file,static,extern,new,virtual,abstract,sealed,override,readonly,unsafe,required,volatile,async
 csharp_style_prefer_readonly_struct = true
 csharp_style_prefer_readonly_struct_member = true
 

@@ -39,6 +39,12 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   formatted markup; deferred from the scaffold). Explicitly left out of the T9 hardening pass on
   2026-07-30: cosmetic, not an acceptance criterion — new markup since the scaffold is indented.
 
+- Analyzer risk pair (from V1 review, 2026-07-31): `TreatWarningsAsErrors` with unpinned
+  `AnalysisLevel=latest-recommended` means an SDK bump can hard-break the build on new rules;
+  consider pinning the level or adding a `WarningsNotAsErrors` escape hatch before the cutover.
+- .editorconfig naming rules cover interfaces/types/members only — private fields, constants,
+  locals and parameters are unenforced (V1 review note).
+
 ## Dropped
 
 Not doing, with the reason. Kept so the same idea does not get re-raised every quarter.
