@@ -84,3 +84,29 @@ Real, but needs a decision, a dependency, or more information first. Say which.
 Not doing, with the reason. Kept so the same idea does not get re-raised every quarter.
 
 - (nothing yet)
+
+## Deferred from V4 review (2026-07-31)
+- Per-field errors: endpoints surface validation failures as page-level banners (parity with the
+  old markup); form-field.html's Error/aria-invalid path is ready but every caller passes
+  Error="". Thread real per-field errors when the UX is revisited.
+- Fragment-assembled sentences in bookmarks/index.html empty states and bookmark-row's
+  "Saved {date}" fix English word order across locales; replace with parameterized keys +
+  precomputed C# strings.
+- Results.Redirect("/sign-in") on auth-expired paths ignores HX-Request across all endpoint
+  files (pre-existing); htmx swaps a full document into a fragment slot. Route through
+  SignInEndpoints.RedirectResult everywhere. Same for the already-signed-in redirects on
+  GET /sign-in and /register. Also: RedirectResult's comment says 303 but emits 302.
+- ValidateAsync (4 files) checks antiforgery before HasFormContentType, so a non-form POST
+  gets 400 not the intended 415 (pre-existing).
+- Anonymous pages (home, /u/*) mint an antiforgery cookie via Chrome.For/GetAndStoreTokens,
+  making the crawlable pages uncacheable (pre-existing convention) — revisit in V7 perf work.
+- Home route sits outside the "public" rate-limit group (pre-existing) — revisit in V5/V6.
+- "1 tags" on /tags (tags.count has no singular variant) and count_saved shown for
+  tag-filtered lists (both parity with old markup) — wording pass later.
+- Nav shows Bookmarks/Tags/Import to signed-out visitors and never marks Settings active
+  (both parity with the old layout) — UX pass later.
+- GenericFailureMessage const duplicates error.signin_generic for the integration tests;
+  point the tests at Locales.Get("en") and drop the const.
+- Single-page lists render a pagination landmark with only position text (parity).
+- tools/convert-*.py are the R42 conversion scripts, kept as reference for the IdP template
+  migration spec; delete with that spec's close-out.
