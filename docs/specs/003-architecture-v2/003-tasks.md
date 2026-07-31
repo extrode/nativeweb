@@ -21,7 +21,7 @@ this body of work; `work/tasklist.md` points here.
 - [x] V4 `feat/devmarks-templates` — R18–R20, R42. Scripted conversion of the 16 DevMarks
   render files to `templates/`; accessible form-field partial + aria-live announcements;
   axe-core gate in the DevMarks e2e fixture; conversion script kept for the IdP's later spec.
-- [ ] V5 `feat/bot-traps` — R21–R24. `BotTraps` in `nativeweb.security` (4 honeypots + signed
+- [x] V5 `feat/bot-traps` — R21–R24. `BotTraps` in `nativeweb.security` (4 honeypots + signed
   time canary), template partial + string overload, wired into every form in both apps,
   fake-success discipline, trap-event logging, e2e visibility assertion.
 - [ ] V6 `feat/security-baseline` — R25–R31. HSTS, Permissions-Policy, `__Host-` session

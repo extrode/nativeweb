@@ -5,11 +5,14 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **V4 (spec 003)** — `feat/devmarks-templates` (merged fe55bf7): all 16 DevMarks
-  string-builder pages replaced by compiled templates + full en/ms catalogs (English
-  byte-identical), endpoints rewritten via the R42 scripts kept under `tools/`, old Render
-  pages deleted. New axe-core e2e gate (Deque.AxeCore.Playwright) over every e2e-covered
-  page caught four real WCAG failures (light --t3 on --bg, color-only auth links, active
-  nav at 4.1:1, private badge at 4.37:1), all fixed. Review (3 opus workers): 13+10+13
-  findings, the conversion-scope ones fixed in-branch, parity/pre-existing ones deferred
-  to work/todo.md. 196 unit + 56 integration + 8 e2e green, zero-warning build.
+- **V5 (spec 003)** — `feat/bot-traps` (merged c7b7ccd): `BotTraps` in `nativeweb.security`
+  (4 honeypots + signed `form_session` canary via `ITimeLimitedDataProtector`, MinAge 3s /
+  MaxAge 24h), template partial for devmarks + `Fields(context)` string overload for the IdP,
+  wired into all 11 devmarks handlers and all 23 IdP forms with per-endpoint fake successes
+  (R23) and structured trap logging; only sign-out, WebAuthn JSON and OAuth machine endpoints
+  are untrapped by design. Test tiers post like browsers (FormFlow/TrapForm), MinAgeSeconds=0
+  knob for machine-fast submits, R24 computed-visibility e2e in both apps, explicit trap-trip
+  tests both sides. Review (fable + opus workers): 1 blocker fixed (profile error re-render
+  dropped trap fields — silent data-loss loop), guard placement/timing-parity/throttle-oracle
+  findings all fixed; canary replay breadth documented as accepted bypass. All six suites
+  green (333+214+47 web, 196+61+10 devmarks), zero-warning AOT publishes both apps.
