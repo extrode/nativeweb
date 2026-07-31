@@ -13,69 +13,12 @@ namespace NativeWeb.Mail;
 public readonly record struct EmailContent(string Subject, string TextBody, string HtmlBody);
 
 /// <summary>
-/// Builds sanitized email content for transactional messages, and validates
-/// recipient addresses before send.
+/// Address validation and header-injection defenses shared by e-mail senders.
+/// Content itself is rendered by the app through <see cref="IEmailContentRenderer"/>
+/// (spec 003 R45) — this library is transport only.
 /// </summary>
 public static class EmailTemplates
 {
-    /// <summary>
-    /// Builds the subject, text and HTML bodies for a login-link sign-in email.
-    /// </summary>
-    /// <param name="productName">Caller-supplied product name; sanitized before interpolation.</param>
-    /// <param name="linkUrl">Sign-in link; sanitized before interpolation.</param>
-    public static EmailContent LoginLink(string productName, string linkUrl)
-    {
-        string product = Sanitize(productName);
-        string link = Sanitize(linkUrl);
-
-        string subject = $"Sign in to {product}";
-
-        string text =
-            $"Use the link below to sign in to {product}:\n\n" +
-            $"{link}\n\n" +
-            "This link is valid for 10 minutes.\n\n" +
-            "If you did not request this, you can safely ignore this email.";
-
-        var html = new StringBuilder();
-        html.Append("<!doctype html><html><body>");
-        html.Append($"<p>Use the button below to sign in to {HtmlEncode(product)}:</p>");
-        html.Append($"<p><a href=\"{HtmlAttributeEncode(link)}\">Sign in to {HtmlEncode(product)}</a></p>");
-        html.Append("<p>This link is valid for 10 minutes.</p>");
-        html.Append("<p>If you did not request this, you can safely ignore this email.</p>");
-        html.Append("</body></html>");
-
-        return new EmailContent(subject, text, html.ToString());
-    }
-
-    /// <summary>
-    /// Builds the subject, text and HTML bodies for a one-time verification code email.
-    /// </summary>
-    /// <param name="productName">Caller-supplied product name; sanitized before interpolation.</param>
-    /// <param name="code">The verification code; sanitized before interpolation.</param>
-    public static EmailContent OneTimeCode(string productName, string code)
-    {
-        string product = Sanitize(productName);
-        string safeCode = Sanitize(code);
-
-        string subject = $"Your {product} code";
-
-        string text =
-            $"Your {product} verification code is:\n\n" +
-            $"{safeCode}\n\n" +
-            "This code is valid for 10 minutes.\n\n" +
-            "Never share this code with anyone.";
-
-        var html = new StringBuilder();
-        html.Append("<!doctype html><html><body>");
-        html.Append($"<p>Your {HtmlEncode(product)} verification code is:</p>");
-        html.Append($"<p style=\"font-size:24px;font-weight:bold;letter-spacing:4px\">{HtmlEncode(safeCode)}</p>");
-        html.Append("<p>This code is valid for 10 minutes.</p>");
-        html.Append("<p>Never share this code with anyone.</p>");
-        html.Append("</body></html>");
-
-        return new EmailContent(subject, text, html.ToString());
-    }
-
     /// <summary>
     /// Validates and parses a recipient address using MimeKit's parser, hardened
     /// with an explicit non-empty-domain check.
@@ -127,7 +70,7 @@ public static class EmailTemplates
     /// removes control characters as a second layer of defense.
     /// </remarks>
     /// <param name="value">The raw, caller-supplied value.</param>
-    private static string Sanitize(string value)
+    public static string Sanitize(string value)
     {
         if (string.IsNullOrEmpty(value))
         {
@@ -146,33 +89,4 @@ public static class EmailTemplates
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Encodes a string for safe inclusion in HTML text content (and, via
-    /// <see cref="HtmlAttributeEncode"/>, attribute values).
-    /// </summary>
-    /// <param name="value">The value to encode.</param>
-    private static string HtmlEncode(string value)
-    {
-        var sb = new StringBuilder(value.Length);
-        foreach (char c in value)
-        {
-            switch (c)
-            {
-                case '&': sb.Append("&amp;"); break;
-                case '<': sb.Append("&lt;"); break;
-                case '>': sb.Append("&gt;"); break;
-                case '"': sb.Append("&quot;"); break;
-                case '\'': sb.Append("&#39;"); break;
-                default: sb.Append(c); break;
-            }
-        }
-
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Encodes a string for safe inclusion in an HTML attribute value.
-    /// </summary>
-    /// <param name="value">The value to encode.</param>
-    private static string HtmlAttributeEncode(string value) => HtmlEncode(value);
 }

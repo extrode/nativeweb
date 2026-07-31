@@ -28,6 +28,11 @@ internal sealed class ExprNode(string expression) : Node
     public string Expression { get; } = expression;
 }
 
+internal sealed class LocNode(string key) : Node
+{
+    public string Key { get; } = key;
+}
+
 internal sealed class IfNode(string condition) : Node
 {
     public string Condition { get; } = condition;
@@ -107,9 +112,9 @@ internal sealed class TemplateModel
     private static readonly Regex TokenPattern = new(@"\{\{(.*?)\}\}", RegexOptions.Singleline);
 
     // Parameter names that would break the generated Render method: the writer
-    // parameter itself plus every C# keyword.
+    // and implicit locale parameters plus every C# keyword.
     private static readonly HashSet<string> ReservedParamNames = new(
-        ("writer abstract as base bool break byte case catch char checked class const continue decimal default " +
+        ("writer locale abstract as base bool break byte case catch char checked class const continue decimal default " +
          "delegate do double else enum event explicit extern false finally fixed float for foreach goto if " +
          "implicit in int interface internal is lock long namespace new null object operator out override params " +
          "private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct " +
@@ -234,6 +239,18 @@ internal sealed class TemplateModel
             {
                 ParsePartial(model, Current(), token.Substring(1).Trim());
             }
+            else if (token.StartsWith("t:", StringComparison.Ordinal))
+            {
+                string key = token.Substring(2).Trim();
+                if (key.Length == 0 || !IsLocaleKey(key))
+                {
+                    model.Errors.Add(new ParseError($"'{{{{t:{key}}}}}' is not a valid locale key (letters, digits, '.', '_', '-')"));
+                }
+                else
+                {
+                    Current().Add(new LocNode(key));
+                }
+            }
             else if (token.StartsWith("if ", StringComparison.Ordinal))
             {
                 IfNode node = new(CheckExpr(model, token.Substring(3).Trim()));
@@ -267,9 +284,9 @@ internal sealed class TemplateModel
                 {
                     string variable = spec.Substring(0, inIndex).Trim();
                     string expression = CheckExpr(model, spec.Substring(inIndex + 4).Trim());
-                    if (!IsIdentifier(variable))
+                    if (!IsIdentifier(variable) || ReservedParamNames.Contains(variable))
                     {
-                        model.Errors.Add(new ParseError($"'{{{{for}}}}' loop variable '{variable}' is not a valid identifier"));
+                        model.Errors.Add(new ParseError($"'{{{{for}}}}' loop variable '{variable}' is not a valid identifier or is reserved"));
                     }
 
                     ForNode node = new(variable, expression);
@@ -382,6 +399,19 @@ internal sealed class TemplateModel
         }
 
         return expression;
+    }
+
+    private static bool IsLocaleKey(string value)
+    {
+        foreach (char c in value)
+        {
+            if (!char.IsLetterOrDigit(c) && c != '.' && c != '_' && c != '-')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool IsIdentifier(string value)

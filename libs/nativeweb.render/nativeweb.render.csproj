@@ -9,4 +9,8 @@
     <!-- IResult / HttpContext for the response adapter. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Negotiation internals are unit-tested directly. -->
+    <InternalsVisibleTo Include="nativeweb.render.tests.unit" />
+  </ItemGroup>
 </Project>

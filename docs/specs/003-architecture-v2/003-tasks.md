@@ -10,7 +10,7 @@ this body of work; `work/tasklist.md` points here.
   var rules to build severity; `EnforceCodeStyleInBuild=true` in `Directory.Build.props`;
   convert `apps/web/Program.cs` the same way; fix repo-wide fallout (`dotnet format` assisted);
   all suites green.
-- [ ] V2 `feat/render-engine` — R10–R13, R41, R43–R44. `libs/nativeweb.render` (runtime:
+- [x] V2 `feat/render-engine` — R10–R13, R41, R43–R44. `libs/nativeweb.render` (runtime:
   `TemplateWriter`, `Html` type, `IResult` adapters) + `libs/nativeweb.render.generator`
   (templates as AdditionalFiles → static classes, UTF-8 literals, encoded-by-default,
   partials/layouts/required slots, diagnostics). AngleSharp well-formedness test harness.

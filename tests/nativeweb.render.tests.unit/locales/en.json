@@ -1,0 +1,12 @@
+{
+  "app": {
+    "title": "Bookmarks",
+    "greeting": "Hello"
+  },
+  "nav": {
+    "home": "Home"
+  },
+  "emails": {
+    "subject": "Sign in to {product}"
+  }
+}

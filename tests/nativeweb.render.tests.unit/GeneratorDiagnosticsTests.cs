@@ -213,6 +213,101 @@ public sealed class GeneratorDiagnosticsTests
         AssertSingleDiagnostic("NWT001", ("templates/page.html", "<!--#template\n@param string writer\n--><p>x</p>"));
 
     [Fact]
+    public void UnknownLocaleKey_ReportsNwt013() =>
+        AssertSingleDiagnostic(
+            "NWT013",
+            ("locales/en.json", "{ \"app\": { \"title\": \"x\" } }"),
+            ("templates/page.html", "<h1>{{t:app.missing}}</h1>"));
+
+    [Fact]
+    public void LocaleKeyUsedWithoutAnyCatalog_ReportsNwt013() =>
+        AssertSingleDiagnostic("NWT013", ("templates/page.html", "<h1>{{t:app.title}}</h1>"));
+
+    [Fact]
+    public void OrphanOverrideKey_ReportsNwt014() =>
+        AssertSingleDiagnostic(
+            "NWT014",
+            ("locales/en.json", "{ \"app\": { \"title\": \"x\" } }"),
+            ("locales/ms.json", "{ \"app\": { \"tittle\": \"y\" } }"));
+
+    [Fact]
+    public void MalformedLocaleJson_ReportsNwt015() =>
+        AssertSingleDiagnostic("NWT015", ("locales/en.json", "{ \"app\": [1, 2] }"));
+
+    [Fact]
+    public void MissingEnglishRootCatalog_ReportsNwt015() =>
+        AssertSingleDiagnostic("NWT015", ("locales/ms.json", "{ \"app\": { \"title\": \"y\" } }"));
+
+    [Fact]
+    public void ReservedForLoopVariable_ReportsNwt008() =>
+        AssertSingleDiagnostic(
+            "NWT008",
+            ("locales/en.json", "{ \"app\": { \"title\": \"x\" } }"),
+            ("templates/page.html", "<!--#template\n@param string[] Items\n-->{{for locale in Items}}<p>{{t:app.title}}</p>{{/for}}"));
+
+    [Fact]
+    public void NestedUnderscoreKey_IsMetadataNotAStringKey()
+    {
+        // {"app": {"_dir": ...}} must not become a string key "app._dir"
+        // that would then trip NWT014 as an orphan override.
+        ImmutableArray<Diagnostic> diagnostics = Run(
+            ("locales/en.json", "{ \"app\": { \"title\": \"x\" } }"),
+            ("locales/ms.json", "{ \"app\": { \"_note\": \"metadata\", \"title\": \"y\" } }"));
+
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void UnderscoreKeyWithObjectValue_ReportsNwt015() =>
+        AssertSingleDiagnostic("NWT015", ("locales/en.json", "{ \"_meta\": { \"x\": \"y\" } }"));
+
+    [Fact]
+    public void WhitespaceInUnicodeEscape_ReportsNwt015() =>
+        AssertSingleDiagnostic("NWT015", ("locales/en.json", "{ \"app\": \"\\u 41x\" }"));
+
+    [Fact]
+    public void InvalidDirOverride_ReportsNwt015() =>
+        AssertSingleDiagnostic("NWT015", ("locales/en.json", "{ \"_dir\": \"sideways\", \"app\": \"x\" }"));
+
+    [Fact]
+    public void LocaleIdCollidingWithLocalesMember_ReportsNwt015() =>
+        AssertSingleDiagnostic(
+            "NWT015",
+            ("locales/en.json", "{ \"app\": \"x\" }"),
+            ("locales/all.json", "{ }"));
+
+    [Fact]
+    public void TwoLocaleIdsCollidingOnMemberName_ReportNwt015() =>
+        AssertSingleDiagnostic(
+            "NWT015",
+            ("locales/en.json", "{ \"app\": \"x\" }"),
+            ("locales/pt-br.json", "{ }"),
+            ("locales/pt_br.json", "{ }"));
+
+    [Fact]
+    public void NonAsciiCatalogValue_IsEscapedInTheEmittedLiteral()
+    {
+        // U+2028 is a line terminator to the C# lexer: Quote must escape it (and
+        // everything else outside printable ASCII) or the emitted Locales class
+        // fails to compile with a cryptic CS error instead of an NWT diagnostic.
+        var compilation = CSharpCompilation.Create(
+            "render-diagnostics-tests",
+            references: [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)]);
+        var driver = CSharpGeneratorDriver.Create(
+            generators: [new RenderTemplateGenerator().AsSourceGenerator()],
+            additionalTexts: [new TestAdditionalText("locales/en.json", "{ \"app\": \"line one\\u2028line two \\u00e9\" }")]);
+
+        GeneratorDriverRunResult result = driver.RunGenerators(compilation).GetRunResult();
+
+        Assert.Empty(result.Diagnostics);
+        string locales = Assert.Single(result.GeneratedTrees, t => t.FilePath.Contains("Locales", StringComparison.Ordinal)).ToString();
+        Assert.Contains("\\u2028", locales, StringComparison.Ordinal);
+        Assert.Contains("\\u00e9", locales, StringComparison.Ordinal);
+        Assert.DoesNotContain('\u2028', locales);
+        Assert.DoesNotContain('\u00e9', locales);
+    }
+
+    [Fact]
     public void FileOutsideTemplatesDirectory_IsIgnored()
     {
         ImmutableArray<Diagnostic> diagnostics = Run(("wwwroot/pages/landing.html", "{{if Broken}}"));

@@ -59,4 +59,16 @@ internal static class TemplateDiagnostics
     public static readonly DiagnosticDescriptor ExpressionRejected = Error(
         "NWT012", "Template expression rejected",
         "Template '{0}': expression '{1}' contains '{2}' — template expressions are values, not statements; move logic into the calling C#");
+
+    public static readonly DiagnosticDescriptor UnknownLocaleKey = Error(
+        "NWT013", "Unknown locale key",
+        "Template '{0}': '{{{{t:{1}}}}}' is not defined in locales/en.json — every key must exist in the English root catalog");
+
+    public static readonly DiagnosticDescriptor OrphanLocaleKey = Error(
+        "NWT014", "Orphan locale override",
+        "Locale '{0}': key '{1}' does not exist in en.json — overrides can only refine keys the English root defines (typo?)");
+
+    public static readonly DiagnosticDescriptor LocaleMalformed = Error(
+        "NWT015", "Malformed locale catalog",
+        "Locale file '{0}': {1}");
 }

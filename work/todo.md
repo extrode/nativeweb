@@ -55,6 +55,24 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   - Diagnostics tests discard the output compilation, so a template emitting invalid C# only
     fails via the test project's own build, not a targeted assert; no incremental-caching
     step-reuse test either.
+- i18n deferred review findings (V3 review, 2026-07-31; the mechanical ones were fixed
+  in-branch, these need design work or a future trigger):
+  - Locale negotiation runs before `UseAuthentication`, so the (deliberately unwired)
+    `UserPreference` hook would always see an unauthenticated context — move the middleware
+    after auth when the hook lands with IdP page localization (comment in Program.cs marks it).
+  - One NWT014/NWT015 suppresses the whole generated `Locales` class, so every `Locales.*`
+    reference cascades CS errors that bury the real diagnostic; a best-effort/empty-catalog
+    emission would keep it legible. Same shape for missing en.json → every `{{t:}}` fires NWT013.
+  - Locale ids are two-subtag only: `zh-hans-cn` would get wrong `Lang` casing and inherit from
+    `zh`, never `zh-hans` (documented at `LocaleCatalog.ToHtmlLang`); extend if a script-tagged
+    locale ever ships.
+  - Sanitize boundary is inconsistent in mail: renderer args are control-char-stripped but
+    catalog-sourced subject/text are not (MimeKit encodes headers, so not injectable), and
+    `Sanitize(linkUrl)` mangles a control-char URL into a different URL rather than rejecting it.
+  - Templates and locales share one `RegisterSourceOutput`, so editing one .json re-emits every
+    template and vice versa (pre-existing shape; incremental win currently nil).
+  - `users.locale` is unbounded free text by design (unknown degrades to English); whatever
+    preference-setting endpoint lands later must validate against `Locales.All`.
 - Analyzer risk pair (from V1 review, 2026-07-31): `TreatWarningsAsErrors` with unpinned
   `AnalysisLevel=latest-recommended` means an SDK bump can hard-break the build on new rules;
   consider pinning the level or adding a `WarningsNotAsErrors` escape hatch before the cutover.

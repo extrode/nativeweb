@@ -5,8 +5,9 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **V1 (spec 003)** — `chore/style-enforcement` (merged c9d0922): EnforceCodeStyleInBuild +
-  editorconfig var/top-level/namespace rules at build severity; explicit sealed Program/Main
-  in both apps; repo-wide dotnet format sweep (163 files); review fixes (2-space web assets,
-  vendored-asset exclusion, dropped unshipped 'closed' modifier). All suites green
-  (319/196/206/56 + e2e 44/7).
+- **V2 (spec 003)** — `feat/render-engine` (merged 0134d9d): `libs/nativeweb.render` runtime
+  (TemplateWriter over IBufferWriter<byte>, Html raw type, IResult/string adapters) +
+  `libs/nativeweb.render.generator` (templates/**/*.html → static classes, u8 literals,
+  encoded-by-default via overload resolution, layouts inlined with slots/fills, partials as
+  method calls, NWT001–NWT012 build errors). Opus review: 20 findings, 14 fixed in-branch,
+  6 design-scale ones deferred to work/todo.md. 46 render tests + all existing suites green.
