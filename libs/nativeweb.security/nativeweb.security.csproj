@@ -7,6 +7,9 @@
     <!-- Geralt: libsodium wrapper. Provides Argon2id (PHC strings) and a
          cryptographically secure RNG. Version pinned in Directory.Packages.props. -->
     <PackageReference Include="Geralt" />
+    <!-- BotTraps reads HttpContext/IFormCollection and uses the app's data
+         protection stack for the signed render-timestamp canary. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
 </Project>
