@@ -15,6 +15,9 @@
          here. -->
     <IsAotCompatible>true</IsAotCompatible>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Style rules in .editorconfig at :warning severity fail the build (via
+         TreatWarningsAsErrors), so code style is enforced, not IDE-advisory. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
 

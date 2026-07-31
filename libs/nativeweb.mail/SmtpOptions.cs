@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace NativeWeb.Mail;
 
 /// <summary>
@@ -125,6 +127,6 @@ public sealed class SmtpOptions
             return true;
         }
 
-        return System.Net.IPAddress.TryParse(host, out var ip) && System.Net.IPAddress.IsLoopback(ip);
+        return System.Net.IPAddress.TryParse(host, out IPAddress? ip) && System.Net.IPAddress.IsLoopback(ip);
     }
 }

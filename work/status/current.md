@@ -6,6 +6,7 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 002 close-out** — `docs/spec-002-closeout`: spec status → implemented, tasks all
-  ticked with as-built notes, tasklist archived to `../archive/2026-07-31-idp-hardening.md`,
-  CHANGELOG entry, screenshot check, final three-tier suite + zero-warning AOT publish on `dev`.
+- **V1 (spec 003, architecture v2)** — `chore/style-enforcement`: absorb the user's
+  `.editorconfig` (VS ruleset, var rules) and hand-converted devmarks Program class; restore
+  the `[*]` global section; build-enforce via `EnforceCodeStyleInBuild`; convert
+  `apps/web/Program.cs` to an explicit Program/Main; fix repo-wide fallout; suites green.

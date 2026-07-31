@@ -1,4 +1,5 @@
 using System.Text;
+
 using Geralt;
 
 namespace NativeWeb.Security;
