@@ -33,8 +33,9 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: (between bodies of work)
+## Current work: IdP hardening (spec 002)
 
-Spec 001 (DevMarks) shipped and archived to `archive/2026-07-30-devmarks-bookmarking-app.md`.
-The next body of work is the epass.io v2 green UI on the IdP (see `status/next.md` and
-`milestones.md`); this list is refilled when it starts.
+Durable tier — the task breakdown lives at `docs/specs/002-idp-hardening/002-tasks.md`
+(H1 fixture fix … H7 role rename); this list points at it rather than duplicating it. Started
+2026-07-31. (The "epass.io v2 green UI" previously named here was stale: the v2 look shipped on
+the IdP with Slices 1–10 on 2026-07-26; what remained was this hardening backlog.)
