@@ -39,6 +39,22 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   formatted markup; deferred from the scaffold). Explicitly left out of the T9 hardening pass on
   2026-07-30: cosmetic, not an acceptance criterion — new markup since the scaffold is indented.
 
+- Render engine deferred review findings (V2 review, 2026-07-31; the fixable ones were fixed
+  in-branch, these need design work):
+  - URL-context safety: `href="{{Url}}"` with a `javascript:` value passes both encoder paths
+    untouched (same gap as Razor). Full fix is HTML-context-aware generation; interim is the
+    documented convention that URL values from user data get scheme-validated in C#.
+  - Unquoted-attribute interpolation (`<a href={{Url}}>`) is injectable via space/`=`; the
+    generator could detect-and-reject interpolation into unquoted attributes.
+  - NWT diagnostics all report at `Location.None`; parser would need to carry line/col offsets
+    to point at the token.
+  - `@param` type text goes into the generated signature unvalidated (typo = raw C# error, not
+    NWT003).
+  - No escape hatch for a literal `{{` in template text (would break Vue-style inline syntax if
+    ever needed; Alpine/htmx don't use it).
+  - Diagnostics tests discard the output compilation, so a template emitting invalid C# only
+    fails via the test project's own build, not a targeted assert; no incremental-caching
+    step-reuse test either.
 - Analyzer risk pair (from V1 review, 2026-07-31): `TreatWarningsAsErrors` with unpinned
   `AnalysisLevel=latest-recommended` means an SDK bump can hard-break the build on new rules;
   consider pinning the level or adding a `WarningsNotAsErrors` escape hatch before the cutover.

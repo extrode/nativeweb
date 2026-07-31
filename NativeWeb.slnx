@@ -7,6 +7,8 @@
   </Folder>
   <Folder Name="/libs/">
     <Project Path="libs/nativeweb.data/nativeweb.data.csproj" />
+    <Project Path="libs/nativeweb.render.generator/nativeweb.render.generator.csproj" />
+    <Project Path="libs/nativeweb.render/nativeweb.render.csproj" />
     <Project Path="libs/nativeweb.security/nativeweb.security.csproj" />
     <Project Path="libs/nativeweb.auth/nativeweb.auth.csproj" />
     <Project Path="libs/nativeweb.devmarks.data/nativeweb.devmarks.data.csproj" />
@@ -18,6 +20,7 @@
     <Project Path="tests/nativeweb.devmarks.tests.e2e/nativeweb.devmarks.tests.e2e.csproj" />
     <Project Path="tests/nativeweb.devmarks.tests.integration/nativeweb.devmarks.tests.integration.csproj" />
     <Project Path="tests/nativeweb.devmarks.tests.unit/nativeweb.devmarks.tests.unit.csproj" />
+    <Project Path="tests/nativeweb.render.tests.unit/nativeweb.render.tests.unit.csproj" />
     <Project Path="tests/nativeweb.web.tests.e2e/nativeweb.web.tests.e2e.csproj" />
   </Folder>
   <Project Path="../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj" />

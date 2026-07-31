@@ -4,7 +4,7 @@ Execution breakdown for `003-plan.md`. One task per branch, sequential, each mer
 with `--no-ff` after review before the next starts. This file is the tasklist of record for
 this body of work; `work/tasklist.md` points here.
 
-- [ ] V1 `chore/style-enforcement` — R8–R9. Absorb the user's hand conversion of
+- [x] V1 `chore/style-enforcement` — R8–R9. Absorb the user's hand conversion of
   `apps/devmarks/Program.cs` (explicit Program/Main) and their VS-generated `.editorconfig`
   (var rules); restore the lost `[*]` global section (utf-8, lf, final newline); raise the
   var rules to build severity; `EnforceCodeStyleInBuild=true` in `Directory.Build.props`;

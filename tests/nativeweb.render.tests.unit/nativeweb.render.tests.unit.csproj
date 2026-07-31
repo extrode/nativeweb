@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.Render.Tests.Unit</RootNamespace>
+    <!-- Same test-project conventions as the sibling suites. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- IResult surface of TemplateResults. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- R13 well-formedness gate: strict-mode parse of rendered output. -->
+    <PackageReference Include="AngleSharp" />
+    <!-- CSharpGeneratorDriver for diagnostic tests. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\nativeweb.render\nativeweb.render.csproj" />
+    <!-- Analyzer: compiles this project's templates/ into render classes.
+         ReferenceOutputAssembly=true additionally lets the diagnostic tests
+         drive the generator directly. -->
+    <ProjectReference Include="..\..\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="templates\**\*.html" />
+  </ItemGroup>
+
+</Project>
