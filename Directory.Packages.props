@@ -40,8 +40,18 @@
     <PackageVersion Include="NSec.Cryptography" Version="26.4.0" />
   </ItemGroup>
 
+  <!-- Roslyn, for libs/nativeweb.render.generator (netstandard2.0 analyzer).
+       Pins mirror JauntyQ.Generator (same machine, same SDK, proven in its CI). -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+  </ItemGroup>
+
   <!-- Test-only packages. Referenced solely by tests/*, never by shipping code. -->
   <ItemGroup>
+    <!-- R13 well-formedness gate: strict-mode HTML parsing of rendered template
+         output in the render engine's unit tests. -->
+    <PackageVersion Include="AngleSharp" Version="1.6.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />

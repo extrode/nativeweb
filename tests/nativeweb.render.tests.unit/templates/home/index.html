@@ -1,0 +1,18 @@
+<!--#template
+  @layout layout/page
+  @param string Message
+  @param bool ShowItems
+  @param string[] Items
+-->
+{{fill Head}}<meta name="description" content="render-engine test page">{{/fill}}
+<h1>{{Message}}</h1>
+{{if ShowItems}}
+<ul>
+{{for item in Items}}
+  <li>{{item}}</li>
+{{/for}}
+</ul>
+{{else}}
+<p>No items.</p>
+{{/if}}
+{{> shared/form-field Label=Message Name="q"}}
