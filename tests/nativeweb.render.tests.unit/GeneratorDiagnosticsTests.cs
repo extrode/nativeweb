@@ -157,6 +157,62 @@ public sealed class GeneratorDiagnosticsTests
     }
 
     [Fact]
+    public void ExplicitFillMain_ReplacesImplicitContent()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Run(
+            ("templates/layout/page.html", "<div>{{slot Main}}</div>"),
+            ("templates/page.html", "<!--#template\n@layout layout/page\n-->\n{{fill Main}}<p>x</p>{{/fill}}\n"));
+
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void FillMainAlongsideImplicitContent_ReportsNwt007() =>
+        AssertSingleDiagnostic(
+            "NWT007",
+            ("templates/layout/page.html", "<div>{{slot Main}}</div>"),
+            ("templates/page.html", "<!--#template\n@layout layout/page\n--><p>implicit</p>{{fill Main}}<p>x</p>{{/fill}}"));
+
+    [Fact]
+    public void FillNestedInsideBlock_ReportsNwt007() =>
+        AssertSingleDiagnostic(
+            "NWT007",
+            ("templates/layout/page.html", "<div>{{slot Main}}</div><aside>{{slot? Side}}</aside>"),
+            ("templates/page.html", "<!--#template\n@layout layout/page\n@param bool Flag\n-->{{if Flag}}{{fill Side}}<p>x</p>{{/fill}}{{/if}}"));
+
+    [Fact]
+    public void LayoutChain_ReportsNwt001()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Run(
+            ("templates/layout/base.html", "<div>{{slot Main}}</div>"),
+            ("templates/layout/page.html", "<!--#template\n@layout layout/base\n--><section>{{slot Main}}</section>"),
+            ("templates/page.html", "<!--#template\n@layout layout/page\n--><p>x</p>"));
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("NWT001", diagnostic.Id);
+    }
+
+    [Fact]
+    public void LayoutWithoutMainSlot_ReportsNwt007() =>
+        AssertSingleDiagnostic(
+            "NWT007",
+            ("templates/layout/page.html", "<div>{{slot? Side}}</div>"),
+            ("templates/page.html", "<!--#template\n@layout layout/page\n--><p>dropped</p>"));
+
+    [Fact]
+    public void PartialArgumentWithSpaces_ReportsNwt006()
+    {
+        AssertSingleDiagnostic(
+            "NWT006",
+            ("templates/shared/field.html", "<!--#template\n@param string Label\n--><span>{{Label}}</span>"),
+            ("templates/page.html", "<p>{{> shared/field Label=\"Hello world\"}}</p>"));
+    }
+
+    [Fact]
+    public void ReservedParamName_ReportsNwt001() =>
+        AssertSingleDiagnostic("NWT001", ("templates/page.html", "<!--#template\n@param string writer\n--><p>x</p>"));
+
+    [Fact]
     public void FileOutsideTemplatesDirectory_IsIgnored()
     {
         ImmutableArray<Diagnostic> diagnostics = Run(("wwwroot/pages/landing.html", "{{if Broken}}"));

@@ -18,9 +18,12 @@ public ref struct TemplateWriter(IBufferWriter<byte> output)
     private readonly IBufferWriter<byte> _output = output;
 
     // The characters that must never reach HTML output unencoded. Encoding only
-    // these (rather than HtmlEncoder's much larger non-ASCII set) is safe — they
-    // are the complete set with meaning to an HTML parser in text and attribute
-    // contexts — and it lets the common all-safe case skip encoding entirely.
+    // these (rather than HtmlEncoder's much larger non-ASCII set) is safe in text
+    // and QUOTED-attribute contexts, which are the only contexts templates may
+    // interpolate into: an unquoted attribute is terminated by space/=/` and none
+    // of those are encoded, and a javascript: value in href/src passes untouched
+    // in any HTML encoder — URL values from user data need scheme validation in
+    // the calling C#, not encoding here.
     private static readonly System.Buffers.SearchValues<char> CharsNeedingEncoding =
         System.Buffers.SearchValues.Create("<>&\"'");
 
@@ -29,7 +32,12 @@ public ref struct TemplateWriter(IBufferWriter<byte> output)
     // The HTML-significant characters are always encoded regardless of ranges.
     private static readonly HtmlEncoder Encoder = HtmlEncoder.Create(UnicodeRanges.All);
 
-    /// <summary>Writes a static, template-authored UTF-8 chunk verbatim.</summary>
+    /// <summary>
+    /// Writes a static, template-authored UTF-8 chunk verbatim. For generated code
+    /// only — application code wanting raw output goes through <see cref="Html.Raw"/>
+    /// so every deliberate raw site stays grep-able (audit for both).
+    /// </summary>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public void WriteRaw(scoped ReadOnlySpan<byte> utf8) => _output.Write(utf8);
 
     /// <summary>Writes a value with HTML encoding. Null renders nothing.</summary>
@@ -59,17 +67,33 @@ public ref struct TemplateWriter(IBufferWriter<byte> output)
         }
     }
 
+    /// <summary>Writes a character with HTML encoding (also stops char binding to the int overload).</summary>
+    public void Write(char value)
+    {
+        ReadOnlySpan<char> chars = [value];
+        if (chars.IndexOfAny(CharsNeedingEncoding) < 0)
+        {
+            WriteUtf16(chars);
+        }
+        else
+        {
+            WriteUtf16(Encoder.Encode(value.ToString()).AsSpan());
+        }
+    }
+
     public void Write(int value)
     {
+        // GetSpan(12) always covers int.MinValue's 11 chars, so TryFormat cannot fail.
         Span<byte> scratch = _output.GetSpan(12);
-        value.TryFormat(scratch, out int written);
+        _ = value.TryFormat(scratch, out int written);
         _output.Advance(written);
     }
 
     public void Write(long value)
     {
+        // GetSpan(24) always covers long.MinValue's 20 chars, so TryFormat cannot fail.
         Span<byte> scratch = _output.GetSpan(24);
-        value.TryFormat(scratch, out int written);
+        _ = value.TryFormat(scratch, out int written);
         _output.Advance(written);
     }
 

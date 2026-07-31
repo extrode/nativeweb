@@ -2,9 +2,9 @@ namespace NativeWeb.Render;
 
 /// <summary>
 /// Pre-rendered markup that a template may emit without HTML encoding. This type is
-/// the ONLY unencoded path through <see cref="TemplateWriter"/> (spec 003 R11): a
-/// plain string always encodes, so every raw-output site in the codebase is findable
-/// by grepping for <c>Html.Raw</c>.
+/// the only unencoded path for VALUES through <see cref="TemplateWriter"/> (spec 003
+/// R11): a plain string always encodes. Auditing raw output means grepping for
+/// <c>Html.Raw</c> plus <c>WriteRaw</c> (generated static template chunks).
 /// </summary>
 public readonly struct Html
 {

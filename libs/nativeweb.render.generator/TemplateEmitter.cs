@@ -33,6 +33,9 @@ internal static class TemplateEmitter
                     case ParseErrorKind.Expression:
                         Report(context, model, TemplateDiagnostics.ExpressionRejected, model.Path, error.Expression!, error.OffendingChar);
                         break;
+                    case ParseErrorKind.Partial:
+                        Report(context, model, TemplateDiagnostics.PartialArgMismatch, model.Path, error.Expression!, error.Message);
+                        break;
                     default:
                         Report(context, model, TemplateDiagnostics.UnbalancedBlock, model.Path, error.Message);
                         break;
@@ -68,6 +71,16 @@ internal static class TemplateEmitter
             {
                 byClassName.Add(className, model.Path);
             }
+        }
+
+        // Layouts get no class of their own; a layout that ALSO declares @layout
+        // would otherwise vanish silently. Checked before emission so every page
+        // using such a layout sees it as broken.
+        foreach (TemplateModel model in templates.Values.Where(m => !broken.Contains(m.Path) && IsLayout(m) && m.Layout is not null))
+        {
+            Report(context, model, TemplateDiagnostics.HeaderMalformed, model.Path,
+                "declares @layout but also contains '{{slot …}}' — layout chaining is not supported");
+            broken.Add(model.Path);
         }
 
         foreach (TemplateModel model in templates.Values.OrderBy(m => m.Path, StringComparer.Ordinal))
@@ -153,8 +166,34 @@ internal static class TemplateEmitter
                 }
             }
 
+            // A fill inside {{if}}/{{for}} would otherwise be silently dropped.
+            if (ContainsFill(main) || fills.Values.Any(f => ContainsFill(f.Body)))
+            {
+                Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, "'{{fill …}}' must be at the top level of the template");
+                return;
+            }
+
+            // An explicit {{fill Main}} is allowed instead of implicit content, not
+            // alongside it.
+            if (fills.TryGetValue("Main", out FillNode? mainFill))
+            {
+                if (main.Any(n => n is not StaticNode s || s.Text.Trim().Length > 0))
+                {
+                    Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, "has both '{{fill Main}}' and top-level content — use one or the other");
+                    return;
+                }
+
+                main = mainFill.Body;
+                fills.Remove("Main");
+            }
+
             List<string> layoutSlots = [];
             CollectSlots(layout.Body, layoutSlots);
+            if (!layoutSlots.Contains("Main"))
+            {
+                Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, $"layout '{layout.Path}' does not declare '{{{{slot Main}}}}' — page content would be dropped");
+                return;
+            }
             foreach (string filled in fills.Keys.Where(f => !layoutSlots.Contains(f)))
             {
                 Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, $"'{{{{fill {filled}}}}}' has no matching slot in layout '{layout.Path}'");
@@ -172,7 +211,7 @@ internal static class TemplateEmitter
                 return;
             }
         }
-        else if (page.Body.Any(n => n is FillNode))
+        else if (ContainsFill(page.Body))
         {
             Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, "'{{fill …}}' requires an '@layout' directive");
             return;
@@ -211,6 +250,14 @@ internal static class TemplateEmitter
         context.AddSource($"{ns}.{className}.g.cs", code.ToString());
     }
 
+    private static bool ContainsFill(List<Node> nodes) => nodes.Any(n => n switch
+    {
+        FillNode => true,
+        IfNode i => ContainsFill(i.Then) || ContainsFill(i.Else),
+        ForNode f => ContainsFill(f.Body),
+        _ => false,
+    });
+
     private static void CollectSlots(List<Node> nodes, List<string> into)
     {
         foreach (Node node in nodes)
@@ -225,6 +272,10 @@ internal static class TemplateEmitter
                     CollectSlots(i.Else, into);
                     break;
                 case ForNode f:
+                    CollectSlots(f.Body, into);
+                    break;
+                case FillNode f:
+                    // Keep this traversal consistent with ContainsSlot.
                     CollectSlots(f.Body, into);
                     break;
             }

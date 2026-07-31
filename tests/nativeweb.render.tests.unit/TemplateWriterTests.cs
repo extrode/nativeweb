@@ -75,6 +75,19 @@ public sealed class TemplateWriterTests
     }
 
     [Fact]
+    public void Write_Char_EncodesSpecialsAndPassesPlain()
+    {
+        string html = Render((ref TemplateWriter w) =>
+        {
+            w.Write('A');
+            w.Write('<');
+            w.Write('é');
+        });
+
+        Assert.Equal("A&lt;é", html);
+    }
+
+    [Fact]
     public void Write_Numbers_FormatInvariant()
     {
         string html = Render((ref TemplateWriter w) =>

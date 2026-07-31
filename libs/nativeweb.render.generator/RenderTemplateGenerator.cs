@@ -19,11 +19,11 @@ public sealed class RenderTemplateGenerator : IIncrementalGenerator
     {
         IncrementalValueProvider<ImmutableArray<(string Path, string Source)>> templates =
             context.AdditionalTextsProvider
-                .Where(static text => text.Path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                .Where(static text =>
+                    text.Path.EndsWith(".html", StringComparison.OrdinalIgnoreCase)
+                    && LogicalPath(text.Path) is not null)
                 .Select(static (text, cancellationToken) =>
-                    (Path: LogicalPath(text.Path), Source: text.GetText(cancellationToken)?.ToString() ?? ""))
-                .Where(static pair => pair.Path is not null)
-                .Select(static (pair, _) => (pair.Path!, pair.Source))
+                    (LogicalPath(text.Path)!, text.GetText(cancellationToken)?.ToString() ?? ""))
                 .Collect();
 
         IncrementalValueProvider<string> rootNamespace = context.AnalyzerConfigOptionsProvider

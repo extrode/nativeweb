@@ -71,6 +71,9 @@ internal enum ParseErrorKind
 
     /// <summary>Rejected expression content — NWT012.</summary>
     Expression,
+
+    /// <summary>Malformed partial call — NWT006.</summary>
+    Partial,
 }
 
 internal sealed class ParseError(string message, ParseErrorKind kind = ParseErrorKind.Block)
@@ -78,7 +81,10 @@ internal sealed class ParseError(string message, ParseErrorKind kind = ParseErro
     public string Message { get; } = message;
     public ParseErrorKind Kind { get; } = kind;
 
-    /// <summary>The offending expression, set only for <see cref="ParseErrorKind.Expression"/>.</summary>
+    /// <summary>
+    /// The offending expression (<see cref="ParseErrorKind.Expression"/>) or the
+    /// partial path (<see cref="ParseErrorKind.Partial"/>).
+    /// </summary>
     public string? Expression { get; set; }
 
     /// <summary>The rejected character, set only for <see cref="ParseErrorKind.Expression"/>.</summary>
@@ -96,7 +102,20 @@ internal sealed class TemplateModel
     public List<string> UnknownDirectives = [];
     public List<string> MalformedParams = [];
 
-    private static readonly Regex TokenPattern = new(@"\{\{(.*?)\}\}", RegexOptions.Singleline | RegexOptions.Compiled);
+    // No RegexOptions.Compiled: emitting dynamic assemblies from an analyzer host
+    // is the documented anti-pattern, and the interpreted engine is fine here.
+    private static readonly Regex TokenPattern = new(@"\{\{(.*?)\}\}", RegexOptions.Singleline);
+
+    // Parameter names that would break the generated Render method: the writer
+    // parameter itself plus every C# keyword.
+    private static readonly HashSet<string> ReservedParamNames = new(
+        ("writer abstract as base bool break byte case catch char checked class const continue decimal default " +
+         "delegate do double else enum event explicit extern false finally fixed float for foreach goto if " +
+         "implicit in int interface internal is lock long namespace new null object operator out override params " +
+         "private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct " +
+         "switch this throw true try typeof uint ulong unchecked unsafe ushort using virtual void volatile while")
+            .Split(' '),
+        StringComparer.Ordinal);
 
     // Characters that would let a template expression escape "value" territory and
     // smuggle statements into the generated method (R12/NWT012).
@@ -162,6 +181,14 @@ internal sealed class TemplateModel
                     if (name.Length == 0 || !IsIdentifier(name))
                     {
                         model.MalformedParams.Add(decl);
+                        continue;
+                    }
+
+                    if (ReservedParamNames.Contains(name))
+                    {
+                        model.Errors.Add(new ParseError(
+                            $"@param name '{name}' is reserved (it is the writer parameter or a C# keyword)",
+                            ParseErrorKind.Header));
                         continue;
                     }
 
@@ -298,7 +325,10 @@ internal sealed class TemplateModel
         string[] parts = spec.Split(SpaceSeparator, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0)
         {
-            model.Errors.Add(new ParseError("'{{> }}' is missing the partial path"));
+            model.Errors.Add(new ParseError("is missing the partial path", ParseErrorKind.Partial)
+            {
+                Expression = "{{> }}",
+            });
             return;
         }
 
@@ -308,7 +338,12 @@ internal sealed class TemplateModel
             int eq = parts[i].IndexOf('=');
             if (eq <= 0)
             {
-                model.Errors.Add(new ParseError($"partial argument '{parts[i]}' must be 'Name=expression' (no spaces in the expression)"));
+                model.Errors.Add(new ParseError(
+                    $"has malformed argument '{parts[i]}' — arguments are 'Name=expression' with no spaces in the expression",
+                    ParseErrorKind.Partial)
+                {
+                    Expression = parts[0],
+                });
                 continue;
             }
 

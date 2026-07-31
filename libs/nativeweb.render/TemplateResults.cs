@@ -29,6 +29,9 @@ public static class TemplateResults
     {
         public Task ExecuteAsync(HttpContext httpContext)
         {
+            // The sync ref-struct render path cannot await, so bytes accumulate in
+            // the BodyWriter until the single flush below. Fine for pages; a
+            // genuinely unbounded stream would need a different result type.
             httpContext.Response.ContentType = "text/html; charset=utf-8";
             TemplateWriter writer = new(httpContext.Response.BodyWriter);
             render(ref writer);
