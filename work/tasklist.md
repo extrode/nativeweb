@@ -33,9 +33,12 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: (none)
+## Current work: Architecture v2 + manzil.my extraction (spec 003)
 
-Spec 002 (IdP hardening, H1–H7) shipped 2026-07-31 — archived to
-`archive/2026-07-31-idp-hardening.md`, summarised in `CHANGELOG.md` under Unreleased. The next
-body of work is the sign-off-gated production cutover replacing epass.io; it starts only when
-the user calls it. Unscheduled items live in `todo.md`.
+Durable tier — the task breakdown of record is
+`docs/specs/003-architecture-v2/003-tasks.md` (V1 style enforcement … V10 extraction); this
+file points there rather than duplicating it. Started 2026-07-31.
+
+Spec 002 (IdP hardening) shipped 2026-07-31 — archived to
+`archive/2026-07-31-idp-hardening.md`. The sign-off-gated production cutover replacing
+epass.io remains user-gated. Unscheduled items live in `todo.md`.
