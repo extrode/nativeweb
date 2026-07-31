@@ -17,6 +17,11 @@ Small, clear, and could be picked up without a design decision.
 - DevMarks: unit tests reach `SecurityHeadersMiddleware` internals via reflection; add an
   `InternalsVisibleTo` for `nativeweb.devmarks.tests.unit` (as apps/web does) and call directly.
 
+- IdP: passphrase reset/verify success responds with only an `HX-Redirect` header
+  (`Results.Empty`), which a no-JS browser ignores — the non-htmx `method=post action=...`
+  fallback completes the reset but shows a blank page. Return a plain 303 for non-htmx requests
+  (H5 review nit, 2026-07-31).
+
 ## Later
 
 Real, but needs a decision, a dependency, or more information first. Say which.
