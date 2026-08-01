@@ -32,7 +32,7 @@ this body of work; `work/tasklist.md` points here.
   `Max Auto Prepare=20`, FrozenDictionary `AssetUrls`, CI binary-size + startup budgets.
 - [x] V8 `feat/static-pages` — R38–R40. `wwwroot/pages/` pipeline with clean URLs, no-cache +
   ETag, nonce-free CSP branch, static 404/500 via `ErrorPageMiddleware`, robots/sitemap.
-- [ ] V9 `feat/skeleton` — R1–R3, R29. `skeleton/` tokenized shell, `tools/new-product.ps1`,
+- [x] V9 `feat/skeleton` — R1–R3, R29. `skeleton/` tokenized shell, `tools/new-product.ps1`,
   systemd + Windows service files, `$(NativeWebRoot)` dual-mode props, pack metadata on the
   framework libs, conventions/ASVS docs.
 - [ ] V10 `feat/manzil-extraction` + `chore/remove-devmarks` — R4–R7, R42.
