@@ -1,0 +1,62 @@
+# systemd unit for __PRODUCT__ (spec 003 R3).
+#
+# Install:
+#   1. dotnet publish apps/__product__/__product__.csproj -c Release
+#   2. copy the publish output (the single native binary plus wwwroot/ and
+#      appsettings*.json) to /opt/__product__
+#   3. useradd --system --no-create-home --shell /usr/sbin/nologin __product__
+#   4. install -d -m 700 -o __product__ -g __product__ /var/lib/__product__/keys
+#      (700, not install's default 755: the key-ring XML holds unencrypted
+#      master keys, and UMask below keeps the files themselves 600)
+#   5. cp deploy/__product__.service /etc/systemd/system/
+#   6. systemctl daemon-reload && systemctl enable --now __product__
+#
+# Logs go to the journal: journalctl -u __product__ -f
+
+[Unit]
+Description=__PRODUCT__
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+# Type=simple, not notify: the app does not reference
+# Microsoft.Extensions.Hosting.Systemd and never calls UseSystemd, so it sends
+# no READY=1 and systemd would wait out the timeout. Add the package and
+# builder.Host.UseSystemd() first if you want Type=notify.
+Type=simple
+User=__product__
+Group=__product__
+
+# NativeAOT publishes a single self-contained binary; wwwroot/ and
+# appsettings*.json resolve relative to the working directory, so this must be
+# the publish directory or static assets and configuration go missing.
+WorkingDirectory=/opt/__product__
+ExecStart=/opt/__product__/__product__
+
+Environment=ASPNETCORE_ENVIRONMENT=Production
+# Loopback only: a reverse proxy (nginx/Caddy) terminates TLS and forwards
+# here. Set __PRODUCT__:ForwardedHeaders:KnownProxies to the proxy address, or
+# X-Forwarded-For is ignored and every client shares one rate-limit partition.
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5000
+# Antiforgery data-protection keys must outlive a restart; the default under
+# the user profile is unreachable with ProtectHome below.
+Environment=__PRODUCT____DataProtection__KeyDirectory=/var/lib/__product__/keys
+# The connection string belongs in a root-owned drop-in, not this file:
+#   systemctl edit __product__   ->   Environment=__PRODUCT____Db__ConnectionString=...
+
+# Hardening. ProtectSystem=strict makes the whole filesystem read-only, so the
+# key directory is granted back explicitly and nothing else is writable.
+NoNewPrivileges=true
+# Data-protection key files are written world-readable under the default 0022
+# umask; any local user could then mint valid antiforgery tokens.
+UMask=0077
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/__product__
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
