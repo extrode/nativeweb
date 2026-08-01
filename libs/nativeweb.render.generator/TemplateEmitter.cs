@@ -102,6 +102,12 @@ internal static class TemplateEmitter
             broken.Add(model.Path);
         }
 
+        // Compose every emit-worthy template first (layout inlining, fill/slot
+        // checks), so the formatter can see the whole partial call graph before
+        // any emission happens (spec 004: partial indent depths are call-site
+        // properties).
+        Dictionary<string, (TemplateModel Page, List<TemplateParam> Params, List<Node> Body)> composed = new(StringComparer.Ordinal);
+        Dictionary<string, List<Node>> composedBodies = new(StringComparer.Ordinal);
         foreach (TemplateModel model in templates.Values.OrderBy(m => m.Path, StringComparer.Ordinal))
         {
             if (broken.Contains(model.Path) || IsLayout(model))
@@ -109,7 +115,17 @@ internal static class TemplateEmitter
                 continue;
             }
 
-            EmitTemplate(context, templates, model, rootNamespace, broken, needingLocale);
+            if (Compose(context, templates, model, broken) is (List<TemplateParam> parameters, List<Node> body))
+            {
+                composed[model.Path] = (model, parameters, body);
+                composedBodies[model.Path] = body;
+            }
+        }
+
+        TemplateFormatter.FormatPlan plan = TemplateFormatter.Plan(composedBodies);
+        foreach (KeyValuePair<string, (TemplateModel Page, List<TemplateParam> Params, List<Node> Body)> entry in composed.OrderBy(e => e.Key, StringComparer.Ordinal))
+        {
+            EmitTemplate(context, templates, entry.Value.Page, entry.Value.Params, entry.Value.Body, rootNamespace, broken, needingLocale, plan);
         }
     }
 
@@ -406,13 +422,16 @@ internal static class TemplateEmitter
         _ => false,
     });
 
-    private static void EmitTemplate(
+    /// <summary>
+    /// Layout inlining and validation for one page: merged parameter list plus the
+    /// fully composed node body. Null (with diagnostics reported) when the page
+    /// cannot be emitted.
+    /// </summary>
+    private static (List<TemplateParam> Parameters, List<Node> Body)? Compose(
         SourceProductionContext context,
         IReadOnlyDictionary<string, TemplateModel> templates,
         TemplateModel page,
-        string rootNamespace,
-        HashSet<string> broken,
-        HashSet<string> needingLocale)
+        HashSet<string> broken)
     {
         List<TemplateParam> parameters = [.. page.Params];
         List<Node> body = page.Body;
@@ -422,12 +441,12 @@ internal static class TemplateEmitter
             if (!templates.TryGetValue(page.Layout, out TemplateModel? layout))
             {
                 Report(context, page, TemplateDiagnostics.LayoutNotFound, page.Path, page.Layout);
-                return;
+                return null;
             }
 
             if (broken.Contains(layout.Path))
             {
-                return;
+                return null;
             }
 
             // Merge parameter lists: layout params first, page params after, matching
@@ -443,7 +462,7 @@ internal static class TemplateEmitter
                 else if (existing.Type != param.Type)
                 {
                     Report(context, page, TemplateDiagnostics.ParamConflict, page.Path, param.Name, param.Type, existing.Type, layout.Path);
-                    return;
+                    return null;
                 }
             }
 
@@ -457,7 +476,7 @@ internal static class TemplateEmitter
                     if (fills.ContainsKey(fill.Name))
                     {
                         Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, $"'{{{{fill {fill.Name}}}}}' appears more than once");
-                        return;
+                        return null;
                     }
 
                     fills.Add(fill.Name, fill);
@@ -472,7 +491,7 @@ internal static class TemplateEmitter
             if (ContainsFill(main) || fills.Values.Any(f => ContainsFill(f.Body)))
             {
                 Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, "'{{fill …}}' must be at the top level of the template");
-                return;
+                return null;
             }
 
             // An explicit {{fill Main}} is allowed instead of implicit content, not
@@ -482,7 +501,7 @@ internal static class TemplateEmitter
                 if (main.Any(n => n is not StaticNode s || s.Text.Trim().Length > 0))
                 {
                     Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, "has both '{{fill Main}}' and top-level content — use one or the other");
-                    return;
+                    return null;
                 }
 
                 main = mainFill.Body;
@@ -494,12 +513,12 @@ internal static class TemplateEmitter
             if (!layoutSlots.Contains("Main"))
             {
                 Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, $"layout '{layout.Path}' does not declare '{{{{slot Main}}}}' — page content would be dropped");
-                return;
+                return null;
             }
             foreach (string filled in fills.Keys.Where(f => !layoutSlots.Contains(f)))
             {
                 Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, $"'{{{{fill {filled}}}}}' has no matching slot in layout '{layout.Path}'");
-                return;
+                return null;
             }
 
             bool ok = true;
@@ -510,15 +529,29 @@ internal static class TemplateEmitter
             });
             if (!ok)
             {
-                return;
+                return null;
             }
         }
         else if (ContainsFill(page.Body))
         {
             Report(context, page, TemplateDiagnostics.SlotMisused, page.Path, "'{{fill …}}' requires an '@layout' directive");
-            return;
+            return null;
         }
 
+        return (parameters, body);
+    }
+
+    private static void EmitTemplate(
+        SourceProductionContext context,
+        IReadOnlyDictionary<string, TemplateModel> templates,
+        TemplateModel page,
+        List<TemplateParam> parameters,
+        List<Node> body,
+        string rootNamespace,
+        HashSet<string> broken,
+        HashSet<string> needingLocale,
+        TemplateFormatter.FormatPlan plan)
+    {
         (string ns, string className) = SplitClassName(rootNamespace, page.Path);
 
         StringBuilder code = new();
@@ -548,11 +581,31 @@ internal static class TemplateEmitter
         string signature = string.Join(", ", parameterDeclarations);
         string renderParams = parameterDeclarations.Count == 0 ? "" : ", " + signature;
 
+        // Render is the standalone/page shape (spec 004): depth 0, trailing
+        // newline kept, independent of any call graph. Each distinct partial
+        // call-site depth additionally gets a RenderAtD{n} overload whose static
+        // chunks are indented for that depth and splice mid-stream. A template
+        // the formatter bailed on keeps its original, unformatted body.
+        TemplateFormatter.FormattedBody? standalone = plan.StandaloneBody(page.Path);
         code.AppendLine($"    public static void Render(ref TemplateWriter writer{renderParams})");
         code.AppendLine("    {");
-        EmitNodes(context, templates, page, body, code, indent: 2, broken, rootNamespace, needingLocale);
+        EmitNodes(context, templates, page, standalone?.Nodes ?? body, code, indent: 2, broken, rootNamespace, needingLocale, standalone?.CallDepths, plan);
         code.AppendLine("    }");
         code.AppendLine();
+        foreach (int depth in plan.PartialDepths(page.Path))
+        {
+            TemplateFormatter.FormattedBody? formatted = plan.PartialBodyFor(page.Path, depth);
+            if (formatted is null)
+            {
+                continue;
+            }
+
+            code.AppendLine($"    public static void RenderAtD{depth}(ref TemplateWriter writer{renderParams})");
+            code.AppendLine("    {");
+            EmitNodes(context, templates, page, formatted.Nodes, code, indent: 2, broken, rootNamespace, needingLocale, formatted.CallDepths, plan);
+            code.AppendLine("    }");
+            code.AppendLine();
+        }
         string trailingArguments = argumentNames.Count == 0 ? "" : ", " + string.Join(", ", argumentNames);
         code.AppendLine($"    public static string ToHtmlString({signature}) =>");
         code.AppendLine($"        TemplateResults.ToHtmlString((ref TemplateWriter writer) => Render(ref writer{trailingArguments}));");
@@ -647,7 +700,9 @@ internal static class TemplateEmitter
         int indent,
         HashSet<string> broken,
         string rootNamespace,
-        HashSet<string> needingLocale)
+        HashSet<string> needingLocale,
+        Dictionary<PartialNode, int>? callDepths,
+        TemplateFormatter.FormatPlan plan)
     {
         string pad = new(' ', indent * 4);
         foreach (Node node in nodes)
@@ -668,13 +723,13 @@ internal static class TemplateEmitter
                 case IfNode i:
                     code.AppendLine($"{pad}if ({i.Condition})");
                     code.AppendLine($"{pad}{{");
-                    EmitNodes(context, templates, page, i.Then, code, indent + 1, broken, rootNamespace, needingLocale);
+                    EmitNodes(context, templates, page, i.Then, code, indent + 1, broken, rootNamespace, needingLocale, callDepths, plan);
                     code.AppendLine($"{pad}}}");
                     if (i.Else.Count > 0)
                     {
                         code.AppendLine($"{pad}else");
                         code.AppendLine($"{pad}{{");
-                        EmitNodes(context, templates, page, i.Else, code, indent + 1, broken, rootNamespace, needingLocale);
+                        EmitNodes(context, templates, page, i.Else, code, indent + 1, broken, rootNamespace, needingLocale, callDepths, plan);
                         code.AppendLine($"{pad}}}");
                     }
 
@@ -682,11 +737,11 @@ internal static class TemplateEmitter
                 case ForNode f:
                     code.AppendLine($"{pad}foreach (var {f.Variable} in {f.Expression})");
                     code.AppendLine($"{pad}{{");
-                    EmitNodes(context, templates, page, f.Body, code, indent + 1, broken, rootNamespace, needingLocale);
+                    EmitNodes(context, templates, page, f.Body, code, indent + 1, broken, rootNamespace, needingLocale, callDepths, plan);
                     code.AppendLine($"{pad}}}");
                     break;
                 case PartialNode p:
-                    EmitPartialCall(context, templates, page, p, code, pad, broken, rootNamespace, needingLocale);
+                    EmitPartialCall(context, templates, page, p, code, pad, broken, rootNamespace, needingLocale, callDepths, plan);
                     break;
                 case SlotNode:
                 case FillNode:
@@ -705,7 +760,9 @@ internal static class TemplateEmitter
         string pad,
         HashSet<string> broken,
         string rootNamespace,
-        HashSet<string> needingLocale)
+        HashSet<string> needingLocale,
+        Dictionary<PartialNode, int>? callDepths,
+        TemplateFormatter.FormatPlan plan)
     {
         if (!templates.TryGetValue(partial.Path, out TemplateModel? target))
         {
@@ -751,7 +808,18 @@ internal static class TemplateEmitter
         callArguments.AddRange(target.Params.Select(p =>
             $"{p.Name}: {partial.Args.First(a => a.Key == p.Name).Value}"));
         string arguments = callArguments.Count == 0 ? "" : ", " + string.Join(", ", callArguments);
-        code.AppendLine($"{pad}global::{ns}.{className}.Render(ref writer{arguments});");
+
+        // A formatted caller binds the depth-matched splice overload (the
+        // formatter bails callers whose callee variant is missing, so it exists);
+        // an unformatted caller calls the standalone Render, as before formatting.
+        string method = "Render";
+        if (callDepths is not null && callDepths.TryGetValue(partial, out int absoluteDepth)
+            && plan.PartialBodyFor(target.Path, absoluteDepth) is not null)
+        {
+            method = $"RenderAtD{absoluteDepth}";
+        }
+
+        code.AppendLine($"{pad}global::{ns}.{className}.{method}(ref writer{arguments});");
     }
 
     internal static string FullClassName(string rootNamespace, string path)

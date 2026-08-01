@@ -35,12 +35,12 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   user dislikes how the `<meta name="request-verification-token">` + hidden-input plumbing looks.
   Candidate: a Rails-style per-session token behind a small helper so the markup reads cleaner —
   needs a decision on trading away per-request masking.
-- DevMarks: formatted-HTML-source retrofit for the slice-1 pages (user asked for properly
-  formatted markup; deferred from the scaffold). Explicitly left out of the T9 hardening pass on
-  2026-07-30: cosmetic, not an acceptance criterion — new markup since the scaffold is indented.
-
 - Render engine deferred review findings (V2 review, 2026-07-31; the fixable ones were fixed
   in-branch, these need design work):
+  - Layout-as-partial params: `EmitPartialCall` binds `target.Params` rather than the composed
+    parameter list, so a `@layout` page called as a partial gets the wrong signature
+    (pre-existing, found in the spec 004 B1 round-2 review, 2026-08-01; no current template
+    hits it).
   - URL-context safety: `href="{{Url}}"` with a `javascript:` value passes both encoder paths
     untouched (same gap as Razor). Full fix is HTML-context-aware generation; interim is the
     documented convention that URL values from user data get scheme-validated in C#.
