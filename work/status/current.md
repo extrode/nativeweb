@@ -6,7 +6,6 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 003 close-out** — both repos green across all three suites; zero-warning Release
-  AOT publishes; screenshots (manzil.my en+ms, static landing incl. the V8 pages, trap
-  invisibility); size/startup baselines into `scripts/ci/publish-budgets.json`; CHANGELOG
-  entry; archive pointer; `scripts/cleanup/architecture-v2.ps1` written (never run).
+- Nothing in flight: spec 003 shipped 2026-08-01. Candidates live in `../todo.md`; the
+  sign-off-gated epass.io production cutover stays parked until the user calls it (enable
+  `NativeWeb:Telemetry:Enabled` first — standing reminder).

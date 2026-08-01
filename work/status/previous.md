@@ -5,15 +5,10 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **V10 (spec 003)** — `feat/manzil-extraction` + `chore/remove-devmarks` (both merged into
-  `dev`): `scripts/extract-manzil.ps1` (dry-run default, `-Execute`) created
-  `C:\home\code\extrode-legacy-org.com\manzil.my` — full rename (nativeweb.devmarks* → manzil*,
-  DevMarks → Manzil, devmarks_dev/app → manzil_dev/app), db/devmarks flattened to db/,
-  skeleton scaffolding stamped, framework refs repointed to the `$(NativeWebRoot)`
-  dual-mode split, fresh git history (main + dev). manzil.my: 0-warning checkout-mode
-  build, 217 unit / 81 integration / 12 e2e green (axe + trap visibility through a real
-  AOT publish). Review fixes: db/ path flattening in the rename map, partial-destination
-  cleanup on failure, dry-run-exits-0 contract, LF-normalised patch anchors,
-  skeleton/.gitattributes. Then DevMarks removed from NativeWeb (projects, slnx, CI
-  steps, budgets entry, stale comments; security-baseline/conventions rescoped to the
-  IdP) — NativeWeb still 0-warning, 349+75 unit / 236 integration / 49 e2e green.
+- **Spec 003 close-out** — both repos green across all three suites (NativeWeb 349+75/236/49,
+  manzil.my 217/81/12); zero-warning NativeAOT publishes (web 36,918,272 B / 881 ms,
+  manzil 30,483,968 B / 977 ms to `/healthz`); web baseline recorded as the CI budget
+  (`scripts/ci/publish-budgets.json`: 42.5 MB / 5000 ms ceilings); screenshots verified
+  (manzil en+ms home + sign-in, traps invisible; IdP about + 404 shell); CHANGELOG entry
+  under [Unreleased]; archive pointer `work/archive/2026-08-01-architecture-v2.md`;
+  `scripts/cleanup/architecture-v2.ps1` written (never run). Spec 003 fully shipped.
