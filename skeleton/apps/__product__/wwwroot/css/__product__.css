@@ -1,0 +1,43 @@
+/* __PRODUCT__-specific styles. tokens/base/components carry the shared design
+   system; this file is the product's own layer, seeded with the chrome the
+   skeleton layout uses. Grow it here rather than editing the shared files. */
+
+/* --- Top bar ------------------------------------------------------------ */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 12px 24px;
+  background: var(--s1);
+  border-bottom: 1px solid var(--bd);
+}
+
+/* --t1, not the bare-link accent: the accent green fails WCAG AA (4.5:1)
+   against the page background, which axe flags in the e2e gate. */
+.topbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--t1);
+  text-decoration: none;
+}
+
+.topbar__logo {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--rs);
+}
+
+/* --- Footer ------------------------------------------------------------- */
+
+.foot {
+  padding: 18px 24px;
+  border-top: 1px solid var(--bd);
+  color: var(--t3);
+  font-size: 0.85rem;
+  text-align: center;
+}
