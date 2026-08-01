@@ -35,6 +35,10 @@ namespace NativeWeb.Render.Generator;
 ///    {{for}} body that does not return to its starting depth, a partial cycle,
 ///    or a depth set past its cap) bails the whole template out to its
 ///    unformatted form rather than misformatting it.
+///  - A call site whose depth is negative (the caller dipped below the document
+///    root before the call) has no representable overload, so the caller bails.
+///  - A callee whose splice body strips to nothing is unclean: splicing it would
+///    leave a blank or trailing-space line at the call site, so callers bail.
 /// </summary>
 internal static class TemplateFormatter
 {
@@ -154,12 +158,18 @@ internal static class TemplateFormatter
 
                     foreach (int baseDepth in BasesOf(caller.Key, depths))
                     {
-                        if (set.Count >= MaxDepthVariants && !set.Contains(baseDepth + relative))
+                        int absolute = baseDepth + relative;
+                        if (absolute < 0)
+                        {
+                            continue; // no RenderAtD{-n}: the cascade below bails the caller.
+                        }
+
+                        if (set.Count >= MaxDepthVariants && !set.Contains(absolute))
                         {
                             continue; // capped: the cascade below bails the caller.
                         }
 
-                        changed |= set.Add(baseDepth + relative);
+                        changed |= set.Add(absolute);
                     }
                 }
             }
@@ -284,10 +294,14 @@ internal static class TemplateFormatter
             {
                 Calls = [.. found.Select(f => (f.Node.Path, f.Depth))],
                 Delta = state.Depth,
-                EndsWithNewline = state.AtLineStart && !lastIsStrippableStatic,
+                EndsWithNewline = state.AtLineStart && !lastIsStrippableStatic && output.Count > 0,
                 Bailed = state.Bailed,
+                // An empty splice body (whitespace-only template) is unclean: the
+                // caller has already written its call-site indent, so splicing
+                // nothing leaves a blank or trailing-space line.
                 Clean = !state.Bailed && !state.InTag && !state.InComment
                     && state.Verbatim is null && state.Quote == '\0'
+                    && output.Count > 0
                     && !EmitsLeadingNewline(output),
             };
         }

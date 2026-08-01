@@ -240,6 +240,29 @@ public sealed class FormattingTests
     }
 
     [Fact]
+    public void Partial_CalledBelowTheDocumentRoot_BailsTheCaller()
+    {
+        // format/dip-call closes a </div> it never opened, so its call site sits
+        // at depth -1. No RenderAtD-1 overload exists to bind — this project
+        // compiling proves no invalid identifier was emitted — so the caller
+        // stays unformatted (its authored 4-space indent proves it).
+        string html = Templates.Format.DipCall.ToHtmlString();
+
+        Assert.Contains("\n    <b>d</b>\n", html, StringComparison.Ordinal);
+        Assert.Contains("<label for=\"d\">L</label>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Partial_WhoseBodyIsOnlyWhitespace_BailsTheCaller()
+    {
+        // format/blank strips to nothing when spliced: the caller would be left
+        // with a blank line where the call sits, so it must stay unformatted.
+        string html = Templates.Format.BlankCaller.ToHtmlString();
+
+        Assert.Contains("\n    <i>w</i>\n", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ForBodyNotReturningToItsStartDepth_BailsOutToUnformattedOutput()
     {
         // format/for-bail's loop body opens <li> without closing it, so depth
