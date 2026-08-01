@@ -10,7 +10,7 @@ code + tests together, review before merge, merged `--no-ff`.
   artifacts in its first commit. (R9–R12)
 - [ ] **B2** manzil.my `chore/formatting-fallout` — manzil test assertions updated to the
   formatted output; all three manzil suites green. (R12)
-- [ ] **B3** NativeWeb `feat/boot-js` — canonical `libs/nativeweb.assets/boot.js`; vendored
+- [x] **B3** NativeWeb `feat/boot-js` — canonical `libs/nativeweb.assets/boot.js`; vendored
   copies + parity tests (apps/web, skeleton); `docs/progressive-enhancement.md` rewritten to the
   decided model and cross-linked from `docs/conventions.md`; boot script tag before htmx in the
   IdP chrome and skeleton layout. (R1–R4, R8)
