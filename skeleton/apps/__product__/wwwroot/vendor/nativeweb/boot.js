@@ -12,8 +12,8 @@
  *    data-nw-* value is ignored for that attribute alone.
  *  - Transport comes from the HTML that already works without JavaScript:
  *    a form's method/action, an anchor's href. POST-only convention — no
- *    data-nw-method, no virtual PUT/PATCH/DELETE. A form with no explicit
- *    action gets NO derived transport: htmx resolves an empty path against
+ *    data-nw-method, no virtual PUT/PATCH/DELETE. A form with a missing or
+ *    empty action gets NO derived transport: htmx resolves an empty path against
  *    the base URL and merges query params where native submission replaces
  *    them, so the two paths would diverge.
  *  - data-nw-* source attributes are never removed or altered.
@@ -46,7 +46,7 @@
     if (hasTransport(el)) { return changed; }
     if (el.tagName === 'FORM') {
       var action = el.getAttribute('action');
-      if (action !== null) {
+      if (action) {
         var method = (el.getAttribute('method') || 'get').toLowerCase();
         el.setAttribute(method === 'post' ? 'hx-post' : 'hx-get', action);
         changed = true;
@@ -85,8 +85,11 @@
   // is not in that snapshot. Forms and submit buttons are — htmx selects them
   // unconditionally and reads their attributes after this event — but anything
   // else that gained an attribute is re-submitted to htmx.process() on a
-  // microtask, after the current processing pass; htmx's per-element init hash
-  // makes the second pass a no-op for everything the first one already wired.
+  // microtask, after the current processing pass. For untouched elements that
+  // is a no-op; for snapshot elements boot modified (forms) the attribute-hash
+  // mismatch triggers a clean de-init/re-init — listeners are removed before
+  // re-adding and load-trigger state is preserved, so no double handlers or
+  // duplicate requests.
   document.addEventListener('htmx:beforeProcessNode', function (event) {
     var modified = [];
     sweep(event.target, modified);
