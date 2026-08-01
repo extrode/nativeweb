@@ -83,6 +83,20 @@ jobs:
       - name: Build
         run: dotnet build --no-restore $DOTNET_BUILD_ARGS
 
+      # Spec 003 R31: fail the build when any resolved package (direct or
+      # transitive) has a known CVE. Reads the assets file from the package-mode
+      # restore above (`dotnet list` takes no MSBuild properties). The command
+      # exits 0 either way, so grep for the "> PackageName" marker line it
+      # prints per finding.
+      - name: Vulnerable package gate
+        run: |
+          out=$(dotnet list package --vulnerable --include-transitive)
+          echo "$out"
+          if echo "$out" | grep -Eq '^\s*>'; then
+            echo '::error::Vulnerable package(s) found -- see the list above.'
+            exit 1
+          fi
+
       - name: Install Playwright browsers
         run: pwsh tests/nativeweb.web.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
