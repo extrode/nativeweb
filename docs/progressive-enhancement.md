@@ -42,8 +42,13 @@ It is not a frontend framework and not a rendering engine. It never renders busi
 stores application state, never duplicates server validation, never replaces server routing.
 
 Two hooks cover every element: a `DOMContentLoaded` sweep for the initial document, and an
-`htmx:beforeProcessNode` listener so fragments swapped in by htmx are normalized before htmx
-wires them. Normalization is idempotent.
+`htmx:beforeProcessNode` listener for fragments swapped in by htmx. The second hook has a
+subtlety: htmx snapshots the elements it will initialize *before* this event fires, so an
+element that becomes enhanceable only through the attributes the sweep just added (say, a
+swapped-in `<a data-nw-target>`) is not in that snapshot — forms and submit buttons are, since
+htmx selects those unconditionally. boot.js therefore re-submits every element it modified to
+`htmx.process()` on a microtask after the current pass; htmx's per-element init guard makes
+that a no-op for anything already wired. Normalization is idempotent.
 
 ---
 
@@ -62,6 +67,9 @@ Transport is never written by hand — it comes from the element itself:
 
 - `<form method="post" action="/x" data-nw-…>` → `hx-post="/x"`; any other method → `hx-get`.
 - `<a href="/x" data-nw-…>` → `hx-get="/x"`.
+- A form with **no `action` attribute gets no derived transport** — htmx resolves an empty
+  path against the base URL and merges query params where native submission replaces them, so
+  the two paths would diverge. Enhanced forms always carry an explicit `action`.
 
 Example:
 
