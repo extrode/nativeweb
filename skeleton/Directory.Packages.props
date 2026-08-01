@@ -1,0 +1,49 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- Central package versions. Add PackageReference in csproj without Version.
+       Pins are copied from the NativeWeb repo (same machine, same toolchain). -->
+  <ItemGroup>
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <!-- Telemetry (spec 003 R33): metrics + traces, exported over OTLP, gated
+         behind __PRODUCT__:Telemetry:Enabled=false. All four move in lockstep;
+         bump together. -->
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+  </ItemGroup>
+
+  <!-- Package mode for the source-generator/framework dependencies
+       (-p:JauntyQUsePackages=true / -p:NativeWebUsePackages=true).
+       KNOWN GAP: the private feed these would restore from does not exist yet,
+       so package mode cannot currently restore. A local sibling checkout of
+       jauntyq and of NativeWeb (checkout mode, the default) is the working
+       path; these pins are here so package mode is a version bump away once
+       the feed lands. -->
+  <ItemGroup>
+    <PackageVersion Include="JauntyQ.Generator" Version="0.1.0" />
+    <PackageVersion Include="JauntyQ.Runtime" Version="0.1.0" />
+    <PackageVersion Include="NativeWeb.Security" Version="0.1.0" />
+    <PackageVersion Include="NativeWeb.Auth" Version="0.1.0" />
+    <PackageVersion Include="NativeWeb.Render" Version="0.1.0" />
+    <PackageVersion Include="NativeWeb.Render.Generator" Version="0.1.0" />
+  </ItemGroup>
+
+  <!-- Test-only packages. Referenced solely by tests/*, never by shipping code. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- Integration tests: WebApplicationFactory host. Matched to the
+         AspNetCore 10.0.x line. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
+    <!-- End-to-end browser tests. -->
+    <PackageVersion Include="Deque.AxeCore.Playwright" Version="4.12.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.49.0" />
+  </ItemGroup>
+
+</Project>

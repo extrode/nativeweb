@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible and analyzer settings come from Directory.Build.props.
+
+       This product's JauntyQ generator host: it globs db/queries/** and the
+       committed schema snapshot under db/schema/, and emits the typed query
+       and auto-CRUD accessors the app references. It compiles with zero
+       queries; the generator simply emits nothing until db/queries/ has
+       .sql files in it. -->
+
+  <ItemGroup>
+    <!-- The JauntyQ-generated code constructs Npgsql types directly. -->
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <!-- JauntyQ: source generator (as analyzer) + runtime. Local checkout via
+       ProjectReference for co-development; pinned NuGet packages in package
+       mode (-p:JauntyQUsePackages=true, e.g. CI with no sibling checkout). -->
+  <ItemGroup Condition="'$(JauntyQUsePackages)' != 'true'">
+    <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Runtime\JauntyQ.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(JauntyQUsePackages)' == 'true'">
+    <PackageReference Include="JauntyQ.Generator" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <PackageReference Include="JauntyQ.Runtime" />
+  </ItemGroup>
+
+  <!-- Inline SQL and the committed schema snapshot the generator reads. -->
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\db\queries\**\*.sql" />
+    <AdditionalFiles Include="..\..\db\schema\*.schema.json" />
+  </ItemGroup>
+
+</Project>

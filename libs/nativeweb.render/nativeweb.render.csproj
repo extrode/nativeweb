@@ -5,6 +5,16 @@
   <PropertyGroup>
     <RootNamespace>NativeWeb.Render</RootNamespace>
   </PropertyGroup>
+
+  <!-- Pack metadata (spec 003 R1): private-feed consumption only; see the
+       note in nativeweb.security.csproj. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Render</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>extrode-legacy-org</Authors>
+    <Description>NativeWeb framework: compiled-template render runtime (TemplateWriter, Html, IResult adapters, locale tables).</Description>
+  </PropertyGroup>
   <ItemGroup>
     <!-- IResult / HttpContext for the response adapter. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /csp-report
+Disallow: /pages
+Disallow: /healthz
+Disallow: /readyz
+
+Sitemap: https://__product__.example/sitemap.xml

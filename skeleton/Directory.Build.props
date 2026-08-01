@@ -1,0 +1,83 @@
+<Project>
+
+  <!-- Shared settings for every .NET project in the repo. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Treat trim/AOT analyzer findings as build-breaking so an
+         AOT-incompatible reference is caught early, not at publish.
+         Test projects self-override IsAotCompatible=false in their own
+         csproj (same convention as the sibling repos); nothing to exclude
+         here. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Style rules in .editorconfig at :warning severity fail the build (via
+         TreatWarningsAsErrors), so code style is enforced, not IDE-advisory. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!-- Source-generate the options binder so IConfiguration.Get<T>()/Bind()
+         work without reflection under NativeAOT. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- Local checkout of JauntyQ (data-access source generator), referenced by
+       project until JauntyQ ships on NuGet — same wiring as epass.io / reader.
+       Single-depth probe: NativeWeb sits one level under extrode.com, so
+       ..\..\extrode-legacy-org.com\jauntyq resolves to C:\home\code\extrode-legacy-org.com\jauntyq.
+       Override with -p:JauntyQRoot=... if your checkout lives elsewhere. -->
+  <PropertyGroup>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\..\extrode-legacy-org.com\jauntyq</JauntyQRoot>
+  </PropertyGroup>
+
+  <!-- Dual-mode JauntyQ resolution (mirrors justsmtp.com):
+       - local checkout present => ProjectReference for co-development;
+       - no checkout / CI => -p:JauntyQUsePackages=true pulls the pinned
+         JauntyQ.* packages (versions in Directory.Packages.props).
+       Default to package mode only when no checkout path is set at all. -->
+  <PropertyGroup>
+    <JauntyQUsePackages Condition="'$(JauntyQUsePackages)' == '' and '$(JauntyQRoot)' == ''">true</JauntyQUsePackages>
+  </PropertyGroup>
+
+  <!-- MSBuild only warns (MSB9008) and silently skips missing ProjectReferences,
+       which turns an unresolved JauntyQRoot into downstream CS0246s. Fail fast —
+       but only in checkout mode; package mode has no path to validate. -->
+  <Target Name="EnsureJauntyQRoot" BeforeTargets="BeforeBuild"
+          Condition="'$(JauntyQUsePackages)' != 'true' and !Exists('$(JauntyQRoot)')">
+    <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt; or build with -p:JauntyQUsePackages=true." />
+  </Target>
+
+  <!-- Local checkout of NativeWeb (the framework libs: security, auth, render
+       + render generator), referenced by project until the NativeWeb.* packages
+       publish. Single-depth probe: a stamped product repo sits beside its
+       framework, so ..\NativeWeb resolves to the sibling checkout. Override
+       with -p:NativeWebRoot=... if your checkout lives elsewhere. -->
+  <PropertyGroup>
+    <NativeWebRoot Condition="'$(NativeWebRoot)' == ''">$(MSBuildThisFileDirectory)..\NativeWeb</NativeWebRoot>
+  </PropertyGroup>
+
+  <!-- Dual-mode NativeWeb resolution, same split as JauntyQ above:
+       - local checkout present => ProjectReference for co-development;
+       - no checkout / CI => -p:NativeWebUsePackages=true pulls the pinned
+         NativeWeb.* packages (versions in Directory.Packages.props).
+       Default to package mode only when no checkout path is set at all. -->
+  <PropertyGroup>
+    <NativeWebUsePackages Condition="'$(NativeWebUsePackages)' == '' and '$(NativeWebRoot)' == ''">true</NativeWebUsePackages>
+  </PropertyGroup>
+
+  <!-- Same MSB9008 trap as JauntyQ: an unresolved NativeWebRoot silently drops
+       the ProjectReferences and surfaces as downstream CS0246s. Fail fast —
+       but only in checkout mode; package mode has no path to validate. -->
+  <Target Name="EnsureNativeWebRoot" BeforeTargets="BeforeBuild"
+          Condition="'$(NativeWebUsePackages)' != 'true' and !Exists('$(NativeWebRoot)')">
+    <Error Text="NativeWeb checkout not found at '$(NativeWebRoot)'. Pass -p:NativeWebRoot=&lt;path&gt; or build with -p:NativeWebUsePackages=true." />
+  </Target>
+
+</Project>

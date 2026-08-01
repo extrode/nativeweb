@@ -1,0 +1,62 @@
+<!--#template
+  @param string Title
+  @param __PRODUCT__.Render.AssetUrls Assets
+  @param string Nonce
+  @param string AntiforgeryFieldName
+  @param string BotCanary
+  @param string AntiforgeryToken
+-->
+<!DOCTYPE html>
+<html lang="{{locale.Lang}}" dir="{{locale.Dir}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="request-verification-token" content="{{AntiforgeryToken}}">
+<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+<title>{{Title}}</title>
+<script nonce="{{Nonce}}">
+(function(){
+  try {
+    var stored = localStorage.getItem('theme');
+    var theme = stored === 'light' || stored === 'dark'
+      ? stored
+      : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="{{Assets.Resolve("/css/tokens.css")}}">
+<link rel="stylesheet" href="{{Assets.Resolve("/css/base.css")}}">
+<link rel="stylesheet" href="{{Assets.Resolve("/css/components.css")}}">
+<link rel="stylesheet" href="{{Assets.Resolve("/vendor/fonts/fonts.css")}}">
+<link rel="icon" type="image/svg+xml" href="{{Assets.Resolve("/img/logo.svg")}}">
+<script src="{{Assets.Resolve("/vendor/htmx/htmx.min.js")}}" defer></script>
+<script src="{{Assets.Resolve("/vendor/alpinejs/alpine.min.js")}}" defer></script>
+<script nonce="{{Nonce}}">
+document.addEventListener('htmx:configRequest', function (event) {
+  var meta = document.querySelector('meta[name="request-verification-token"]');
+  if (meta) {
+    event.detail.headers['RequestVerificationToken'] = meta.content;
+  }
+});
+document.addEventListener('htmx:afterSwap', function (event) {
+  var scope = event.target;
+  if (!scope || typeof scope.querySelector !== 'function') { return; }
+  var focusTarget = scope.matches && scope.matches('[autofocus]')
+    ? scope
+    : scope.querySelector('[autofocus]');
+  if (focusTarget) { focusTarget.focus(); }
+});
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main">{{t:chrome.skip}}</a>
+<header class="topbar">
+<a class="topbar__brand" href="/"><img class="topbar__logo" src="{{Assets.Resolve("/img/logo.svg")}}" alt="">__PRODUCT__</a>
+</header>
+<main id="main" tabindex="-1">
+{{slot Main}}
+</main>
+<footer class="foot">{{t:chrome.footer}}</footer>
+</body>
+</html>

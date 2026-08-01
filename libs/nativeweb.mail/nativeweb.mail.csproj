@@ -3,6 +3,16 @@
   <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
        IsAotCompatible and analyzer settings come from Directory.Build.props. -->
 
+  <!-- Pack metadata (spec 003 R1): private-feed consumption only; see the
+       note in nativeweb.security.csproj. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Mail</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>extrode-legacy-org</Authors>
+    <Description>NativeWeb framework: AOT-safe SMTP transport for login links and codes.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- ILoginLinkSender / ICodeSender abstractions and CodeChannel. -->
     <ProjectReference Include="..\nativeweb.auth\nativeweb.auth.csproj" />

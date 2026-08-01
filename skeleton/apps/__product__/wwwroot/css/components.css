@@ -1,0 +1,379 @@
+/* v2 component styles ported from docs/design-prototypes/epass.zip (v2/shared.jsx
+   Btn/Input/Field/AuthCard primitives), rebuilt as real form markup + CSS classes
+   instead of the prototype's decorative JSX divs. Built entirely on tokens.css's
+   custom properties -- no new colors introduced here. */
+
+a {
+  color: var(--ac);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--ac-h);
+  text-decoration: underline;
+}
+
+/* One focus ring for everything keyboard-reachable. :focus-visible rather than
+   :focus so a mouse click on a button doesn't leave a ring behind, but a Tab to
+   it does. The transparent outline underneath is not decorative: Windows High
+   Contrast Mode discards box-shadow entirely and repaints outline in the forced
+   palette, so an outline-less box-shadow ring is invisible to exactly the users
+   who need it most. */
+/* Spelled out rather than wrapped in :where(): :where() contributes no
+   specificity, so this rule scored the same (0,1,0) as `.btn--primary`'s resting
+   `box-shadow: var(--sh1)` and lost the tie on source order -- the focus ring
+   silently never painted on any button. `button:focus-visible` is (0,1,1) and
+   wins outright.
+   [tabindex] is deliberately narrowed to exclude -1: <main> carries tabindex="-1"
+   purely so the skip link can move focus into it, and Chromium will match it
+   with :focus-visible on that keyboard-driven jump -- which would wrap a ring
+   around the entire page. The main:focus rule below only clears the outline, not
+   this box-shadow, so the exclusion has to happen here. */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--ac-dim), 0 0 0 1px var(--ac);
+}
+
+/* The first thing in the tab order on every page: invisible until focused, then
+   pinned to the top-left so keyboard users can jump the (short, but growing)
+   header run-in straight to <main>. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 10;
+  padding: 10px 16px;
+  background: var(--s1);
+  color: var(--t1);
+  border: 1px solid var(--bd2);
+  border-radius: var(--rm);
+  box-shadow: var(--sh2);
+}
+
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
+}
+
+/* <main> is not an interactive control, so it must not look focused when the
+   skip link hands it focus. */
+main:focus,
+main:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 15px;
+  border: 1px solid transparent;
+  border-radius: var(--rm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.12s;
+}
+
+.btn:hover {
+  filter: brightness(0.96);
+}
+
+.btn--primary {
+  background: var(--ac);
+  color: var(--on-ac);
+  box-shadow: var(--sh1);
+}
+
+.btn--outline {
+  background: var(--s1);
+  border-color: var(--bd2);
+  color: var(--t1);
+  box-shadow: var(--sh1);
+}
+
+.btn--lg {
+  font-size: 14.5px;
+  padding: 11px 20px;
+}
+
+.btn--full {
+  width: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--t2);
+}
+
+.input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  color: var(--t1);
+  background: var(--s1);
+  border: 1px solid var(--bd2);
+  box-shadow: var(--sh1);
+  border-radius: var(--rm);
+  padding: 9.5px 12px;
+}
+
+/* Inputs keep :focus (not :focus-visible): a text field that has been clicked
+   into is genuinely focused for typing, and hiding that is disorienting. Same
+   transparent-outline reasoning as the shared ring above -- the border-colour
+   change alone is a colour-only cue and vanishes under forced colours. */
+.input:focus {
+  outline: 2px solid transparent;
+  outline-offset: 0;
+  border-color: var(--ac);
+  box-shadow: 0 0 0 3px var(--ac-dim);
+}
+
+.input::placeholder {
+  color: var(--t3);
+}
+
+.field__hint {
+  font-size: 12.5px;
+  color: var(--t2);
+  margin: 0;
+}
+
+.banner {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-radius: var(--rm);
+  padding: 10px 13px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* --err-fg / --ok-fg, not --err / --ok: see the contrast note in tokens.css --
+   the brand red and green are legible on a plain surface but fall just short of
+   4.5:1 on their own tinted banner fills. */
+.banner--err {
+  background: var(--err-dim);
+  color: var(--err-fg);
+}
+
+.banner--ok {
+  background: var(--ok-dim);
+  color: var(--ok-fg);
+}
+
+.btn--danger {
+  background: var(--err-dim);
+  color: var(--err-fg);
+}
+
+.auth-board {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40px;
+}
+
+.auth-card {
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: var(--s1);
+  border: 1px solid var(--bd);
+  border-radius: var(--rx);
+  box-shadow: var(--sh2);
+  padding: 34px 34px 30px;
+}
+
+.auth-card__logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+
+.auth-card__logo img {
+  display: block;
+  border-radius: 9px;
+}
+
+.auth-card__title {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  text-align: center;
+  margin: 0;
+}
+
+.auth-card__foot {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--t2);
+  text-align: center;
+}
+
+/* A link sitting inside prose can't rely on color alone to announce itself
+   (WCAG 1.4.1 / axe link-in-text-block); the global `a` rule strips the
+   underline, so text-block links put it back. */
+.auth-card__foot a {
+  text-decoration: underline;
+}
+
+/* Settings (Slice 6): a wider, multi-section page rather than a single narrow
+   auth-card -- profile/2FA/passkeys/sessions each get their own card so an
+   htmx swap of one section never disturbs the others. */
+
+.settings-board {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 24px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.settings-section {
+  background: var(--s1);
+  border: 1px solid var(--bd);
+  border-radius: var(--rx);
+  box-shadow: var(--sh2);
+  padding: 26px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-section__title {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 16px;
+  margin: 0;
+}
+
+.settings-section__desc {
+  font-size: 13px;
+  color: var(--t2);
+  margin: -8px 0 0;
+}
+
+/* A <ul>/<li>, so a screen reader announces "list, N items" and offers
+   list navigation -- the visual layout is still flex, hence the marker/padding
+   reset. */
+.settings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--bd2);
+  border-radius: var(--rm);
+}
+
+.settings-list__meta {
+  font-size: 12.5px;
+  color: var(--t2);
+}
+
+.settings-list__empty {
+  font-size: 13px;
+  color: var(--t2);
+}
+
+/* Tag-management rows: the rename form sits inline with the badge and the
+   visibility toggle instead of stacking full-width controls. */
+.bm__meta form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bm__meta .input {
+  width: auto;
+  flex: 0 1 220px;
+  min-width: 120px;
+}
+
+.bm-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.bm-search .field__label {
+  margin: 0;
+}
+
+.bm-search .input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Honour the OS "reduce motion" setting (WCAG 2.3.3). There is only one
+   transition in this stylesheet today, but the rule is the cheap insurance that
+   keeps the next one from shipping unguarded. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* htmx request indicators. htmx normally injects these as an inline <style>,
+   which the nonce'd style-src blocks; includeIndicatorStyles is off in the
+   htmx-config meta and the rules live here instead. */
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
+/* --- Bot traps (R22/R24) ------------------------------------------------ */
+
+/* Moves the offscreen honeypot pair out of view without display:none, so a
+   bot walking visible-looking inputs still fills them. Removing or renaming
+   this class un-hides the traps for real users - the e2e computed-visibility
+   test exists to catch exactly that. */
+.bt-extra {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

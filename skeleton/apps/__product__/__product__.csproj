@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible, TreatWarningsAsErrors, EnableConfigurationBindingGenerator
+       and central package management all come from Directory.Build.props /
+       Directory.Packages.props. -->
+  <PropertyGroup>
+    <PublishAot>true</PublishAot>
+    <!-- R36 publish posture: native symbols out of the shipped binary (they
+         land in the sibling .pdb either way), AOT compiler optimizing for
+         speed over size. Lives here, not Directory.Build.props: AOT knobs on
+         a non-AOT project (a netstandard2.0 generator) trip NETSDK1207. -->
+    <StripSymbols>true</StripSymbols>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <RootNamespace>__PRODUCT__</RootNamespace>
+    <UserSecretsId>__product__</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <!-- R33: metrics + traces behind __PRODUCT__:Telemetry:Enabled (default off).
+         Npgsql needs no instrumentation package; its ActivitySource/Meter are
+         built in and subscribed by name in Program.cs. -->
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- This product's own JauntyQ generated types (db/). -->
+    <ProjectReference Include="..\..\libs\__product__.data\__product__.data.csproj" />
+  </ItemGroup>
+
+  <!-- Framework libs: local checkout via ProjectReference for co-development;
+       pinned NuGet packages in package mode (-p:NativeWebUsePackages=true, e.g.
+       CI with no sibling checkout). Same dual-mode split JauntyQ uses in
+       libs/__product__.data. -->
+  <ItemGroup Condition="'$(NativeWebUsePackages)' != 'true'">
+    <!-- Passphrases (Argon2id), OpaqueTokens, Sha256Hex, BotTraps. -->
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.security\nativeweb.security.csproj" />
+    <!-- LockoutPolicy, breach/common-passphrase checkers. -->
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.auth\nativeweb.auth.csproj" />
+    <!-- Compiled-template render engine: runtime + the source generator that
+         turns templates/**/*.html and locales/*.json below into C#. -->
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj" />
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(NativeWebUsePackages)' == 'true'">
+    <PackageReference Include="NativeWeb.Security" />
+    <PackageReference Include="NativeWeb.Auth" />
+    <PackageReference Include="NativeWeb.Render" />
+    <PackageReference Include="NativeWeb.Render.Generator" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="templates\**\*.html" />
+    <!-- Not **: the generator only accepts files directly under locales/. -->
+    <AdditionalFiles Include="locales\*.json" />
+  </ItemGroup>
+
+</Project>

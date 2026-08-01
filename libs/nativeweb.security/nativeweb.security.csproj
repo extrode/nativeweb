@@ -1,5 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Pack metadata (spec 003 R1): products consume the framework libs either
+       as a sibling checkout via $(NativeWebRoot) ProjectReferences or as these
+       packages from a PRIVATE feed. Never publish publicly: the products'
+       JauntyQ license permits self-hosted use only. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Security</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>extrode-legacy-org</Authors>
+    <Description>NativeWeb framework: Argon2id passphrases, opaque tokens, bot traps, security primitives.</Description>
+  </PropertyGroup>
+
   <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
        IsAotCompatible and analyzer settings come from Directory.Build.props. -->
 

@@ -1,0 +1,102 @@
+/* Design tokens ported from docs/design-prototypes/epass.zip (v2 direction).
+   Source values: v2/shared.jsx lines 2, 5-8. Do not hand-tune these without
+   updating the prototype too -- they're the single source of truth for the
+   brand's color/radius scale in both themes.
+
+   Two deliberate divergences from the prototype, both WCAG 2.1 AA (1.4.3
+   Contrast Minimum, 4.5:1 for body text) fixes made in the Slice 10 a11y pass:
+
+   1. --t3 (placeholder / tertiary text) measured 2.75:1 on light and 3.54:1 on
+      dark against its own surface. Darkened/lightened to clear 4.5:1. Note this
+      brings it close to --t2; the tertiary tone is now a subtle step rather
+      than a large one, which is the price of it being readable at all.
+      Darkened again on light in the V4 axe gate: #6b7a71 cleared 4.5:1 on the
+      white --s1 but only 4.12:1 on the page --bg (#f2f5f3), where the footer
+      sits; #64736a clears both.
+   2. --err / --ok are legible on the page background but NOT on their own
+      --err-dim / --ok-dim banner fills, where they measured ~4.0:1 (light) and
+      4.44:1 (dark). Rather than shift the brand colors everywhere, the banner
+      fills get their own --err-fg / --ok-fg foregrounds; --err / --ok keep
+      their prototype values for any use directly on a surface. */
+
+:root,
+[data-theme="light"] {
+  --bg: #f2f5f3;
+  --s1: #ffffff;
+  --s2: #f7faf8;
+  --s3: #ecf1ee;
+  --bd: #e3e9e5;
+  --bd2: #d0dad4;
+  --t1: #182420;
+  --t2: #5b6a62;
+  --t3: #64736a;
+  --ac: #27844a;
+  --ac-h: #1f6f3d;
+  --on-ac: #fff;
+  --ac-dim: rgba(58, 155, 88, 0.12);
+  --ac-bd: rgba(46, 139, 82, 0.35);
+  --ok: #27844a;
+  --ok-dim: rgba(39, 132, 74, 0.12);
+  --ok-fg: #1f6b3c;
+  --warn: #a06a06;
+  --warn-dim: rgba(178, 120, 18, 0.13);
+  --err: #cf4444;
+  --err-dim: rgba(207, 68, 68, 0.1);
+  --err-fg: #b93232;
+  --info: #2c6cc4;
+  --info-dim: rgba(44, 108, 196, 0.1);
+  --sh1: 0 1px 2px rgba(20, 40, 30, 0.06);
+  --sh2: 0 12px 36px rgba(15, 35, 25, 0.16);
+}
+
+[data-theme="dark"] {
+  --bg: #0e1411;
+  --s1: #151c18;
+  --s2: #1a231e;
+  --s3: #212c26;
+  --bd: rgba(170, 210, 185, 0.1);
+  --bd2: rgba(170, 210, 185, 0.22);
+  --t1: #e7efe9;
+  --t2: #9cb0a5;
+  --t3: #75877b;
+  --ac: #4fb673;
+  --ac-h: #5fc582;
+  --on-ac: #0a1a10;
+  --ac-dim: rgba(79, 182, 115, 0.15);
+  --ac-bd: rgba(79, 182, 115, 0.4);
+  --ok: #4fb673;
+  --ok-dim: rgba(79, 182, 115, 0.15);
+  --ok-fg: #4fb673;
+  --warn: #e0a33a;
+  --warn-dim: rgba(224, 163, 58, 0.14);
+  --err: #e06767;
+  --err-dim: rgba(224, 103, 103, 0.13);
+  --err-fg: #e87b7b;
+  --info: #6ba3e8;
+  --info-dim: rgba(107, 163, 232, 0.13);
+  --sh1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --sh2: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+:root,
+[data-corners="soft"] {
+  --rs: 6px;
+  --rm: 10px;
+  --rl: 14px;
+  --rx: 20px;
+}
+
+[data-corners="crisp"] {
+  --rs: 3px;
+  --rm: 6px;
+  --rl: 9px;
+  --rx: 13px;
+}
+
+:root {
+  --brand: #4aab69;
+  --brand-grad: linear-gradient(180deg, #5bbc7a, #3a9b58);
+  --font-head: "Sora", sans-serif;
+  --font-body: "Instrument Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
