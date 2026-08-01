@@ -114,7 +114,8 @@ Verified empirically with a canary in each file, both directions. Every other ag
 
 ## Response compression and BREACH (spec 003 R32)
 
-Both apps compress `text/html` only, Brotli-first, with `EnableForHttps=true`. Compressing
+The app compresses `text/html` only, Brotli-first, with `EnableForHttps=true` (as do the
+products stamped from `skeleton/`). Compressing
 secret-bearing HTML over TLS is the precondition for BREACH-class attacks, so the acceptance is
 deliberate and bounded:
 

@@ -40,9 +40,7 @@ $startInfo.EnvironmentVariables['ASPNETCORE_ENVIRONMENT'] = 'Development'
 # under CoreCLR, so this is the only place the OTel registration path is
 # exercised inside the actual NativeAOT image before production flips the
 # flag. No collector exists here; export failures are background warnings.
-# Each app reads its own prefix and ignores the other's.
 $startInfo.EnvironmentVariables['NativeWeb__Telemetry__Enabled'] = 'true'
-$startInfo.EnvironmentVariables['DevMarks__Telemetry__Enabled'] = 'true'
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $process = [System.Diagnostics.Process]::Start($startInfo)

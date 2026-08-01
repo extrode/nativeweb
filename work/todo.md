@@ -138,3 +138,8 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   install step, and `ilammy/msvc-dev-cmd@v1` is a mutable tag (pin to a commit SHA — look the
   SHA up, don't guess); (d) devmarks `/` endpoint carries no rate-limit policy and `/readyz`
   is an un-rate-limited DB round trip in both apps.
+- V10 removal review: `Directory.Packages.props` pins `Microsoft.AspNetCore.OpenApi` 10.0.7 and
+  `Microsoft.OpenApi` 2.7.5 with no remaining consumer in any csproj (the transitive-override
+  comment is now false); removing pins counts as dependency removal, so left for a confirmed
+  cleanup. Also trivial: `check-publish-budgets.ps1` `-Port` default 5999 is unreachable (sole
+  caller passes 5998).
