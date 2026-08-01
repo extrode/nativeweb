@@ -51,6 +51,7 @@ this document. Items marked ☐ are known-open, with the reason.
 | ✓ | Control | Where |
 |---|---------|-------|
 | ☑ | CSP: default-src 'self', per-request nonce for scripts/styles, frame-ancestors 'none' | both `SecurityHeadersMiddleware` |
+| ☑ | Static pages (V8): stricter nonce-free CSP branch — default-src 'none', no script-src at all, form-action 'none'; error pages use the same branch | both `SecurityHeadersMiddleware.StaticPageCsp`, marker set by `StaticPagesMiddleware`/`ErrorPageMiddleware` |
 | ☑ | CSP violation reporting: report-uri + Reporting-Endpoints → rate-limited `POST /csp-report`, logged raw, never deserialized | both `CspReportEndpoint.cs` (V6) |
 | ☑ | HSTS 1 y includeSubDomains, non-Development only | both `SecurityHeadersMiddleware` (V6) |
 | ☑ | Permissions-Policy denying unused powerful features (WebAuthn's stay at default 'self') | both `SecurityHeadersMiddleware` (V6) |

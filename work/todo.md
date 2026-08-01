@@ -117,3 +117,12 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   invalidates outstanding antiforgery tokens; mirror web's PersistKeysToFileSystem block.
 - (V6 review, fable) devmarks loads user-secrets unconditionally rather than
   Development-only (web gates it); align.
+- (V8 review, opus) robots.txt/sitemap.xml hardcode the production hosts (epass.io,
+  manzil.my) and are served verbatim in every environment, so staging advertises a
+  production Sitemap URL; acceptable-if-intentional but unrecorded — decide at cutover.
+- (V8 review, opus) apps/web sitemap.xml advertises https://epass.io/ while `/` still
+  serves the temporary "Phase 0 foundation is up" landing; ship the real landing before
+  submitting the sitemap anywhere.
+- (V8) The plan's "`/` → landing where the product wants it" was deliberately deferred:
+  both apps keep a dynamic session-aware `/`; manzil.my decides its own static landing
+  during the V10 extraction.
