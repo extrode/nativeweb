@@ -5,16 +5,15 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **V9 (spec 003)** — `feat/skeleton` (merged into `dev`): `skeleton/` tokenized
-  (`__PRODUCT__`/`__product__`) product shell — full v2 pipeline, templates/locales,
-  static pages, JauntyQ data lib, db runner, three test tiers with fixtures + smoke
-  tests, ci.yml (package mode wired, feed-gapped), systemd unit + Windows service
-  script, operating files, ASVS checklist. `tools/new-product.ps1` stamps it (dry-run
-  default, `-Execute`). Six framework libs got pack metadata (private feed only;
-  generator packs as analyzer). Dual review fixes: opt-in-only package mode + sentinel
-  checkout probes, UMask/700 key dir in the systemd unit, NetworkService on Windows,
-  drained fixture streams, axe 200-gate, PrivateAssets on generator refs, CI via
-  migrate.sh + clang install + env-var flags to the inner publish. Verified by
-  stamping a scratch product: 0-warning build, 15/5/2 green incl. axe through a real
-  AOT publish (the gate caught a topbar contrast bug — fixed by seeding the product
-  css layer).
+- **V10 (spec 003)** — `feat/manzil-extraction` + `chore/remove-devmarks` (both merged into
+  `dev`): `scripts/extract-manzil.ps1` (dry-run default, `-Execute`) created
+  `C:\home\code\extrode-legacy-org.com\manzil.my` — full rename (nativeweb.devmarks* → manzil*,
+  DevMarks → Manzil, devmarks_dev/app → manzil_dev/app), db/devmarks flattened to db/,
+  skeleton scaffolding stamped, framework refs repointed to the `$(NativeWebRoot)`
+  dual-mode split, fresh git history (main + dev). manzil.my: 0-warning checkout-mode
+  build, 217 unit / 81 integration / 12 e2e green (axe + trap visibility through a real
+  AOT publish). Review fixes: db/ path flattening in the rename map, partial-destination
+  cleanup on failure, dry-run-exits-0 contract, LF-normalised patch anchors,
+  skeleton/.gitattributes. Then DevMarks removed from NativeWeb (projects, slnx, CI
+  steps, budgets entry, stale comments; security-baseline/conventions rescoped to the
+  IdP) — NativeWeb still 0-warning, 349+75 unit / 236 integration / 49 e2e green.

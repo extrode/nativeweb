@@ -4,7 +4,6 @@ Exactly **one** task, the next one to start, pulled from `../tasklist.md` when t
 advances. The full task list for this body of work is `../tasklist.md`; the unscheduled backlog is
 `../todo.md`; where the project is going is `../milestones.md`.
 
-- **Spec 003 close-out** — both repos green across all three suites; zero-warning Release
-  AOT publishes; screenshots (manzil.my en+ms, static landing incl. the V8 pages, trap
-  invisibility); size/startup baselines into `scripts/ci/publish-budgets.json`; CHANGELOG
-  entry; archive pointer; `scripts/cleanup/architecture-v2.ps1` written (never run).
+- Nothing queued: spec 003's tasklist is fully ticked once the close-out lands. Candidates
+  live in `../todo.md`; the sign-off-gated epass.io production cutover stays parked until
+  the user calls it.
