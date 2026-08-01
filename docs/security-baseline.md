@@ -1,8 +1,10 @@
 # Security baseline (spec 003, R29)
 
 ASVS-derived checklist for the NativeWeb reference architecture, written as part of V6
-(`feat/security-baseline`). Scope: both apps (`apps/web`, the IdP; `apps/devmarks`, the first
-product). Each row names where the control lives so a reviewer can verify it rather than trust
+(`feat/security-baseline`). Scope: `apps/web`, the IdP. The first product (DevMarks) was
+extracted to the manzil.my repo in V10 and carries its own copy of this checklist; rows that
+named its implementation now describe the IdP only.
+Each row names where the control lives so a reviewer can verify it rather than trust
 this document. Items marked ☐ are known-open, with the reason.
 
 ## V2 — Authentication
@@ -22,10 +24,10 @@ this document. Items marked ☐ are known-open, with the reason.
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ☑ | Opaque server-side sessions (no stateful token on the client), single-DELETE revocation | IdP: `bff_store`; devmarks: `sessions` (hash-only at rest) |
+| ☑ | Opaque server-side sessions (no stateful token on the client), single-DELETE revocation | `bff_store` |
 | ☑ | `__Host-` prefixed cookie: Secure always, `Path=/`, no Domain, HttpOnly, SameSite=Lax | both `Auth/SessionAuth.cs` (V6) |
 | ☑ | Sign-out deletes the server row and expires the cookie with matching attributes | both `SignInEndpoints` + `SessionAuth.DeleteSessionCookie` |
-| ☑ | Sliding expiry bounded (devmarks), fixed lifetime 14 d | `SessionSliding` / `SessionAuthDefaults.Lifetime` |
+| ☑ | Fixed session lifetime 14 d | `SessionAuthDefaults.Lifetime` |
 | ☑ | Antiforgery token on every state-changing form post | `AddAntiforgery` + per-endpoint validation |
 
 ## V4 — Access control

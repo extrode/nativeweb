@@ -39,7 +39,7 @@
          range still matches Geralt's. -->
     <PackageVersion Include="NSec.Cryptography" Version="26.4.0" />
     <!-- Telemetry (spec 003 R33): metrics + traces, exported over OTLP, gated
-         behind {NativeWeb,DevMarks}:Telemetry:Enabled=false. All four move in
+         behind NativeWeb:Telemetry:Enabled=false. All four move in
          lockstep; bump together. -->
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
