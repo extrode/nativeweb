@@ -1,0 +1,88 @@
+# Security baseline (spec 003, R29)
+
+ASVS-derived checklist for the NativeWeb reference architecture, written as part of V6
+(`feat/security-baseline`). Scope: both apps (`apps/web`, the IdP; `apps/devmarks`, the first
+product). Each row names where the control lives so a reviewer can verify it rather than trust
+this document. Items marked ☐ are known-open, with the reason.
+
+## V2 — Authentication
+
+| ✓ | Control | Where |
+|---|---------|-------|
+| ☑ | Passphrases hashed with Argon2id, fixed cost parameters | `libs/nativeweb.security/Passphrases.cs` |
+| ☑ | Breach checking on set + sign-in (offline common-password list + HIBP k-anonymity, kill-switch) | `CompositeBreachChecker`; `NativeWeb:BreachCheck:Hibp` |
+| ☑ | Generic failure message; fake-identifier responses prevent user enumeration | `FakeIdentifierResponses`, sign-in/reset endpoints |
+| ☑ | Timing parity: unknown-user and bot-trapped paths pay the same Argon2id cost | V5 review fixes in both apps' `SignInEndpoints` |
+| ☑ | Account lockout / throttle on failed sign-ins | `LockoutPolicy` (both apps) |
+| ☑ | TOTP two-factor with recovery codes; WebAuthn (passkeys) incl. UserVerification step-up | `apps/web/Auth/TwoFactor*`, `WebAuthn*` |
+| ☑ | Forced-passphrase-reset confinement, operator lift control | `ForcedPassphraseResetMiddleware`, admin endpoints |
+| ☑ | Bot defense: 4 honeypots + signed time canary on every human form, per-endpoint fake successes | `libs/nativeweb.security/BotTraps.cs` (V5) |
+
+## V3 — Session management
+
+| ✓ | Control | Where |
+|---|---------|-------|
+| ☑ | Opaque server-side sessions (no stateful token on the client), single-DELETE revocation | IdP: `bff_store`; devmarks: `sessions` (hash-only at rest) |
+| ☑ | `__Host-` prefixed cookie: Secure always, `Path=/`, no Domain, HttpOnly, SameSite=Lax | both `Auth/SessionAuth.cs` (V6) |
+| ☑ | Sign-out deletes the server row and expires the cookie with matching attributes | both `SignInEndpoints` + `SessionAuth.DeleteSessionCookie` |
+| ☑ | Sliding expiry bounded (devmarks), fixed lifetime 14 d | `SessionSliding` / `SessionAuthDefaults.Lifetime` |
+| ☑ | Antiforgery token on every state-changing form post | `AddAntiforgery` + per-endpoint validation |
+
+## V4 — Access control
+
+| ✓ | Control | Where |
+|---|---------|-------|
+| ☑ | Operator gate derived per request from the user row, not baked into the session | `SessionClaimTypes.Operator` |
+| ☑ | Admin surface requires operator; audited (below) | `AdminEndpoints` |
+| ☑ | OAuth: PKCE, exact redirect-URI match, pairwise subjects, client auth on machine endpoints | `apps/web/Auth/OAuth*` |
+
+## V5 — Input handling
+
+| ✓ | Control | Where |
+|---|---------|-------|
+| ☑ | Global request-body ceiling 128 KB at Kestrel; single explicit raise (5 MB, /import) | both `Program.cs`; `TransferEndpoints.PostImport` (V6) |
+| ☑ | Request timeout default 30 s | both `Program.cs`, `AddRequestTimeouts` (V6) |
+| ☑ | Rate limiting: per-IP fixed windows on auth/admin/oauth/public/save/import/csp-report | both `Program.cs` |
+| ☑ | HTML output encoded by default; raw output only via the grep-able `Html.Raw` | `libs/nativeweb.render` (V2) |
+| ☑ | No reflection-based JSON deserialization of attacker input (AOT source-generated contexts only) | repo-wide; `/csp-report` reads raw bytes |
+
+## V13/V14 — HTTP security configuration
+
+| ✓ | Control | Where |
+|---|---------|-------|
+| ☑ | CSP: default-src 'self', per-request nonce for scripts/styles, frame-ancestors 'none' | both `SecurityHeadersMiddleware` |
+| ☑ | CSP violation reporting: report-uri + Reporting-Endpoints → rate-limited `POST /csp-report`, logged raw, never deserialized | both `CspReportEndpoint.cs` (V6) |
+| ☑ | HSTS 1 y includeSubDomains, non-Development only | both `SecurityHeadersMiddleware` (V6) |
+| ☑ | Permissions-Policy denying unused powerful features (WebAuthn's stay at default 'self') | both `SecurityHeadersMiddleware` (V6) |
+| ☑ | X-Content-Type-Options, X-Frame-Options, Referrer-Policy | both `SecurityHeadersMiddleware` |
+| ☑ | `no-store` + `Pragma: no-cache` on sensitive content types and secret-bearing redirects (incl. HX-Redirect) | both `SecurityHeadersMiddleware` |
+| ☑ | `security.txt` (RFC 9116) at /.well-known/ | both `SecurityTxtEndpoint.cs` (V6) |
+| ☐ | security.txt contact address is a placeholder (`security@epass.io` / `security@manzil.my`) — operator must confirm the real mailboxes and bump `Expires` yearly | `SecurityTxtEndpoint.cs` |
+
+## V7/V16 — Logging and auditing
+
+| ✓ | Control | Where |
+|---|---------|-------|
+| ☑ | Append-only `audit_log` (trigger-rejected UPDATE/DELETE), one row per mutating admin action, written on success only | migration `0052`, `db/queries/AuditLog/Insert.sql`, `AdminEndpoints.WriteAuditAsync` (V6) |
+| ☑ | Audit detail never carries secret material (rotate-secret logs the fact, not the secret) | `AdminEndpoints` |
+| ☑ | Structured trap events on every honeypot trip | `BotTraps.LogTripped` |
+| ☑ | Request logging without bodies or credentials | both `RequestLoggingMiddleware` |
+
+## V10/V1 — Dependencies and build
+
+| ✓ | Control | Where |
+|---|---------|-------|
+| ▢ | CI CVE gate: `dotnet list package --vulnerable --include-transitive` fails the build on any finding or on a vacuous audit. Wired in V6 but unverifiable until the CI package-feed gap below is closed -- the job dies at restore before the gate runs | `.github/workflows/ci.yml` (V6) |
+| ☑ | `TreatWarningsAsErrors` repo-wide incl. trim/AOT analyzers | `Directory.Build.props` |
+| ☑ | Central package versions, vendored htmx/Alpine (no CDN) | `Directory.Packages.props`, `wwwroot/vendor` |
+
+## Known-open items
+
+- **security.txt contact addresses** — placeholders until the operator confirms real mailboxes
+  (needs-decision, flagged in the V6 report).
+- **Canary replay breadth** — the bot-trap canary is app-bound, not session/path/single-use;
+  documented as an accepted bypass in `BotTraps.IssueCanary`.
+- **CI package-mode feed gap** — the CVE gate runs against the package-mode restore, which CI
+  cannot currently complete (known JauntyQ feed gap, tracked in memory/README).
+- **OTel off by default** — enable `NativeWeb:Telemetry:Enabled` before the epass.io traffic
+  switch (V7 delivers the hooks).
