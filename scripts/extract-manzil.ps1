@@ -227,7 +227,7 @@ $patches = @(
         New  = @'
     <!-- Caveat: this only suppresses transitive *project* references. In
          package mode NativeWeb.Auth's dependencies become compile-visible
-         again -- revisit the JauntyDb collision when the feed exists. -->
+         again; revisit the JauntyDb collision when the feed exists. -->
     <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
 '@
     }
