@@ -126,3 +126,6 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 - (V8) The plan's "`/` → landing where the product wants it" was deliberately deferred:
   both apps keep a dynamic session-aware `/`; manzil.my decides its own static landing
   during the V10 extraction.
+- Skeleton e2e process fixture runs its inner `dotnet publish` without the UsePackages flags,
+  so a stamped product's CI e2e step stays checkout-mode even once a package feed exists —
+  fold into the feed-gap fix (spec 003 R6).
