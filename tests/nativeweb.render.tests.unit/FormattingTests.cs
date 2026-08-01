@@ -72,6 +72,52 @@ public sealed class FormattingTests
     }
 
     [Fact]
+    public void Partial_RenderedStandalone_IsDepthZeroRegardlessOfCallers()
+    {
+        // A partial's own Render must be its standalone shape: depth 0, trailing
+        // newline kept — never the shape of whichever call site happens to exist.
+        string html = Templates.Shared.FormField.ToHtmlString(Label: "L", Name: "n");
+
+        Assert.Equal(
+            "<label for=\"n\">L</label>\n"
+            + "<input id=\"n\" name=\"n\" type=\"text\">\n",
+            html);
+    }
+
+    [Fact]
+    public void Partial_WithNetTagBalance_ShiftsTheCallersDepth()
+    {
+        // format/open-div opens <article> without closing it; the caller closes
+        // it. The lines after the call must sit one level deeper, and the
+        // caller-authored close tag must dedent back out.
+        string html = Templates.Format.Wrapped.ToHtmlString();
+
+        Assert.Equal(
+            "<div>\n"
+            + "  <article class=\"wrap\">\n"
+            + "    <p>in</p>\n"
+            + "  </article>\n"
+            + "</div>\n",
+            html);
+    }
+
+    [Fact]
+    public void UnquotedAttributeValueEndingInSlash_IsNotSelfClosing()
+    {
+        // Per HTML, the '/' in href=/about/ is part of the unquoted value, so
+        // <a> opens: its content indents and </a> closes one level back.
+        string html = Templates.Format.Unquoted.ToHtmlString();
+
+        Assert.Equal(
+            "<div>\n"
+            + "  <a href=/about/>\n"
+            + "    go\n"
+            + "  </a>\n"
+            + "</div>\n",
+            html);
+    }
+
+    [Fact]
     public void VerbatimElements_KeepTheirContentExactly()
     {
         string html = Templates.Format.Verbatim.ToHtmlString(Code: "c");
@@ -86,6 +132,9 @@ public sealed class FormattingTests
             + "  var x = 1;\n"
             + "    var y = 2;\n"
             + "</script>\n"
+            + "  <textarea name=\"t\">\n"
+            + "  raw\n"
+            + "</textarea>\n"
             + "  <p>c</p>\n"
             + "</div>\n",
             html);
@@ -101,5 +150,16 @@ public sealed class FormattingTests
 
         Assert.Contains("\n\n", html, StringComparison.Ordinal);
         Assert.Contains("\n<section>\n", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ForBodyNotReturningToItsStartDepth_BailsOutToUnformattedOutput()
+    {
+        // format/for-bail's loop body opens <li> without closing it, so depth
+        // after the loop depends on the item count: whole template unformatted.
+        string html = Templates.Format.ForBail.ToHtmlString(Items: ["a"]);
+
+        Assert.Contains("\n\n", html, StringComparison.Ordinal);
+        Assert.Contains("\n<li>a\n", html, StringComparison.Ordinal);
     }
 }

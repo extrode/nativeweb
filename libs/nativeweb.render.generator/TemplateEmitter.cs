@@ -581,25 +581,28 @@ internal static class TemplateEmitter
         string signature = string.Join(", ", parameterDeclarations);
         string renderParams = parameterDeclarations.Count == 0 ? "" : ", " + signature;
 
-        // One Render per distinct call-site depth (spec 004): the canonical
-        // (lowest) depth is Render; deeper call sites bind to RenderAtD{n}
-        // overloads whose static chunks are indented for that depth. A template
-        // the formatter bailed on gets its original, unformatted body.
-        IReadOnlyList<int> variantDepths = plan.DepthsFor(page.Path);
-        bool anyEmitted = false;
-        for (int v = 0; v < variantDepths.Count; v++)
+        // Render is the standalone/page shape (spec 004): depth 0, trailing
+        // newline kept, independent of any call graph. Each distinct partial
+        // call-site depth additionally gets a RenderAtD{n} overload whose static
+        // chunks are indented for that depth and splice mid-stream. A template
+        // the formatter bailed on keeps its original, unformatted body.
+        TemplateFormatter.FormattedBody? standalone = plan.StandaloneBody(page.Path);
+        code.AppendLine($"    public static void Render(ref TemplateWriter writer{renderParams})");
+        code.AppendLine("    {");
+        EmitNodes(context, templates, page, standalone?.Nodes ?? body, code, indent: 2, broken, rootNamespace, needingLocale, standalone?.CallDepths, plan);
+        code.AppendLine("    }");
+        code.AppendLine();
+        foreach (int depth in plan.PartialDepths(page.Path))
         {
-            TemplateFormatter.FormattedBody? formatted = plan.BodyFor(page.Path, variantDepths[v]);
-            if (formatted is null && anyEmitted)
+            TemplateFormatter.FormattedBody? formatted = plan.PartialBodyFor(page.Path, depth);
+            if (formatted is null)
             {
                 continue;
             }
 
-            string methodName = anyEmitted ? $"RenderAtD{variantDepths[v]}" : "Render";
-            anyEmitted = true;
-            code.AppendLine($"    public static void {methodName}(ref TemplateWriter writer{renderParams})");
+            code.AppendLine($"    public static void RenderAtD{depth}(ref TemplateWriter writer{renderParams})");
             code.AppendLine("    {");
-            EmitNodes(context, templates, page, formatted?.Nodes ?? body, code, indent: 2, broken, rootNamespace, needingLocale, formatted?.CallDepths, plan);
+            EmitNodes(context, templates, page, formatted.Nodes, code, indent: 2, broken, rootNamespace, needingLocale, formatted.CallDepths, plan);
             code.AppendLine("    }");
             code.AppendLine();
         }
@@ -806,19 +809,14 @@ internal static class TemplateEmitter
             $"{p.Name}: {partial.Args.First(a => a.Key == p.Name).Value}"));
         string arguments = callArguments.Count == 0 ? "" : ", " + string.Join(", ", callArguments);
 
-        // Bind to the depth-matched overload when the formatter produced one; the
-        // canonical Render is the fallback for bailed callers or targets.
+        // A formatted caller binds the depth-matched splice overload (the
+        // formatter bails callers whose callee variant is missing, so it exists);
+        // an unformatted caller calls the standalone Render, as before formatting.
         string method = "Render";
-        if (callDepths is not null && callDepths.TryGetValue(partial, out int absoluteDepth))
+        if (callDepths is not null && callDepths.TryGetValue(partial, out int absoluteDepth)
+            && plan.PartialBodyFor(target.Path, absoluteDepth) is not null)
         {
-            IReadOnlyList<int> targetDepths = plan.DepthsFor(target.Path);
-            if (targetDepths.Count > 0
-                && targetDepths[0] != absoluteDepth
-                && targetDepths.Contains(absoluteDepth)
-                && plan.BodyFor(target.Path, absoluteDepth) is not null)
-            {
-                method = $"RenderAtD{absoluteDepth}";
-            }
+            method = $"RenderAtD{absoluteDepth}";
         }
 
         code.AppendLine($"{pad}global::{ns}.{className}.{method}(ref writer{arguments});");

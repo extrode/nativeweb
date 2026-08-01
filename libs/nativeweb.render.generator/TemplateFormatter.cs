@@ -14,20 +14,32 @@ namespace NativeWeb.Render.Generator;
 ///
 /// Rules:
 ///  - Only leading whitespace of lines is rewritten (2 spaces per depth); line
-///    breaks are never added or removed inside text flow, so inline rendering
-///    semantics are untouched.
+///    breaks are never added or removed inside text flow. Accepted limitation:
+///    dropping whitespace-only lines and rewriting leading indent does change
+///    rendered output under CSS white-space: pre-line / pre-wrap on non-verbatim
+///    elements — templates relying on that belong in a verbatim element.
 ///  - Whitespace-only lines are dropped (directive residue and authored blanks).
-///  - pre/textarea/script/style bodies and comments pass through verbatim.
-///  - Partials render as shared methods at call-site-unknown depth, so each partial
-///    is emitted once per distinct call-site depth ("RenderAtD{n}" overloads); the
-///    caller writes the first line's indent and the partial omits its trailing
-///    newline so it splices cleanly mid-stream.
+///  - pre/textarea/script/style bodies and comments pass through verbatim; their
+///    close tags keep their authored column, because indenting them would inject
+///    characters into pre/textarea content.
+///  - Every template's Render is its standalone shape, formatted at depth 0 with
+///    its trailing newline kept, independent of any call graph. Each distinct
+///    partial call-site depth gets a RenderAtD{n} overload whose first line is
+///    unindented (the caller writes it) and whose trailing newline is stripped
+///    (the caller's following chunk supplies it), so it splices mid-stream.
+///  - A partial call splices the callee's net effect into the caller's walk: a
+///    callee ending cleanly shifts the caller's depth by its net tag balance; a
+///    callee ending inside a tag, comment, quote or verbatim element — or one
+///    that itself bailed — bails the caller. Bails cascade up the call graph.
 ///  - Anything ambiguous (an {{if}} whose branches end at different depths, a
-///    {{for}} body that does not return to its starting depth) bails the whole
-///    template out to its unformatted form rather than misformatting it.
+///    {{for}} body that does not return to its starting depth, a partial cycle,
+///    or a depth set past its cap) bails the whole template out to its
+///    unformatted form rather than misformatting it.
 /// </summary>
 internal static class TemplateFormatter
 {
+    private const int MaxDepthVariants = 4;
+
     private static readonly HashSet<string> VoidElements = new(StringComparer.Ordinal)
     {
         "area", "base", "br", "col", "embed", "hr", "img", "input",
@@ -39,7 +51,7 @@ internal static class TemplateFormatter
         "script", "style", "pre", "textarea",
     };
 
-    /// <summary>Formatted variant of one template at one base depth.</summary>
+    /// <summary>Formatted variant of one template at one shape/depth.</summary>
     internal sealed class FormattedBody(List<Node> nodes, Dictionary<PartialNode, int> callDepths)
     {
         public List<Node> Nodes { get; } = nodes;
@@ -50,24 +62,37 @@ internal static class TemplateFormatter
 
     internal sealed class FormatPlan
     {
-        private readonly Dictionary<string, List<int>> _depths;
+        private readonly Dictionary<string, List<int>> _partialDepths;
         private readonly Dictionary<string, FormattedBody> _bodies;
 
-        internal FormatPlan(Dictionary<string, List<int>> depths, Dictionary<string, FormattedBody> bodies)
+        internal FormatPlan(Dictionary<string, List<int>> partialDepths, Dictionary<string, FormattedBody> bodies)
         {
-            _depths = depths;
+            _partialDepths = partialDepths;
             _bodies = bodies;
         }
 
-        /// <summary>Sorted depths for a template; the first is the canonical Render.</summary>
-        public IReadOnlyList<int> DepthsFor(string path) =>
-            _depths.TryGetValue(path, out List<int>? list) ? list : Zero;
+        /// <summary>The standalone (page-shape) body; null when the template bailed.</summary>
+        public FormattedBody? StandaloneBody(string path) =>
+            _bodies.TryGetValue(path + "@S", out FormattedBody? body) ? body : null;
 
-        /// <summary>Null when the template bailed out of formatting.</summary>
-        public FormattedBody? BodyFor(string path, int depth) =>
+        /// <summary>Sorted distinct call-site depths; empty when never called or bailed.</summary>
+        public IReadOnlyList<int> PartialDepths(string path) =>
+            _partialDepths.TryGetValue(path, out List<int>? list) ? list : None;
+
+        /// <summary>The splice-shape body for one call-site depth; null when the template bailed.</summary>
+        public FormattedBody? PartialBodyFor(string path, int depth) =>
             _bodies.TryGetValue(path + "@" + depth, out FormattedBody? body) ? body : null;
 
-        private static readonly List<int> Zero = [0];
+        private static readonly List<int> None = [];
+    }
+
+    /// <summary>What one template's walk found: its partial calls, and its net effect on a caller.</summary>
+    private sealed class Measure
+    {
+        public List<(string Target, int Depth)> Calls = [];
+        public int Delta;
+        public bool Clean;
+        public bool Bailed;
     }
 
     /// <summary>
@@ -76,54 +101,55 @@ internal static class TemplateFormatter
     /// </summary>
     public static FormatPlan Plan(IReadOnlyDictionary<string, List<Node>> composedBodies)
     {
-        // Measure: relative depth of every partial call, and whether formatting is safe.
-        Dictionary<string, List<(string Target, int Depth)>> calls = new(StringComparer.Ordinal);
-        HashSet<string> bailed = new(StringComparer.Ordinal);
-        HashSet<string> calledAsPartial = new(StringComparer.Ordinal);
-        foreach (KeyValuePair<string, List<Node>> entry in composedBodies)
+        Dictionary<string, Measure> measures = new(StringComparer.Ordinal);
+        HashSet<string> visiting = new(StringComparer.Ordinal);
+        foreach (string path in composedBodies.Keys)
         {
-            WalkState state = new() { AtLineStart = true };
-            List<(PartialNode Node, int Depth)> found = [];
-            WalkNodes(entry.Value, state, output: null, found, callDepths: null);
-            if (state.Bailed)
+            MeasureOf(path, composedBodies, measures, visiting);
+        }
+
+        HashSet<string> bailed = new(StringComparer.Ordinal);
+        foreach (KeyValuePair<string, Measure> entry in measures)
+        {
+            if (entry.Value.Bailed)
             {
                 bailed.Add(entry.Key);
             }
-
-            calls[entry.Key] = [.. found.Select(f => (f.Node.Path, f.Depth))];
-            foreach ((PartialNode node, int _) in found)
-            {
-                calledAsPartial.Add(node.Path);
-            }
         }
 
-        // Depth sets: templates nobody calls as a partial are roots at depth 0;
-        // partial depths propagate caller-base + call-site-relative until stable.
+        // Partial depth sets: every template's standalone body is a caller at base 0,
+        // and each of its own partial depths is a further base; propagate until stable.
         Dictionary<string, SortedSet<int>> depths = new(StringComparer.Ordinal);
         foreach (string path in composedBodies.Keys)
         {
-            depths[path] = calledAsPartial.Contains(path) ? [] : [0];
+            depths[path] = [];
         }
 
+        bool converged = false;
         for (int round = 0; round < 20; round++)
         {
             bool changed = false;
-            foreach (KeyValuePair<string, List<(string Target, int Depth)>> caller in calls)
+            foreach (KeyValuePair<string, Measure> caller in measures)
             {
                 if (bailed.Contains(caller.Key))
                 {
                     continue;
                 }
 
-                foreach ((string target, int relative) in caller.Value)
+                foreach ((string target, int relative) in caller.Value.Calls)
                 {
-                    if (!depths.TryGetValue(target, out SortedSet<int>? set) || set.Count >= 4)
+                    if (!depths.TryGetValue(target, out SortedSet<int>? set))
                     {
-                        continue; // unknown target or runaway set (cycle guard): callers fall back to Render.
+                        continue; // unknown target: the cascade below bails the caller.
                     }
 
-                    foreach (int baseDepth in depths[caller.Key].ToList())
+                    foreach (int baseDepth in BasesOf(caller.Key, depths))
                     {
+                        if (set.Count >= MaxDepthVariants && !set.Contains(baseDepth + relative))
+                        {
+                            continue; // capped: the cascade below bails the caller.
+                        }
+
                         changed |= set.Add(baseDepth + relative);
                     }
                 }
@@ -131,56 +157,198 @@ internal static class TemplateFormatter
 
             if (!changed)
             {
+                converged = true;
                 break;
             }
         }
 
-        Dictionary<string, List<int>> depthLists = new(StringComparer.Ordinal);
+        if (!converged)
+        {
+            // A still-moving fixpoint means depth sets we cannot trust: format nothing.
+            return new FormatPlan(new Dictionary<string, List<int>>(StringComparer.Ordinal), new Dictionary<string, FormattedBody>(StringComparer.Ordinal));
+        }
+
+        // Cascade: a caller whose callee bailed, is unknown, or lacks the needed depth
+        // variant cannot splice formatted output, so it bails too — repeatedly, since
+        // each new bail can invalidate its own callers.
+        CascadeBails(measures, depths, bailed);
+
+        // Rewrite: one standalone body per template plus one body per call-site depth.
+        // A rewrite-time bail (measure/rewrite disagreement, defensively) re-cascades.
+        Dictionary<string, FormattedBody> bodies = new(StringComparer.Ordinal);
+        HashSet<string> built = new(StringComparer.Ordinal);
+        while (true)
+        {
+            bool newBail = false;
+            foreach (KeyValuePair<string, List<Node>> entry in composedBodies)
+            {
+                if (bailed.Contains(entry.Key) || !built.Add(entry.Key))
+                {
+                    continue;
+                }
+
+                if (!TryBuildBodies(entry.Key, entry.Value, depths[entry.Key], measures, bailed, bodies))
+                {
+                    bailed.Add(entry.Key);
+                    newBail = true;
+                }
+            }
+
+            if (!newBail)
+            {
+                break;
+            }
+
+            CascadeBails(measures, depths, bailed);
+        }
+
+        foreach (string path in bailed)
+        {
+            bodies.Remove(path + "@S");
+            if (depths.TryGetValue(path, out SortedSet<int>? set))
+            {
+                foreach (int depth in set)
+                {
+                    bodies.Remove(path + "@" + depth);
+                }
+            }
+        }
+
+        Dictionary<string, List<int>> partialDepths = new(StringComparer.Ordinal);
         foreach (KeyValuePair<string, SortedSet<int>> entry in depths)
         {
-            depthLists[entry.Key] = entry.Value.Count == 0 ? [0] : [.. entry.Value];
+            partialDepths[entry.Key] = bailed.Contains(entry.Key) ? [] : [.. entry.Value];
         }
 
-        // Rewrite: one formatted body per (template, depth).
-        Dictionary<string, FormattedBody> bodies = new(StringComparer.Ordinal);
-        foreach (KeyValuePair<string, List<Node>> entry in composedBodies)
+        return new FormatPlan(partialDepths, bodies);
+    }
+
+    private static IEnumerable<int> BasesOf(string path, Dictionary<string, SortedSet<int>> depths)
+    {
+        yield return 0; // the standalone body is always a call site producer.
+        foreach (int depth in depths[path].ToList())
         {
-            if (bailed.Contains(entry.Key))
+            if (depth != 0)
             {
-                continue;
+                yield return depth;
             }
+        }
+    }
 
-            bool isPartial = calledAsPartial.Contains(entry.Key);
-            foreach (int depth in depthLists[entry.Key])
+    private static Measure MeasureOf(
+        string path,
+        IReadOnlyDictionary<string, List<Node>> composedBodies,
+        Dictionary<string, Measure> measures,
+        HashSet<string> visiting)
+    {
+        if (measures.TryGetValue(path, out Measure? existing))
+        {
+            return existing;
+        }
+
+        if (!visiting.Add(path))
+        {
+            // Partial cycle: unformattable, and not memoized so every participant bails.
+            return new Measure { Bailed = true, Clean = false };
+        }
+
+        Measure measure;
+        if (!composedBodies.TryGetValue(path, out List<Node>? body))
+        {
+            measure = new Measure { Bailed = true, Clean = false };
+        }
+        else
+        {
+            WalkState state = new() { AtLineStart = true };
+            List<(PartialNode Node, int Depth)> found = [];
+            WalkNodes(body, state, output: null, found, callDepths: null,
+                target => MeasureOf(target, composedBodies, measures, visiting));
+            measure = new Measure
             {
-                WalkState state = new() { Depth = depth, AtLineStart = !isPartial };
-                List<Node> output = [];
-                Dictionary<PartialNode, int> callDepths = [];
-                WalkNodes(entry.Value, state, output, calls: null, callDepths);
-                if (state.Bailed)
+                Calls = [.. found.Select(f => (f.Node.Path, f.Depth))],
+                Delta = state.Depth,
+                Bailed = state.Bailed,
+                Clean = !state.Bailed && !state.InTag && !state.InComment
+                    && state.Verbatim is null && state.Quote == '\0',
+            };
+        }
+
+        visiting.Remove(path);
+        measures[path] = measure;
+        return measure;
+    }
+
+    private static void CascadeBails(
+        Dictionary<string, Measure> measures,
+        Dictionary<string, SortedSet<int>> depths,
+        HashSet<string> bailed)
+    {
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (KeyValuePair<string, Measure> caller in measures)
+            {
+                if (bailed.Contains(caller.Key))
                 {
-                    bailed.Add(entry.Key); // measure/rewrite disagreement: fall back whole template.
-                    break;
+                    continue;
                 }
 
-                if (isPartial)
+                foreach ((string target, int relative) in caller.Value.Calls)
                 {
-                    StripTrailingNewline(output);
-                }
-
-                bodies[entry.Key + "@" + depth] = new FormattedBody(output, callDepths);
-            }
-
-            if (bailed.Contains(entry.Key))
-            {
-                foreach (int depth in depthLists[entry.Key])
-                {
-                    bodies.Remove(entry.Key + "@" + depth);
+                    bool broken = bailed.Contains(target) || !depths.TryGetValue(target, out SortedSet<int>? set)
+                        || BasesOf(caller.Key, depths).Any(baseDepth => !set.Contains(baseDepth + relative));
+                    if (broken)
+                    {
+                        bailed.Add(caller.Key);
+                        changed = true;
+                        break;
+                    }
                 }
             }
         }
+    }
 
-        return new FormatPlan(depthLists, bodies);
+    private static bool TryBuildBodies(
+        string path,
+        List<Node> body,
+        SortedSet<int> partialDepths,
+        Dictionary<string, Measure> measures,
+        HashSet<string> bailed,
+        Dictionary<string, FormattedBody> bodies)
+    {
+        Func<string, Measure> resolve = target =>
+            measures.TryGetValue(target, out Measure? m) && !bailed.Contains(target)
+                ? m
+                : new Measure { Bailed = true, Clean = false };
+
+        WalkState standaloneState = new() { AtLineStart = true };
+        List<Node> standaloneOut = [];
+        Dictionary<PartialNode, int> standaloneCalls = [];
+        WalkNodes(body, standaloneState, standaloneOut, calls: null, standaloneCalls, resolve);
+        if (standaloneState.Bailed)
+        {
+            return false;
+        }
+
+        bodies[path + "@S"] = new FormattedBody(standaloneOut, standaloneCalls);
+
+        foreach (int depth in partialDepths)
+        {
+            WalkState state = new() { Depth = depth, AtLineStart = false };
+            List<Node> output = [];
+            Dictionary<PartialNode, int> callDepths = [];
+            WalkNodes(body, state, output, calls: null, callDepths, resolve);
+            if (state.Bailed)
+            {
+                return false;
+            }
+
+            StripTrailingNewline(output);
+            bodies[path + "@" + depth] = new FormattedBody(output, callDepths);
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -196,6 +364,8 @@ internal static class TemplateFormatter
         public char Quote;
         public int TagEffect;
         public bool TagSelfClose;
+        public bool AfterEquals;
+        public bool InUnquotedValue;
         public string? PendingVerbatim;
         public string? Verbatim;
         public bool InComment;
@@ -211,6 +381,8 @@ internal static class TemplateFormatter
             Quote = other.Quote;
             TagEffect = other.TagEffect;
             TagSelfClose = other.TagSelfClose;
+            AfterEquals = other.AfterEquals;
+            InUnquotedValue = other.InUnquotedValue;
             PendingVerbatim = other.PendingVerbatim;
             Verbatim = other.Verbatim;
             InComment = other.InComment;
@@ -224,6 +396,8 @@ internal static class TemplateFormatter
             && Quote == other.Quote
             && TagEffect == other.TagEffect
             && TagSelfClose == other.TagSelfClose
+            && AfterEquals == other.AfterEquals
+            && InUnquotedValue == other.InUnquotedValue
             && PendingVerbatim == other.PendingVerbatim
             && Verbatim == other.Verbatim
             && InComment == other.InComment;
@@ -234,7 +408,8 @@ internal static class TemplateFormatter
         WalkState state,
         List<Node>? output,
         List<(PartialNode Node, int Depth)>? calls,
-        Dictionary<PartialNode, int>? callDepths)
+        Dictionary<PartialNode, int>? callDepths,
+        Func<string, Measure> resolveCallee)
     {
         foreach (Node node in nodes)
         {
@@ -262,10 +437,10 @@ internal static class TemplateFormatter
                 case IfNode i:
                     WalkState thenState = state.Clone();
                     List<Node>? thenOut = output is null ? null : [];
-                    WalkNodes(i.Then, thenState, thenOut, calls, callDepths);
+                    WalkNodes(i.Then, thenState, thenOut, calls, callDepths, resolveCallee);
                     WalkState elseState = state.Clone();
                     List<Node>? elseOut = output is null ? null : [];
-                    WalkNodes(i.Else, elseState, elseOut, calls, callDepths);
+                    WalkNodes(i.Else, elseState, elseOut, calls, callDepths, resolveCallee);
                     if (thenState.Bailed || elseState.Bailed || !thenState.SameAs(elseState))
                     {
                         state.Bailed = true;
@@ -285,7 +460,7 @@ internal static class TemplateFormatter
                 case ForNode f:
                     WalkState bodyState = state.Clone();
                     List<Node>? bodyOut = output is null ? null : [];
-                    WalkNodes(f.Body, bodyState, bodyOut, calls, callDepths);
+                    WalkNodes(f.Body, bodyState, bodyOut, calls, callDepths, resolveCallee);
                     if (bodyState.Bailed || !bodyState.SameAs(state))
                     {
                         state.Bailed = true;
@@ -310,6 +485,17 @@ internal static class TemplateFormatter
                         output.Add(partialClone);
                     }
 
+                    // Splice the callee's net effect into this walk: an unclean or
+                    // bailed callee makes everything after the call unformattable.
+                    Measure callee = resolveCallee(p.Path);
+                    if (!callee.Clean)
+                    {
+                        state.Bailed = true;
+                        return;
+                    }
+
+                    state.Depth = Math.Max(0, state.Depth + callee.Delta);
+                    state.AtLineStart = false; // the callee's last line is unterminated.
                     break;
                 default:
                     // Slot/Fill are gone after inlining; pass through defensively.
@@ -395,12 +581,41 @@ internal static class TemplateFormatter
                 {
                     case '"':
                     case '\'':
+                        if (state.InUnquotedValue)
+                        {
+                            output?.Append(c); // a quote inside an unquoted value is a value char.
+                            i++;
+                            break;
+                        }
+
                         state.Quote = c;
+                        state.AfterEquals = false;
+                        output?.Append(c);
+                        i++;
+                        break;
+                    case '=':
+                        state.TagSelfClose = false;
+                        if (!state.InUnquotedValue)
+                        {
+                            state.AfterEquals = true;
+                        }
+
                         output?.Append(c);
                         i++;
                         break;
                     case '/':
-                        state.TagSelfClose = true;
+                        // Only a bare '/' marks self-closing: inside an unquoted
+                        // attribute value ("<a href=/about/>") it is a value char.
+                        if (state.AfterEquals || state.InUnquotedValue)
+                        {
+                            state.AfterEquals = false;
+                            state.InUnquotedValue = true;
+                        }
+                        else
+                        {
+                            state.TagSelfClose = true;
+                        }
+
                         output?.Append(c);
                         i++;
                         break;
@@ -414,6 +629,8 @@ internal static class TemplateFormatter
 
                         state.TagSelfClose = false;
                         state.TagEffect = 0;
+                        state.AfterEquals = false;
+                        state.InUnquotedValue = false;
                         state.PendingVerbatim = null;
                         output?.Append(c);
                         i++;
@@ -423,6 +640,7 @@ internal static class TemplateFormatter
                         break;
                     case '\n':
                         // Attribute continuation line: one level past the tag's own line.
+                        state.InUnquotedValue = false;
                         TrimTrailingSpaces(output);
                         output?.Append('\n').Append(Indent(state.Depth + 1));
                         i++;
@@ -436,6 +654,15 @@ internal static class TemplateFormatter
                         if (c is not ' ' and not '\t')
                         {
                             state.TagSelfClose = false;
+                            if (state.AfterEquals)
+                            {
+                                state.AfterEquals = false;
+                                state.InUnquotedValue = true;
+                            }
+                        }
+                        else
+                        {
+                            state.InUnquotedValue = false;
                         }
 
                         output?.Append(c);
@@ -483,6 +710,8 @@ internal static class TemplateFormatter
                 {
                     state.InTag = true;
                     state.TagEffect = 0;
+                    state.AfterEquals = false;
+                    state.InUnquotedValue = false;
                     output?.Append(c);
                     i++;
                     continue;
@@ -492,6 +721,8 @@ internal static class TemplateFormatter
                 {
                     state.InTag = true;
                     state.TagEffect = -1;
+                    state.AfterEquals = false;
+                    state.InUnquotedValue = false;
                     output?.Append(c);
                     i++;
                     continue;
@@ -513,6 +744,8 @@ internal static class TemplateFormatter
                 string name = text.Substring(i + 1, nameEnd - i - 1).ToLowerInvariant();
                 state.InTag = true;
                 state.TagEffect = VoidElements.Contains(name) ? 0 : 1;
+                state.AfterEquals = false;
+                state.InUnquotedValue = false;
                 state.PendingVerbatim = VerbatimElements.Contains(name) ? "</" + name : null;
                 output?.Append(text, i, nameEnd - i);
                 i = nameEnd;
