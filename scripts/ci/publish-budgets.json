@@ -1,4 +1,4 @@
 {
-  "_comment": "Spec 003 R36: budgets for the published AOT binaries. null = record-only (no baseline yet); set from the close-out baseline numbers. maxBytes is the exe size ceiling, maxStartupMs the time-to-/healthz ceiling, both already including headroom over the recorded baseline.",
-  "nativeweb.web": { "maxBytes": null, "maxStartupMs": null }
+  "_comment": "Spec 003 R36: budgets for the published AOT binary. maxBytes is the exe size ceiling, maxStartupMs the time-to-/healthz ceiling, both including headroom over the close-out baseline recorded 2026-08-01: 36,918,272 B / 881 ms (local win-x64; CI runners are slower, hence the generous startup ceiling).",
+  "nativeweb.web": { "maxBytes": 42500000, "maxStartupMs": 5000 }
 }

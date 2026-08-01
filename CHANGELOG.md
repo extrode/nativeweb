@@ -14,6 +14,27 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Architecture v2** (spec 003, V1–V10) — the template's second generation. Compiled-template
+  render engine (`libs/nativeweb.render` + source generator: encoded-by-default HTML, typed
+  params, partials/layouts, UTF-8 span literals) with an AngleSharp well-formedness gate;
+  build-time i18n catalogs with dialect fallthrough (en + ms shipped, `lang`/`dir` negotiated
+  per request); bot defense (4 honeypots + signed time canary on every form, fake-success
+  discipline, e2e visibility assertions); security baseline (HSTS, `__Host-` cookie, 128 KB
+  body cap, request timeouts, CSP reporting, append-only `audit_log`, `security.txt`, ASVS
+  checklist, CI CVE gate); perf/ops (Brotli for HTML, off-by-default OTel, `/healthz` +
+  `/readyz`, `ValidateOnStart`, publish knobs, CI size/startup budgets — baseline 36,918,272 B
+  / 881 ms to `/healthz`); static-pages pipeline with nonce-free CSP and static 404/500;
+  `skeleton/` tokenized product shell + `tools/new-product.ps1`; style enforcement in build.
+- **manzil.my extraction** (spec 003 V10) — DevMarks moved out to
+  `C:\home\code\extrode-legacy-org.com\manzil.my` as the first product stamped on the v2 architecture
+  (`scripts/extract-manzil.ps1`: full manzil rename, fresh history, `$(NativeWebRoot)`
+  dual-mode framework refs). Its suites run green there (217 unit / 81 integration / 12 e2e,
+  0-warning AOT publish: 30,483,968 B / 977 ms to `/healthz`).
+
+### Removed
+- The DevMarks projects (`apps/devmarks`, `libs/nativeweb.devmarks.data`,
+  `tests/nativeweb.devmarks.tests.*`, `db/devmarks`), now living in the manzil.my repo; CI,
+  solution and docs rescoped to the IdP.
 - **DevMarks** (`apps/devmarks`, spec 001) — a complete bookmarking app for software engineers
   and the first full application on the Lean Native Web template: accounts (Argon2id
   passphrases, lockout, breach checking), bookmark CRUD with SSRF-guarded metadata/favicon

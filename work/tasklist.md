@@ -33,11 +33,12 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: Architecture v2 + manzil.my extraction (spec 003)
+## Current work: none
 
-Durable tier — the task breakdown of record is
-`docs/specs/003-architecture-v2/003-tasks.md` (V1 style enforcement … V10 extraction); this
-file points there rather than duplicating it. Started 2026-07-31.
+Spec 003 (architecture v2 + manzil.my extraction) shipped 2026-08-01 — archived to
+`archive/2026-08-01-architecture-v2.md`, task breakdown at
+`docs/specs/003-architecture-v2/003-tasks.md` (all ticked). The next body of work arrives
+from `todo.md`, a new spec, or the user.
 
 Spec 002 (IdP hardening) shipped 2026-07-31 — archived to
 `archive/2026-07-31-idp-hardening.md`. The sign-off-gated production cutover replacing
