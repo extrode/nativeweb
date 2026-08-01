@@ -30,7 +30,7 @@ this body of work; `work/tasklist.md` points here.
 - [x] V7 `feat/perf-ops` — R32–R37. Brotli compression for HTML, OTel off-by-default,
   `/healthz` `/readyz`, `ValidateOnStart` everywhere, `StripSymbols`/`OptimizationPreference`,
   `Max Auto Prepare=20`, FrozenDictionary `AssetUrls`, CI binary-size + startup budgets.
-- [ ] V8 `feat/static-pages` — R38–R40. `wwwroot/pages/` pipeline with clean URLs, no-cache +
+- [x] V8 `feat/static-pages` — R38–R40. `wwwroot/pages/` pipeline with clean URLs, no-cache +
   ETag, nonce-free CSP branch, static 404/500 via `ErrorPageMiddleware`, robots/sitemap.
 - [ ] V9 `feat/skeleton` — R1–R3, R29. `skeleton/` tokenized shell, `tools/new-product.ps1`,
   systemd + Windows service files, `$(NativeWebRoot)` dual-mode props, pack metadata on the
