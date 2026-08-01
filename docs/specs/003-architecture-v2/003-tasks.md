@@ -35,7 +35,7 @@ this body of work; `work/tasklist.md` points here.
 - [x] V9 `feat/skeleton` — R1–R3, R29. `skeleton/` tokenized shell, `tools/new-product.ps1`,
   systemd + Windows service files, `$(NativeWebRoot)` dual-mode props, pack metadata on the
   framework libs, conventions/ASVS docs.
-- [ ] V10 `feat/manzil-extraction` + `chore/remove-devmarks` — R4–R7, R42.
+- [x] V10 `feat/manzil-extraction` + `chore/remove-devmarks` — R4–R7, R42.
   `scripts/extract-manzil.ps1` creates `C:\home\code\extrode-legacy-org.com\manzil.my` (full manzil.*
   rename, fresh history, skeleton operating files); manzil.my suites green in checkout mode;
   DevMarks projects removed from NativeWeb; NativeWeb suites still green.
