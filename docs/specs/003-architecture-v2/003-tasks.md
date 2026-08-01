@@ -24,7 +24,7 @@ this body of work; `work/tasklist.md` points here.
 - [x] V5 `feat/bot-traps` — R21–R24. `BotTraps` in `nativeweb.security` (4 honeypots + signed
   time canary), template partial + string overload, wired into every form in both apps,
   fake-success discipline, trap-event logging, e2e visibility assertion.
-- [ ] V6 `feat/security-baseline` — R25–R31. HSTS, Permissions-Policy, `__Host-` session
+- [x] V6 `feat/security-baseline` — R25–R31. HSTS, Permissions-Policy, `__Host-` session
   cookie, body-size limits, request timeouts, `POST /csp-report`, migration 0052 `audit_log`
   + admin writes, `security.txt`, `docs/security-baseline.md`, CI CVE gate.
 - [ ] V7 `feat/perf-ops` — R32–R37. Brotli compression for HTML, OTel off-by-default,
