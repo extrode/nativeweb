@@ -143,3 +143,11 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   comment is now false); removing pins counts as dependency removal, so left for a confirmed
   cleanup. Also trivial: `check-publish-budgets.ps1` `-Port` default 5999 is unreachable (sole
   caller passes 5998).
+- Dev-loop bug (found 2026-08-01, applies to any app using MapStaticAssets + fingerprinted CSS,
+  so manzil.my and apps/web alike): under `dotnet run` in Development,
+  `StaticAssetDevelopmentRuntimeHandler` resolves the precompressed gzip variant to
+  `wwwroot/<name>.css.gz` (publish-only file), throws FileNotFoundException, and the browser
+  request path swallows it into an empty 200 with no Content-Type — `nosniff` then blocks every
+  stylesheet, so `dotnet run` pages render unstyled. Direct `.gz` route 500s with the real
+  exception. Workaround: run the published Release output (serves correctly). Investigate
+  whether it is a known .NET 10 issue or triggered by our pipeline ordering.
