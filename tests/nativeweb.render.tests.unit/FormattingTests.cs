@@ -135,6 +135,8 @@ public sealed class FormattingTests
             + "  <textarea name=\"t\">\n"
             + "  raw\n"
             + "</textarea>\n"
+            + "  <!-- keep\n"
+            + "   this -->\n"
             + "  <p>c</p>\n"
             + "</div>\n",
             html);
@@ -150,6 +152,91 @@ public sealed class FormattingTests
 
         Assert.Contains("\n\n", html, StringComparison.Ordinal);
         Assert.Contains("\n<section>\n", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Partial_CalledAtDepthZero_SplicesWithoutBlankLines()
+    {
+        // A depth-0 call site binds RenderAtD0, not the standalone Render: same
+        // indentation, but the trailing newline is stripped so the caller's own
+        // following newline doesn't double up.
+        string html = Templates.Format.Flat.ToHtmlString();
+
+        Assert.Equal(
+            "<label for=\"f\">L</label>\n"
+            + "<input id=\"f\" name=\"f\" type=\"text\">\n"
+            + "<p>after</p>\n",
+            html);
+    }
+
+    [Fact]
+    public void Partial_DippingBelowItsOwnStart_KeepsItsTrueNetDelta()
+    {
+        // format/row-split is `</tr><tr>`: net tag balance 0 even though it dips
+        // one level below its own start. Content after the call must stay at the
+        // call-site depth, not drift one level deeper.
+        string html = Templates.Format.Table.ToHtmlString();
+
+        Assert.Equal(
+            "<table>\n"
+            + "  <tbody>\n"
+            + "    <tr>\n"
+            + "      <td>a</td>\n"
+            + "      </tr>\n"
+            + "    <tr>\n"
+            + "      <td>b</td>\n"
+            + "    </tr>\n"
+            + "  </tbody>\n"
+            + "</table>\n",
+            html);
+    }
+
+    [Fact]
+    public void Partial_EndingInAForBlock_LeavesNoBlankLineAtTheCallSite()
+    {
+        // format/list-tail ends with {{for}}…{{/for}}, so its splice body cannot
+        // have its trailing newline stripped; the caller must absorb its own
+        // following newline instead of emitting a blank line.
+        string html = Templates.Format.ListTailCaller.ToHtmlString(Items: ["a"]);
+
+        Assert.Equal(
+            "<div>\n"
+            + "  <p>lead</p>\n"
+            + "  <span>a</span>\n"
+            + "</div>\n",
+            html);
+    }
+
+    [Fact]
+    public void Partial_StartingWithAForBlock_BailsTheCaller()
+    {
+        // format/block-first begins with {{for}}, whose body starts on a fresh
+        // line the caller's call-site indent cannot absorb: the caller must stay
+        // unformatted (its authored 4-space indent proves it).
+        string html = Templates.Format.BlockFirstCaller.ToHtmlString(Items: ["a"]);
+
+        Assert.Contains("\n    <b>z</b>\n", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Partial_EndingInsideAVerbatimElement_BailsTheCaller()
+    {
+        // format/unclean never closes its <pre>: everything after the call site
+        // would be inside it, so the caller must stay unformatted.
+        string html = Templates.Format.UncleanCaller.ToHtmlString();
+
+        Assert.Contains("\n    <span>x</span>\n", html, StringComparison.Ordinal);
+        Assert.Contains("<pre>never closed", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Bail_CascadesUpToCallersOfABailedPartial()
+    {
+        // format/bail is unformattable; format/cascade calls it, so it must stay
+        // unformatted too rather than splice an unformatted body mid-stream.
+        string html = Templates.Format.Cascade.ToHtmlString(Flag: true);
+
+        Assert.Contains("\n    <em>y</em>\n", html, StringComparison.Ordinal);
     }
 
     [Fact]

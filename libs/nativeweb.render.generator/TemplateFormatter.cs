@@ -91,7 +91,16 @@ internal static class TemplateFormatter
     {
         public List<(string Target, int Depth)> Calls = [];
         public int Delta;
+
+        /// <summary>Whether the splice body's rendered output ends with a newline (its
+        /// trailing newline is only stripped when the last node is a static chunk).</summary>
+        public bool EndsWithNewline;
+
+        /// <summary>False when the callee cannot be spliced into a formatted caller:
+        /// it bailed, ends inside a tag/comment/quote/verbatim element, or its splice
+        /// body would emit a leading newline the caller's indent cannot absorb.</summary>
         public bool Clean;
+
         public bool Bailed;
     }
 
@@ -259,17 +268,27 @@ internal static class TemplateFormatter
         }
         else
         {
-            WalkState state = new() { AtLineStart = true };
+            // Walk in splice shape (the shape callers embed), building output so the
+            // first and last emitted nodes can be inspected. Call depths and the net
+            // delta are shape-independent.
+            WalkState state = new() { AtLineStart = false };
             List<(PartialNode Node, int Depth)> found = [];
-            WalkNodes(body, state, output: null, found, callDepths: null,
+            List<Node> output = [];
+            WalkNodes(body, state, output, found, callDepths: [],
                 target => MeasureOf(target, composedBodies, measures, visiting));
+            StripLeadingWhitespace(output);
+            bool lastIsStrippableStatic = output.Count > 0
+                && output[output.Count - 1] is StaticNode last
+                && last.Text.TrimEnd(' ', '\t').EndsWith("\n", StringComparison.Ordinal);
             measure = new Measure
             {
                 Calls = [.. found.Select(f => (f.Node.Path, f.Depth))],
                 Delta = state.Depth,
+                EndsWithNewline = state.AtLineStart && !lastIsStrippableStatic,
                 Bailed = state.Bailed,
                 Clean = !state.Bailed && !state.InTag && !state.InComment
-                    && state.Verbatim is null && state.Quote == '\0',
+                    && state.Verbatim is null && state.Quote == '\0'
+                    && !EmitsLeadingNewline(output),
             };
         }
 
@@ -344,6 +363,7 @@ internal static class TemplateFormatter
                 return false;
             }
 
+            StripLeadingWhitespace(output);
             StripTrailingNewline(output);
             bodies[path + "@" + depth] = new FormattedBody(output, callDepths);
         }
@@ -494,8 +514,11 @@ internal static class TemplateFormatter
                         return;
                     }
 
-                    state.Depth = Math.Max(0, state.Depth + callee.Delta);
-                    state.AtLineStart = false; // the callee's last line is unterminated.
+                    // Depth is deliberately unclamped here and at '>': a callee that
+                    // dips below its own start (`</tr><tr>`) must keep its true net
+                    // delta; only rendered indentation clamps, inside Indent().
+                    state.Depth += callee.Delta;
+                    state.AtLineStart = callee.EndsWithNewline;
                     break;
                 default:
                     // Slot/Fill are gone after inlining; pass through defensively.
@@ -623,7 +646,7 @@ internal static class TemplateFormatter
                         state.InTag = false;
                         if (!state.TagSelfClose)
                         {
-                            state.Depth = Math.Max(0, state.Depth + state.TagEffect);
+                            state.Depth += state.TagEffect;
                             state.Verbatim = state.PendingVerbatim;
                         }
 
@@ -662,6 +685,9 @@ internal static class TemplateFormatter
                         }
                         else
                         {
+                            // Per HTML a '/' not immediately before '>' is ignored,
+                            // so whitespace after it means the element still opens.
+                            state.TagSelfClose = false;
                             state.InUnquotedValue = false;
                         }
 
@@ -781,6 +807,50 @@ internal static class TemplateFormatter
         else
         {
             output.Add(new StaticNode(text));
+        }
+    }
+
+    /// <summary>
+    /// True when a splice body's first rendered characters would include a newline the
+    /// caller's already-written call-site indent cannot absorb: an {{if}}/{{for}} first
+    /// node whose own first line starts on a fresh line. Such callees bail their callers.
+    /// </summary>
+    private static bool EmitsLeadingNewline(List<Node> output)
+    {
+        if (output.Count == 0)
+        {
+            return false;
+        }
+
+        return output[0] switch
+        {
+            StaticNode s => s.Text.StartsWith("\n", StringComparison.Ordinal),
+            // Both branches must agree inline; a data-dependent line start is unclean.
+            IfNode i => EmitsLeadingNewline(i.Then) || EmitsLeadingNewline(i.Else) || i.Then.Count == 0 || i.Else.Count == 0,
+            ForNode f => f.Body.Count == 0 || EmitsLeadingNewline(f.Body),
+            _ => false, // Expr/Loc/Partial render inline.
+        };
+    }
+
+    /// <summary>Splice bodies start where the caller's indent left off: directive
+    /// residue newlines and indentation before the first visible content are dropped.</summary>
+    private static void StripLeadingWhitespace(List<Node> output)
+    {
+        while (output.Count > 0 && output[0] is StaticNode first)
+        {
+            string text = first.Text.TrimStart(' ', '\t', '\r', '\n');
+            if (text.Length == 0)
+            {
+                output.RemoveAt(0);
+                continue;
+            }
+
+            if (text.Length != first.Text.Length)
+            {
+                output[0] = new StaticNode(text);
+            }
+
+            break;
         }
     }
 
