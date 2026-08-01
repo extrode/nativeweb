@@ -27,7 +27,7 @@ this body of work; `work/tasklist.md` points here.
 - [x] V6 `feat/security-baseline` — R25–R31. HSTS, Permissions-Policy, `__Host-` session
   cookie, body-size limits, request timeouts, `POST /csp-report`, migration 0052 `audit_log`
   + admin writes, `security.txt`, `docs/security-baseline.md`, CI CVE gate.
-- [ ] V7 `feat/perf-ops` — R32–R37. Brotli compression for HTML, OTel off-by-default,
+- [x] V7 `feat/perf-ops` — R32–R37. Brotli compression for HTML, OTel off-by-default,
   `/healthz` `/readyz`, `ValidateOnStart` everywhere, `StripSymbols`/`OptimizationPreference`,
   `Max Auto Prepare=20`, FrozenDictionary `AssetUrls`, CI binary-size + startup budgets.
 - [ ] V8 `feat/static-pages` — R38–R40. `wwwroot/pages/` pipeline with clean URLs, no-cache +
