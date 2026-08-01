@@ -151,3 +151,5 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   stylesheet, so `dotnet run` pages render unstyled. Direct `.gz` route 500s with the real
   exception. Workaround: run the published Release output (serves correctly). Investigate
   whether it is a known .NET 10 issue or triggered by our pipeline ordering.
+- spec 004 review note: consider dropping the `antiforgeryField = ""` / `botTraps = ""` defaults on Render*Form/Fragment helpers so the compiler catches an omitted token field (SettingsEndpoints.cs:119 regression class); ~140 unit-test call sites would need updating. Also pre-existing: enumeration-defense StripVaryingTokens blanks every content="..." attribute, wider than the token meta.
+- integration: SettingsEndpointsTests fail 11/13 when run with --filter in isolation (TrapForm static canary fallback GETs /auth/signin with an authenticated client); full-suite runs pass. Pre-existing order dependence, verified at B4 HEAD 0ba2d04.
