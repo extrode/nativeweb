@@ -111,3 +111,49 @@ Verified empirically with a canary in each file, both directions. Every other ag
 - When code diverges from a shipped spec, update `docs/specs/NNN-*/spec.md` (bump its `Status:`
   and add a `last-verified: <date>` line). `/spec-status` flags any spec older than its own
   plan/tasks as ⚠ stale.
+
+## Response compression and BREACH (spec 003 R32)
+
+Both apps compress `text/html` only, Brotli-first, with `EnableForHttps=true`. Compressing
+secret-bearing HTML over TLS is the precondition for BREACH-class attacks, so the acceptance is
+deliberate and bounded:
+
+- Every secret that appears in rendered HTML is per-response, so the byte sequence an attacker
+  would need to converge on changes every render and the compression-oracle loop BREACH depends
+  on never stabilises. The inventory: the antiforgery request token (varies per render because
+  Data Protection encrypts it with a randomized IV — there is no System.Web-style XOR mask, the
+  IV is the whole mechanism), the CSP nonce (single-use by definition), the OAuth authorization
+  code the consent page embeds in a hidden field (minted fresh on every GET of
+  /oauth/authorize), and the TOTP secret on GET /auth/2fa/enroll (fresh per render).
+- **Invariant, not accident:** the consent code and enroll secret staying freshly minted per
+  render is load-bearing for this acceptance. An optimization that reuses the pending
+  authorization (or the staged TOTP secret) across refreshes would put a *stable* secret in the
+  same compressed response as attacker-chosen `state` — exactly the oracle this section claims
+  cannot exist. Such a change must revisit this section, not just its own endpoint.
+- HTML-encoding user input is XSS hygiene, **not** a BREACH mitigation — token alphabets
+  (base64/base32/hex) pass through `HtmlEncoder` untouched, so encoded reflection compresses
+  against a secret exactly as raw reflection would. The reflection leg of BREACH is instead
+  starved by the per-IP rate limits (tens per minute, where the oracle needs thousands of
+  probes) and defused by the previous bullet (no stable secret to converge on).
+- OAuth token/introspection responses are JSON and not on the mime list; they are never
+  compressed.
+
+If a future page acquires a secret that survives across renders, that page — not the mime
+list — is the thing to fix.
+
+## Caching of token-bearing pages (spec 003 R30)
+
+No shared-cache headers and no ETags on session-bound HTML: `SecurityHeadersMiddleware` stamps
+`Cache-Control: no-store` (+ `Pragma: no-cache` where RFC 6749 demands) on every sensitive
+content type and redirect. Fingerprinted static assets keep their long-lived immutable caching —
+the split is by content type, never blanket. Static *pages* (R38) get `no-cache` + ETag
+revalidation instead: they carry no tokens, so revalidation is safe and cheap.
+
+## Options validation (spec 003 R34)
+
+The apps deliberately have no `IOptions<T>` classes to `ValidateOnStart`: configuration is read
+imperatively in `Program.cs` with fail-fast guards that throw before `Build()` on malformed
+values (see `StartupConfigGuardTests`, which boot the real binary against broken config and
+assert the refusal). A future options class must either keep that shape or register with
+`.ValidateOnStart()` — a config error surfacing as a first-request hang is the AOT lesson this
+rule closes.

@@ -38,6 +38,13 @@
          both to the one native asset. Bump only after checking NSec's libsodium
          range still matches Geralt's. -->
     <PackageVersion Include="NSec.Cryptography" Version="26.4.0" />
+    <!-- Telemetry (spec 003 R33): metrics + traces, exported over OTLP, gated
+         behind {NativeWeb,DevMarks}:Telemetry:Enabled=false. All four move in
+         lockstep; bump together. -->
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
   </ItemGroup>
 
   <!-- Roslyn, for libs/nativeweb.render.generator (netstandard2.0 analyzer).
