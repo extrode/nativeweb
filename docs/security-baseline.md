@@ -14,8 +14,8 @@ this document. Items marked ☐ are known-open, with the reason.
 | ☑ | Passphrases hashed with Argon2id, fixed cost parameters | `libs/nativeweb.security/Passphrases.cs` |
 | ☑ | Breach checking on set + sign-in (offline common-password list + HIBP k-anonymity, kill-switch) | `CompositeBreachChecker`; `NativeWeb:BreachCheck:Hibp` |
 | ☑ | Generic failure message; fake-identifier responses prevent user enumeration | `FakeIdentifierResponses`, sign-in/reset endpoints |
-| ☑ | Timing parity: unknown-user and bot-trapped paths pay the same Argon2id cost | V5 review fixes in both apps' `SignInEndpoints` |
-| ☑ | Account lockout / throttle on failed sign-ins | `LockoutPolicy` (both apps) |
+| ☑ | Timing parity: unknown-user and bot-trapped paths pay the same Argon2id cost | V5 review fixes in `SignInEndpoints` |
+| ☑ | Account lockout / throttle on failed sign-ins | `LockoutPolicy` |
 | ☑ | TOTP two-factor with recovery codes; WebAuthn (passkeys) incl. UserVerification step-up | `apps/web/Auth/TwoFactor*`, `WebAuthn*` |
 | ☑ | Forced-passphrase-reset confinement, operator lift control | `ForcedPassphraseResetMiddleware`, admin endpoints |
 | ☑ | Bot defense: 4 honeypots + signed time canary on every human form, per-endpoint fake successes | `libs/nativeweb.security/BotTraps.cs` (V5) |
@@ -25,8 +25,8 @@ this document. Items marked ☐ are known-open, with the reason.
 | ✓ | Control | Where |
 |---|---------|-------|
 | ☑ | Opaque server-side sessions (no stateful token on the client), single-DELETE revocation | `bff_store` |
-| ☑ | `__Host-` prefixed cookie: Secure always, `Path=/`, no Domain, HttpOnly, SameSite=Lax | both `Auth/SessionAuth.cs` (V6) |
-| ☑ | Sign-out deletes the server row and expires the cookie with matching attributes | both `SignInEndpoints` + `SessionAuth.DeleteSessionCookie` |
+| ☑ | `__Host-` prefixed cookie: Secure always, `Path=/`, no Domain, HttpOnly, SameSite=Lax | `Auth/SessionAuth.cs` (V6) |
+| ☑ | Sign-out deletes the server row and expires the cookie with matching attributes | `SignInEndpoints` + `SessionAuth.DeleteSessionCookie` |
 | ☑ | Fixed session lifetime 14 d | `SessionAuthDefaults.Lifetime` |
 | ☑ | Antiforgery token on every state-changing form post | `AddAntiforgery` + per-endpoint validation |
 
@@ -42,9 +42,9 @@ this document. Items marked ☐ are known-open, with the reason.
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ☑ | Global request-body ceiling 128 KB at Kestrel; single explicit raise (5 MB, /import) | both `Program.cs`; `TransferEndpoints.PostImport` (V6) |
-| ☑ | Request timeout default 30 s | both `Program.cs`, `AddRequestTimeouts` (V6) |
-| ☑ | Rate limiting: per-IP fixed windows on auth/admin/oauth/public/save/import/csp-report | both `Program.cs` |
+| ☑ | Global request-body ceiling 128 KB at Kestrel; endpoints raise it explicitly where needed (none do today) | `Program.cs` (V6) |
+| ☑ | Request timeout default 30 s | `Program.cs`, `AddRequestTimeouts` (V6) |
+| ☑ | Rate limiting: per-IP fixed windows on auth/oauth/oauth-authorize/admin/csp-report | `Program.cs` |
 | ☑ | HTML output encoded by default; raw output only via the grep-able `Html.Raw` | `libs/nativeweb.render` (V2) |
 | ☑ | No reflection-based JSON deserialization of attacker input (AOT source-generated contexts only) | repo-wide; `/csp-report` reads raw bytes |
 
@@ -52,15 +52,15 @@ this document. Items marked ☐ are known-open, with the reason.
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ☑ | CSP: default-src 'self', per-request nonce for scripts/styles, frame-ancestors 'none' | both `SecurityHeadersMiddleware` |
-| ☑ | Static pages (V8): stricter nonce-free CSP branch — default-src 'none', no script-src at all, form-action 'none'; error pages use the same branch | both `SecurityHeadersMiddleware.StaticPageCsp`, marker set by `StaticPagesMiddleware`/`ErrorPageMiddleware` |
-| ☑ | CSP violation reporting: report-uri + Reporting-Endpoints → rate-limited `POST /csp-report`, logged raw, never deserialized | both `CspReportEndpoint.cs` (V6) |
-| ☑ | HSTS 1 y includeSubDomains, non-Development only | both `SecurityHeadersMiddleware` (V6) |
-| ☑ | Permissions-Policy denying unused powerful features (WebAuthn's stay at default 'self') | both `SecurityHeadersMiddleware` (V6) |
-| ☑ | X-Content-Type-Options, X-Frame-Options, Referrer-Policy | both `SecurityHeadersMiddleware` |
-| ☑ | `no-store` + `Pragma: no-cache` on sensitive content types and secret-bearing redirects (incl. HX-Redirect) | both `SecurityHeadersMiddleware` |
-| ☑ | `security.txt` (RFC 9116) at /.well-known/ | both `SecurityTxtEndpoint.cs` (V6) |
-| ☐ | security.txt contact address is a placeholder (`security@epass.io` / `security@manzil.my`) — operator must confirm the real mailboxes and bump `Expires` yearly | `SecurityTxtEndpoint.cs` |
+| ☑ | CSP: default-src 'self', per-request nonce for scripts/styles, frame-ancestors 'none' | `SecurityHeadersMiddleware` |
+| ☑ | Static pages (V8): stricter nonce-free CSP branch — default-src 'none', no script-src at all, form-action 'none'; error pages use the same branch | `SecurityHeadersMiddleware.StaticPageCsp`, marker set by `StaticPagesMiddleware`/`ErrorPageMiddleware` |
+| ☑ | CSP violation reporting: report-uri + Reporting-Endpoints → rate-limited `POST /csp-report`, logged raw, never deserialized | `CspReportEndpoint.cs` (V6) |
+| ☑ | HSTS 1 y includeSubDomains, non-Development only | `SecurityHeadersMiddleware` (V6) |
+| ☑ | Permissions-Policy denying unused powerful features (WebAuthn's stay at default 'self') | `SecurityHeadersMiddleware` (V6) |
+| ☑ | X-Content-Type-Options, X-Frame-Options, Referrer-Policy | `SecurityHeadersMiddleware` |
+| ☑ | `no-store` + `Pragma: no-cache` on sensitive content types and secret-bearing redirects (incl. HX-Redirect) | `SecurityHeadersMiddleware` |
+| ☑ | `security.txt` (RFC 9116) at /.well-known/ | `SecurityTxtEndpoint.cs` (V6) |
+| ☐ | security.txt contact address is a placeholder (`security@epass.io`) — operator must confirm the real mailbox and bump `Expires` yearly | `SecurityTxtEndpoint.cs` |
 
 ## V7/V16 — Logging and auditing
 
@@ -69,7 +69,7 @@ this document. Items marked ☐ are known-open, with the reason.
 | ☑ | Append-only `audit_log` (trigger-rejected UPDATE/DELETE), one row per mutating admin action, written on success only | migration `0052`, `db/queries/AuditLog/Insert.sql`, `AdminEndpoints.WriteAuditAsync` (V6) |
 | ☑ | Audit detail never carries secret material (rotate-secret logs the fact, not the secret) | `AdminEndpoints` |
 | ☑ | Structured trap events on every honeypot trip | `BotTraps.LogTripped` |
-| ☑ | Request logging without bodies or credentials | both `RequestLoggingMiddleware` |
+| ☑ | Request logging without bodies or credentials | `RequestLoggingMiddleware` |
 
 ## V10/V1 — Dependencies and build
 
