@@ -111,3 +111,40 @@ Verified empirically with a canary in each file, both directions. Every other ag
 - When code diverges from a shipped spec, update `docs/specs/NNN-*/spec.md` (bump its `Status:`
   and add a `last-verified: <date>` line). `/spec-status` flags any spec older than its own
   plan/tasks as ⚠ stale.
+
+## Response compression and BREACH (spec 003 R32)
+
+Both apps compress `text/html` only, Brotli-first, with `EnableForHttps=true`. Compressing
+secret-bearing HTML over TLS is the precondition for BREACH-class attacks, so the acceptance is
+deliberate and bounded:
+
+- The only per-request secrets in rendered HTML are the antiforgery token and the CSP nonce.
+  ASP.NET Core antiforgery request tokens are masked per issue (a fresh random XOR each render),
+  so the byte sequence an attacker would need to converge on changes every response — the
+  compression-oracle loop BREACH depends on never stabilises. The nonce is single-use by
+  definition.
+- BREACH additionally requires attacker-chosen text reflected into the same response as the
+  secret. The apps render user input HTML-encoded through typed template params, and error pages
+  echo nothing request-derived.
+- OAuth token/introspection responses are JSON and not on the mime list; they are never
+  compressed.
+
+If a future page reflects request input verbatim alongside a stable secret, that page — not the
+mime list — is the thing to fix.
+
+## Caching of token-bearing pages (spec 003 R30)
+
+No shared-cache headers and no ETags on session-bound HTML: `SecurityHeadersMiddleware` stamps
+`Cache-Control: no-store` (+ `Pragma: no-cache` where RFC 6749 demands) on every sensitive
+content type and redirect. Fingerprinted static assets keep their long-lived immutable caching —
+the split is by content type, never blanket. Static *pages* (R38) get `no-cache` + ETag
+revalidation instead: they carry no tokens, so revalidation is safe and cheap.
+
+## Options validation (spec 003 R34)
+
+The apps deliberately have no `IOptions<T>` classes to `ValidateOnStart`: configuration is read
+imperatively in `Program.cs` with fail-fast guards that throw before `Build()` on malformed
+values (see `StartupConfigGuardTests`, which boot the real binary against broken config and
+assert the refusal). A future options class must either keep that shape or register with
+`.ValidateOnStart()` — a config error surfacing as a first-request hang is the AOT lesson this
+rule closes.

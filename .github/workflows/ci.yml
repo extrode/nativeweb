@@ -154,3 +154,11 @@ jobs:
 
       - name: Publish DevMarks (NativeAOT)
         run: dotnet publish apps/devmarks/nativeweb.devmarks.csproj -c Release -p:JauntyQUsePackages=true
+
+      # Spec 003 R36: size + time-to-/healthz against scripts/ci/publish-budgets.json.
+      # Budgets are null (record-only) until the close-out baseline is recorded.
+      - name: Publish budgets (web)
+        run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath apps/web/bin/Release/net10.0/win-x64/publish/nativeweb.web.exe -Name nativeweb.web -Port 5998
+
+      - name: Publish budgets (devmarks)
+        run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath apps/devmarks/bin/Release/net10.0/win-x64/publish/nativeweb.devmarks.exe -Name nativeweb.devmarks -Port 5999

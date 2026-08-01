@@ -1,0 +1,5 @@
+{
+  "_comment": "Spec 003 R36: budgets for the published AOT binaries. null = record-only (no baseline yet); set from the close-out baseline numbers. maxBytes is the exe size ceiling, maxStartupMs the time-to-/healthz ceiling, both already including headroom over the recorded baseline.",
+  "nativeweb.web": { "maxBytes": null, "maxStartupMs": null },
+  "nativeweb.devmarks": { "maxBytes": null, "maxStartupMs": null }
+}
