@@ -72,7 +72,7 @@ this document. Items marked ☐ are known-open, with the reason.
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ☑ | CI CVE gate: `dotnet list package --vulnerable --include-transitive` fails the build on any finding | `.github/workflows/ci.yml` (V6) |
+| ▢ | CI CVE gate: `dotnet list package --vulnerable --include-transitive` fails the build on any finding or on a vacuous audit. Wired in V6 but unverifiable until the CI package-feed gap below is closed -- the job dies at restore before the gate runs | `.github/workflows/ci.yml` (V6) |
 | ☑ | `TreatWarningsAsErrors` repo-wide incl. trim/AOT analyzers | `Directory.Build.props` |
 | ☑ | Central package versions, vendored htmx/Alpine (no CDN) | `Directory.Packages.props`, `wwwroot/vendor` |
 

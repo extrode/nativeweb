@@ -84,16 +84,27 @@ jobs:
         run: dotnet build --no-restore $DOTNET_BUILD_ARGS
 
       # Spec 003 R31: fail the build when any resolved package (direct or
-      # transitive) has a known CVE. Reads the assets file from the package-mode
-      # restore above (`dotnet list` takes no MSBuild properties). The command
-      # exits 0 either way, so grep for the "> PackageName" marker line it
-      # prints per finding.
+      # transitive) has a known CVE. `dotnet list` takes no -p: properties, but
+      # MSBuild reads properties from the environment, so JauntyQUsePackages as
+      # an env var makes project evaluation here match the package-mode restore
+      # above (without it, evaluation falls back to checkout mode and a JauntyQ
+      # sibling dir that does not exist on the runner). The command exits 0
+      # either way, so the gate is two greps: fail on any "> PackageName"
+      # finding line, and fail if the positive "no vulnerable packages"
+      # confirmation never appears -- an audit that evaluated nothing (broken
+      # sources, format change) must not pass silently.
       - name: Vulnerable package gate
+        env:
+          JauntyQUsePackages: "true"
         run: |
           out=$(dotnet list package --vulnerable --include-transitive)
           echo "$out"
           if echo "$out" | grep -Eq '^\s*>'; then
             echo '::error::Vulnerable package(s) found -- see the list above.'
+            exit 1
+          fi
+          if ! echo "$out" | grep -q 'has no vulnerable packages'; then
+            echo '::error::Vulnerability audit produced no per-project confirmation -- treating as failed.'
             exit 1
           fi
 
