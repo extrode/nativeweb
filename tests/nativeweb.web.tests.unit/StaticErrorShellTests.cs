@@ -1,3 +1,5 @@
+using Microsoft.Extensions.FileProviders;
+
 using NativeWeb.Web.Middleware;
 
 using Xunit;
@@ -6,6 +8,37 @@ namespace NativeWeb.Web.Tests.Unit;
 
 public class StaticErrorShellTests
 {
+    // The fail-fast guard is the whole point of Load: a missing shell must
+    // kill startup, not surface as an error page that itself 500s.
+    [Fact]
+    public void Load_MissingShellFile_FailsFastWithAPointedMessage()
+    {
+        InvalidOperationException ex =
+            Assert.Throws<InvalidOperationException>(() => StaticErrorShell.Load(new NullFileProvider()));
+
+        Assert.Contains("pages/error.html", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Load_PresentShellFile_ReadsItsContent()
+    {
+        string root = Directory.CreateTempSubdirectory("error-shell-").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "pages"));
+            File.WriteAllText(Path.Combine(root, "pages", "error.html"), "<h1>{{title}}</h1>");
+            using var provider = new PhysicalFileProvider(root);
+
+            var shell = StaticErrorShell.Load(provider);
+
+            Assert.Equal("<h1>Not found</h1>", shell.Render("Not found", "unused"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public void Render_ReplacesEveryOccurrenceOfBothTokens()
     {
