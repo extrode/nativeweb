@@ -118,19 +118,28 @@ Both apps compress `text/html` only, Brotli-first, with `EnableForHttps=true`. C
 secret-bearing HTML over TLS is the precondition for BREACH-class attacks, so the acceptance is
 deliberate and bounded:
 
-- The only per-request secrets in rendered HTML are the antiforgery token and the CSP nonce.
-  ASP.NET Core antiforgery request tokens are masked per issue (a fresh random XOR each render),
-  so the byte sequence an attacker would need to converge on changes every response — the
-  compression-oracle loop BREACH depends on never stabilises. The nonce is single-use by
-  definition.
-- BREACH additionally requires attacker-chosen text reflected into the same response as the
-  secret. The apps render user input HTML-encoded through typed template params, and error pages
-  echo nothing request-derived.
+- Every secret that appears in rendered HTML is per-response, so the byte sequence an attacker
+  would need to converge on changes every render and the compression-oracle loop BREACH depends
+  on never stabilises. The inventory: the antiforgery request token (varies per render because
+  Data Protection encrypts it with a randomized IV — there is no System.Web-style XOR mask, the
+  IV is the whole mechanism), the CSP nonce (single-use by definition), the OAuth authorization
+  code the consent page embeds in a hidden field (minted fresh on every GET of
+  /oauth/authorize), and the TOTP secret on GET /auth/2fa/enroll (fresh per render).
+- **Invariant, not accident:** the consent code and enroll secret staying freshly minted per
+  render is load-bearing for this acceptance. An optimization that reuses the pending
+  authorization (or the staged TOTP secret) across refreshes would put a *stable* secret in the
+  same compressed response as attacker-chosen `state` — exactly the oracle this section claims
+  cannot exist. Such a change must revisit this section, not just its own endpoint.
+- HTML-encoding user input is XSS hygiene, **not** a BREACH mitigation — token alphabets
+  (base64/base32/hex) pass through `HtmlEncoder` untouched, so encoded reflection compresses
+  against a secret exactly as raw reflection would. The reflection leg of BREACH is instead
+  starved by the per-IP rate limits (tens per minute, where the oracle needs thousands of
+  probes) and defused by the previous bullet (no stable secret to converge on).
 - OAuth token/introspection responses are JSON and not on the mime list; they are never
   compressed.
 
-If a future page reflects request input verbatim alongside a stable secret, that page — not the
-mime list — is the thing to fix.
+If a future page acquires a secret that survives across renders, that page — not the mime
+list — is the thing to fix.
 
 ## Caching of token-bearing pages (spec 003 R30)
 
