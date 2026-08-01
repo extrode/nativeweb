@@ -57,7 +57,11 @@ public class SmokeFlowTests(__PRODUCT__ProcessFixture app, BrowserFixture browse
     {
         if (path is not null)
         {
-            await page.GotoAsync($"{app.BaseUrl}{path}");
+            // GotoAsync does not throw on an error status, so a deleted or
+            // renamed page would silently scan the (accessible) error shell
+            // and keep the gate green -- assert the page actually loaded.
+            IResponse? response = await page.GotoAsync($"{app.BaseUrl}{path}");
+            Assert.Equal(200, response?.Status);
         }
 
         string scanned = path ?? new Uri(page.Url).PathAndQuery;

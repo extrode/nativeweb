@@ -16,6 +16,9 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <!-- TestDatabase talks to Postgres directly; declared, not left to flow
+         transitively from the app reference. -->
+    <PackageReference Include="Npgsql" />
   </ItemGroup>
 
   <ItemGroup>

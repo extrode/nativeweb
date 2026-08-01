@@ -5,7 +5,9 @@
 #   2. copy the publish output (the single native binary plus wwwroot/ and
 #      appsettings*.json) to /opt/__product__
 #   3. useradd --system --no-create-home --shell /usr/sbin/nologin __product__
-#   4. install -d -o __product__ -g __product__ /var/lib/__product__/keys
+#   4. install -d -m 700 -o __product__ -g __product__ /var/lib/__product__/keys
+#      (700, not install's default 755: the key-ring XML holds unencrypted
+#      master keys, and UMask below keeps the files themselves 600)
 #   5. cp deploy/__product__.service /etc/systemd/system/
 #   6. systemctl daemon-reload && systemctl enable --now __product__
 #
@@ -45,6 +47,9 @@ Environment=__PRODUCT____DataProtection__KeyDirectory=/var/lib/__product__/keys
 # Hardening. ProtectSystem=strict makes the whole filesystem read-only, so the
 # key directory is granted back explicitly and nothing else is writable.
 NoNewPrivileges=true
+# Data-protection key files are written world-readable under the default 0022
+# umask; any local user could then mint valid antiforgery tokens.
+UMask=0077
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true

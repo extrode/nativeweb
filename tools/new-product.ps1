@@ -109,12 +109,22 @@ foreach ($action in $actions) {
     }
 }
 
+# git does not honor $ErrorActionPreference (native exe), so every call is
+# checked -- a failure here (no user.email, hook rejection) must not print
+# success over a half-initialised repo.
+function Invoke-Git([string[]]$gitArguments) {
+    git @gitArguments | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "git $($gitArguments -join ' ') failed with exit code $LASTEXITCODE."
+    }
+}
+
 Push-Location $Destination
 try {
-    git init --initial-branch=main | Out-Null
-    git add -A
-    git commit -m "chore: stamp $Slug from the NativeWeb skeleton" | Out-Null
-    git branch dev
+    Invoke-Git @('init', '--initial-branch=main')
+    Invoke-Git @('add', '-A')
+    Invoke-Git @('commit', '-m', "chore: stamp $Slug from the NativeWeb skeleton")
+    Invoke-Git @('branch', 'dev')
 }
 finally {
     Pop-Location

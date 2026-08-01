@@ -75,6 +75,19 @@ cannot succeed anywhere — including `.github/workflows/ci.yml`, which dies at 
 feed is provisioned. Checkout mode is the working path today. The packages are private-feed
 only in any case: the JauntyQ license limits generated output to self-hosted use.
 
+## Before shipping
+
+The stamp leaves deliberate placeholders. Replace every one before the product faces traffic:
+
+- `wwwroot/robots.txt` and `wwwroot/sitemap.xml` — `__product__.example` host.
+- `SecurityTxtEndpoint.cs` — the `security@__product__.example` contact.
+- `wwwroot/img/logo.svg` — the placeholder logo.
+- `deploy/__product__.service` / `install-windows-service.ps1` — connection string and URLs.
+- `docs/security-baseline.md` — tick the checklist, honestly.
+- When the package feed exists: add a `NuGet.config` with the private source and a
+  `packageSourceMapping` confining `NativeWeb.*`/`JauntyQ.*` to it, so package mode never
+  resolves those IDs against nuget.org.
+
 ## Status
 
 See `work/status/current.md` for what is being worked on right now, and `CHANGELOG.md` for

@@ -99,7 +99,10 @@ function Invoke-Sc([string[]]$scArguments) {
     }
 }
 
-Invoke-Sc @('create', $ServiceName, 'binPath=', $binPath, 'start=', 'delayed-auto', 'DisplayName=', '__PRODUCT__')
+# obj= NetworkService, not the LocalSystem default: the app needs no local
+# privilege at all, only an outbound socket to Postgres. Built-in account, so
+# no password argument is required.
+Invoke-Sc @('create', $ServiceName, 'binPath=', $binPath, 'obj=', 'NT AUTHORITY\NetworkService', 'start=', 'delayed-auto', 'DisplayName=', '__PRODUCT__')
 # Two fast restarts then a slow one, so a crash loop (bad connection string,
 # port in use) backs off instead of hammering the SCM. reset= 86400 clears the
 # failure count after a day of staying up.

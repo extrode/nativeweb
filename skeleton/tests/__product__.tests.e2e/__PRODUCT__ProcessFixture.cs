@@ -66,11 +66,20 @@ public sealed class __PRODUCT__ProcessFixture : IAsyncLifetime
         // production windows would throttle the tests, not a client. Mirrors
         // the integration factory.
         startInfo.EnvironmentVariables["__PRODUCT____RateLimit__General__PermitLimit"] = "100000";
-        startInfo.EnvironmentVariables["__PRODUCT____RateLimit__CspReport__PermitLimit"] = "1000";
+        startInfo.EnvironmentVariables["__PRODUCT____RateLimit__CspReport__PermitLimit"] = "100000";
 
         _process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start apps/__product__.");
 
-        using var client = new HttpClient(E2eHttp.Handler());
+        // The redirected streams must be drained for the app's whole lifetime:
+        // the request-logging middleware writes a line per request, and once
+        // the OS pipe buffer fills an undrained stream blocks the app on its
+        // next log write, hanging the suite at an arbitrary point.
+        _process.OutputDataReceived += static (_, _) => { };
+        _process.ErrorDataReceived += static (_, _) => { };
+        _process.BeginOutputReadLine();
+        _process.BeginErrorReadLine();
+
+        using HttpClient client = E2eHttp.CreateClient();
         DateTime deadline = DateTime.UtcNow.AddSeconds(60);
         while (DateTime.UtcNow < deadline)
         {

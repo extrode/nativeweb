@@ -2,8 +2,10 @@
 
   <!-- Pack metadata (spec 003 R1): products consume the framework libs either
        as a sibling checkout via $(NativeWebRoot) ProjectReferences or as these
-       packages from a PRIVATE feed. Never publish publicly: the products'
-       JauntyQ license permits self-hosted use only. -->
+       packages from a PRIVATE feed. Never publish publicly: the packages are
+       proprietary, and NativeWeb.Data (with its dependents Auth and Mail)
+       additionally embeds JauntyQ-generated output, which the JauntyQ license
+       limits to self-hosted use. -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Security</PackageId>

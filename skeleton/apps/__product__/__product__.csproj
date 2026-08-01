@@ -53,7 +53,10 @@
     <PackageReference Include="NativeWeb.Security" />
     <PackageReference Include="NativeWeb.Auth" />
     <PackageReference Include="NativeWeb.Render" />
-    <PackageReference Include="NativeWeb.Render.Generator" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <!-- The package ships under analyzers/dotnet/cs, which is what makes it a
+         generator; OutputItemType/ReferenceOutputAssembly are ProjectReference
+         metadata and would be ignored here. PrivateAssets keeps it build-only. -->
+    <PackageReference Include="NativeWeb.Render.Generator" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

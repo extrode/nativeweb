@@ -69,16 +69,16 @@ jobs:
             -c "CREATE DATABASE __product___test OWNER __product___app;"
 
       - name: Apply migrations
-        # 0001 (extensions) needs a superuser; everything else runs as
-        # __product___app so the created tables are owned by the role the app
-        # connects as -- the same split db/migrate.sh makes locally.
-        run: |
-          for f in db/migrations/*.sql; do
-            echo "Applying $f"
-            role=__product___app
-            [ "$(basename "$f")" = "0001_extensions.sql" ] && role=postgres
-            PGPASSWORD=ci_test_password psql -h localhost -U "$role" -d __product___test -v ON_ERROR_STOP=1 -f "$f"
-          done
+        # Through the shipped runner, not an inline loop, so CI exercises the
+        # same migrate.sh (superuser-for-extensions split, schema_migrations
+        # tracking) a deployment uses.
+        env:
+          PGHOST: localhost
+          PGDATABASE: __product___test
+          APP_ROLE: __product___app
+          SUPERUSER_ROLE: postgres
+          PGPASSWORD: ci_test_password
+        run: bash db/migrate.sh
 
       - name: Restore
         run: dotnet restore $DOTNET_BUILD_ARGS
@@ -121,9 +121,20 @@ jobs:
       - name: Integration tests
         run: dotnet test tests/__product__.tests.integration --no-build $DOTNET_BUILD_ARGS
 
+      - name: Install NativeAOT link prerequisites
+        # The e2e fixture's inner publish does a full NativeAOT link on this
+        # Linux runner, which needs clang and zlib headers.
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
       - name: E2E tests
         # __PRODUCT__ProcessFixture publishes apps/__product__ itself (Release,
-        # no --no-build shortcut applies to that inner publish).
+        # no --no-build shortcut applies to that inner publish). The UsePackages
+        # env vars are what reach that CHILD process -- $DOTNET_BUILD_ARGS only
+        # applies to the outer `dotnet test`, and MSBuild reads bare environment
+        # variables as properties.
+        env:
+          NativeWebUsePackages: "true"
+          JauntyQUsePackages: "true"
         run: dotnet test tests/__product__.tests.e2e --no-build $DOTNET_BUILD_ARGS
 
   aot-publish:

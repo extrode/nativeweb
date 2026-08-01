@@ -25,6 +25,8 @@
     <Version>0.1.0</Version>
     <Authors>extrode-legacy-org</Authors>
     <Description>NativeWeb framework: build-time template + locale-catalog source generator.</Description>
+    <!-- Analyzer semantics for consumers: no transitive flow, no lib dependency. -->
+    <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <!-- NU5128: no lib/ entry for the TFM is exactly what an analyzer package looks like. -->
     <NoWarn>$(NoWarn);NU5128</NoWarn>

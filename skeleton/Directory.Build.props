@@ -38,19 +38,19 @@
   </PropertyGroup>
 
   <!-- Dual-mode JauntyQ resolution (mirrors justsmtp.com):
-       - local checkout present => ProjectReference for co-development;
-       - no checkout / CI => -p:JauntyQUsePackages=true pulls the pinned
-         JauntyQ.* packages (versions in Directory.Packages.props).
-       Default to package mode only when no checkout path is set at all. -->
-  <PropertyGroup>
-    <JauntyQUsePackages Condition="'$(JauntyQUsePackages)' == '' and '$(JauntyQRoot)' == ''">true</JauntyQUsePackages>
-  </PropertyGroup>
+       - local checkout (the default) => ProjectReference for co-development;
+       - -p:JauntyQUsePackages=true => the pinned JauntyQ.* packages
+         (versions in Directory.Packages.props).
+       Package mode is opt-in ONLY: the probe above always assigns a root, so
+       an automatic fallback can never fire — CI must pass the flag. -->
 
   <!-- MSBuild only warns (MSB9008) and silently skips missing ProjectReferences,
        which turns an unresolved JauntyQRoot into downstream CS0246s. Fail fast —
-       but only in checkout mode; package mode has no path to validate. -->
+       but only in checkout mode; package mode has no path to validate. The probe
+       is a sentinel csproj, not the bare directory: an empty or unrelated dir
+       at the path would pass Exists() and still MSB9008-skip every reference. -->
   <Target Name="EnsureJauntyQRoot" BeforeTargets="BeforeBuild"
-          Condition="'$(JauntyQUsePackages)' != 'true' and !Exists('$(JauntyQRoot)')">
+          Condition="'$(JauntyQUsePackages)' != 'true' and !Exists('$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj')">
     <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt; or build with -p:JauntyQUsePackages=true." />
   </Target>
 
@@ -64,20 +64,30 @@
   </PropertyGroup>
 
   <!-- Dual-mode NativeWeb resolution, same split as JauntyQ above:
-       - local checkout present => ProjectReference for co-development;
-       - no checkout / CI => -p:NativeWebUsePackages=true pulls the pinned
-         NativeWeb.* packages (versions in Directory.Packages.props).
-       Default to package mode only when no checkout path is set at all. -->
-  <PropertyGroup>
-    <NativeWebUsePackages Condition="'$(NativeWebUsePackages)' == '' and '$(NativeWebRoot)' == ''">true</NativeWebUsePackages>
-  </PropertyGroup>
+       - local checkout (the default) => ProjectReference for co-development;
+       - -p:NativeWebUsePackages=true => the pinned NativeWeb.* packages
+         (versions in Directory.Packages.props).
+       Package mode is opt-in ONLY, same as JauntyQ; MSBuild also reads bare
+       environment variables as properties, so an ambient NativeWebUsePackages
+       flips the mode silently — the message below makes the resolved mode
+       visible in every build log. -->
 
   <!-- Same MSB9008 trap as JauntyQ: an unresolved NativeWebRoot silently drops
        the ProjectReferences and surfaces as downstream CS0246s. Fail fast —
-       but only in checkout mode; package mode has no path to validate. -->
+       but only in checkout mode; package mode has no path to validate. Sentinel
+       csproj probe for the same reason as EnsureJauntyQRoot. -->
   <Target Name="EnsureNativeWebRoot" BeforeTargets="BeforeBuild"
-          Condition="'$(NativeWebUsePackages)' != 'true' and !Exists('$(NativeWebRoot)')">
+          Condition="'$(NativeWebUsePackages)' != 'true' and !Exists('$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj')">
     <Error Text="NativeWeb checkout not found at '$(NativeWebRoot)'. Pass -p:NativeWebRoot=&lt;path&gt; or build with -p:NativeWebUsePackages=true." />
+  </Target>
+
+  <Target Name="ReportFrameworkResolution" BeforeTargets="BeforeBuild">
+    <Message Importance="high" Condition="'$(NativeWebUsePackages)' != 'true'"
+             Text="NativeWeb: checkout mode ($(NativeWebRoot))" />
+    <Message Importance="high" Condition="'$(NativeWebUsePackages)' == 'true'"
+             Text="NativeWeb: PACKAGE mode (pinned NativeWeb.* packages, not a checkout)" />
+    <Message Importance="high" Condition="'$(JauntyQUsePackages)' == 'true'"
+             Text="JauntyQ: PACKAGE mode (pinned JauntyQ.* packages, not a checkout)" />
   </Target>
 
 </Project>

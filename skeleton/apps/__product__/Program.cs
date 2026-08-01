@@ -143,8 +143,11 @@ public sealed class Program
         // profile so it survives a rebuild of the publish directory; override
         // __PRODUCT__:DataProtection:KeyDirectory to point at a persistent volume in
         // production.
-        string keyDirectory = builder.Configuration["__PRODUCT__:DataProtection:KeyDirectory"]
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".__product__", "keys");
+        // Length check, not ??: appsettings documents the key with an empty
+        // value, and DirectoryInfo("") throws at startup.
+        string keyDirectory = builder.Configuration["__PRODUCT__:DataProtection:KeyDirectory"] is { Length: > 0 } configuredKeyDirectory
+            ? configuredKeyDirectory
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".__product__", "keys");
         builder.Services.AddDataProtection()
             .SetApplicationName("__PRODUCT__")
             .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));

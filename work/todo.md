@@ -129,3 +129,12 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 - Skeleton e2e process fixture runs its inner `dotnet publish` without the UsePackages flags,
   so a stamped product's CI e2e step stays checkout-mode even once a package feed exists —
   fold into the feed-gap fix (spec 003 R6).
+- V9 review findings that are pre-existing on dev (fix as their own chore): (a) root
+  `Directory.Build.props` has the same dead `JauntyQUsePackages` auto-default and the same
+  bare-`Exists()` checkout gate the skeleton just fixed (sentinel-csproj probe); (b)
+  `DevMarksProcessFixture`/`AppProcessFixture` redirect stdout/stderr but never drain them —
+  latent suite hang once the pipe buffer fills (skeleton fixture now drains); (c) NativeWeb
+  `ci.yml`: devmarks e2e does a NativeAOT link on ubuntu-latest with no clang/zlib1g-dev
+  install step, and `ilammy/msvc-dev-cmd@v1` is a mutable tag (pin to a commit SHA — look the
+  SHA up, don't guess); (d) devmarks `/` endpoint carries no rate-limit policy and `/readyz`
+  is an un-rate-limited DB round trip in both apps.
