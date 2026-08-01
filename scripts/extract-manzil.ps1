@@ -30,12 +30,22 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $skeleton = Join-Path $repoRoot 'skeleton'
+
+# A dry run always exits 0 (the convention), so precondition failures only
+# terminate under -Execute; a bare run reports them and stops planning.
+function Fail-Precondition([string]$message) {
+    if ($Execute) { Write-Error $message }
+    Write-Host "PRECONDITION: $message"
+    Write-Host 'Dry run stopped at a failed precondition; -Execute would refuse.'
+    exit 0
+}
+
 foreach ($required in @($skeleton,
         (Join-Path $repoRoot 'apps\devmarks'),
         (Join-Path $repoRoot 'libs\nativeweb.devmarks.data'),
         (Join-Path $repoRoot 'db\devmarks'))) {
     if (-not (Test-Path $required)) {
-        Write-Error "Expected $required -- run from a NativeWeb checkout that still has DevMarks."
+        Fail-Precondition "Expected $required -- run from a NativeWeb checkout that still has DevMarks."
     }
 }
 
@@ -55,7 +65,13 @@ Write-Host "== extract-manzil: $repoRoot -> $Destination [$mode] =="
 # String.Replace is ordinal and case-sensitive, which the map relies on.
 # An array of pairs, not a hashtable: PowerShell hashtable keys are
 # case-insensitive, so 'DevMarks' and 'devmarks' would collide.
+# db/devmarks flattens to db/ in the new repo, so path-qualified references
+# (README psql loops, migrate.sh comments, csproj AdditionalFiles) must drop
+# the segment entirely -- first, before the bare devmarks token would turn
+# them into a db/manzil/ that does not exist.
 $renameMap = @(
+    @('db/devmarks/',            'db/'),
+    @('db\devmarks\',            'db\'),
     @('NativeWeb.slnx',          'manzil.slnx'),
     @('nativeweb-devmarks',      'manzil'),
     @("DevMarks'",               "Manzil's"),
@@ -105,8 +121,8 @@ $copySets = @(
 $actions = @()
 foreach ($set in $copySets) {
     $sourceRoot = Join-Path $repoRoot $set.Source
-    $files = Get-ChildItem -Recurse -File -Force $sourceRoot |
-        Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }
+    $files = @(Get-ChildItem -Recurse -File -Force $sourceRoot |
+        Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' })
     Write-Host "-- copy $($set.Source) -> $($set.Dest) ($($files.Count) files)"
     foreach ($file in $files) {
         $relative = [System.IO.Path]::GetRelativePath($sourceRoot, $file.FullName)
@@ -139,7 +155,7 @@ foreach ($file in $skeletonFiles) {
 
 $collisions = $actions | Group-Object Target | Where-Object Count -gt 1
 if ($collisions) {
-    Write-Error "Copy plan writes these targets twice: $(($collisions.Name) -join ', ')"
+    Fail-Precondition "Copy plan writes these targets twice: $(($collisions.Name) -join ', ')"
 }
 
 # ---------------------------------------------------------------------------
@@ -199,22 +215,24 @@ $patches = @(
 '@
     }
     @{
-        File = 'libs\manzil.data\manzil.data.csproj'
-        Old  = '    <AdditionalFiles Include="..\..\db\manzil\queries\**\*.sql" />'
-        New  = '    <AdditionalFiles Include="..\..\db\queries\**\*.sql" />'
+        # The dir heading is the one bare (slash-less) db/devmarks reference
+        # besides the csproj comment patched above.
+        File = 'db\README.md'
+        Old  = '# db/manzil'
+        New  = '# db'
     }
     @{
-        File = 'libs\manzil.data\manzil.data.csproj'
-        Old  = '    <AdditionalFiles Include="..\..\db\manzil\schema\*.schema.json" />'
-        New  = '    <AdditionalFiles Include="..\..\db\schema\*.schema.json" />'
-    }
-    @{
-        File = 'libs\manzil.data\manzil.data.csproj'
-        Old  = 'globbing db/manzil/'
-        New  = 'globbing db/'
+        File = 'apps\manzil\manzil.csproj'
+        Old  = '    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>'
+        New  = @'
+    <!-- Caveat: this only suppresses transitive *project* references. In
+         package mode NativeWeb.Auth's dependencies become compile-visible
+         again -- revisit the JauntyDb collision when the feed exists. -->
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+'@
     }
 )
-Write-Host "-- $($patches.Count) exact-anchor patches (framework refs -> `$(NativeWebRoot); db/manzil -> db/)"
+Write-Host "-- $($patches.Count) exact-anchor patches (framework refs -> `$(NativeWebRoot); transitive-ref caveat)"
 foreach ($patch in $patches) {
     Write-Host "   patch $($patch.File)"
 }
@@ -227,9 +245,13 @@ if (-not $Execute) {
 }
 
 # ---------------------------------------------------------------------------
-# Execute.
+# Execute. Any failure past this point removes the partially built
+# destination (only if this run created it), so a re-run does not trip the
+# not-empty guard against our own debris.
 # ---------------------------------------------------------------------------
+$createdDestination = -not (Test-Path $Destination)
 New-Item -ItemType Directory -Force $Destination | Out-Null
+try {
 foreach ($action in $actions) {
     $dest = Join-Path $Destination $action.Target
     New-Item -ItemType Directory -Force (Split-Path -Parent $dest) | Out-Null
@@ -251,17 +273,21 @@ foreach ($action in $actions) {
 
 foreach ($patch in $patches) {
     $path = Join-Path $Destination $patch.File
-    $content = [System.IO.File]::ReadAllText($path)
-    if (-not $content.Contains($patch.Old)) {
-        Write-Error "Patch anchor not found in $($patch.File): $($patch.Old.Substring(0, [Math]::Min(70, $patch.Old.Length)))..."
+    # LF-normalise both sides so a CRLF-materialised script or source file
+    # cannot break the ordinal Contains match (the repo convention is LF).
+    $content = [System.IO.File]::ReadAllText($path).Replace("`r`n", "`n")
+    $old = $patch.Old.Replace("`r`n", "`n")
+    $new = $patch.New.Replace("`r`n", "`n")
+    if (-not $content.Contains($old)) {
+        Write-Error "Patch anchor not found in $($patch.File): $($old.Substring(0, [Math]::Min(70, $old.Length)))..."
     }
-    Write-Utf8NoBom $path $content.Replace($patch.Old, $patch.New)
+    Write-Utf8NoBom $path $content.Replace($old, $new)
 }
 
 # Residual scan: a leftover token means the rename map missed something.
 $residuals = Get-ChildItem -Recurse -File -Force $Destination |
     Where-Object { Test-IsTextFile $_ } |
-    Select-String -Pattern 'devmarks|__product__|__PRODUCT__' -List
+    Select-String -Pattern 'devmarks|__product__|__PRODUCT__|db[/\\]manzil' -List
 if ($residuals) {
     $residuals | ForEach-Object { Write-Host "RESIDUAL: $($_.Path):$($_.LineNumber): $($_.Line.Trim())" }
     Write-Error "Rename left $(@($residuals).Count) file(s) with devmarks/__product__ tokens (listed above)."
@@ -285,6 +311,14 @@ try {
 }
 finally {
     Pop-Location
+}
+}
+catch {
+    if ($createdDestination -and (Test-Path $Destination)) {
+        Remove-Item -Recurse -Force $Destination
+        Write-Host "Removed partially built $Destination after failure."
+    }
+    throw
 }
 
 Write-Host "Extracted manzil.my into $Destination (git: main + dev, fresh history)."
