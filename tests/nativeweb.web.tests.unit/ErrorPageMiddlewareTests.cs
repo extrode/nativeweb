@@ -30,14 +30,13 @@ public class ErrorPageMiddlewareTests
     // Expect: 100-continue), so this path -- the limit discovered mid-read,
     // inside the pipeline -- is only exercisable by invoking the middleware
     // directly. The htmx branch of WriteErrorAsync renders a bare fragment
-    // without touching AssetUrls/IAntiforgery, so those can be null here.
+    // without touching the static shell, so a stub shell suffices here.
     [Fact]
     public async Task Invoke_NextThrowsBadHttpRequest_SurfacesKestrelsStatusCode()
     {
         var middleware = new ErrorPageMiddleware(
             _ => throw new BadHttpRequestException("Request body too large.", StatusCodes.Status413PayloadTooLarge),
-            assets: null!,
-            antiforgery: null!,
+            shell: new StaticErrorShell("{{title}} {{message}}"),
             logger: Microsoft.Extensions.Logging.Abstractions.NullLogger<ErrorPageMiddleware>.Instance);
 
         var context = new DefaultHttpContext();
