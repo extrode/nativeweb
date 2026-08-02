@@ -11,11 +11,6 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 Small, clear, and could be picked up without a design decision.
 
-- **manzil.my** (not this repo — DevMarks became manzil.my in `0760c7c`):
-  `apps/manzil/wwwroot/vendor/webauthn/webauthn-ceremony.js` was copied from the IdP
-  unintentionally and is unused. Tracked, so it needs a chore branch with `git rm` rather than
-  the cleanup script.
-
 - IdP: `Redirects.To` answers a no-JS POST with `Results.Redirect`, i.e. **302**, where **303**
   is the semantically correct status for a POST → GET transition. Every browser treats them
   identically here, so nothing is broken; changing it touches every caller (OAuth consent,
@@ -84,6 +79,11 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 
 - BEM rename (`feature__title` -> `feature-title`/`feature_title`): costed 2026-08-02 (~40
   names / 205 occurrences / 23 files + three-repo sweep); user decided 2026-08-02 to keep BEM.
+
+- Unused vendored `webauthn-ceremony.js` in manzil.my: removed 2026-08-03 (`1d795e1`). Not
+  needed by the eventual epass-backed auth either — WebAuthn credentials are RP-scoped, so the
+  ceremony runs on the IdP's own pages and a delegating relying party never calls
+  `navigator.credentials` itself.
 
 - IdP passphrase reset showing a blank page with scripting off (H5 nit, 2026-07-31): already
   fixed by `0ba2d04`, the spec 004 no-JS retrofit — `Redirects.To` returns a real redirect when
