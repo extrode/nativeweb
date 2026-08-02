@@ -230,6 +230,12 @@ public sealed class Program
             options.AddPolicy("csp-report", httpContext => ByIp(httpContext, cspReportPermitLimit));
         });
 
+        // Spec 006: the in-process store behind the public pages. The named
+        // policy is the only one attached anywhere -- nothing is cached by
+        // default, so a route becomes shareable only by saying so.
+        builder.Services.AddOutputCache(options =>
+            options.AddPolicy(PublicPageCachePolicy.Name, policy => policy.AddPolicy<PublicPageCachePolicy>()));
+
         WebApplication app = builder.Build();
 
         // Must run before anything that reads RemoteIpAddress/scheme (rate limiter,
@@ -262,6 +268,12 @@ public sealed class Program
         // UseAuthentication call, so the hook can see the signed-in user.
         app.UseLocaleNegotiation(new LocaleNegotiationOptions { SupportedLocales = Locales.All });
         app.UseRateLimiter();
+        // After the rate limiter deliberately (spec 006 R8): a cache hit must
+        // still consume a rate-limit permit, or the cache would turn a public
+        // route's limit into a no-op for exactly the traffic it exists to bound.
+        // After locale negotiation because the cache key includes the negotiated
+        // locale.
+        app.UseOutputCache();
         app.UseRequestTimeouts();
         app.UseAntiforgery();
 
@@ -274,9 +286,18 @@ public sealed class Program
         // The lambda's return type is stated because the RDG interceptor binds
         // before our template generator's output exists in its view of the
         // compilation; left inferred, the return type is unresolvable there.
+        // Built once from the template's own generated hashes (spec 006), so the
+        // CSP cannot drift from the scripts the page actually renders.
+        string homeCsp = PublicPageCache.Csp(Templates.Home.Index.InlineScriptCspHashes);
+
         app.MapGet("/", IResult (HttpContext context) =>
         {
-            var chrome = Chrome.For(context, assets, antiforgery);
+            // Cookie-free requests get the byte-stable anonymous variant and are
+            // marked cacheable; a flash (or, in a product with accounts, a
+            // session) renders today's page unchanged.
+            Chrome chrome = PublicPageCache.CarriesIdentityCookie(context.Request)
+                ? Chrome.For(context, assets, antiforgery)
+                : Chrome.Anonymous(context, assets);
             // Every full-page render site takes the flash (read-once); never
             // take it in a fragment path, which would consume it invisibly.
             (string Ok, string Error) flash = Flash.Take(context);
@@ -290,7 +311,7 @@ public sealed class Program
                 BotCanary: chrome.BotCanary,
                 FlashOk: flash.Ok,
                 FlashError: flash.Error);
-        }).RequireRateLimiting("general");
+        }).RequireRateLimiting("general").AsPublicPage(homeCsp);
 
         app.MapCspReportEndpoint();
         app.MapSecurityTxtEndpoint();

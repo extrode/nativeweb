@@ -26,32 +26,32 @@ Each branch: code + tests together, Fable review before merge, `--no-ff` into `d
       omits `nonce=` attributes and the antiforgery `<meta>` when empty; signed-in renders are
       byte-identical to today; BotCanary confirmed unrendered on `/` and `/u/*`; doc comment
       fixed.
-- [ ] T5 OutputCache policy + wiring — files: manzil.my `apps/manzil/Program.cs` (+ policy
+- [x] T5 OutputCache policy + wiring — files: manzil.my `apps/manzil/Program.cs` (+ policy
       type) — covers: R2, R8 — done when: bypass (no read/write) on either named cookie; key =
       path + `page` query + negotiated locale; junk query params key nothing;
       `UseOutputCache` sits after `UseRateLimiter` and `UseLocaleNegotiation`; unit tests cover
       the bypass predicate and locale normalization.
-- [ ] T6 Public endpoints serve the anonymous variant — files: manzil.my
+- [x] T6 Public endpoints serve the anonymous variant — files: manzil.my
       `apps/manzil/Public/PublicEndpoints.cs`, `Program.cs` `MapGet("/")` — covers: R1, R5,
       R7 — done when: cookie-free requests render the anonymous chrome and are cacheable;
       cookie-bearing requests render exactly today's page; 404s are never cached and the miss
       path is unchanged; existing enumeration suite passes unchanged in meaning; and the
       rendered anonymous response carries no `nonce=` and no `request-verification-token`
       meta (T4's layout guards, asserted here where a real response exists).
-- [ ] T7 Eviction from write endpoints — files: manzil.my `apps/manzil/Bookmarks/*`, `Tags/*`,
+- [x] T7 Eviction from write endpoints — files: manzil.my `apps/manzil/Bookmarks/*`, `Tags/*`,
       `Transfer/*`, `Auth/SettingsEndpoints.cs` — covers: R6 — done when: every successful
       write that can change a public page evicts tag `pub:{username,lowercase}`; a visibility
       flip is visible to the next anonymous request with no TTL wait.
-- [ ] T8 Integration tests — files: manzil.my `tests/manzil.tests.integration/*` — covers: R9
+- [x] T8 Integration tests — files: manzil.my `tests/manzil.tests.integration/*` — covers: R9
       (and asserts R1, R2, R4, R5, R6, R7, R8) — done when: double-GET is byte-identical with
       one DB render and no secrets/cookies; poisoning attempts fail in both directions; flash
       flow bypasses then rejoins the cache; locales get distinct bodies; sign-in/register stay
       `no-store` with a live antiforgery pair; eviction immediate and TTL bound holds with a
       test-shortened TTL; `?page=` extremes and junk params behave as designed.
-- [ ] T9 E2E tests — files: manzil.my `tests/manzil.tests.e2e/*` — covers: R9 — done when:
+- [x] T9 E2E tests — files: manzil.my `tests/manzil.tests.e2e/*` — covers: R9 — done when:
       Playwright sees zero CSP violations and `data-theme` set on a cached anonymous page;
       signed-in browse of own `/u/*` shows signed-in chrome; sign-out flash renders once.
-- [ ] T10 Skeleton parity — files: NativeWeb `skeleton/apps/__product__/*` — covers: plan's
+- [x] T10 Skeleton parity — files: NativeWeb `skeleton/apps/__product__/*` — covers: plan's
       pattern-copy convention — done when: middleware/layout/policy changes are mirrored
       structurally identical and the skeleton builds zero-warning.
 - [ ] T11 Close-out — files: spec status, `work/`, CHANGELOG — covers: acceptance — done when:

@@ -167,3 +167,4 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   bookmarks/index.html and public/profile.html have never formatted: a {{for}} body ending in a
   partial splice doesn't return to its start state; supporting that shape would format the two
   remaining manzil pages.
+- `tests/nativeweb.web.tests.e2e/AppProcessFixture.cs:73` redirects the IdP's stdout/stderr and never drains them: once the OS pipe buffer (a few KB) fills, the app blocks on its next Console write and stops answering requests without exiting, hanging the suite non-deterministically. The skeleton fixture already drains (`skeleton/tests/__product__.tests.e2e/__PRODUCT__ProcessFixture.cs:79`); manzil's copy was fixed under spec 006 T9. Same fix: `OutputDataReceived`/`ErrorDataReceived` + `BeginOutputReadLine`/`BeginErrorReadLine`, keeping a bounded tail for diagnostics.

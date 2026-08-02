@@ -50,6 +50,20 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvir
             string n = (string)ctx.Items[ItemKey]!;
             bool staticPage = ctx.Items.ContainsKey(StaticPagesMiddleware.ItemKey);
 
+            // Spec 006. Derived from the matched route's metadata plus this
+            // request's cookies, never from anything the handler left behind:
+            // this callback also runs when the output cache replays a stored
+            // response, and on that path the handler never executed. An
+            // Items-based mark would be absent precisely then, and the CSP would
+            // be rebuilt as if the page were an ordinary dynamic one -- a nonce
+            // CSP over a body that carries no nonce, blocking every inline
+            // script on every cache hit.
+            //
+            // One expression drives both the CSP and the Cache-Control below, so
+            // they cannot disagree; disagreement either way is the same broken
+            // page.
+            string? publicCsp = PublicPageCache.ResolveCsp(ctx);
+
             // report-uri is the legacy directive, report-to the modern one keyed
             // through Reporting-Endpoints; browsers use whichever they support,
             // both landing on POST /csp-report. base-uri and form-action do NOT
@@ -59,7 +73,8 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvir
             // to its own origin, so form-action 'self' costs nothing.
             headers["Content-Security-Policy"] = staticPage
                 ? StaticPageCsp
-                : $"default-src 'self'; script-src 'self' 'nonce-{n}'; style-src 'self' 'nonce-{n}'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; report-uri /csp-report; report-to csp";
+                : publicCsp
+                ?? $"default-src 'self'; script-src 'self' 'nonce-{n}'; style-src 'self' 'nonce-{n}'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; report-uri /csp-report; report-to csp";
             headers["Reporting-Endpoints"] = "csp=\"/csp-report\"";
             headers["X-Content-Type-Options"] = "nosniff";
             headers["X-Frame-Options"] = "DENY";
@@ -74,12 +89,26 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvir
             // shared cache or survive sign-out via the Back button. Keyed off the
             // content type rather than set unconditionally -- MapStaticAssets
             // serves fingerprinted CSS/JS with long-lived immutable caching, and a
-            // blanket header here would silently overwrite it. Public pages will
-            // opt back in to caching explicitly when they land.
+            // blanket header here would silently overwrite it.
             // Static pages are the deliberate exception (R38): they hold no
             // session state, so the static pipeline's revalidation caching
             // (no-cache + ETag) must survive rather than be forced to no-store.
-            if (!staticPage
+            //
+            // A public page (spec 006) is the second exception, and it is the
+            // one this comment anticipated. It opts back in explicitly, and
+            // only when the request itself proved it was anonymous: the route
+            // metadata alone is not enough, because a visitor carrying a
+            // personalizing cookie must still get no-store even though the
+            // endpoint reached the same template. Vary is declared for a shared
+            // cache downstream -- Cookie because presence of one flips the whole
+            // variant, Accept-Language because the negotiated locale changes the
+            // body.
+            if (publicCsp is not null)
+            {
+                headers["Cache-Control"] = $"public, max-age={PublicPageCache.MaxAgeSeconds}";
+                headers["Vary"] = "Cookie, Accept-Language";
+            }
+            else if (!staticPage
                 && (IsSensitiveContentType(ctx.Response.ContentType)
                     || IsSensitiveRedirect(ctx.Response.StatusCode, headers)))
             {
