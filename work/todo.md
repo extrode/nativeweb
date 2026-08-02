@@ -157,3 +157,15 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   whether it is a known .NET 10 issue or triggered by our pipeline ordering.
 - spec 004 review note: consider dropping the `antiforgeryField = ""` / `botTraps = ""` defaults on Render*Form/Fragment helpers so the compiler catches an omitted token field (SettingsEndpoints.cs:119 regression class); ~140 unit-test call sites would need updating. Also pre-existing: enumeration-defense StripVaryingTokens blanks every content="..." attribute, wider than the token meta.
 - integration: SettingsEndpointsTests fail 11/13 when run with --filter in isolation (TrapForm static canary fallback GETs /auth/signin with an authenticated client); full-suite runs pass. Pre-existing order dependence, verified at B4 HEAD 0ba2d04.
+- formatter (2026-08-02 review findings, non-blocking): (a) the AmbiguousLineStart guard only
+  accepts a literal "\n" next — a CRLF checkout (no .gitattributes LF force on *.html) bails
+  every banner-guard template silently; accept "\r\n" too. (b) depth sets keep entries from
+  callers that later bail (CascadeBails never prunes them), which is why MaxDepthVariants had to
+  go 4->8 and up to ~5 dead RenderAtD overloads per hot partial ship; recomputing depth sets
+  over surviving callers after each cascade would make 4 sufficient again. (c)
+  bookmarks/index.html and public/profile.html have never formatted: a {{for}} body ending in a
+  partial splice doesn't return to its start state; supporting that shape would format the two
+  remaining manzil pages.
+- BEM rename (feature__title -> feature-title or _): user asked for costing 2026-08-02
+  (~40 names / 205 occurrences / 23 files in manzil + three-repo sweep); recommended keeping
+  BEM, awaiting their decision.
