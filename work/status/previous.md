@@ -5,8 +5,8 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **Spec 005 B1 (`feat/boot-ux`)** — merged into `dev` (c25cb53, unpushed). boot.js busy
-  states (submitter disabled/aria-busy/nw-busy while in flight, cancel-path safe) + focus
-  recovery after swaps, re-vendored to apps/web + skeleton; `.nw-busy` CSS; `/version`
-  endpoint + git-SHA build stamp in both csprojs; suites 92/351/237/56; Fable review round
-  ($2.68, 2 MED fixed).
+- **Spec 005 B2 (`feat/idp-ux-defaults`)** -- merged into `dev` (ae0adf2, unpushed). Flash
+  one-shot messages (+2 adoption sites), field-level validation errors (register/settings/
+  admin; sign-in pinned generic), realm-slug native pattern, access keys, FormChrome
+  refactor, SwapFocusScript removal, boot.js outerHTML focus-recovery fix. Suites
+  92/368/237/56; Fable review $3.00 (2 LOW, 2 INFO -- addressed).

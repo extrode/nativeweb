@@ -43,7 +43,9 @@ merge to `dev` `--no-ff`, unpushed. Tick on merge.
   errors unit/integration/e2e; sign-in stays generic). Exposed and fixed a real boot.js gap:
   disabling the focused submitter dropped focus to body before the swap, defeating the
   swap-removed-focus check — busy layer now tracks and restores stolen focus.
-- [ ] Fable review; merge `--no-ff`.
+- [x] Fable review ($3.00 warm, 31 turns: 2 LOW fixed/accepted, 2 INFO fixed) -- round also
+  led to the outerHTML afterSwap detail.target fix in boot.js (recovery was dead code for
+  outerHTML swaps; htmx settle autofocus had been masking it). Merged `--no-ff` (ae0adf2).
 
 ## B3 — manzil.my `feat/ux-defaults`
 
