@@ -606,6 +606,14 @@ internal static class TemplateEmitter
             code.AppendLine("    }");
             code.AppendLine();
         }
+        // CSP hash-source authorization for the page's static inline scripts
+        // (spec 006 R3), taken over the exact bytes Render writes so a cacheable
+        // response needs no per-response nonce. Always emitted, empty included,
+        // so consumers can reference it unconditionally.
+        List<string> scriptHashes = InlineScriptHashes.Collect(standalone?.Nodes ?? body);
+        code.AppendLine("    /// <summary>'sha256-…' script-src sources for this template's static inline scripts, in document order.</summary>");
+        code.AppendLine($"    public static readonly string[] InlineScriptCspHashes = [{string.Join(", ", scriptHashes.Select(Quote))}];");
+        code.AppendLine();
         string trailingArguments = argumentNames.Count == 0 ? "" : ", " + string.Join(", ", argumentNames);
         code.AppendLine($"    public static string ToHtmlString({signature}) =>");
         code.AppendLine($"        TemplateResults.ToHtmlString((ref TemplateWriter writer) => Render(ref writer{trailingArguments}));");

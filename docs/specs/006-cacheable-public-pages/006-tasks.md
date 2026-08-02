@@ -5,11 +5,11 @@ Build order. T1–T2 land in NativeWeb (`feat/render-script-hashes`); T3–T9 in
 (`feat/cacheable-public-pages`); T10 back in NativeWeb (skeleton parity); T11 closes out.
 Each branch: code + tests together, Fable review before merge, `--no-ff` into `dev`.
 
-- [ ] T1 AOT gate — files: manzil.my `apps/manzil/Program.cs` (probe wiring), publish build —
+- [x] T1 AOT gate — files: manzil.my `apps/manzil/Program.cs` (probe wiring), publish build —
       covers: R2 (risk gate) — done when: a NativeAOT publish with `AddOutputCache`/
       `UseOutputCache` wired completes with zero warnings; if it fails, STOP and surface the
       fallback decision (hand-rolled keyed store) before continuing.
-- [ ] T2 Inline-script hash constants — files: NativeWeb `libs/nativeweb.render.generator/*`,
+- [x] T2 Inline-script hash constants — files: NativeWeb `libs/nativeweb.render.generator/*`,
       `tests/nativeweb.render.tests.unit/*` — covers: R3 — done when: the generator emits a
       SHA-256 (base64) constant per inline `<script>` body from the template's exact bytes, and
       a unit test proves the constant matches an independent recomputation.
