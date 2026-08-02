@@ -62,7 +62,18 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvir
             // One expression drives both the CSP and the Cache-Control below, so
             // they cannot disagree; disagreement either way is the same broken
             // page.
-            string? publicCsp = PublicPageCache.ResolveCsp(ctx);
+            //
+            // Status-gated as well, and that gate is load-bearing rather than
+            // tidy: a rate-limited request to a public route is a 429 that has
+            // reached the same endpoint metadata, and labelling it
+            // "public, max-age=60" would let a shared proxy serve one client's
+            // rejection to every anonymous visitor for the next minute. The
+            // output cache already refuses to store a non-200 (ServeResponseAsync);
+            // this is the same rule stated in the headers, so the two agree
+            // about what is shareable.
+            string? publicCsp = ctx.Response.StatusCode == StatusCodes.Status200OK
+                ? PublicPageCache.ResolveCsp(ctx)
+                : null;
 
             // report-uri is the legacy directive, report-to the modern one keyed
             // through Reporting-Endpoints; browsers use whichever they support,
