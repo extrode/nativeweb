@@ -13,7 +13,7 @@ Each branch: code + tests together, Fable review before merge, `--no-ff` into `d
       `tests/nativeweb.render.tests.unit/*` — covers: R3 — done when: the generator emits a
       SHA-256 (base64) constant per inline `<script>` body from the template's exact bytes, and
       a unit test proves the constant matches an independent recomputation.
-- [ ] T3 PublicPageCsp + header rules — files: manzil.my
+- [x] T3 PublicPageCsp + header rules — files: manzil.my
       `apps/manzil/Middleware/SecurityHeadersMiddleware.cs`, unit tests — covers: R1, R2, R3 —
       done when: public-flagged responses carry `script-src 'self' 'sha256-…'×2`,
       `style-src 'self'`, and `Cache-Control: public, max-age=60` + `Vary: Cookie,
