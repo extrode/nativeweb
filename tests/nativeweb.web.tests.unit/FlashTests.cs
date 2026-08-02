@@ -105,4 +105,18 @@ public class FlashTests
         Assert.NotNull(flash);
         Assert.Equal(300, flash.Value.Message.Length);
     }
+
+    [Fact]
+    public void Set_TruncationBacksOffASplitSurrogatePair()
+    {
+        // 299 chars then an astral-plane pair straddling the 300 boundary: a
+        // naive cut would strand the high surrogate and EscapeDataString throws.
+        string message = new string('x', 299) + "\U0001F600" + new string('y', 50);
+
+        string cookie = SetAndCaptureCookie(FlashKind.Success, message);
+        (bool Success, string Message)? flash = Flash.Take(ContextWithCookie(cookie));
+
+        Assert.NotNull(flash);
+        Assert.Equal(new string('x', 299), flash.Value.Message);
+    }
 }

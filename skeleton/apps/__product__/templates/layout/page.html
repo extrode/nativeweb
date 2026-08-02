@@ -5,6 +5,8 @@
   @param string AntiforgeryFieldName
   @param string BotCanary
   @param string AntiforgeryToken
+  @param string FlashOk
+  @param string FlashError
 -->
 <!DOCTYPE html>
 <html lang="{{locale.Lang}}" dir="{{locale.Dir}}">
@@ -49,6 +51,8 @@ document.addEventListener('htmx:configRequest', function (event) {
 <a class="topbar__brand" href="/"><img class="topbar__logo" src="{{Assets.Resolve("/img/logo.svg")}}" alt="">__PRODUCT__</a>
 </header>
 <main id="main" tabindex="-1">
+{{> shared/banner-ok Message=FlashOk}}
+{{> shared/banner-error Message=FlashError}}
 {{slot Main}}
 </main>
 <footer class="foot">{{t:chrome.footer}}</footer>
