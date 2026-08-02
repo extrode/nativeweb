@@ -159,10 +159,13 @@ assert the refusal). A future options class must either keep that shape or regis
 `.ValidateOnStart()` — a config error surfacing as a first-request hang is the AOT lesson this
 rule closes.
 
-## Progressive enhancement (spec 004)
+## Progressive enhancement (specs 004, 005)
 
 Browser-facing markup uses the `data-nw-*` enhancement layer, normalized to `hx-*` by the
 vendored `boot.js` (canonical source `libs/nativeweb.assets/boot.js`, loaded `defer` before
 htmx). State-changing endpoints are POST-only verb routes; transport is derived from the
-element's own `method`/`action`/`href`, and an authored `hx-*` attribute always wins. Full
-conventions: [progressive-enhancement.md](progressive-enhancement.md).
+element's own `method`/`action`/`href`, and an authored `hx-*` attribute always wins. On top
+of that sit the spec 005 UX defaults: boot.js busy states and focus-after-swap, cookie flash
+messages, access keys, native-constraint mirroring with field-level server errors, `/version`,
+and the any-content-type rule. Full conventions:
+[progressive-enhancement.md](progressive-enhancement.md).
