@@ -14,6 +14,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Built-in UX defaults** (spec 005, B1–B4) — busy states and focus-after-swap in
+  `boot.js` (re-vendored byte-identical everywhere); one-shot flash messages via a
+  `__Host-nw-flash` cookie (IdP nullable-tuple API, manzil/skeleton empty-string tuple API
+  feeding template banner partials); `/version` beside `/healthz` with a build-time
+  `<Version>+<git-sha>` stamp; access keys on primary actions; native constraint attributes
+  mirroring server rules with field-level server errors (`aria-invalid` + `role=alert`;
+  credential failures stay generic banners); `FormGuard`/`FormChrome` dedup refactors incl.
+  the 415-before-antiforgery order fix; the v2 PE handoff folded into
+  `docs/progressive-enhancement.md` (adopted, rejected-with-reasons, R12 any-content-type)
+  and deleted. Error pages verified pre-existing (spec 003 R39). Full breakdown:
+  `docs/specs/005-ux-defaults/005-tasks.md`.
 - **Progressive enhancement layer + formatted HTML output** (spec 004, B1–B5) — the `data-nw-*`
   attribute vocabulary (`target`/`swap`/`trigger`/`confirm`) normalized to `hx-*` at runtime by
   `libs/nativeweb.assets/boot.js` (~100 lines, vendored per app with byte-parity tests, loaded

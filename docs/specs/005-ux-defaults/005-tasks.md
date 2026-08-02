@@ -49,29 +49,50 @@ merge to `dev` `--no-ff`, unpushed. Tick on merge.
 
 ## B3 — manzil.my `feat/ux-defaults`
 
-- [ ] Vendor updated boot.js; parity test green.
-- [ ] `/version` + build stamp; `robots.txt` disallow.
-- [ ] `Flash.cs` pattern-copy + flash slot in `layout/page.html` render path.
-- [ ] `form-field.html`: optional `MaxLength`/`MinLength`/`Pattern`/`Inputmode` params; callers
-  pass server-rule values.
-- [ ] Real field errors threaded through register + settings.
-- [ ] Access keys (new bookmark, search, settings).
-- [ ] `ValidateAsync` extraction (4 copies → 1 helper) incl. 415-order fix.
-- [ ] `.nw-busy` CSS.
-- [ ] Tests all three layers.
-- [ ] Fable review; merge `--no-ff`.
+- [x] Vendor updated boot.js; parity test green.
+- [x] `/version` + build stamp; `robots.txt` disallow.
+- [x] `Flash.cs` pattern-copy + flash slot in `layout/page.html` render path (tuple API:
+  Take returns (Ok, Error) empty strings feeding the banner partials' no-op path).
+- [x] `form-field.html`: optional `MaxLength`/`MinLength`/`Pattern`/`Inputmode` params; callers
+  pass server-rule values (username maxlength 39 + brace-free pattern, passphrase 12/128;
+  sign-in fields carry none — enumeration defense).
+- [x] Real field errors threaded through register + settings; flash adopted at 15 success
+  sites incl. bot-trap fake-success paths (identical Set — R23 indistinguishability).
+- [x] Access keys (new bookmark Alt+N, search Alt+S, settings Alt+O).
+- [x] `FormGuard` extraction (six copies → 1 helper) incl. 415-order fix, pinned by test.
+- [x] `.nw-busy` CSS.
+- [x] Tests all three layers (unit 228, integration 92, e2e 21 — all green on the merged
+  commit).
+- [x] Fable review ($3.14 warm, 44 turns: 1 MED settings-trap latency parity + 4 LOW, all
+  addressed). Merged `--no-ff` (2185711).
 
 ## B4 — NativeWeb `docs/pe-doc-fold`
 
-- [ ] Fold `progressive-enhancement-2.md` into `progressive-enhancement.md` (adopted +
+- [x] Fold `progressive-enhancement-2.md` into `progressive-enhancement.md` (adopted +
   rejected-with-reasons + R12 content-type convention); delete the v2 file (plan-authorized).
-- [ ] Cross-link from `docs/conventions.md`.
-- [ ] Spec 005 Problem paragraph corrected (R1 pre-existed via spec 003 R39).
-- [ ] Merge `--no-ff` (docs branch).
+- [x] Cross-link from `docs/conventions.md`.
+- [x] Spec 005 Problem paragraph corrected (R1 pre-existed via spec 003 R39).
+- [x] Fable review (1 HIGH lost browser-native-first content + 2 MED, all addressed —
+  focus-recovery wording matched to shipped boot.js, four undispositioned v2 proposals
+  recorded). Merged `--no-ff` (99d6cb5).
+
+## B3.5 — NativeWeb `feat/skeleton-flash` (unplanned, deferred from B2)
+
+- [x] Skeleton flash slot: `Flash.cs` (manzil-canon tuple API), banner partials,
+  FlashOk/FlashError layout params, read-once Take at the home render, FlashTests.
+  Verified by stamping a scratch product (25 unit tests green); surrogate back-off test
+  back-ported to apps/web. Fable review (1 BLOCKER canon-contract wording + 1 MED + 2 LOW,
+  all addressed). Merged `--no-ff` (c1c960c).
 
 ## Close-out
 
-- [ ] All boxes above ticked; R1 verified (error-page tests green, nothing built).
-- [ ] CHANGELOG `[Unreleased]`; tasklist archived; status rolled.
-- [ ] `scripts/cleanup/ux-defaults.ps1` written (never run).
-- [ ] Structure audit clean; suite counts + publish sizes recorded here.
+- [x] All boxes above ticked; R1 verified (error-page tests green, nothing built).
+- [x] CHANGELOG `[Unreleased]`; tasklist archived; status rolled.
+- [x] `scripts/cleanup/ux-defaults.ps1` written (never run).
+- [x] Structure audit clean; suite counts + publish sizes recorded here.
+
+Final state 2026-08-02: NativeWeb suites 92 unit / 368 integration / 237 e2e / 56 render at
+B2 merge, plus the skeleton-flash additions (apps/web FlashTests 10, stamped-skeleton unit 25).
+manzil suites 228 unit / 92 integration / 21 e2e, all green on the merged commit; manzil
+NativeAOT Release publish 30,494,720 bytes (~29.1 MB), zero warnings. All merges into each
+repo's `dev`, unpushed.
