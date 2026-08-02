@@ -16,10 +16,11 @@ Small, clear, and could be picked up without a design decision.
   unintentionally and is unused. Tracked, so it needs a chore branch with `git rm` rather than
   the cleanup script.
 
-- IdP: passphrase reset/verify success responds with only an `HX-Redirect` header
-  (`Results.Empty`), which a no-JS browser ignores — the non-htmx `method=post action=...`
-  fallback completes the reset but shows a blank page. Return a plain 303 for non-htmx requests
-  (H5 review nit, 2026-07-31).
+- IdP: `Redirects.To` answers a no-JS POST with `Results.Redirect`, i.e. **302**, where **303**
+  is the semantically correct status for a POST → GET transition. Every browser treats them
+  identically here, so nothing is broken; changing it touches every caller (OAuth consent,
+  sign-out, register, settings), which is wider than the nit that raised it. Left as 302
+  deliberately — 2026-08-03.
 
 ## Later
 
@@ -83,6 +84,11 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 
 - BEM rename (`feature__title` -> `feature-title`/`feature_title`): costed 2026-08-02 (~40
   names / 205 occurrences / 23 files + three-repo sweep); user decided 2026-08-02 to keep BEM.
+
+- IdP passphrase reset showing a blank page with scripting off (H5 nit, 2026-07-31): already
+  fixed by `0ba2d04`, the spec 004 no-JS retrofit — `Redirects.To` returns a real redirect when
+  `HX-Request` is absent. Nothing asserted it, because every test in the file sent `HX-Request`;
+  `ResetStart_Then_Verify_WithoutScripting_RedirectsAtEveryStep` now holds both steps in place.
 
 - `InternalsVisibleTo` for the DevMarks unit tests: done in manzil.my 2026-08-03 (`e299972`).
   The grant already existed in `apps/manzil/AssemblyInfo.cs`; only the reflection and the
