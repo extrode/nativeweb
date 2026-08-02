@@ -277,6 +277,7 @@ public sealed class Program
         app.MapGet("/", IResult (HttpContext context) =>
         {
             var chrome = Chrome.For(context, assets, antiforgery);
+            (string Ok, string Error) flash = Flash.Take(context);
             return Templates.Home.Index.Result(
                 locale: chrome.Locale,
                 Title: chrome.Locale["title.home"],
@@ -284,7 +285,9 @@ public sealed class Program
                 Nonce: chrome.Nonce,
                 AntiforgeryFieldName: chrome.AntiforgeryFieldName,
                 AntiforgeryToken: chrome.AntiforgeryToken,
-                BotCanary: chrome.BotCanary);
+                BotCanary: chrome.BotCanary,
+                FlashOk: flash.Ok,
+                FlashError: flash.Error);
         }).RequireRateLimiting("general");
 
         app.MapCspReportEndpoint();
