@@ -33,8 +33,11 @@
       <Output TaskParameter="ExitCode" PropertyName="_NwGitExit" />
     </Exec>
     <PropertyGroup>
-      <SourceRevisionId Condition="'$(_NwGitExit)' == '0'">$(_NwGitSha)</SourceRevisionId>
-      <SourceRevisionId Condition="'$(_NwGitExit)' != '0'">dev</SourceRevisionId>
+      <!-- ConsoleOutput merges stderr into stdout, so a git warning would
+           otherwise produce a semicolon-joined garbage revision: accept only a
+           clean lowercase-hex SHA, fall back to "dev" for everything else. -->
+      <SourceRevisionId Condition="'$(_NwGitExit)' == '0' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(_NwGitSha)', '^[0-9a-f]+$'))">$(_NwGitSha)</SourceRevisionId>
+      <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">dev</SourceRevisionId>
     </PropertyGroup>
   </Target>
 

@@ -126,6 +126,15 @@
     return null;
   }
 
+  function restoreBusy(elt) {
+    var control = elt.nwBusyControl;
+    if (!control) { return; }
+    delete elt.nwBusyControl;
+    control.disabled = false;
+    control.removeAttribute('aria-busy');
+    control.classList.remove('nw-busy');
+  }
+
   document.addEventListener('htmx:beforeRequest', function (event) {
     var control = busyControl(event);
     if (!control || control.disabled) { return; }
@@ -133,15 +142,17 @@
     control.setAttribute('aria-busy', 'true');
     control.classList.add('nw-busy');
     event.detail.elt.nwBusyControl = control;
+    /* A later listener may still cancel this request (htmx reads
+     * defaultPrevented after ALL listeners ran), and htmx's cancel path
+     * returns without ever firing htmx:afterRequest — so re-check once the
+     * dispatch has fully completed and undo the busy state we just applied. */
+    queueMicrotask(function () {
+      if (event.defaultPrevented) { restoreBusy(event.detail.elt); }
+    });
   });
 
   document.addEventListener('htmx:afterRequest', function (event) {
-    var control = event.detail.elt.nwBusyControl;
-    if (!control) { return; }
-    delete event.detail.elt.nwBusyControl;
-    control.disabled = false;
-    control.removeAttribute('aria-busy');
-    control.classList.remove('nw-busy');
+    restoreBusy(event.detail.elt);
   });
 
   /* Focus recovery (spec 005 R6): when a swap removes the focused element the
@@ -151,7 +162,26 @@
    * content: an authored [autofocus], else the swap target itself via
    * tabindex="-1" (the same technique the layouts' <main> uses for the skip
    * link). preventScroll keeps an off-screen swap from yanking the viewport. */
+  /* Recover only when the swap itself is what removed the focused element.
+   * "activeElement is body after the swap" alone is not enough: focus may have
+   * been on body all along (user clicked the page background, or a polling /
+   * load-triggered swap fired with nothing focused), and recovering then would
+   * steal focus. So the outgoing state is recorded per swap at beforeSwap —
+   * htmx fires beforeSwap/afterSwap as a sequential pair per swapped region,
+   * OOB swaps included, so a single flag pairs up correctly. */
+  var focusWasInSwapTarget = false;
+
+  document.addEventListener('htmx:beforeSwap', function (event) {
+    var active = document.activeElement;
+    var target = event.detail.target;
+    focusWasInSwapTarget = !!(active && active !== document.body
+      && target && (target === active || (target.contains && target.contains(active))));
+  });
+
   document.addEventListener('htmx:afterSwap', function (event) {
+    var swapRemovedFocus = focusWasInSwapTarget;
+    focusWasInSwapTarget = false;
+    if (!swapRemovedFocus) { return; }
     var active = document.activeElement;
     if (active && active !== document.body) { return; }
     var target = event.detail.target;
