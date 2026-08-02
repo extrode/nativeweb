@@ -1,4 +1,7 @@
-/* NativeWeb boot.js — the data-nw-* enhancement layer (spec 004 R2-R4).
+/* NativeWeb boot.js — the data-nw-* enhancement layer (spec 004 R2-R4)
+ * plus request-scoped UX defaults (spec 005 R3/R6): busy states on the
+ * submitting control and focus recovery after a swap removes the focused
+ * element. Zero work while no request is in flight.
  *
  * A single normalization pass, not a framework: elements opting in with any
  * data-nw-* attribute get the matching hx-* attributes so htmx can enhance
@@ -98,5 +101,96 @@
         for (var i = 0; i < modified.length; i++) { window.htmx.process(modified[i]); }
       });
     }
+  });
+
+  /* Busy states (spec 005 R3): while a request is in flight, the control that
+   * submitted it is disabled, marked aria-busy and given the nw-busy class;
+   * everything is restored when the request completes, success or failure.
+   * htmx:beforeRequest fires AFTER form serialization, so disabling here can
+   * never drop the submitter's name/value from the payload. Disabling the
+   * form's default button also suppresses implicit (Enter-key) resubmission
+   * while in flight. The busy control rides on the issuing element, because
+   * htmx:afterRequest is dispatched on that same element in every completion
+   * path (load, error, timeout, abort). If the response swapped the control
+   * out, restore touches a detached node, which is a harmless no-op. */
+  function busyControl(event) {
+    var elt = event.detail.elt;
+    var trigger = event.detail.requestConfig && event.detail.requestConfig.triggeringEvent;
+    if (trigger && trigger.submitter) { return trigger.submitter; }
+    if (elt.tagName === 'BUTTON' || (elt.tagName === 'INPUT' && elt.type === 'submit')) {
+      return elt;
+    }
+    if (elt.tagName === 'FORM') {
+      return elt.querySelector('button:not([type=button]):not([type=reset]),input[type=submit]');
+    }
+    return null;
+  }
+
+  function restoreBusy(elt) {
+    var control = elt.nwBusyControl;
+    if (!control) { return; }
+    delete elt.nwBusyControl;
+    control.disabled = false;
+    control.removeAttribute('aria-busy');
+    control.classList.remove('nw-busy');
+  }
+
+  document.addEventListener('htmx:beforeRequest', function (event) {
+    var control = busyControl(event);
+    if (!control || control.disabled) { return; }
+    control.disabled = true;
+    control.setAttribute('aria-busy', 'true');
+    control.classList.add('nw-busy');
+    event.detail.elt.nwBusyControl = control;
+    /* A later listener may still cancel this request (htmx reads
+     * defaultPrevented after ALL listeners ran), and htmx's cancel path
+     * returns without ever firing htmx:afterRequest — so re-check once the
+     * dispatch has fully completed and undo the busy state we just applied. */
+    queueMicrotask(function () {
+      if (event.defaultPrevented) { restoreBusy(event.detail.elt); }
+    });
+  });
+
+  document.addEventListener('htmx:afterRequest', function (event) {
+    restoreBusy(event.detail.elt);
+  });
+
+  /* Focus recovery (spec 005 R6): when a swap removes the focused element the
+   * browser silently moves focus to <body>, stranding keyboard and screen-
+   * reader users at the top of the document. Only that case is handled — focus
+   * that survived the swap is never stolen. Preference order inside the new
+   * content: an authored [autofocus], else the swap target itself via
+   * tabindex="-1" (the same technique the layouts' <main> uses for the skip
+   * link). preventScroll keeps an off-screen swap from yanking the viewport. */
+  /* Recover only when the swap itself is what removed the focused element.
+   * "activeElement is body after the swap" alone is not enough: focus may have
+   * been on body all along (user clicked the page background, or a polling /
+   * load-triggered swap fired with nothing focused), and recovering then would
+   * steal focus. So the outgoing state is recorded per swap at beforeSwap —
+   * htmx fires beforeSwap/afterSwap as a sequential pair per swapped region,
+   * OOB swaps included, so a single flag pairs up correctly. */
+  var focusWasInSwapTarget = false;
+
+  document.addEventListener('htmx:beforeSwap', function (event) {
+    var active = document.activeElement;
+    var target = event.detail.target;
+    focusWasInSwapTarget = !!(active && active !== document.body
+      && target && (target === active || (target.contains && target.contains(active))));
+  });
+
+  document.addEventListener('htmx:afterSwap', function (event) {
+    var swapRemovedFocus = focusWasInSwapTarget;
+    focusWasInSwapTarget = false;
+    if (!swapRemovedFocus) { return; }
+    var active = document.activeElement;
+    if (active && active !== document.body) { return; }
+    var target = event.detail.target;
+    if (!target || !target.isConnected) { return; }
+    var next = target.querySelector('[autofocus]');
+    if (!next) {
+      if (!target.hasAttribute('tabindex')) { target.setAttribute('tabindex', '-1'); }
+      next = target;
+    }
+    try { next.focus({ preventScroll: true }); } catch (e) { /* older engines: no options */ next.focus(); }
   });
 })();

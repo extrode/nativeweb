@@ -73,6 +73,10 @@ Real, but needs a decision, a dependency, or more information first. Say which.
     template and vice versa (pre-existing shape; incremental win currently nil).
   - `users.locale` is unbounded free text by design (unknown degrades to English); whatever
     preference-setting endpoint lands later must validate against `Locales.All`.
+- Strongly typed IDs (deferred from spec 005 scoping, 2026-08-02): `readonly record struct`
+  value objects (`UserId`, `BookmarkId`, …) through both apps. Zero runtime cost, but gated on
+  JauntyQ converter support for the wrapper types, and low urgency here: ownership-scoped SQL
+  already turns a swapped id into a 404, so today's failure mode is a silent no-op, not a leak.
 - Analyzer risk pair (from V1 review, 2026-07-31): `TreatWarningsAsErrors` with unpinned
   `AnalysisLevel=latest-recommended` means an SDK bump can hard-break the build on new rules;
   consider pinning the level or adding a `WarningsNotAsErrors` escape hatch before the cutover.

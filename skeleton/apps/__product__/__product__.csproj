@@ -14,7 +14,32 @@
     <OptimizationPreference>Speed</OptimizationPreference>
     <RootNamespace>__PRODUCT__</RootNamespace>
     <UserSecretsId>__product__</UserSecretsId>
+    <!-- Spec 005 R2: /version serves InformationalVersion, which the SDK
+         composes as Version+SourceRevisionId (stamped by the target below). -->
+    <Version>0.1.0</Version>
   </PropertyGroup>
+
+  <!-- Stamps the short git SHA into InformationalVersion at build. Deliberately
+       per-app rather than Directory.Build.props: the libs have no use for it,
+       and a stamped product must carry its own copy. Falls back to "dev" when
+       git is unavailable (e.g. a source tarball), so the build never fails. -->
+  <Target Name="StampSourceRevision" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo">
+    <Exec Command="git rev-parse --short HEAD"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_NwGitSha" />
+      <Output TaskParameter="ExitCode" PropertyName="_NwGitExit" />
+    </Exec>
+    <PropertyGroup>
+      <!-- ConsoleOutput merges stderr into stdout, so a git warning would
+           otherwise produce a semicolon-joined garbage revision: accept only a
+           clean lowercase-hex SHA, fall back to "dev" for everything else. -->
+      <SourceRevisionId Condition="'$(_NwGitExit)' == '0' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(_NwGitSha)', '^[0-9a-f]+$'))">$(_NwGitSha)</SourceRevisionId>
+      <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">dev</SourceRevisionId>
+    </PropertyGroup>
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="Npgsql" />

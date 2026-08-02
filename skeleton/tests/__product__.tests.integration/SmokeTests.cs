@@ -50,6 +50,19 @@ public sealed class SmokeTests(__PRODUCT__Factory factory)
         Assert.Equal("ok", await response.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task Version_ReturnsStampedInformationalVersion()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/version");
+        string body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        // Version "+" shortsha from StampSourceRevision (or "+dev" without git).
+        Assert.Matches(@"^\d+\.\d+\.\d+\+[0-9a-f]{7,}$|^\d+\.\d+\.\d+\+dev$", body);
+    }
+
     // Readiness is the database answering, so this tier needs the real
     // Postgres the connection string points at -- the side-channel assert
     // first, so a failure here reads as "no database" rather than "app broken".
