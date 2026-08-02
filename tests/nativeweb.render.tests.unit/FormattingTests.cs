@@ -143,6 +143,26 @@ public sealed class FormattingTests
     }
 
     [Fact]
+    public void VerbatimContent_AuthoredAtTargetIndentation_IsKeptAndFormattingContinues()
+    {
+        // Verbatim bodies are kept byte-exact, so a template may author them at
+        // the depth the formatter would have chosen (the layout inline-script
+        // convention). The whitespace-preceded close tag must still terminate
+        // the verbatim region, and lines after it must format normally.
+        string html = Templates.Format.VerbatimIndented.ToHtmlString();
+
+        Assert.Equal(
+            "<div>\n"
+            + "  <section>\n"
+            + "    <script>\n"
+            + "      var a = 1;\n"
+            + "    </script>\n"
+            + "  </section>\n"
+            + "</div>\n",
+            html);
+    }
+
+    [Fact]
     public void AmbiguousBranchDepths_BailOutToUnformattedOutput()
     {
         // format/bail opens <section> in one {{if}} and closes it in another, so
