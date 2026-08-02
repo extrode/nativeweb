@@ -22,6 +22,22 @@ public sealed class InlineScriptHashTests
         Assert.Equal(Sha256Source(body), Assert.Single(Templates.Csp.Inline.InlineScriptCspHashes));
     }
 
+    // The fixture is CRLF on disk and pinned that way in .gitattributes. The
+    // browser newline-normalizes the input stream before tokenizing, so the
+    // text node CSP hashes is LF-only however the file was authored; hashing
+    // the authored bytes would make the constant depend on the line endings of
+    // the checkout, and the CRLF one blocks its own script everywhere.
+    [Fact]
+    public void ACrlfAuthoredScript_IsHashedAsTheBrowserSeesIt()
+    {
+        string body = Assert.Single(RenderedScriptBodies(Templates.Csp.Crlf.ToHtmlString()));
+        Assert.Contains('\r', body);
+
+        string hash = Assert.Single(Templates.Csp.Crlf.InlineScriptCspHashes);
+        Assert.Equal(Sha256Source(body.Replace("\r\n", "\n")), hash);
+        Assert.NotEqual(Sha256Source(body), hash);
+    }
+
     [Fact]
     public void ScriptWithADynamicBody_IsOmitted()
     {

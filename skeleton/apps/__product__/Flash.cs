@@ -29,7 +29,9 @@ internal enum FlashKind
 // FlashError params make the compiler point at any site that forgets.
 internal static class Flash
 {
-    private const string CookieName = "__Host-nw-flash";
+    // internal, not private: PublicPageCache tests this cookie's presence to
+    // decide whether a response can be shared (spec 006).
+    internal const string CookieName = "__Host-nw-flash";
     private const string SuccessPrefix = "ok:";
     private const string ErrorPrefix = "err:";
     private const int MaxMessageLength = 300;

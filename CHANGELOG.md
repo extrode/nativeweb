@@ -14,6 +14,19 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Cacheable public pages** (spec 006) — anonymous `/` and `/u/*` are served from an
+  in-process output cache, keyed by (path, `?page=`, negotiated locale) and bypassed on the
+  mere *presence* of a session or flash cookie, so a personal response can neither be stored
+  nor served to anyone else. Writes evict by owner tag immediately; a 60s TTL is the backstop,
+  not the normal latency. Anonymous responses carry no antiforgery pair and no nonce, and are
+  authorized instead by a build-generated hash CSP: the render generator now emits
+  `InlineScriptCspHashes` per template, so the policy cannot drift from the scripts the page
+  ships. Measured at 10 VUs against the published binary: median <0.1ms and p95 580µs on the
+  cached path against 1.17ms / 2.11ms rendering from PostgreSQL, with the 192ms DB tail gone
+  from anonymous traffic entirely. Mirrored into the skeleton, whose own `/` ships declared
+  public so the mechanism is exercised rather than dormant. Hashes are computed over the
+  newline-normalized body, because a browser normalizes the input stream before tokenizing —
+  otherwise a CRLF checkout emits constants no browser will match.
 - **Built-in UX defaults** (spec 005, B1–B4) — busy states and focus-after-swap in
   `boot.js` (re-vendored byte-identical everywhere); one-shot flash messages via a
   `__Host-nw-flash` cookie (IdP nullable-tuple API, manzil/skeleton empty-string tuple API
