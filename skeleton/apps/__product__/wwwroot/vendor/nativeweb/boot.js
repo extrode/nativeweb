@@ -200,13 +200,23 @@
   });
 
   document.addEventListener('htmx:afterSwap', function (event) {
+    /* If the swap detached the tracked busy control, drop the reference now:
+     * htmx re-dispatches afterRequest on a connected ancestor when the issuing
+     * element was swapped away, so restoreBusy never sees it and the stale
+     * node would linger until the next focused submit. */
+    if (busyFocusControl && !busyFocusControl.isConnected) { busyFocusControl = null; }
     var swapRemovedFocus = focusWasInSwapTarget;
     focusWasInSwapTarget = false;
     if (!swapRemovedFocus) { return; }
     var active = document.activeElement;
     if (active && active !== document.body) { return; }
+    /* For outerHTML swaps detail.target is the OLD, now-detached element —
+     * htmx keeps the original eventInfo. The event itself, though, is
+     * dispatched on each swapped-IN element, so event.target is the live
+     * replacement content. */
     var target = event.detail.target;
-    if (!target || !target.isConnected) { return; }
+    if (!target || !target.isConnected) { target = event.target; }
+    if (!target || target.nodeType !== 1 || !target.isConnected) { return; }
     var next = target.querySelector('[autofocus]');
     if (!next) {
       if (!target.hasAttribute('tabindex')) { target.setAttribute('tabindex', '-1'); }
