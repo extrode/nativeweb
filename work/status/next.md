@@ -4,6 +4,6 @@ Exactly **one** task, the next one to start, pulled from `../tasklist.md` when t
 advances. The full task list for this body of work is `../tasklist.md`; the unscheduled backlog is
 `../todo.md`; where the project is going is `../milestones.md`.
 
-- Nothing queued: spec 003's tasklist is fully ticked once the close-out lands. Candidates
-  live in `../todo.md`; the sign-off-gated epass.io production cutover stays parked until
-  the user calls it.
+- **Spec 005 B2 (`feat/idp-ux-defaults`)**: IdP flash + native validation attributes +
+  field-level errors + access keys + `FormChrome` refactor
+  (`docs/specs/005-ux-defaults/005-tasks.md`). Starts after B1 merges.
