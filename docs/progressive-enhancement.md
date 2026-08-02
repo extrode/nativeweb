@@ -141,9 +141,12 @@ links and background triggers stay unstyled.
 
 ### Focus after swap (R6)
 
-On `htmx:afterSwap`, if focus collapsed to `<body>`, boot.js focuses the first `[autofocus]`
-inside the swapped content, else the swapped root via `tabindex="-1"`. Focus that survived the
-swap is never stolen. Subtlety worth keeping: for `outerHTML` swaps htmx leaves the *old*
+boot.js recovers focus only when it saw the swap take it: at `htmx:beforeSwap` it records
+whether the focused element (or the busy-disabled submitter, whose `disabled` is what drops
+focus to `<body>`) sits inside the swap target; on `htmx:afterSwap` with that record set it
+focuses the first `[autofocus]` inside the swapped content, else the swapped root via
+`tabindex="-1"`. A polling or load-triggered swap that fires while focus is already on
+`<body>` deliberately does not autofocus, and focus that survived the swap is never stolen. Subtlety worth keeping: for `outerHTML` swaps htmx leaves the *old*
 detached element in `event.detail.target` while dispatching the event on the swapped-in
 content, so the handler falls back to `event.target` when `detail.target` is disconnected.
 Layouts must not carry their own afterSwap autofocus script — boot.js is the single owner.
@@ -187,6 +190,13 @@ stamped by the per-app `StampSourceRevision` MSBuild target, "dev" fallback), un
 in robots.txt disallow. **Accepted posture:** the SHA is disclosed deliberately — it identifies
 a public commit, not a secret.
 
+### Browser-native first
+
+Before reaching for JavaScript or a library, check whether the browser already ships the
+feature. Prefer `<dialog>`, `<details>`/`<summary>`, popover, `<template>`, native form
+validation, lazy loading, and view transitions over rebuilding them; do not build replacements
+for browser capabilities.
+
 ### Any content type (R12)
 
 LNW apps serve whatever media types they need on the Minimal-API result primitives — no
@@ -218,10 +228,22 @@ Recorded so they aren't re-proposed:
   a service locator.
 - **Strongly-typed IDs**: deferred, not rejected — waiting on JauntyQ converter support
   (tracked in `work/todo.md`).
+- **Resource-oriented `Features/` folders**: rejected — both apps and the skeleton already
+  follow the flat `apps//libs//tests/` layout with per-area endpoint files; a restructure
+  buys navigation churn, not clarity.
+- **Fragment URLs** (`GET /todos:list`) **as first-class outputs**: rejected as a URL scheme —
+  the goal (one endpoint serving page and fragment) already holds via the `HX-Request` header
+  switch; a second URL per resource doubles the route surface.
+- **`Html.Page` / `Html.Fragment` rendering abstraction**: rejected — the source-generated
+  template `Result(...)` calls are already typed, AOT-safe and layout-aware; a stringly-named
+  renderer would trade compile-time checking for indirection.
+- **"Keep the framework small" prohibition list** (no custom ORM, migrations, auth, DI,
+  template language, state management, JS framework): adopted in substance — it restates the
+  stack rules in `AGENTS.md` and `docs/constitution.md`, which remain the binding record.
 
-The v2 items that were adopted — busy states, flash, native validation, browser-native-first,
-error pages, `/version`, asset versioning, CSP nonces (the latter two already existed) — live
-in the sections above.
+The v2 items that were adopted — busy states, flash, native validation,
+browser-native-first, error pages, `/version`, asset versioning, CSP nonces (the latter two
+already existed) — live in the sections above.
 
 ---
 
