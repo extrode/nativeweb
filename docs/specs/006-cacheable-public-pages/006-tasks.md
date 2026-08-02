@@ -20,7 +20,7 @@ Each branch: code + tests together, Fable review before merge, `--no-ff` into `d
       Accept-Language` only when the request bore neither `__Host-Manzil.Session` nor
       `__Host-nw-flash` (else today's `no-store`); unit tests cover all four cookie
       combinations and the hash-lockstep check against built templates.
-- [ ] T4 Anonymous chrome + layout guards — files: manzil.my `apps/manzil/Render/PageModels.cs`,
+- [x] T4 Anonymous chrome + layout guards — files: manzil.my `apps/manzil/Render/PageModels.cs`,
       `apps/manzil/templates/layout/page.html` — covers: R1, R7 — done when: an anonymous
       factory mints no antiforgery pair (no `Set-Cookie`), empty Nonce/Token/Canary; the layout
       omits `nonce=` attributes and the antiforgery `<meta>` when empty; signed-in renders are
@@ -35,7 +35,9 @@ Each branch: code + tests together, Fable review before merge, `--no-ff` into `d
       `apps/manzil/Public/PublicEndpoints.cs`, `Program.cs` `MapGet("/")` — covers: R1, R5,
       R7 — done when: cookie-free requests render the anonymous chrome and are cacheable;
       cookie-bearing requests render exactly today's page; 404s are never cached and the miss
-      path is unchanged; existing enumeration suite passes unchanged in meaning.
+      path is unchanged; existing enumeration suite passes unchanged in meaning; and the
+      rendered anonymous response carries no `nonce=` and no `request-verification-token`
+      meta (T4's layout guards, asserted here where a real response exists).
 - [ ] T7 Eviction from write endpoints — files: manzil.my `apps/manzil/Bookmarks/*`, `Tags/*`,
       `Transfer/*`, `Auth/SettingsEndpoints.cs` — covers: R6 — done when: every successful
       write that can change a public page evicts tag `pub:{username,lowercase}`; a visibility
