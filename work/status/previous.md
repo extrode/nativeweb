@@ -5,12 +5,8 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **Spec 004: progressive enhancement + formatted HTML** — `data-nw-*` layer (boot.js,
-  vendored + parity-tested in both apps), generator pretty-printer, both apps retrofitted;
-  the IdP gained true no-JS support (hidden antiforgery fields everywhere via
-  `Layout.AntiforgeryField`, real 302s for plain browsers via `Redirects.To`). Both repos
-  green (NativeWeb 92+351/236/54, manzil 218/81/19); zero-warning publishes (web 35.2 MB of
-  the 42.5 MB budget, manzil 29.1 MB); view-source screenshots confirm indented output from
-  both published binaries; two Fable review rounds on boot.js, one each on B4/B5, all
-  findings fixed. Archive pointer `work/archive/2026-08-02-progressive-enhancement.md`;
-  `scripts/cleanup/progressive-enhancement.ps1` written (never run).
+- **Spec 005 B1 (`feat/boot-ux`)** — merged into `dev` (c25cb53, unpushed). boot.js busy
+  states (submitter disabled/aria-busy/nw-busy while in flight, cancel-path safe) + focus
+  recovery after swaps, re-vendored to apps/web + skeleton; `.nw-busy` CSS; `/version`
+  endpoint + git-SHA build stamp in both csprojs; suites 92/351/237/56; Fable review round
+  ($2.68, 2 MED fixed).

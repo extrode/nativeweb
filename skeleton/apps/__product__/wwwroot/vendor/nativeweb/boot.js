@@ -126,6 +126,13 @@
     return null;
   }
 
+  /* Disabling the focused submitter silently moves focus to <body> the moment
+   * the request starts — before any swap. Track that control so (a) restore can
+   * hand focus back when the control survives the response, and (b) the swap-
+   * focus recovery below can tell "focus was in the target until we disabled
+   * it" from "focus was on body all along". */
+  var busyFocusControl = null;
+
   function restoreBusy(elt) {
     var control = elt.nwBusyControl;
     if (!control) { return; }
@@ -133,11 +140,19 @@
     control.disabled = false;
     control.removeAttribute('aria-busy');
     control.classList.remove('nw-busy');
+    if (control === busyFocusControl) {
+      busyFocusControl = null;
+      var active = document.activeElement;
+      if (control.isConnected && (!active || active === document.body)) {
+        try { control.focus({ preventScroll: true }); } catch (e) { control.focus(); }
+      }
+    }
   }
 
   document.addEventListener('htmx:beforeRequest', function (event) {
     var control = busyControl(event);
     if (!control || control.disabled) { return; }
+    if (document.activeElement === control) { busyFocusControl = control; }
     control.disabled = true;
     control.setAttribute('aria-busy', 'true');
     control.classList.add('nw-busy');
@@ -171,21 +186,37 @@
    * OOB swaps included, so a single flag pairs up correctly. */
   var focusWasInSwapTarget = false;
 
+  /* The busy layer above may already have moved focus to body by disabling the
+   * focused submitter, so "the control we disabled sits inside the target"
+   * counts as focus-in-target too — without it a keyboard-submitted form whose
+   * error re-render swaps the submitter away would strand focus at the top. */
   document.addEventListener('htmx:beforeSwap', function (event) {
     var active = document.activeElement;
     var target = event.detail.target;
-    focusWasInSwapTarget = !!(active && active !== document.body
-      && target && (target === active || (target.contains && target.contains(active))));
+    focusWasInSwapTarget = !!(target && (
+      (active && active !== document.body
+        && (target === active || (target.contains && target.contains(active))))
+      || (busyFocusControl && target.contains && target.contains(busyFocusControl))));
   });
 
   document.addEventListener('htmx:afterSwap', function (event) {
+    /* If the swap detached the tracked busy control, drop the reference now:
+     * htmx re-dispatches afterRequest on a connected ancestor when the issuing
+     * element was swapped away, so restoreBusy never sees it and the stale
+     * node would linger until the next focused submit. */
+    if (busyFocusControl && !busyFocusControl.isConnected) { busyFocusControl = null; }
     var swapRemovedFocus = focusWasInSwapTarget;
     focusWasInSwapTarget = false;
     if (!swapRemovedFocus) { return; }
     var active = document.activeElement;
     if (active && active !== document.body) { return; }
+    /* For outerHTML swaps detail.target is the OLD, now-detached element —
+     * htmx keeps the original eventInfo. The event itself, though, is
+     * dispatched on each swapped-IN element, so event.target is the live
+     * replacement content. */
     var target = event.detail.target;
-    if (!target || !target.isConnected) { return; }
+    if (!target || !target.isConnected) { target = event.target; }
+    if (!target || target.nodeType !== 1 || !target.isConnected) { return; }
     var next = target.querySelector('[autofocus]');
     if (!next) {
       if (!target.hasAttribute('tabindex')) { target.setAttribute('tabindex', '-1'); }
