@@ -5,10 +5,12 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
-- **Spec 003 close-out** — both repos green across all three suites (NativeWeb 349+75/236/49,
-  manzil.my 217/81/12); zero-warning NativeAOT publishes (web 36,918,272 B / 881 ms,
-  manzil 30,483,968 B / 977 ms to `/healthz`); web baseline recorded as the CI budget
-  (`scripts/ci/publish-budgets.json`: 42.5 MB / 5000 ms ceilings); screenshots verified
-  (manzil en+ms home + sign-in, traps invisible; IdP about + 404 shell); CHANGELOG entry
-  under [Unreleased]; archive pointer `work/archive/2026-08-01-architecture-v2.md`;
-  `scripts/cleanup/architecture-v2.ps1` written (never run). Spec 003 fully shipped.
+- **Spec 004: progressive enhancement + formatted HTML** — `data-nw-*` layer (boot.js,
+  vendored + parity-tested in both apps), generator pretty-printer, both apps retrofitted;
+  the IdP gained true no-JS support (hidden antiforgery fields everywhere via
+  `Layout.AntiforgeryField`, real 302s for plain browsers via `Redirects.To`). Both repos
+  green (NativeWeb 92+351/236/54, manzil 218/81/19); zero-warning publishes (web 35.2 MB of
+  the 42.5 MB budget, manzil 29.1 MB); view-source screenshots confirm indented output from
+  both published binaries; two Fable review rounds on boot.js, one each on B4/B5, all
+  findings fixed. Archive pointer `work/archive/2026-08-02-progressive-enhancement.md`;
+  `scripts/cleanup/progressive-enhancement.ps1` written (never run).
