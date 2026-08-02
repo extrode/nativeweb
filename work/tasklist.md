@@ -33,11 +33,12 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: spec 005 — built-in UX defaults
+## Current work: (none — spec 005 shipped)
 
-Durable tier: the task breakdown lives at `docs/specs/005-ux-defaults/005-tasks.md` — B1
-boot.js busy+focus + /version, B2 IdP flash/validation/FormChrome, B3 manzil retrofit,
-B4 doc fold, close-out. Started 2026-08-02.
+Spec 005 (built-in UX defaults) shipped 2026-08-02 — archived to
+`archive/2026-08-02-ux-defaults.md`, task breakdown at
+`docs/specs/005-ux-defaults/005-tasks.md` (all ticked). Next body of work not yet chosen;
+performance tuning is the agreed follow-up candidate.
 
 Spec 004 (progressive enhancement layer + formatted HTML output) shipped 2026-08-02 —
 archived to `archive/2026-08-02-progressive-enhancement.md`, task breakdown at
