@@ -87,7 +87,8 @@ Real, but needs a decision, a dependency, or more information first. Say which.
 
 Not doing, with the reason. Kept so the same idea does not get re-raised every quarter.
 
-- (nothing yet)
+- BEM rename (`feature__title` -> `feature-title`/`feature_title`): costed 2026-08-02 (~40
+  names / 205 occurrences / 23 files + three-repo sweep); user decided 2026-08-02 to keep BEM.
 
 ## Deferred from V4 review (2026-07-31)
 - Per-field errors: endpoints surface validation failures as page-level banners (parity with the
@@ -166,6 +167,3 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   bookmarks/index.html and public/profile.html have never formatted: a {{for}} body ending in a
   partial splice doesn't return to its start state; supporting that shape would format the two
   remaining manzil pages.
-- BEM rename (feature__title -> feature-title or _): user asked for costing 2026-08-02
-  (~40 names / 205 occurrences / 23 files in manzil + three-repo sweep); recommended keeping
-  BEM, awaiting their decision.
