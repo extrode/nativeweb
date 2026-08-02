@@ -17,8 +17,8 @@
 #                         Its own flag because it is a database, not a file, and
 #                         nothing recreates it but a full migrate.sh run.
 #
-# NOT handled here: apps/manzil/wwwroot/vendor/webauthn in manzil.my -- tracked
-# files, so it needs a chore branch with git rm. Noted in work/todo.md.
+# Nothing else is outstanding: apps/manzil/wwwroot/vendor/webauthn in manzil.my
+# was tracked, so it went out on its own chore branch (1d795e1) rather than here.
 
 param(
     [Alias('e')][switch]$Execute,
