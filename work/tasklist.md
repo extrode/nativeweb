@@ -33,10 +33,11 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: spec 004 — progressive enhancement layer + formatted HTML output
+## Current work: none
 
-Durable tier: the task breakdown lives at
-`docs/specs/004-progressive-enhancement/004-tasks.md` (pointed at, not duplicated).
+Spec 004 (progressive enhancement layer + formatted HTML output) shipped 2026-08-02 —
+archived to `archive/2026-08-02-progressive-enhancement.md`, task breakdown at
+`docs/specs/004-progressive-enhancement/004-tasks.md` (all ticked).
 
 Spec 003 (architecture v2 + manzil.my extraction) shipped 2026-08-01 — archived to
 `archive/2026-08-01-architecture-v2.md`, task breakdown at

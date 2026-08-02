@@ -14,6 +14,18 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Progressive enhancement layer + formatted HTML output** (spec 004, B1–B5) — the `data-nw-*`
+  attribute vocabulary (`target`/`swap`/`trigger`/`confirm`) normalized to `hx-*` at runtime by
+  `libs/nativeweb.assets/boot.js` (~100 lines, vendored per app with byte-parity tests, loaded
+  `defer` before htmx; never overwrites authored `hx-*`, re-processes swapped-in descendants
+  htmx's element snapshot misses); generator pretty-printer emitting indented HTML at build time
+  (zero runtime cost, `pre`/`textarea`/`script`/`style` preserved, per-depth partial variants);
+  both apps retrofitted — every IdP form now carries a hidden antiforgery input
+  (`Layout.AntiforgeryField`) and every post-auth success site returns a real 302 to plain
+  browsers (`Redirects.To`), making "works without JavaScript" true rather than aspirational;
+  JS-off + normalization e2e coverage in both repos (incl. the settle-window and
+  descendant-anchor swap paths); doc rewritten at `docs/progressive-enhancement.md`. Publishes:
+  `nativeweb.web.exe` 35.2 MB (budget 42.5 MB), `manzil.exe` 29.1 MB, both zero-warning.
 - **Architecture v2** (spec 003, V1–V10) — the template's second generation. Compiled-template
   render engine (`libs/nativeweb.render` + source generator: encoded-by-default HTML, typed
   params, partials/layouts, UTF-8 span literals) with an AngleSharp well-formedness gate;
