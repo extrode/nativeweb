@@ -18,7 +18,7 @@ internal enum FlashKind
 //
 // Pattern-copied from manzil's Auth/Flash.cs — keep structurally identical to
 // THAT copy: Take returns an (Ok, Error) pair of empty strings feeding the
-// banner partials' zero-length no-op path, the shape template-rendered apps
+// layout's zero-length call-site guards, the shape template-rendered apps
 // use. apps/web's Flash differs deliberately (a nullable (Success, Message)
 // tuple feeding its C# Banner rendering); do not sync against it.
 //
@@ -58,8 +58,11 @@ internal static class Flash
     // Read-once: taking the flash expires the cookie in the same response, so
     // a reload of the flashed page shows nothing. Returns empty strings when
     // there is no flash or the value doesn't parse (a foreign or truncated
-    // cookie is dropped, never rendered) — empty feeds the banner partials'
-    // zero-length no-op path directly.
+    // cookie is dropped, never rendered) — empty feeds the layout's
+    // zero-length guard directly (the {{if}} lives at the call site in
+    // layout/page.html, NOT in the banner partials: a partial whose body is a
+    // bare else-less {{if}} is an unclean splice that bails the build-time
+    // HTML formatter for every page).
     public static (string Ok, string Error) Take(HttpContext context)
     {
         if (!context.Request.Cookies.TryGetValue(CookieName, out string? raw) || raw is null)

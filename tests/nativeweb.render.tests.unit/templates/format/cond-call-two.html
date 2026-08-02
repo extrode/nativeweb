@@ -1,0 +1,11 @@
+<!--#template
+  @param string Ok
+  @param string Err
+-->
+<div class="outer">
+<main id="main" tabindex="-1">
+{{if Ok.Length != 0}}{{> format/cond-call-badge Msg=Ok}}{{/if}}
+{{if Err.Length != 0}}{{> format/cond-call-badge Msg=Err}}{{/if}}
+<p>after</p>
+</main>
+</div>
