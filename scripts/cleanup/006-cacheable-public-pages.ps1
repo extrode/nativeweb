@@ -49,7 +49,7 @@ Act "delete NativeWeb branch feat/render-script-hashes" { git -C $nativeWeb bran
 Act "delete NativeWeb branch chore/spec-006-skeleton-parity" { git -C $nativeWeb branch -d chore/spec-006-skeleton-parity }
 
 Write-Host '-- 3. throwaway stamped skeletons (T10 verification) and k6 scratch'
-foreach ($dir in @("$tmp\skelcheck", "$tmp\skelchk2", "$tmp\skelchk3")) {
+foreach ($dir in @("$tmp\skelcheck", "$tmp\skelchk2", "$tmp\skelchk3", "$tmp\skelchk4", "$tmp\skelchk5")) {
     if (Test-Path $dir) { Act "delete $dir" { Remove-Item -Recurse -Force $dir } }
 }
 foreach ($file in @("$tmp\k6-006.js", "$tmp\k6-diag.js")) {
