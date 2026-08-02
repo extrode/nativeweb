@@ -31,13 +31,18 @@ function Act($desc, [scriptblock]$action) {
     if ($Execute) { Write-Host "DO   $desc"; & $action } else { Write-Host "would $desc" }
 }
 
-Write-Host '-- 1. merged branches (git branch -d refuses if unmerged)'
-Act "delete NativeWeb branch fix/formatter-conditional-partial" { git -C $nativeWeb branch -d fix/formatter-conditional-partial }
-Act "delete manzil branch fix/paged-list-aggregation"           { git -C $manzil branch -d fix/paged-list-aggregation }
-Act "delete manzil branch fix/formatted-html"                   { git -C $manzil branch -d fix/formatted-html }
+Write-Host '-- 1. merged branches (git branch -d refuses if unmerged; skips if already gone)'
+function ActBranch($repo, $branch) {
+    if (git -C $repo branch --list $branch) { Act "delete $repo branch $branch" { git -C $repo branch -d $branch } }
+    else { Write-Host "skip $repo branch $branch (already deleted)" }
+}
+ActBranch $nativeWeb 'fix/formatter-conditional-partial'
+ActBranch $manzil    'fix/paged-list-aggregation'
+ActBranch $manzil    'fix/formatted-html'
 
 Write-Host '-- 2. scratch files in repos'
-Act "delete $manzil\paged-list.diff (review handoff, untracked)" { Remove-Item "$manzil\paged-list.diff" }
+if (Test-Path "$manzil\paged-list.diff") { Act "delete $manzil\paged-list.diff (review handoff, untracked)" { Remove-Item "$manzil\paged-list.diff" } }
+else { Write-Host "skip $manzil\paged-list.diff (already deleted)" }
 
 Write-Host '-- 3. temp artifacts (emitted-generator dirs, backups, k6 scripts/logs, stamped probe)'
 $tempItems = @(
@@ -60,7 +65,13 @@ DELETE FROM bookmark_tags bt USING bookmarks b
 DELETE FROM bookmarks WHERE url LIKE 'https://example.com/article/%';
 DELETE FROM tags WHERE name LIKE 'perf-tag-%';
 "@
-if ($Execute) { Write-Host 'DO   delete perf seed rows from manzil_dev'; $sql | psql -d manzil_dev -v ON_ERROR_STOP=1 }
+# -U manzil_app: without it psql defaults to the OS username as the role, which
+# does not exist in this cluster (the 2026-08-02 -e run failed exactly there).
+if ($Execute) {
+    Write-Host 'DO   delete perf seed rows from manzil_dev'
+    $sql | psql -U manzil_app -d manzil_dev -v ON_ERROR_STOP=1
+    if ($LASTEXITCODE -ne 0) { Write-Error "psql failed (exit $LASTEXITCODE); seed rows may remain." }
+}
 else { Write-Host 'would delete perf seed rows from manzil_dev (example.com bookmarks, perf-tag-* tags, their links)' }
 
 Write-Host '-- 5. perf server instance (:5346) -- needs -StopPerfInstance'
