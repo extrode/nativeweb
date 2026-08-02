@@ -1,8 +1,10 @@
 # Lean Native Web: Progressive Enhancement Layer
 
-The frontend enhancement conventions for Lean Native Web (spec 004, R1–R8). Mandatory for all
-browser-facing pages in every LNW app. Decided 2026-08-01: attributes are `data-nw-*`,
-endpoints are POST-only, and `boot.js` is the only enhancement mechanism.
+The frontend enhancement conventions for Lean Native Web (spec 004, R1–R8; extended by spec
+005's built-in UX defaults). Mandatory for all browser-facing pages in every LNW app. Decided
+2026-08-01: attributes are `data-nw-*`, endpoints are POST-only, and `boot.js` is the only
+enhancement mechanism. The v2 conventions handoff was folded in here on 2026-08-02 (adopted
+items merged below, rejected items recorded at the end) and deleted.
 
 ---
 
@@ -120,6 +122,106 @@ identical on both paths.
 
 The server owns HTML generation. htmx only transports HTML. Alpine.js only manages local UI
 state (menus, toggles, purely visual concerns). Business state never lives in JavaScript.
+
+---
+
+## Built-in UX defaults (spec 005)
+
+The layer every LNW app gets for free, on top of normalization. All shipped in both apps and
+the skeleton; the e2e suites enforce them.
+
+### Busy states (R3)
+
+boot.js owns in-flight feedback: on `htmx:beforeRequest` it resolves the triggering submit
+control and sets `disabled`, `aria-busy="true"` and class `nw-busy`; on `htmx:afterRequest`
+(success, error and abort alike) it restores, and re-focuses the control when the swap dropped
+focus to `<body>`. No per-form markup, no `hx-indicator` repetition; each app styles `.nw-busy`
+in its own `components.css`. **Accepted posture:** busy treatment covers submit controls only —
+links and background triggers stay unstyled.
+
+### Focus after swap (R6)
+
+On `htmx:afterSwap`, if focus collapsed to `<body>`, boot.js focuses the first `[autofocus]`
+inside the swapped content, else the swapped root via `tabindex="-1"`. Focus that survived the
+swap is never stolen. Subtlety worth keeping: for `outerHTML` swaps htmx leaves the *old*
+detached element in `event.detail.target` while dispatching the event on the swapped-in
+content, so the handler falls back to `event.target` when `detail.target` is disconnected.
+Layouts must not carry their own afterSwap autofocus script — boot.js is the single owner.
+
+### Flash messages (R4)
+
+`Flash.Set(context, kind, message)` before a success redirect writes a `__Host-nw-flash`
+cookie ("ok:"/"err:" prefix, escaped, 300-char cap with surrogate-safe truncation, 5-minute
+MaxAge); the next full-page render takes it read-once (expiring the cookie in the same
+response) and shows the standard banner. One mechanism covers both transports because success
+navigation is already unified: a real redirect no-JS, `HX-Redirect` enhanced — either way the
+next request renders the full layout. `Flash.cs` is pattern-copied per app (the established
+cross-app C# convention); the take happens explicitly at full-page render sites, never in a
+fragment path, or a fragment render would consume the flash invisibly. **Accepted posture:**
+under same-site prerender a flash can double-show or be consumed silently — cosmetic, accepted.
+
+### Keyboard (R5)
+
+Skip link first in the tab order, `main tabindex="-1"`, `:focus-visible` rings — plus two or
+three access keys per app on primary actions, carried as `accesskey` + `aria-keyshortcuts` +
+the combo in `title`. Chosen letters: IdP — settings `Alt+S`, admin `Alt+A`; manzil — new
+bookmark `Alt+N`, search `Alt+S`, settings `Alt+O`.
+
+### Validation (R7, R8)
+
+Server validation is authoritative, always; the browser's native layer mirrors it for free.
+Form fields carry `required`, `minlength`/`maxlength`/`pattern`/`inputmode` matching the server
+rules (a unit test pins the mirrored constants where they duplicate server values). Server-side
+failures render **field-level errors**: the input gets `aria-invalid="true"` and
+`aria-describedby="{id}-error"` (chaining any always-on hint), and an adjacent
+`<p class="field__hint field__hint--error" id="{id}-error" role="alert">` carries the message.
+Non-field failures keep the page banner. **Boundary:** sign-in and other credential failures
+stay generic banners — enumeration defense forbids saying which part was wrong; integration
+tests pin this.
+
+### `/version` and error pages (R1, R2)
+
+Designed error pages (400–500 range) via `ErrorPageMiddleware` + `StaticErrorShell`, HX-aware.
+`/version` beside `/healthz` returns `InformationalVersion` (`<Version>` + short git SHA
+stamped by the per-app `StampSourceRevision` MSBuild target, "dev" fallback), unauthenticated,
+in robots.txt disallow. **Accepted posture:** the SHA is disclosed deliberately — it identifies
+a public commit, not a secret.
+
+### Any content type (R12)
+
+LNW apps serve whatever media types they need on the Minimal-API result primitives — no
+framework machinery, no content-negotiation layer. `Results.Text` with a content type,
+`Results.Bytes`, or a streamed writer is the whole convention, already proven by
+`security.txt` (text/plain), favicon bytes (image/*), and the transfer export endpoints
+(JSON and Netscape HTML). An app that wants RSS/Atom/sitemap-XML builds the document and
+returns it the same way; the framework's job is only to not get in the way.
+
+---
+
+## Considered and rejected (from the v2 handoff)
+
+Recorded so they aren't re-proposed:
+
+- **Bare attribute mapping** (`target=` → `hx-target=`): rejected — `target` is a real HTML
+  attribute with its own meaning; the `data-nw-*` prefix keeps served HTML valid and the
+  opt-in explicit.
+- **`data-lnw-method` + dual routes** (canonical `DELETE /x` plus fallback `POST /x/delete`):
+  rejected — doubles the endpoint surface and its tests; POST-only verb routes are the
+  convention (see above).
+- **Automatic `#errors` container**: rejected — errors belong beside the field or in the
+  page's own banner slot; a global sink invites blind `innerHTML` and detaches messages from
+  their inputs.
+- **Route-generation DSL** (`<a route="Todo.Details">`): rejected — hardcoded hrefs plus the
+  `Hrefs` helper class per app are simpler and visible in the served HTML.
+- **`RequestContext` wrapper**: rejected — the per-request `Chrome`/`FormChrome` values built
+  at render sites already carry what templates need without a context object drifting toward
+  a service locator.
+- **Strongly-typed IDs**: deferred, not rejected — waiting on JauntyQ converter support
+  (tracked in `work/todo.md`).
+
+The v2 items that were adopted — busy states, flash, native validation, browser-native-first,
+error pages, `/version`, asset versioning, CSP nonces (the latter two already existed) — live
+in the sections above.
 
 ---
 

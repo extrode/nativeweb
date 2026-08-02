@@ -5,11 +5,13 @@ Created: 2026-08-02
 ## Problem
 Spec 004 delivered the progressive-enhancement layer; the second conventions document
 (`docs/progressive-enhancement-2.md`) proposes the ergonomics that should come "for free" in a
-Lean Native Web app, and most of the structural ones already exist. What is missing is the
-baseline UX layer every page deserves without per-feature work: framework-bare 404/500 responses,
-no feedback while a request is in flight, success messages hand-rolled differently per app, no
-deliberate keyboard support, and validation errors that surface only as page-level banners even
-though the field-level path exists. Each app solves (or skips) these independently today.
+Lean Native Web app, and most of the structural ones already exist. (Correction at planning:
+designed error pages already shipped in spec 003 — `ErrorPageMiddleware` + `StaticErrorShell`
+cover 400–500 in both apps and the skeleton, so R1 is verify-only.) What is missing is the
+baseline UX layer every page deserves without per-feature work: no feedback while a request is
+in flight, success messages hand-rolled differently per app, no deliberate keyboard support, and
+validation errors that surface only as page-level banners even though the field-level path
+exists. Each app solves (or skips) these independently today.
 
 ## Goals
 - A user hitting a missing, forbidden, or broken page sees a designed page, not a framework
