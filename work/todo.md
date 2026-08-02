@@ -168,3 +168,20 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   partial splice doesn't return to its start state; supporting that shape would format the two
   remaining manzil pages.
 - `tests/nativeweb.web.tests.e2e/AppProcessFixture.cs:73` redirects the IdP's stdout/stderr and never drains them: once the OS pipe buffer (a few KB) fills, the app blocks on its next Console write and stops answering requests without exiting, hanging the suite non-deterministically. The skeleton fixture already drains (`skeleton/tests/__product__.tests.e2e/__PRODUCT__ProcessFixture.cs:79`); manzil's copy was fixed under spec 006 T9. Same fix: `OutputDataReceived`/`ErrorDataReceived` + `BeginOutputReadLine`/`BeginErrorReadLine`, keeping a bounded tail for diagnostics.
+- CSP hash generator, remaining findings from the 2026-08-03 review (the CRLF one is fixed):
+  (a) `InlineScriptHashes.ScanStatic` has no comment or raw-text awareness, unlike
+  `TemplateFormatter`, so a commented-out `<script>` is hashed and its body becomes an executable
+  source anywhere in the document — a gadget an HTML-injection foothold could reuse; (b) the
+  `IsExecutableScript` MIME allowlist omits legacy-but-still-executing types (`text/jscript`,
+  `application/x-javascript`), which are silently unhashed and so blocked; (c) the class doc
+  justifies silent drops by "the consuming app's lockstep test, which recomputes hashes from the
+  actually-served response" — no such test exists in either app, so a partial-borne script can
+  ship permanently blocked with every suite green.
+- Skeleton templates are CRLF in the working tree although `.gitattributes:15` says
+  `*.html text eol=lf`; the blobs are LF, so the two disagree. `git add --renormalize` would fix
+  it but touches every template, so it is its own change. Harmless now that the hash generator
+  normalizes, but it is why the skeleton emitted browser-mismatched CSP hashes.
+- The skeleton's integration and e2e suites have never been run: they only exist inside a stamped
+  product, which needs its own database. That is why `SmokeTests` kept asserting a nonce in the
+  home page CSP for the whole of spec 006 (fixed 2026-08-03 by inspection, still unexecuted).
+  Worth a CI job that stamps, creates a throwaway DB, and runs all three layers.

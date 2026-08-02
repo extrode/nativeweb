@@ -150,6 +150,28 @@ Two defects were found by this work rather than by review, both fixed in the bra
   minute. The header rule is now gated on a 200, matching what the cache policy already
   refused to store.
 
+Review then found three more, all fixed in the branch:
+
+- **The CSP hash depended on the checkout's line endings.** Hashes were taken over the
+  authored bytes, but a browser newline-normalizes the HTML input stream before tokenizing,
+  so it hashes the LF form whatever the file holds. The skeleton's CRLF `layout/page.html`
+  therefore emitted constants matching nothing, and both inline scripts on its cacheable
+  home page would have been blocked. `HashSource` now normalizes before hashing; the served
+  bytes are left alone. manzil was unaffected — its hashed bodies were already LF.
+- **`Vary` was assigned, erasing `Vary: Accept-Encoding`.** `UseResponseCompression` sets it
+  from a separate `OnStarting` callback, and those fire in reverse registration order, so
+  the assignment landed last — after which a shared cache could hand a brotli body to a
+  client that never asked for one. It appends now.
+- **Eviction was status-gated and took the request's cancellation token.** A handler that
+  throws after committing produces a 500 over a change that really landed, and a client
+  disconnecting as the response flushes could cancel the invalidation of its own write.
+  Both gates are gone; the logic moved to `EvictAsync` so a unit test can assert properties
+  no flow test can see.
+
+An out-of-range `?page` is now rendered but not stored, so a clamped page cannot be used to
+flood the cache with keys. The handler decides, because it is the only party that knows the
+real page count.
+
 Out of scope, noted in `work/todo.md` rather than fixed here: username lookups are
 case-sensitive in practice (a CITEXT column compared against an explicitly-typed `text`
 parameter), and the IdP's `AppProcessFixture` shares the undrained-stdout bug fixed in

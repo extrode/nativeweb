@@ -24,7 +24,9 @@ Merged into `dev`, not yet tagged.
   ships. Measured at 10 VUs against the published binary: median <0.1ms and p95 580µs on the
   cached path against 1.17ms / 2.11ms rendering from PostgreSQL, with the 192ms DB tail gone
   from anonymous traffic entirely. Mirrored into the skeleton, whose own `/` ships declared
-  public so the mechanism is exercised rather than dormant.
+  public so the mechanism is exercised rather than dormant. Hashes are computed over the
+  newline-normalized body, because a browser normalizes the input stream before tokenizing —
+  otherwise a CRLF checkout emits constants no browser will match.
 - **Built-in UX defaults** (spec 005, B1–B4) — busy states and focus-after-swap in
   `boot.js` (re-vendored byte-identical everywhere); one-shot flash messages via a
   `__Host-nw-flash` cookie (IdP nullable-tuple API, manzil/skeleton empty-string tuple API
