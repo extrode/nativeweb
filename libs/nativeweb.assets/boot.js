@@ -126,6 +126,13 @@
     return null;
   }
 
+  /* Disabling the focused submitter silently moves focus to <body> the moment
+   * the request starts — before any swap. Track that control so (a) restore can
+   * hand focus back when the control survives the response, and (b) the swap-
+   * focus recovery below can tell "focus was in the target until we disabled
+   * it" from "focus was on body all along". */
+  var busyFocusControl = null;
+
   function restoreBusy(elt) {
     var control = elt.nwBusyControl;
     if (!control) { return; }
@@ -133,11 +140,19 @@
     control.disabled = false;
     control.removeAttribute('aria-busy');
     control.classList.remove('nw-busy');
+    if (control === busyFocusControl) {
+      busyFocusControl = null;
+      var active = document.activeElement;
+      if (control.isConnected && (!active || active === document.body)) {
+        try { control.focus({ preventScroll: true }); } catch (e) { control.focus(); }
+      }
+    }
   }
 
   document.addEventListener('htmx:beforeRequest', function (event) {
     var control = busyControl(event);
     if (!control || control.disabled) { return; }
+    if (document.activeElement === control) { busyFocusControl = control; }
     control.disabled = true;
     control.setAttribute('aria-busy', 'true');
     control.classList.add('nw-busy');
@@ -171,11 +186,17 @@
    * OOB swaps included, so a single flag pairs up correctly. */
   var focusWasInSwapTarget = false;
 
+  /* The busy layer above may already have moved focus to body by disabling the
+   * focused submitter, so "the control we disabled sits inside the target"
+   * counts as focus-in-target too — without it a keyboard-submitted form whose
+   * error re-render swaps the submitter away would strand focus at the top. */
   document.addEventListener('htmx:beforeSwap', function (event) {
     var active = document.activeElement;
     var target = event.detail.target;
-    focusWasInSwapTarget = !!(active && active !== document.body
-      && target && (target === active || (target.contains && target.contains(active))));
+    focusWasInSwapTarget = !!(target && (
+      (active && active !== document.body
+        && (target === active || (target.contains && target.contains(active))))
+      || (busyFocusControl && target.contains && target.contains(busyFocusControl))));
   });
 
   document.addEventListener('htmx:afterSwap', function (event) {
