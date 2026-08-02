@@ -11,21 +11,15 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 Small, clear, and could be picked up without a design decision.
 
-- DevMarks: `apps/devmarks/wwwroot/vendor/webauthn/` was copied from the IdP unintentionally and
-  is unused — tracked files, so it needs a small chore branch with `git rm`, not the cleanup
-  script (`scripts/cleanup/devmarks-app.ps1` covers the untracked leftovers and notes this).
-- DevMarks: unit tests reach `SecurityHeadersMiddleware` internals via reflection; add an
-  `InternalsVisibleTo` for `nativeweb.devmarks.tests.unit` (as apps/web does) and call directly.
+- **manzil.my** (not this repo — DevMarks became manzil.my in `0760c7c`):
+  `apps/manzil/wwwroot/vendor/webauthn/webauthn-ceremony.js` was copied from the IdP
+  unintentionally and is unused. Tracked, so it needs a chore branch with `git rm` rather than
+  the cleanup script.
 
 - IdP: passphrase reset/verify success responds with only an `HX-Redirect` header
   (`Results.Empty`), which a no-JS browser ignores — the non-htmx `method=post action=...`
   fallback completes the reset but shows a blank page. Return a plain 303 for non-htmx requests
   (H5 review nit, 2026-07-31).
-
-- DevMarks: local `devmarks_dev` has drift — `db/devmarks/migrate.sh` fails on 0006
-  ("search_match already exists") because the function was applied without being recorded in
-  schema_migrations. Needs a one-line `INSERT INTO schema_migrations (version) VALUES ('0006')`
-  or an idempotent CREATE OR REPLACE in 0006 (noticed 2026-07-31 during the role-rename check).
 
 ## Later
 
@@ -89,6 +83,18 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 
 - BEM rename (`feature__title` -> `feature-title`/`feature_title`): costed 2026-08-02 (~40
   names / 205 occurrences / 23 files + three-repo sweep); user decided 2026-08-02 to keep BEM.
+
+- `InternalsVisibleTo` for the DevMarks unit tests: done in manzil.my 2026-08-03 (`e299972`).
+  The grant already existed in `apps/manzil/AssemblyInfo.cs`; only the reflection and the
+  comments claiming otherwise were left, and both are gone.
+
+- `devmarks_dev` migration drift on 0006: not a code defect. `manzil_dev` has 0001-0006 all
+  recorded and `search_match` present, and nothing in either repo references `devmarks_dev` any
+  more — it is the pre-rename database, superseded by the extraction. Making 0006
+  `CREATE OR REPLACE` was rejected: 0002-0005 are equally non-idempotent by design, and the
+  runner's `schema_migrations` tracking is what makes re-runs safe, so a lone idempotent
+  migration would only mute the divergence signal the others keep. Dropping the stale database
+  is a cleanup step instead — `scripts/cleanup/devmarks-app.ps1 --execute --drop-database`.
 
 ## Deferred from V4 review (2026-07-31)
 - Per-field errors: endpoints surface validation failures as page-level banners (parity with the
