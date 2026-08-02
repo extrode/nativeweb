@@ -230,6 +230,67 @@ public sealed class FormattingTests
     }
 
     [Fact]
+    public void ConditionalPartialLine_FormatsWhenTheBranchRenders()
+    {
+        // {{if Show}}{{> partial}}{{/if}} on its own line: the then branch
+        // consumes the line start, the missing else does not. The formatter
+        // accepts the mismatch (only a newline follows) instead of bailing.
+        string html = Templates.Format.CondCall.ToHtmlString(Show: true, Msg: "hi");
+
+        Assert.Equal(
+            "<div class=\"wrap\">\n"
+            + "  <span class=\"badge\">hi</span>\n"
+            + "  <p>after</p>\n"
+            + "</div>\n",
+            html);
+    }
+
+    [Fact]
+    public void ConditionalPartialLine_LeavesOneBlankLineWhenTheBranchSkips()
+    {
+        // The empty branch yields a blank line where the banner would sit —
+        // never a misindented one. Everything after stays formatted.
+        string html = Templates.Format.CondCall.ToHtmlString(Show: false, Msg: "hi");
+
+        Assert.Equal(
+            "<div class=\"wrap\">\n"
+            + "\n"
+            + "  <p>after</p>\n"
+            + "</div>\n",
+            html);
+    }
+
+    [Fact]
+    public void ConsecutiveConditionalPartialLines_BothFormat()
+    {
+        // Two guard lines back to back (the flash-banner pair): each ambiguity
+        // must resolve on its own newline without poisoning the next line.
+        string html = Templates.Format.CondCallTwo.ToHtmlString(Ok: "y", Err: "");
+
+        Assert.Equal(
+            "<div class=\"outer\">\n"
+            + "  <main id=\"main\" tabindex=\"-1\">\n"
+            + "    <span class=\"badge\">y</span>\n"
+            + "\n"
+            + "    <p>after</p>\n"
+            + "  </main>\n"
+            + "</div>\n",
+            html);
+    }
+
+    [Fact]
+    public void ConditionalPartialLine_WithSameLineContinuation_BailsOut()
+    {
+        // Content on the same line after {{/if}} would sit at a data-dependent
+        // column, so the template must stay unformatted (directive blank line
+        // and authored column-0 layout prove it bailed).
+        string html = Templates.Format.CondCallInline.ToHtmlString(Show: true, Msg: "hi");
+
+        Assert.Contains("\n<span class=\"badge\">hi</span>\n<p>same line</p>\n", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("  <span", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Bail_CascadesUpToCallersOfABailedPartial()
     {
         // format/bail is unformattable; format/cascade calls it, so it must stay

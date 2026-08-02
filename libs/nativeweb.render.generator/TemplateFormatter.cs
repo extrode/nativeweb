@@ -42,7 +42,11 @@ namespace NativeWeb.Render.Generator;
 /// </summary>
 internal static class TemplateFormatter
 {
-    private const int MaxDepthVariants = 4;
+    // The depth-set accumulation is iterative: call-site depths from callers that
+    // later bail still consume slots before convergence, so the cap must leave
+    // headroom above the real variant count (manzil converges on 3 variants but
+    // needs 8 slots to get there). Each variant is one small RenderAtD method.
+    private const int MaxDepthVariants = 8;
 
     private static readonly HashSet<string> VoidElements = new(StringComparer.Ordinal)
     {
@@ -295,7 +299,10 @@ internal static class TemplateFormatter
                 Calls = [.. found.Select(f => (f.Node.Path, f.Depth))],
                 Delta = state.Depth,
                 EndsWithNewline = state.AtLineStart && !lastIsStrippableStatic && output.Count > 0,
-                Bailed = state.Bailed,
+                // A template ending with its line start still ambiguous (a
+                // conditional partial as the very last node) has no following
+                // newline to resolve it; bail rather than guess.
+                Bailed = state.Bailed || state.AmbiguousLineStart,
                 // An empty splice body (whitespace-only template) is unclean: the
                 // caller has already written its call-site indent, so splicing
                 // nothing leaves a blank or trailing-space line.
@@ -405,6 +412,14 @@ internal static class TemplateFormatter
         public bool InComment;
         public bool Bailed;
 
+        /// <summary>Set when an {{if}}'s branches agreed on everything except
+        /// whether the current line's start was consumed (one branch rendered
+        /// line content, the other rendered nothing). The walk continues as if
+        /// the line was consumed, but ONLY a newline may follow — anything else
+        /// would sit at a data-dependent column, so it bails. At runtime the
+        /// empty branch yields one blank line, never misindentation.</summary>
+        public bool AmbiguousLineStart;
+
         public WalkState Clone() => (WalkState)MemberwiseClone();
 
         public void CopyFrom(WalkState other)
@@ -421,6 +436,7 @@ internal static class TemplateFormatter
             Verbatim = other.Verbatim;
             InComment = other.InComment;
             Bailed = other.Bailed;
+            AmbiguousLineStart = other.AmbiguousLineStart;
         }
 
         public bool SameAs(WalkState other) =>
@@ -434,7 +450,25 @@ internal static class TemplateFormatter
             && InUnquotedValue == other.InUnquotedValue
             && PendingVerbatim == other.PendingVerbatim
             && Verbatim == other.Verbatim
-            && InComment == other.InComment;
+            && InComment == other.InComment
+            && AmbiguousLineStart == other.AmbiguousLineStart;
+
+        /// <summary>True when the two states differ ONLY in
+        /// <see cref="AtLineStart"/> — the shape a conditional partial line
+        /// leaves behind (see <see cref="AmbiguousLineStart"/>).</summary>
+        public bool SameExceptLineStart(WalkState other) =>
+            AtLineStart != other.AtLineStart
+            && Depth == other.Depth
+            && InTag == other.InTag
+            && Quote == other.Quote
+            && TagEffect == other.TagEffect
+            && TagSelfClose == other.TagSelfClose
+            && AfterEquals == other.AfterEquals
+            && InUnquotedValue == other.InUnquotedValue
+            && PendingVerbatim == other.PendingVerbatim
+            && Verbatim == other.Verbatim
+            && InComment == other.InComment
+            && AmbiguousLineStart == other.AmbiguousLineStart;
     }
 
     private static void WalkNodes(
@@ -450,6 +484,23 @@ internal static class TemplateFormatter
             if (state.Bailed)
             {
                 return;
+            }
+
+            // An ambiguous line start (conditional partial line) tolerates only
+            // a newline next: the line either got content or becomes blank, and
+            // both are fine — but any same-line continuation would sit at a
+            // data-dependent column, so it bails.
+            if (state.AmbiguousLineStart)
+            {
+                if (node is StaticNode ambiguousNext && ambiguousNext.Text.StartsWith("\n", StringComparison.Ordinal))
+                {
+                    state.AmbiguousLineStart = false;
+                }
+                else
+                {
+                    state.Bailed = true;
+                    return;
+                }
             }
 
             switch (node)
@@ -475,13 +526,30 @@ internal static class TemplateFormatter
                     WalkState elseState = state.Clone();
                     List<Node>? elseOut = output is null ? null : [];
                     WalkNodes(i.Else, elseState, elseOut, calls, callDepths, resolveCallee);
-                    if (thenState.Bailed || elseState.Bailed || !thenState.SameAs(elseState))
+                    if (thenState.Bailed || elseState.Bailed)
                     {
                         state.Bailed = true;
                         return;
                     }
 
-                    state.CopyFrom(thenState);
+                    if (thenState.SameAs(elseState))
+                    {
+                        state.CopyFrom(thenState);
+                    }
+                    else if (thenState.SameExceptLineStart(elseState))
+                    {
+                        // One branch consumed the line start, the other rendered
+                        // nothing (e.g. a flash banner behind a guard). Continue
+                        // as if consumed and let the loop guard above insist on
+                        // a newline next.
+                        state.CopyFrom(thenState.AtLineStart ? elseState : thenState);
+                        state.AmbiguousLineStart = true;
+                    }
+                    else
+                    {
+                        state.Bailed = true;
+                        return;
+                    }
                     if (output is not null)
                     {
                         IfNode ifClone = new(i.Condition) { InElse = false };
