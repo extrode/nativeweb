@@ -14,8 +14,19 @@ internal enum FlashKind
 // request renders the full layout. A cookie rather than any server-side
 // state: the __Host- prefix pins it Secure/Path=/ with no Domain so it can't
 // be planted from a subdomain. Self-expires quickly in case the follow-up
-// render never happens. Pattern-copied across the LNW apps — keep
-// structurally identical.
+// render never happens.
+//
+// Pattern-copied from manzil's Auth/Flash.cs — keep structurally identical to
+// THAT copy: Take returns an (Ok, Error) pair of empty strings feeding the
+// banner partials' zero-length no-op path, the shape template-rendered apps
+// use. apps/web's Flash differs deliberately (a nullable (Success, Message)
+// tuple feeding its C# Banner rendering); do not sync against it.
+//
+// Set has no caller here yet by design: the skeleton ships the slot wired
+// (layout params + read-once Take at every full-page render site) so a
+// product's first success redirect only needs the Set call. Every full-page
+// render site a product adds must Take — the layout's required FlashOk /
+// FlashError params make the compiler point at any site that forgets.
 internal static class Flash
 {
     private const string CookieName = "__Host-nw-flash";

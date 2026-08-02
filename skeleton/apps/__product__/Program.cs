@@ -277,6 +277,8 @@ public sealed class Program
         app.MapGet("/", IResult (HttpContext context) =>
         {
             var chrome = Chrome.For(context, assets, antiforgery);
+            // Every full-page render site takes the flash (read-once); never
+            // take it in a fragment path, which would consume it invisibly.
             (string Ok, string Error) flash = Flash.Take(context);
             return Templates.Home.Index.Result(
                 locale: chrome.Locale,
