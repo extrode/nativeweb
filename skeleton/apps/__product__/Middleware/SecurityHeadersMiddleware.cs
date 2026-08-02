@@ -117,7 +117,13 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvir
             if (publicCsp is not null)
             {
                 headers["Cache-Control"] = $"public, max-age={PublicPageCache.MaxAgeSeconds}";
-                headers["Vary"] = "Cookie, Accept-Language";
+
+                // Append, never assign. UseResponseCompression sets
+                // Vary: Accept-Encoding from its own OnStarting callback, and
+                // those fire in reverse registration order, so an assignment
+                // here lands last and erases it -- after which a shared cache
+                // can hand a brotli body to a client that never asked for one.
+                headers.Append("Vary", "Cookie, Accept-Language");
             }
             else if (!staticPage
                 && (IsSensitiveContentType(ctx.Response.ContentType)

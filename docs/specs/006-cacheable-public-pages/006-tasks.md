@@ -54,6 +54,6 @@ Each branch: code + tests together, Fable review before merge, `--no-ff` into `d
 - [x] T10 Skeleton parity — files: NativeWeb `skeleton/apps/__product__/*` — covers: plan's
       pattern-copy convention — done when: middleware/layout/policy changes are mirrored
       structurally identical and the skeleton builds zero-warning.
-- [ ] T11 Close-out — files: spec status, `work/`, CHANGELOG — covers: acceptance — done when:
+- [x] T11 Close-out — files: spec status, `work/`, CHANGELOG — covers: acceptance — done when:
       k6 confirms anonymous `/u/*` cache hits at the static floor; `006-spec.md` Status: done;
       tasklist archived per convention; cleanup script written.

@@ -79,7 +79,14 @@ internal sealed class PublicPageCachePolicy : IOutputCachePolicy
         // write turns into a real page would sit stale in front of it -- and
         // ErrorPageMiddleware fills bodiless 404s outside this cache anyway, so
         // what got stored would not be the served page.
-        if (context.HttpContext.Response.StatusCode != StatusCodes.Status200OK)
+        //
+        // A clamped out-of-range page is refused for a different reason: the
+        // body is page 1's, but the key carries whatever number was asked for,
+        // so storing it lets a crawler fill the store with duplicates of one
+        // page. The handler is the only party that knows the real page count,
+        // so it says so rather than the policy guessing a cap.
+        if (context.HttpContext.Response.StatusCode != StatusCodes.Status200OK
+            || context.HttpContext.Items.ContainsKey(PublicPageCache.OutOfRangePageKey))
         {
             context.AllowCacheStorage = false;
         }

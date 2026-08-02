@@ -41,11 +41,33 @@ internal static class PublicPageCache
     /// <summary>
     /// How long a stored public page may be served without revalidation. The
     /// same number bounds the in-process entry and the downstream max-age, so a
-    /// shared proxy can never hold a page longer than this app would. It is a
-    /// backstop only: writes evict by tag immediately, so this is the window
-    /// for a change that somehow missed its eviction, not the normal latency.
+    /// shared proxy can never hold a page longer than this app would.
+    ///
+    /// <b>This is the freshness guarantee, not a backstop.</b> Writes evict by
+    /// tag immediately, but eviction only reaches this process's store: a
+    /// downstream proxy or a browser that has already been handed the response
+    /// keeps serving it for the rest of the window regardless. So a change is
+    /// visible to its own author at once and to everyone else within this many
+    /// seconds — shorten it before publishing anything where that gap matters.
     /// </summary>
     public const int MaxAgeSeconds = 60;
+
+    /// <summary>
+    /// Set by a paginated handler on <see cref="HttpContext.Items"/> when the
+    /// requested page was outside the real range and it clamped. The policy
+    /// reads it and declines to store — otherwise ?page=999999 mints one entry
+    /// per number for a body identical to page 1, and the key allowlist cannot
+    /// stop it because "page" is a key it must allow.
+    ///
+    /// Items is the right place here and only here: storage is decided on a
+    /// miss, and on a miss the handler ran. The <b>header</b> decisions above
+    /// run on hits too, which is why they read route metadata instead.
+    ///
+    /// The skeleton ships no paginated public route; the constant is here so a
+    /// product that adds one has the hook rather than an arbitrary page cap
+    /// invented at the wrong layer. Only the handler knows the real page count.
+    /// </summary>
+    public const string OutOfRangePageKey = "public-page-out-of-range";
 
     /// <summary>
     /// Whether the request carries a cookie that can make a response personal.
