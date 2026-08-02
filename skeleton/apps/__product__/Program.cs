@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.Antiforgery;
@@ -291,6 +292,13 @@ public sealed class Program
 
         // Liveness: process is up. Readiness: the database answers.
         app.MapGet("/healthz", () => Results.Text("ok"));
+
+        // Spec 005 R2: which build is this instance. InformationalVersion is
+        // Version+shortsha, stamped by the csproj's StampSourceRevision target;
+        // read once here — the assembly-level attribute survives NativeAOT.
+        string informationalVersion = typeof(Program).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
+        app.MapGet("/version", () => Results.Text(informationalVersion));
         app.MapGet("/readyz", async Task<IResult> (IServiceProvider services, CancellationToken ct) =>
         {
             NpgsqlDataSource? dataSource = services.GetService<NpgsqlDataSource>();

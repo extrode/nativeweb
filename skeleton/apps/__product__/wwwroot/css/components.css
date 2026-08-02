@@ -88,6 +88,23 @@ main:focus-visible {
   filter: brightness(0.96);
 }
 
+/* In-flight state applied by boot.js while an htmx request is pending (spec
+   005 R3). The pulse, not a spinner: it needs no extra markup inside arbitrary
+   buttons and reads as activity at any control size. */
+.nw-busy {
+  opacity: 0.6;
+  cursor: progress;
+  animation: nw-busy-pulse 1s ease-in-out infinite;
+}
+
+@keyframes nw-busy-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nw-busy { animation: none; }
+}
+
 .btn--primary {
   background: var(--ac);
   color: var(--on-ac);
