@@ -30,7 +30,17 @@ public sealed class SmokeTests(__PRODUCT__Factory factory)
         // constant -- that would pass no matter how the constant was loosened.
         string csp = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
         Assert.Contains("default-src 'self'", csp, StringComparison.Ordinal);
-        Assert.Contains("nonce-", csp, StringComparison.Ordinal);
+
+        // "/" is a public page (spec 006), so this anonymous request gets the
+        // nonce-free CSP whose inline scripts are authorized by build-time
+        // hashes. Both halves are asserted: a nonce reappearing here means the
+        // page went back to being uncacheable, and a missing hash means the
+        // page is cacheable with nothing authorizing the scripts it carries.
+        Assert.DoesNotContain("nonce-", csp, StringComparison.Ordinal);
+        foreach (string hash in __PRODUCT__.Templates.Home.Index.InlineScriptCspHashes)
+        {
+            Assert.Contains("'" + hash + "'", csp, StringComparison.Ordinal);
+        }
         Assert.Contains("frame-ancestors 'none'", csp, StringComparison.Ordinal);
         Assert.Contains("report-uri /csp-report", csp, StringComparison.Ordinal);
 

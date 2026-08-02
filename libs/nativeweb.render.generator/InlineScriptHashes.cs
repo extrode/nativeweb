@@ -302,9 +302,24 @@ internal static class InlineScriptHashes
         return null;
     }
 
+    /// <summary>
+    /// Hashes the body the way the browser will, which is not byte-for-byte the
+    /// way it was authored: the HTML input stream is newline-normalized before
+    /// tokenizing, so CRLF and a lone CR both become LF in the text node CSP
+    /// actually hashes. Hashing the authored bytes instead makes the constant
+    /// depend on the line endings the template happened to be checked out with
+    /// — a CRLF working tree and an LF CI checkout of the same commit emit
+    /// different hashes, and the CRLF one blocks its own script in every
+    /// browser. Normalizing only the hash input is enough; the served bytes can
+    /// stay as they are because the browser normalizes them for us.
+    /// </summary>
     private static string HashSource(string body)
     {
+        string normalized = body.IndexOf('\r') < 0
+            ? body
+            : body.Replace("\r\n", "\n").Replace('\r', '\n');
+
         using var sha256 = SHA256.Create();
-        return "sha256-" + Convert.ToBase64String(sha256.ComputeHash(Encoding.UTF8.GetBytes(body)));
+        return "sha256-" + Convert.ToBase64String(sha256.ComputeHash(Encoding.UTF8.GetBytes(normalized)));
     }
 }

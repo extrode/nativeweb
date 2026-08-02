@@ -15,6 +15,12 @@
 *.html    text eol=lf
 *.md      text eol=lf
 
+# One deliberate exception: a fixture whose whole point is CRLF line endings
+# inside an inline script, proving the CSP hash generator normalizes them the
+# way the browser does. Normalizing it to LF would silently make the test
+# assert nothing.
+tests/nativeweb.render.tests.unit/templates/csp/crlf.html -text
+
 # Windows scripts stay CRLF.
 *.cmd text eol=crlf
 *.bat text eol=crlf
