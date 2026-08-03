@@ -21,6 +21,20 @@ Small, clear, and could be picked up without a design decision.
 
 Real, but needs a decision, a dependency, or more information first. Say which.
 
+- JauntyQ multi-result-set batching is **deferred upstream** (JauntyQ `80af756`, 2026-08-03; the
+  ask is recorded in that repo's `work/todo.md` under "Later"). That was the whole point of
+  `docs/jauntyq/2026-08-02-001-result-set-features.md`: round trips, not query cost. What did land
+  is the window-function polish — `COUNT(...) OVER (...)` now infers `bigint NOT NULL`, so
+  `-- @type` is no longer needed for the paginate-with-total shape, and JNT1008 makes a
+  two-statement file an error instead of a silent mis-parse. All three consumers build 0/0 against
+  it (verified 2026-08-03); no existing query was mis-parsing and none uses `OVER(` yet.
+  **Do not re-propose the perf plan's item 4 (fold count into the page query) on the old
+  rationale.** Only its ergonomic objection was removed. The design objection stands — counts
+  repeating their list predicate verbatim is deliberate and was reviewed 2026-08-02 — and spec
+  006's output cache already took `/u/{username}` to 0.51ms/1.51ms from 7.41ms/20.56ms, so the
+  anonymous traffic it would speed up no longer reaches PostgreSQL at all. The case that *is*
+  still open is the authenticated list pages (a user's own bookmarks, their tag lists), which are
+  never cached and still run count-then-page. Different case, needs its own measurement.
 - CSRF (user, 2026-07-30): the framework antiforgery is kept for its BREACH-masked token, but the
   user dislikes how the `<meta name="request-verification-token">` + hidden-input plumbing looks.
   Candidate: a Rails-style per-session token behind a small helper so the markup reads cleaner —
