@@ -211,3 +211,10 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   product, which needs its own database. That is why `SmokeTests` kept asserting a nonce in the
   home page CSP for the whole of spec 006 (fixed 2026-08-03 by inspection, still unexecuted).
   Worth a CI job that stamps, creates a throwaway DB, and runs all three layers.
+- `Directory.Build.targets` disables precompressed static-asset generation in Debug as a
+  workaround for a framework defect: `StaticAssetDevelopmentRuntimeHandler` resolves compressed
+  variants against `wwwroot` instead of the manifest content roots, so a gzip-accepting client got
+  a zero-length body. Remove the property once the SDK resolves the variant correctly. Note the
+  Debug build no longer exercises compressed-asset serving at all, so only `dotnet publish`
+  covers that path — a Release smoke check is what would catch a regression there.
+- manzil.my needs the same `Directory.Build.targets` workaround; it has the identical defect.
