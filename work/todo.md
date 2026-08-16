@@ -157,9 +157,11 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 - Single-page lists render a pagination landmark with only position text (parity).
 - tools/convert-*.py are the R42 conversion scripts, kept as reference for the IdP template
   migration spec; delete with that spec's close-out.
-- (V6 review, fable) apps/web stores the session cookie value as the bff_store row's
+- ~~(V6 review, fable) apps/web stores the session cookie value as the bff_store row's
   plaintext UUID PK, so any DB read yields live bearer tokens; devmarks stores only the
-  SHA-256 of its token. Hash the IdP's at rest the same way (pre-existing, pre-cutover).
+  SHA-256 of its token. Hash the IdP's at rest the same way~~ — **done 2026-08-16**, spec 007
+  (`docs/specs/007-session-token-at-rest/`). Rows are keyed by `SessionToken.StorageId`;
+  migration 0054 converted the existing ones in place, so no session was invalidated.
 - (V6 review, fable) devmarks has no DataProtection key persistence, so every restart
   invalidates outstanding antiforgery tokens; mirror web's PersistKeysToFileSystem block.
 - (V6 review, fable) devmarks loads user-secrets unconditionally rather than
