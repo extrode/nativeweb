@@ -17,6 +17,10 @@ Small, clear, and could be picked up without a design decision.
   sign-out, register, settings), which is wider than the nit that raised it. Left as 302
   deliberately — 2026-08-03.
 
+- `AppProcessFixture.DeleteCert` catches only `IOException`, so an
+  `UnauthorizedAccessException` from `File.Delete` fails the collection on the success path,
+  contrary to its own comment; and `_certPath` is never nulled after a successful delete. Found
+  during the V9 chore's review 2026-08-03, pre-existing, left alone as out of scope.
 - No configuration reference exists: none of `NativeWeb:RateLimit:*:PermitLimit` (five keys),
   `NativeWeb:Db:*`, `NativeWeb:Readiness:CacheSeconds`, `NativeWeb:ForwardedHeaders:KnownProxies`
   or `NativeWeb:Telemetry:Enabled` appears in `docs/`, in `appsettings.json`, or anywhere an
