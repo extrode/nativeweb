@@ -195,8 +195,11 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   tag-filtered lists (both parity with old markup) — wording pass later.
 - Nav shows Bookmarks/Tags/Import to signed-out visitors and never marks Settings active
   (both parity with the old layout) — UX pass later.
-- GenericFailureMessage const duplicates error.signin_generic for the integration tests;
-  point the tests at Locales.Get("en") and drop the const.
+- ~~GenericFailureMessage const duplicates error.signin_generic for the integration tests;
+  point the tests at Locales.Get("en") and drop the const.~~ Not this repo — checked
+  2026-08-17 and neither `GenericFailureMessage` nor `error.signin_generic` exists anywhere
+  here. Like the rest of this V4 block it belongs to manzil.my, which is now its own
+  repository; carry it there or drop it.
 - Single-page lists render a pagination landmark with only position text (parity).
 - tools/convert-*.py are the R42 conversion scripts, kept as reference for the IdP template
   migration spec; delete with that spec's close-out.
@@ -241,11 +244,13 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   — a remote off-switch for a healthy instance. A test pins that neither probe is rate limited.
   **Still open, in manzil.my:** its `/` endpoint has no rate-limit policy and its `/readyz` is
   the same unbounded DB round trip; `ReadinessCache` is the shape to pattern-copy.
-- V10 removal review: `Directory.Packages.props` pins `Microsoft.AspNetCore.OpenApi` 10.0.7 and
+- ~~V10 removal review: `Directory.Packages.props` pins `Microsoft.AspNetCore.OpenApi` 10.0.7 and
   `Microsoft.OpenApi` 2.7.5 with no remaining consumer in any csproj (the transitive-override
   comment is now false); removing pins counts as dependency removal, so left for a confirmed
   cleanup. Also trivial: `check-publish-budgets.ps1` `-Port` default 5999 is unreachable (sole
-  caller passes 5998).
+  caller passes 5998).~~ Both done 2026-08-17 (`chore/test-and-skeleton-hygiene`), the pin
+  removal on explicit approval. The port default is 5998 now, matching ci.yml, and
+  `PublishBudgetScriptTests` fails if the two ever drift again.
 - Dev-loop bug (found 2026-08-01, applies to any app using MapStaticAssets + fingerprinted CSS,
   so manzil.my and apps/web alike): under `dotnet run` in Development,
   `StaticAssetDevelopmentRuntimeHandler` resolves the precompressed gzip variant to

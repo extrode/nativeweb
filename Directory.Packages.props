@@ -7,10 +7,6 @@
   <!-- Central package versions. Add PackageReference in csproj without Version.
        Pins follow the shared .NET toolchain. -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
-    <!-- Pin transitive Microsoft.OpenApi above the vulnerable 2.0.0 pulled in by
-         Microsoft.AspNetCore.OpenApi (GHSA-v5pm-xwqc-g5wc / CVE-2026-49451). -->
-    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <!-- libsodium wrapper (span-based, AOT-friendly): CSPRNG + hashing for
          secret/ticket material. -->
