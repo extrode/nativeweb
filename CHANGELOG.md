@@ -67,6 +67,24 @@ Merged into `dev`, not yet tagged.
   dual-mode framework refs). Its suites run green there (217 unit / 81 integration / 12 e2e,
   0-warning AOT publish: 30,483,968 B / 977 ms to `/healthz`).
 
+### Security
+- **Session tokens are no longer recoverable from the database** (spec 007) — the
+  `__Host-NativeWeb.Session` cookie value *was* the `bff_store` primary key, written verbatim,
+  so any read of that table — a backup, a replica, a logical-replication slot, a slow-query log,
+  a read-only injection primitive — yielded live bearer credentials for the fourteen days of a
+  session's life. Rows are now keyed by `SessionToken.StorageId`: the first 128 bits of SHA-256
+  over the token, kept as a `UUID` so the column, the index, all eight `db/queries/BffStore/*.sql`
+  and the generated data layer are untouched and lookup stays a single point lookup. The
+  type never hands the plaintext out as a `Guid`, so a call site cannot pass it to the data layer
+  by accident — a speed bump rather than a wall, since `Guid.Parse(CookieValue)` is one hop away;
+  closing that needs the session key to be its own type, which is on the backlog. Migration 0054 converted the existing rows in place — sessions live at
+  the time it ran kept working, since only what the cookie is compared against changed — and is
+  documented as one-way and not re-runnable. Verified against 106 real rows in `nativeweb_dev`.
+  The C# and SQL derivations are pinned to each other from both sides, because the obvious
+  `new Guid(byte[])` spelling reads the first three fields little-endian and would silently sign
+  every user out. Found by the V6 Fable review and left pre-cutover; closed before it became a
+  question of invalidating live sessions rather than empty ones.
+
 ### Removed
 - The DevMarks projects (`apps/devmarks`, `libs/nativeweb.devmarks.data`,
   `tests/nativeweb.devmarks.tests.*`, `db/devmarks`), now living in the manzil.my repo; CI,

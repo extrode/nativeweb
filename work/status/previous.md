@@ -5,6 +5,22 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
+- **Spec 007 — session tokens hashed at rest** (`feat/007-session-token-at-rest`, merged
+  `--no-ff`). The `__Host-NativeWeb.Session` cookie value *was* the `bff_store` primary key,
+  written verbatim, so any read of that table yielded live bearer credentials for fourteen days.
+  Rows are now keyed by `SessionToken.StorageId` — the first 128 bits of SHA-256 over the token,
+  kept as a `UUID`, so the column, the index, all eight `db/queries/BffStore/*.sql` and the
+  generated data layer are untouched and lookup is still one point lookup. Migration 0054
+  converted 106 real rows in `nativeweb_dev` in place; it is one-way, not re-runnable, and writes
+  its own `schema_migrations` row inside its transaction because `migrate.sh` applies and records
+  separately. Suites 386 / 256 / 59 green, AOT publish zero-warning at 36,932,096 B.
+  Review (opus) returned eight findings, all acted on: the endianness/ordering/rollback header,
+  the vacuous e2e "current session survives" half (now re-navigates and waits on the profile
+  form, perturbation-checked), the SQL parity helper now lifting the expression out of the
+  migration file rather than holding a second copy, and R4 downgraded from "met by construction"
+  to a speed bump with the real fix — a session key that is not a raw `Guid` — recorded in
+  `work/todo.md`.
+
 - **Spec 006 cacheable public pages** (`chore/spec-006-skeleton-parity` + manzil.my
   `feat/cacheable-public-pages`, both merged) — the render generator emits
   `InlineScriptCspHashes` per template (T2), and the skeleton gained

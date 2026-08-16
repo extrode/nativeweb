@@ -37,6 +37,21 @@ Small, clear, and could be picked up without a design decision.
 
 Real, but needs a decision, a dependency, or more information first. Say which.
 
+- **A session key that cannot be a raw `Guid`.** Spec 007 routes every session read, write and
+  delete through `SessionToken`, but `Guid.Parse(token.CookieValue)` still recovers the plaintext
+  in one hop, so a new write path could bypass the hash and would compile. Making that
+  impossible means the data layer taking its own key type rather than `Guid` — a JauntyQ-wide
+  change, hence a decision, not a fix. Recorded 2026-08-16, from the spec 007 review; the spec's
+  R4 says the same rather than claiming to be met.
+
+- **`migrate.sh` applies and records in separate connections.** `app_psql -f "$f"` then
+  `record "$version"` (`db/migrate.sh:53,79-80`), so a crash between the two commits the
+  migration and loses the tracking, and the next run re-applies it. Harmless for DDL, which is
+  what every migration before 0054 is; not harmless for a data `UPDATE`. 0054 works around it by
+  writing its own `schema_migrations` row inside its transaction. The general fix is for the
+  runner to record inside the same transaction it applies in, which is a change to how it invokes
+  psql. Noted 2026-08-16.
+
 - JauntyQ multi-result-set batching is **deferred upstream** (JauntyQ `80af756`, 2026-08-03; the
   ask is recorded in that repo's `work/todo.md` under "Later"). That was the whole point of
   `docs/jauntyq/2026-08-02-001-result-set-features.md`: round trips, not query cost. What did land
@@ -157,9 +172,11 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 - Single-page lists render a pagination landmark with only position text (parity).
 - tools/convert-*.py are the R42 conversion scripts, kept as reference for the IdP template
   migration spec; delete with that spec's close-out.
-- (V6 review, fable) apps/web stores the session cookie value as the bff_store row's
+- ~~(V6 review, fable) apps/web stores the session cookie value as the bff_store row's
   plaintext UUID PK, so any DB read yields live bearer tokens; devmarks stores only the
-  SHA-256 of its token. Hash the IdP's at rest the same way (pre-existing, pre-cutover).
+  SHA-256 of its token. Hash the IdP's at rest the same way~~ — **done 2026-08-16**, spec 007
+  (`docs/specs/007-session-token-at-rest/`). Rows are keyed by `SessionToken.StorageId`;
+  migration 0054 converted the existing ones in place, so no session was invalidated.
 - (V6 review, fable) devmarks has no DataProtection key persistence, so every restart
   invalidates outstanding antiforgery tokens; mirror web's PersistKeysToFileSystem block.
 - (V6 review, fable) devmarks loads user-secrets unconditionally rather than
