@@ -75,8 +75,9 @@ Merged into `dev`, not yet tagged.
   session's life. Rows are now keyed by `SessionToken.StorageId`: the first 128 bits of SHA-256
   over the token, kept as a `UUID` so the column, the index, all eight `db/queries/BffStore/*.sql`
   and the generated data layer are untouched and lookup stays a single point lookup. The
-  plaintext is deliberately unreachable as a `Guid`, so a future call site cannot hand it to the
-  data layer by accident. Migration 0054 converted the existing rows in place — sessions live at
+  type never hands the plaintext out as a `Guid`, so a call site cannot pass it to the data layer
+  by accident — a speed bump rather than a wall, since `Guid.Parse(CookieValue)` is one hop away;
+  closing that needs the session key to be its own type, which is on the backlog. Migration 0054 converted the existing rows in place — sessions live at
   the time it ran kept working, since only what the cookie is compared against changed — and is
   documented as one-way and not re-runnable. Verified against 106 real rows in `nativeweb_dev`.
   The C# and SQL derivations are pinned to each other from both sides, because the obvious

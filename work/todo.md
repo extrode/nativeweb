@@ -37,6 +37,21 @@ Small, clear, and could be picked up without a design decision.
 
 Real, but needs a decision, a dependency, or more information first. Say which.
 
+- **A session key that cannot be a raw `Guid`.** Spec 007 routes every session read, write and
+  delete through `SessionToken`, but `Guid.Parse(token.CookieValue)` still recovers the plaintext
+  in one hop, so a new write path could bypass the hash and would compile. Making that
+  impossible means the data layer taking its own key type rather than `Guid` — a JauntyQ-wide
+  change, hence a decision, not a fix. Recorded 2026-08-16, from the spec 007 review; the spec's
+  R4 says the same rather than claiming to be met.
+
+- **`migrate.sh` applies and records in separate connections.** `app_psql -f "$f"` then
+  `record "$version"` (`db/migrate.sh:53,79-80`), so a crash between the two commits the
+  migration and loses the tracking, and the next run re-applies it. Harmless for DDL, which is
+  what every migration before 0054 is; not harmless for a data `UPDATE`. 0054 works around it by
+  writing its own `schema_migrations` row inside its transaction. The general fix is for the
+  runner to record inside the same transaction it applies in, which is a change to how it invokes
+  psql. Noted 2026-08-16.
+
 - JauntyQ multi-result-set batching is **deferred upstream** (JauntyQ `80af756`, 2026-08-03; the
   ask is recorded in that repo's `work/todo.md` under "Later"). That was the whole point of
   `docs/jauntyq/2026-08-02-001-result-set-features.md`: round trips, not query cost. What did land

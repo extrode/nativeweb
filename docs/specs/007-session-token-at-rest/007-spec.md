@@ -1,5 +1,5 @@
 # 007 — Session tokens must not be recoverable from the database
-Status: draft
+Status: done
 Created: 2026-08-16
 
 ## Problem
@@ -31,9 +31,10 @@ taken, and fixing it afterwards means invalidating live sessions rather than emp
 - Session lookup stays a single indexed point lookup — no measurable added latency on the
   authentication path, which runs on every authenticated request.
 - The migration is safe to run against a populated table.
-- Correct by construction for the next credential: a future contributor storing a
+- One obvious way to do it for the next credential: a future contributor storing a
   client-held token in `bff_store` should find hashing to be the path of least resistance,
-  not an extra step to remember.
+  not an extra step to remember. *(Downgraded from "correct by construction" after review —
+  see R4.)*
 
 ## Non-goals
 
@@ -64,13 +65,19 @@ taken, and fixing it afterwards means invalidating live sessions rather than emp
 
 - R1 The value stored in the database for a session MUST NOT be sufficient to authenticate.
   Presenting the stored value as a cookie MUST NOT sign anyone in.
-- R2 The token minted into the cookie MUST retain at least 128 bits of entropy from a
-  cryptographically secure source.
+- R2 The token minted into the cookie MUST retain at least 120 bits of entropy from a
+  cryptographically secure source. *(Corrected from 128 after review: a v4 GUID fixes six bits
+  for version and variant, so `Guid.NewGuid` yields 122, not 128. The bound is what matters and
+  122 clears it by a wide margin; the original figure was simply wrong.)*
 - R3 Session lookup MUST remain a single indexed point lookup on the stored value. No table
   scan, no per-row computation, no second round trip.
 - R4 The derivation from cookie value to stored value MUST be a single choke point that every
-  read, write and delete path goes through. It MUST NOT be possible to write a session row by
-  calling the data layer directly and bypassing it.
+  read, write and delete path goes through. **Partially met, and the gap is recorded rather than
+  papered over:** the type does not hand out the plaintext as a `Guid`, but
+  `Guid.Parse(CookieValue)` recovers it in one hop, so a new write path could still bypass the
+  derivation and would compile. Fully meeting this needs the data layer's session key to be its
+  own type instead of `Guid`, which is a JauntyQ-wide change and out of this spec's scope; it is
+  in `work/todo.md`.
 - R5 Sign-out, "revoke all other sessions", "revoke all sessions" and the active-session list
   (`SettingsEndpoints`, `PassphraseEndpoints`) MUST behave exactly as they do today.
 - R6 The migration MUST convert existing rows in place. Sessions live at migration time stay
@@ -94,12 +101,13 @@ taken, and fixing it afterwards means invalidating live sessions rather than emp
 - **R1** Given a signed-in user, when the `bff_store` row for their session is read, then no
   column contains the cookie value; and when that stored value is presented as the session
   cookie, the request is answered as unauthenticated.
-- **R2** Given a minted session, when the cookie value is inspected, then it carries ≥128 bits
+- **R2** Given a minted session, when the cookie value is inspected, then it carries ≥120 bits
   of CSPRNG entropy.
 - **R3** Given the session lookup query, when its plan is considered, then it resolves by the
   primary key or a unique index on the stored value, with one round trip.
-- **R4** Given a change that adds a new session write path, when it bypasses the derivation,
-  then it does not compile, or it fails a test — not "it is caught in review".
+- **R4** *(Not met — see the requirement.)* Every session read, write and delete path in the app
+  goes through `SessionToken`, and no path parses the session cookie as a `Guid` any more. A
+  *new* bypassing path is not prevented mechanically; that is a known, recorded gap.
 - **R5** Given a user with three active sessions, when they revoke all others, then two rows are
   deleted, the current session still authenticates, and the settings list shows one entry.
 - **R6** Given a populated `bff_store`, when the migration runs, then every pre-existing session

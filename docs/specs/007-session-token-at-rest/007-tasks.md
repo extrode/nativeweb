@@ -35,10 +35,13 @@ Spec: ./007-spec.md
   `StorageId`; three-session revoke-others behaves as before. Perturbation confirmed: removing
   the hash from the write path fails it.
 
-- [ ] T7 End-to-end — files: `tests/nativeweb.web.tests.e2e/` — covers: R9 — done when: a real
-  browser signs in, navigates authenticated, and signs out.
+- [x] T7 End-to-end — files: `tests/nativeweb.web.tests.e2e/TestDatabase.cs`,
+  `tests/nativeweb.web.tests.e2e/SettingsFlowTests.cs` — covers: R9 — done when: a real browser
+  signs in, navigates authenticated, and signs out. The revoke-others flow additionally
+  re-navigates to `/settings` after the revoke, so the "current session survives" half is capable
+  of failing — the browser cookie jar keeps the cookie whatever the server deleted.
 
-- [ ] T8 Close-out — files: `CHANGELOG.md`, `work/status/*`, `work/todo.md` — covers: R10 —
+- [x] T8 Close-out — files: `CHANGELOG.md`, `work/status/*`, `work/todo.md` — covers: R10 —
   done when: the `bff_store` plaintext item is struck from `todo.md`'s V6 review list, the
   suites are green at or above 374/247/59, `dotnet publish apps/web -c Release` is zero-warning
   and within budget, and `structure-audit.js` reports clean.
@@ -48,9 +51,9 @@ Spec: ./007-spec.md
 | R | Task |
 |---|---|
 | R1 no recoverable value | T1, T3, T6 |
-| R2 ≥128-bit CSPRNG | T1 |
+| R2 ≥120-bit CSPRNG | T1 |
 | R3 single point lookup | T3 |
-| R4 single choke point | T1 |
+| R4 single choke point (partial — see spec) | T1 |
 | R5 revoke paths unchanged | T4, T6 |
 | R6 in-place migration | T2, T6 |
 | R7 rollback stated | T2 |

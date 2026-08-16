@@ -23,7 +23,8 @@ epass.io cutover, when the plaintext is in every backup ever taken.
 Rejected: widening `id` to `BYTEA`. It is the conventional shape, but it changes the column
 type, all eight `db/queries/BffStore/*.sql`, the JauntyQ-generated types, and the `Guid`
 parameter of every call site — for 128 extra bits that buy nothing. The token itself carries
-128 bits of entropy, so 128-bit preimage resistance already exceeds the thing it protects. The
+122 bits of entropy (a v4 GUID fixes six for version and variant; this plan originally said 128
+and was wrong), so 128-bit preimage resistance already exceeds the thing it protects. The
 truncated hash is not a valid RFC 4122 UUID (random version/variant bits); Postgres does not
 care, and the migration says so.
 
@@ -39,7 +40,11 @@ construction does *not* match the SQL. It must be `new Guid(hash.AsSpan(0, 16), 
 A unit test pins that exact input/output pair — it is the single assertion holding the two
 derivations together, and it is the highest-value test in the change.
 
-### `apps/web/Auth/SessionToken.cs` (new) — the choke point
+### `libs/nativeweb.auth/SessionToken.cs` (new) — the choke point
+
+*Built at `libs/nativeweb.auth/`, not the `apps/web/Auth/` this plan first named: the e2e project
+has no `InternalsVisibleTo` from `apps/web` but already references `NativeWeb.Auth`, and the
+alternative was a second copy of the derivation in the e2e test helper.*
 
 A `readonly struct` holding the plaintext privately and exposing only:
 
@@ -49,9 +54,13 @@ A `readonly struct` holding the plaintext privately and exposing only:
 - `string CookieValue` — for `Set-Cookie` only.
 - `Guid StorageId` — the hash; the only value the data layer ever receives.
 
-R4 is met by construction rather than by review: production code has no way to obtain the
-plaintext *as a `Guid`*, so it cannot be passed to `db.BffStore.*Async` even by accident. No
-`ToString()` override — the plaintext must not be one careless interpolation away from a log.
+R4 is a speed bump, not construction — corrected after review. Production code cannot obtain the
+plaintext *as a `Guid`* by asking the type for one, so it will not reach `db.BffStore.*Async` by
+accident; but `Guid.Parse(token.CookieValue)` is one hop away and would compile. Meeting R4
+properly needs the data layer's session key to be its own type instead of `Guid`, which is a
+JauntyQ-wide change and out of scope here; the gap is recorded in the spec and in `work/todo.md`.
+`ToString()` *is* overridden, to a redacted constant — the plaintext must not be one careless
+interpolation away from a log.
 
 ### Call sites — four reads, one write
 
@@ -96,7 +105,7 @@ the one seam that has to change.
 
 | # | Task | Files |
 |---|---|---|
-| T1 | `SessionToken` + unit tests, incl. the pinned SQL-parity vector | `apps/web/Auth/SessionToken.cs`, `tests/…unit/SessionTokenTests.cs` |
+| T1 | `SessionToken` + unit tests, incl. the pinned SQL-parity vector | `libs/nativeweb.auth/SessionToken.cs`, `tests/…unit/SessionTokenTests.cs` |
 | T2 | Migration 0054 + a test that the SQL expression equals `StorageId` | `db/migrations/0054_…sql`, `tests/…integration/` |
 | T3 | Mint + read paths | `SessionAuth.cs`, `SessionAuthenticationHandler.cs` |
 | T4 | Sign-out and the two revoke-others paths | `SignInEndpoints.cs`, `SettingsEndpoints.cs`, `PassphraseEndpoints.cs` |
