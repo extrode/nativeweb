@@ -21,9 +21,12 @@ Small, clear, and could be picked up without a design decision.
   nulled~~ — **fixed 2026-08-16** in `fix/v9-fable-findings`; it catches every exception and
   clears `_certPath` either way.
 
-- `RunAsync` in `AppProcessFixture` puts no overall timeout on the inner `dotnet publish`, so a
-  hung NativeAOT link waits on whatever the CI job's own timeout is rather than failing with a
-  message. Pre-existing; raised by the Fable review 2026-08-16, left as out of scope.
+- ~~`RunAsync` in `AppProcessFixture` puts no overall timeout on the inner `dotnet publish`~~ —
+  **done 2026-08-17**, `fix/idp-correctness-backlog`. 15-minute ceiling, killed with
+  `entireProcessTree: true` so the compiler and linker it spawned do not keep holding the output
+  directory. Output now drains through the `OutputDataReceived` events into a `BoundedLogTail`
+  rather than two `ReadToEndAsync` calls, so a timeout can report the last 200 lines instead of
+  nothing. `ProcessRunTests` covers all three exits.
 - No configuration reference exists: none of `NativeWeb:RateLimit:*:PermitLimit` (five keys),
   `NativeWeb:Db:*`, `NativeWeb:Readiness:CacheSeconds`, `NativeWeb:ForwardedHeaders:KnownProxies`
   or `NativeWeb:Telemetry:Enabled` appears in `docs/`, in `appsettings.json`, or anywhere an
@@ -36,6 +39,17 @@ Small, clear, and could be picked up without a design decision.
 ## Later
 
 Real, but needs a decision, a dependency, or more information first. Say which.
+
+- **Antiforgery is validated before `HasFormContentType` at all 23 POST sites — decide, don't
+  drift.** Recorded as a defect ("a non-form POST gets 400 not the intended 415") in the V4
+  review; on inspection it is not a slip in four files but the same order in every one, which
+  makes it a design choice nobody has written down. There is a real argument for keeping it: the
+  CSRF check runs before the request body is interpreted at all, and swapping the order lets a
+  caller with no token learn whether its content type would have been accepted. There is a real
+  argument for changing it: 415 is the more informative answer, and a client sending JSON to a
+  form endpoint currently gets told its token is bad. Either is defensible; what is not is
+  leaving it undecided while the review note calls it a bug. Needs a decision, then one sweep —
+  it moves status codes on 23 endpoints, so it is not a quiet fix. Raised again 2026-08-17.
 
 - **A session key that cannot be a raw `Guid`.** Spec 007 routes every session read, write and
   delete through `SessionToken`, but `Guid.Parse(token.CookieValue)` still recovers the plaintext
@@ -154,10 +168,16 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 - Fragment-assembled sentences in bookmarks/index.html empty states and bookmark-row's
   "Saved {date}" fix English word order across locales; replace with parameterized keys +
   precomputed C# strings.
-- Results.Redirect("/sign-in") on auth-expired paths ignores HX-Request across all endpoint
-  files (pre-existing); htmx swaps a full document into a fragment slot. Route through
-  SignInEndpoints.RedirectResult everywhere. Same for the already-signed-in redirects on
-  GET /sign-in and /register. Also: RedirectResult's comment says 303 but emits 302.
+- ~~Results.Redirect on auth-expired paths ignores HX-Request across all endpoint files~~ —
+  **done 2026-08-17**, `fix/idp-correctness-backlog`. One site was live: `PostVerify` in
+  `TwoFactorEndpoints` returned a bare 302 when the TOTP challenge cookie had expired, and that
+  form opts into htmx, so the sign-in document was swapped into the 2FA card on the most ordinary
+  failure the endpoint has. The other eight were latent — every `data-nw-*` element in the app is
+  a `method="post"` form, so no GET is htmx-driven today, but `boot.js` derives `hx-get` from any
+  anchor carrying the attribute, so one added link would make them live. All now route through
+  `Redirects.To`. The note's "RedirectResult's comment says 303 but emits 302" was stale: there is
+  no `RedirectResult`, and `Redirects.To`'s comment says 302 and emits 302. The separate 302-vs-303
+  question above is still deliberately unchanged.
 - ValidateAsync (4 files) checks antiforgery before HasFormContentType, so a non-form POST
   gets 400 not the intended 415 (pre-existing).
 - Anonymous pages (home, /u/*) mint an antiforgery cookie via Chrome.For/GetAndStoreTokens,

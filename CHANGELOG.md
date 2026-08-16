@@ -126,6 +126,30 @@ Merged into `dev`, not yet tagged.
   Final state: 319 unit / 206 integration / 44 e2e green, zero-warning NativeAOT publish.
 
 ### Fixed
+- **An expired 2FA challenge swapped the sign-in page into the 2FA card** — `POST
+  /auth/2fa/verify` answered a missing or expired challenge cookie with a bare
+  `Results.Redirect`, and that form opts into htmx via `data-nw-target`. htmx chases a 302 by
+  XHR and swaps the destination's markup into the fragment target, so taking too long over an
+  authenticator produced a whole sign-in document nested inside the 2FA board rather than a
+  navigation. It now goes through `Redirects.To`, which sends `HX-Redirect` to htmx and the
+  real 302 to a plain browser. Eight further bare redirects across the register, passphrase,
+  2FA and WebAuthn GET handlers were converted with it: those are latent rather than live only
+  because nothing links to them yet — `boot.js` derives `hx-get` from any anchor carrying a
+  `data-nw-*` attribute, so one added link is all it would take. `Redirects`' own comment now
+  says which redirects are exempt (OAuth's navigation to a client's `redirect_uri`) instead of
+  reading as post-success-only advice.
+- **A hung NativeAOT publish killed the e2e job with no explanation** — `AppProcessFixture`
+  waited on `dotnet publish` forever and drained its two pipes in sequence, so a full output
+  buffer could deadlock the child outright and any CI timeout that eventually fired reported
+  nothing about what had been running. The wait is now bounded (30 minutes — 15 was tried first
+  and failed the whole suite on a healthy build, because a cold publish here measures 15m47s and
+  the ceiling has to sit above the normal case, not near it), both streams are
+  drained by event so neither can block the other, the last output lines survive into the
+  exception message, and the child is killed with `entireProcessTree: true` — `dotnet publish`
+  is a launcher, so killing it alone leaves compiler and linker children holding the output
+  directory. `ProcessRunTests` covers all three exits, and asserts the timeout returns *near*
+  its budget, since without the cancellation reaching the wait the test would still throw —
+  after the publish finished — and pass for the wrong reason.
 - **Legacy JavaScript MIME types went unhashed, so a CSP blocked its own scripts** —
   `IsExecutableScript` recognised five `type` spellings; the HTML standard names sixteen. A
   script typed `text/jscript`, `application/x-javascript`, `text/livescript`, `text/javascript1.5`
