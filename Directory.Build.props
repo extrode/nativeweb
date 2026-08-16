@@ -41,16 +41,25 @@
        - local checkout present => ProjectReference for co-development;
        - no checkout / CI => -p:JauntyQUsePackages=true pulls the pinned
          JauntyQ.* packages (versions in Directory.Packages.props).
-       Default to package mode only when no checkout path is set at all. -->
-  <PropertyGroup>
-    <JauntyQUsePackages Condition="'$(JauntyQUsePackages)' == '' and '$(JauntyQRoot)' == ''">true</JauntyQUsePackages>
-  </PropertyGroup>
+
+       Package mode is opt-in ONLY. There used to be an auto-default here that
+       set it when JauntyQRoot was empty, which could never fire: the probe just
+       above always assigns JauntyQRoot a path, so the condition was dead and the
+       fallback it promised did not exist. CI passes the flag explicitly (see
+       .github/workflows/ci.yml), which is the only way package mode is ever
+       reached — deleted rather than repaired, because a silent fallback to
+       older pinned packages is worse than the fail-fast below. -->
 
   <!-- MSBuild only warns (MSB9008) and silently skips missing ProjectReferences,
        which turns an unresolved JauntyQRoot into downstream CS0246s. Fail fast —
-       but only in checkout mode; package mode has no path to validate. -->
+       but only in checkout mode; package mode has no path to validate.
+
+       Probe the generator csproj rather than the directory: an empty or
+       partially-cloned jauntyq/ passes a bare Exists() and then fails as
+       CS0246, which is the error this target exists to pre-empt. Sentinel-file
+       probe, same as skeleton/Directory.Build.props. -->
   <Target Name="EnsureJauntyQRoot" BeforeTargets="BeforeBuild"
-          Condition="'$(JauntyQUsePackages)' != 'true' and !Exists('$(JauntyQRoot)')">
+          Condition="'$(JauntyQUsePackages)' != 'true' and !Exists('$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj')">
     <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt; or build with -p:JauntyQUsePackages=true." />
   </Target>
 

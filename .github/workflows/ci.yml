@@ -114,7 +114,11 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      # Pinned to a commit, not the mutable v1 tag: this action is a third party
+      # whose step runs with the workflow's token on every push, and a moved tag
+      # would swap the code executed here without any change landing in this
+      # repo. SHA is v1 as of 2026-08-03; bump deliberately, and read the diff.
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
       - name: Publish (NativeAOT)
         run: dotnet publish apps/web/nativeweb.web.csproj -c Release -p:JauntyQUsePackages=true
