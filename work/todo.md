@@ -17,6 +17,19 @@ Small, clear, and could be picked up without a design decision.
   sign-out, register, settings), which is wider than the nit that raised it. Left as 302
   deliberately — 2026-08-03.
 
+- `AppProcessFixture.DeleteCert` catches only `IOException`, so an
+  `UnauthorizedAccessException` from `File.Delete` fails the collection on the success path,
+  contrary to its own comment; and `_certPath` is never nulled after a successful delete. Found
+  during the V9 chore's review 2026-08-03, pre-existing, left alone as out of scope.
+- No configuration reference exists: none of `NativeWeb:RateLimit:*:PermitLimit` (five keys),
+  `NativeWeb:Db:*`, `NativeWeb:Readiness:CacheSeconds`, `NativeWeb:ForwardedHeaders:KnownProxies`
+  or `NativeWeb:Telemetry:Enabled` appears in `docs/`, in `appsettings.json`, or anywhere an
+  operator would look — every one is discoverable only by reading `Program.cs`. Noted while
+  adding the readiness knob 2026-08-03; the gap is pre-existing and repo-wide, so it wants one
+  doc rather than a line appended per change. Matters most for
+  `ForwardedHeaders:KnownProxies`, whose default silently degrades rate limiting to a single
+  shared partition.
+
 ## Later
 
 Real, but needs a decision, a dependency, or more information first. Say which.
@@ -160,15 +173,26 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 - Skeleton e2e process fixture runs its inner `dotnet publish` without the UsePackages flags,
   so a stamped product's CI e2e step stays checkout-mode even once a package feed exists —
   fold into the feed-gap fix (spec 003 R6).
-- V9 review findings that are pre-existing on dev (fix as their own chore): (a) root
-  `Directory.Build.props` has the same dead `JauntyQUsePackages` auto-default and the same
-  bare-`Exists()` checkout gate the skeleton just fixed (sentinel-csproj probe); (b)
-  `DevMarksProcessFixture`/`AppProcessFixture` redirect stdout/stderr but never drain them —
-  latent suite hang once the pipe buffer fills (skeleton fixture now drains); (c) NativeWeb
-  `ci.yml`: devmarks e2e does a NativeAOT link on ubuntu-latest with no clang/zlib1g-dev
-  install step, and `ilammy/msvc-dev-cmd@v1` is a mutable tag (pin to a commit SHA — look the
-  SHA up, don't guess); (d) devmarks `/` endpoint carries no rate-limit policy and `/readyz`
-  is an un-rate-limited DB round trip in both apps.
+- ~~V9 review findings that are pre-existing on dev~~ — done 2026-08-03,
+  `chore/v9-pre-existing-findings`. (a) root `Directory.Build.props` dead `JauntyQUsePackages`
+  auto-default deleted (it could never fire: the probe above it always assigns `JauntyQRoot`)
+  and `EnsureJauntyQRoot` now probes the generator csproj, so an empty checkout dir fails at the
+  gate rather than as CS0246. (b) `AppProcessFixture` drains stdout/stderr and keeps a 200-line
+  tail, which the startup `TimeoutException` now reports. (c) `ilammy/msvc-dev-cmd` pinned to
+  `0b201ec74fa43914dc39ae48a89fd1d8cb592756`, and the clang/zlib1g-dev install landed after all
+  — it is not the (extracted) devmarks job that needs it but the surviving `test` job's e2e
+  step, whose fixture runs an inner NativeAOT publish on the Linux runner. That same step now
+  sets `JauntyQUsePackages` as an env var, because `$DOTNET_BUILD_ARGS` reaches only the outer
+  `dotnet test` and MSBuild reads bare env vars as properties. Both copied from
+  `skeleton/.github/workflows/ci.yml`, and both **unverifiable until the CI package-feed gap is
+  resolved** — CI cannot restore in package mode today, so nothing here has run green on a
+  runner. (d) `/readyz` is bounded by `ReadinessCache` (1s, `NativeWeb:Readiness:CacheSeconds`)
+  rather than by a rate limit: partitioning is per-IP, and until `ForwardedHeaders:KnownProxies`
+  is configured every client shares the proxy's partition *including the load balancer's own
+  probe*, so a limiter would have let anyone spend the budget and make the next real probe 429
+  — a remote off-switch for a healthy instance. A test pins that neither probe is rate limited.
+  **Still open, in manzil.my:** its `/` endpoint has no rate-limit policy and its `/readyz` is
+  the same unbounded DB round trip; `ReadinessCache` is the shape to pattern-copy.
 - V10 removal review: `Directory.Packages.props` pins `Microsoft.AspNetCore.OpenApi` 10.0.7 and
   `Microsoft.OpenApi` 2.7.5 with no remaining consumer in any csproj (the transitive-override
   comment is now false); removing pins counts as dependency removal, so left for a confirmed
@@ -193,7 +217,7 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   bookmarks/index.html and public/profile.html have never formatted: a {{for}} body ending in a
   partial splice doesn't return to its start state; supporting that shape would format the two
   remaining manzil pages.
-- `tests/nativeweb.web.tests.e2e/AppProcessFixture.cs:73` redirects the IdP's stdout/stderr and never drains them: once the OS pipe buffer (a few KB) fills, the app blocks on its next Console write and stops answering requests without exiting, hanging the suite non-deterministically. The skeleton fixture already drains (`skeleton/tests/__product__.tests.e2e/__PRODUCT__ProcessFixture.cs:79`); manzil's copy was fixed under spec 006 T9. Same fix: `OutputDataReceived`/`ErrorDataReceived` + `BeginOutputReadLine`/`BeginErrorReadLine`, keeping a bounded tail for diagnostics.
+- ~~`tests/nativeweb.web.tests.e2e/AppProcessFixture.cs` never drains the redirected stdout/stderr~~ — done 2026-08-03, `chore/v9-pre-existing-findings`, same shape as manzil's spec 006 T9 fix. Worth carrying back to the skeleton and to manzil: both discard the drained output (`static (_, _) => { }` / no tail in the timeout message), so a startup failure there still reports nothing but the elapsed 60 seconds.
 - CSP hash generator, remaining findings from the 2026-08-03 review (the CRLF one is fixed):
   (a) `InlineScriptHashes.ScanStatic` has no comment or raw-text awareness, unlike
   `TemplateFormatter`, so a commented-out `<script>` is hashed and its body becomes an executable
