@@ -108,7 +108,25 @@ Merged into `dev`, not yet tagged.
   Final state: 319 unit / 206 integration / 44 e2e green, zero-warning NativeAOT publish.
 
 ### Fixed
-### Removed
+- **Debug builds served every static asset empty to a gzip-accepting client** — in Development
+  `MapStaticAssets` re-stats each asset per request via `StaticAssetDevelopmentRuntimeHandler`,
+  which resolves it as wwwroot + route; the SDK writes the precompressed variants under
+  `obj/<config>/<tfm>/compressed/` instead, so every one threw `FileNotFoundException` and any
+  real browser got HTTP 200 with a zero-length body and no `Content-Type`. `Directory.Build.targets`
+  disables build compression in Debug only (publish is untouched and still compresses); tests are
+  written against `Accept-Encoding` rather than the build property, so they fail on the symptom
+  whichever layer regresses.
+- **V9 pre-existing findings** — the e2e app fixture redirected the app's stdout/stderr and never
+  drained them, so a full pipe buffer would block the app on its next write and hang the suite
+  rather than fail it; it now drains, keeps a 200-line tail reported from the startup timeout,
+  bounds its kill-and-wait so the diagnostic path cannot itself hang, and cleans up on every exit
+  path. `/readyz` is bounded by a 1s `ReadinessCache` — collapsing concurrent probes onto one
+  round trip — rather than by a rate limit, which would have let anyone spend the shared partition
+  and make the balancer's next probe 429 a healthy instance out of rotation. `Directory.Build.props`
+  lost a `JauntyQUsePackages` auto-default that could never fire and now probes the JauntyQ
+  generator csproj instead of the bare directory. CI pins `ilammy/msvc-dev-cmd` to a commit, and
+  the e2e step gained the clang/zlib prerequisites and the `JauntyQUsePackages` env var its inner
+  publish needs — both unverifiable until the package-feed gap is closed.
 
 ---
 
