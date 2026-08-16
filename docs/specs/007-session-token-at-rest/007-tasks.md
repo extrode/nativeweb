@@ -8,27 +8,27 @@ Spec: ./007-spec.md
   cannot obtain the plaintext as a `Guid`, and a unit test pins the parity vector
   `7f3d1c2e-0a4b-4c8d-9e1f-2a3b4c5d6e7f` → `d9b9a830-04e8-1a1f-88d9-5ceec05b38d2`.
 
-- [ ] T2 Migration 0054 — files: `db/migrations/0054_bff_store_session_id_hashed.sql` — covers:
+- [x] T2 Migration 0054 — files: `db/migrations/0054_bff_store_session_id_hashed.sql` — covers:
   R6, R7 — done when: the `UPDATE … WHERE kind = 'session'` runs clean against a populated
   `nativeweb_dev`, and the header states the `kind` restriction and the one-way rollback
   behaviour.
 
-- [ ] T3 Mint and read paths — files: `apps/web/Auth/SessionAuth.cs`,
+- [x] T3 Mint and read paths — files: `apps/web/Auth/SessionAuth.cs`,
   `apps/web/Auth/SessionAuthenticationHandler.cs` — covers: R1, R3 — done when: the insert
   writes `StorageId`, the cookie carries `CookieValue`, and lookup is still one point lookup
   on the primary key.
 
-- [ ] T4 Sign-out and revoke-others — files: `apps/web/Auth/SignInEndpoints.cs`,
+- [x] T4 Sign-out and revoke-others — files: `apps/web/Auth/SignInEndpoints.cs`,
   `apps/web/Auth/SettingsEndpoints.cs`, `apps/web/Auth/PassphraseEndpoints.cs` — covers: R5 —
   done when: no `Guid.TryParse`/`Guid.Parse` of a session cookie remains anywhere, and the
   `r.Id == currentSessionId` comparison in `LoadSessionsAsync` compares against `StorageId`.
 
-- [ ] T5 Test-database seams — files: `tests/nativeweb.web.tests.integration/TestDatabase.cs`,
+- [x] T5 Test-database seams — files: `tests/nativeweb.web.tests.integration/TestDatabase.cs`,
   `tests/nativeweb.web.tests.e2e/TestDatabase.cs` — covers: R9 — done when: both helpers hash
   before insert/delete and still return the plaintext token, and the ~88 existing callers
   compile and pass untouched.
 
-- [ ] T6 Assertions against the real table — files:
+- [x] T6 Assertions against the real table — files:
   `tests/nativeweb.web.tests.integration/SessionAuthTests.cs` — covers: R1, R5, R6, R8 — done
   when: a test signs in, reads `bff_store` directly and asserts no row's `id` equals the cookie;
   presenting the stored `id` as a cookie is unauthenticated; the SQL expression equals the C#
