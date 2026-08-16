@@ -41,6 +41,11 @@
     <!-- Integration tests: WebApplicationFactory host. Matched to the
          AspNetCore 10.0.x line. -->
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
+    <!-- A real HTML parser, so the public-page CSP lockstep can recompute the
+         hash sources from the served response instead of comparing the header
+         against the same build-time constants that produced it. Matches the
+         version NativeWeb's own render tests pin. -->
+    <PackageVersion Include="AngleSharp" Version="1.6.0" />
     <!-- End-to-end browser tests. -->
     <PackageVersion Include="Deque.AxeCore.Playwright" Version="4.12.0" />
     <PackageVersion Include="Microsoft.Playwright" Version="1.49.0" />

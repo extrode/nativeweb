@@ -126,6 +126,26 @@ Merged into `dev`, not yet tagged.
   Final state: 319 unit / 206 integration / 44 e2e green, zero-warning NativeAOT publish.
 
 ### Fixed
+- **A commented-out script authorized itself in the CSP** — `InlineScriptHashes` searched the
+  emitted bytes for a literal `<script` with no idea what HTML context it sat in, so static text
+  a browser never treats as markup was hashed into `script-src` anyway: inside a comment, inside
+  a raw-text or RCDATA element (`textarea`, `title`, `style`, …), and inside another tag's
+  attribute value. Each is an allowlist entry for a script the page does not ship, and the
+  commented-out case is the one that happens — comment a script out while debugging and the page
+  keeps authorizing those exact bytes. `Phase.Outside` now walks tags instead of searching for a
+  literal, carrying comment / raw-text / in-tag states across node boundaries; it is deliberately
+  not a tokenizer, so anything it does not recognise stays content and can only cost a hash,
+  never add one. The class comment's claim that "nothing here can over-authorize" — true only of
+  dynamic content — is corrected.
+  Found because the backstop the file names did not exist: both `SmokeTests` and the render tests
+  compared the generated constants against the CSP header built from those same constants, so a
+  scan that misframes a body agrees with itself and the suite stays green while the browser blocks
+  the page. Two real lockstep layers replace it — an AngleSharp theory over every `Csp/*` fixture
+  asserting each emitted hash matches an executable inline script the parser actually found, and
+  the skeleton's app-level test recomputing the hashes from the served response and asserting set
+  equality with the header. Reverting the scanner fails the first on all three shapes; injecting a
+  stray hash into the policy fails the second, verified against a stamped product.
+
 - **Debug builds served every static asset empty to a gzip-accepting client** — in Development
   `MapStaticAssets` re-stats each asset per request via `StaticAssetDevelopmentRuntimeHandler`,
   which resolves it as wwwroot + route; the SDK writes the precompressed variants under

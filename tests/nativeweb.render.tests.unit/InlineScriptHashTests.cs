@@ -1,3 +1,7 @@
+using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using AngleSharp.Html.Parser;
+
 using System.Security.Cryptography;
 using System.Text;
 
@@ -118,6 +122,136 @@ public sealed class InlineScriptHashTests
 
         Assert.Contains("<script>" + body + "</script>", Templates.Csp.Branch.ToHtmlString(Flag: true), StringComparison.Ordinal);
         Assert.Equal(Sha256Source(body), Assert.Single(Templates.Csp.Branch.InlineScriptCspHashes));
+    }
+
+    /// <summary>
+    /// The one that happens: a script commented out during debugging. The bytes
+    /// are static and spell a script element, but the browser reads them as
+    /// comment text and never executes them — so hashing them adds a `script-src`
+    /// entry authorizing that exact source for a script the page does not ship.
+    /// </summary>
+    [Fact]
+    public void CommentedOutScript_IsNotHashed() =>
+        Assert.Empty(Templates.Csp.Commented.InlineScriptCspHashes);
+
+    /// <summary>
+    /// Inside a raw-text or RCDATA element the content is text, not markup, so
+    /// '&lt;script&gt;' there is characters on the page. Same over-authorization
+    /// as the comment case.
+    /// </summary>
+    [Fact]
+    public void ScriptInsideRawTextElements_IsNotHashed() =>
+        Assert.Empty(Templates.Csp.Rawtext.InlineScriptCspHashes);
+
+    /// <summary>And the third place a '&lt;' starts nothing: an attribute value.</summary>
+    [Fact]
+    public void ScriptInsideAnAttributeValue_IsNotHashed() =>
+        Assert.Empty(Templates.Csp.Attribute.InlineScriptCspHashes);
+
+    /// <summary>
+    /// The lockstep, and the test that would have caught all three of the above.
+    /// Everything else in this file compares a constant against an expectation
+    /// written by hand; this renders the template, hands the output to an HTML
+    /// parser that is not the generator's scanner, and checks the two against
+    /// each other.
+    /// </summary>
+    /// <remarks>
+    /// **Every emitted hash must be a script the parser found** — that direction
+    /// is unconditional, because a hash with no matching script is a `script-src`
+    /// entry authorizing bytes the page does not serve. All three defects this
+    /// branch fixes are exactly that.
+    ///
+    /// <para>
+    /// The other direction is conditional. A script whose body carries dynamic
+    /// output cannot have a build-time hash at all, so `dynamic` and `unquoted`
+    /// legitimately serve a script with nothing authorizing it — under a hash-only
+    /// CSP those pages simply do not work, which is a page-level fact and is the
+    /// consuming app's lockstep to assert. Here it is asserted only for the
+    /// fixtures whose scripts are all static, flagged below, so the subset check
+    /// above cannot pass by emitting nothing.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(HashedTemplates))]
+    public void EmittedHashes_AreHashesOfScriptsTheBrowserWouldActuallyRun(
+        string name, string html, string[] emitted, bool allScriptsAreStatic)
+    {
+        IHtmlDocument document = new HtmlParser().ParseDocument(html);
+
+        var served = document.QuerySelectorAll("script")
+            .Where(IsExecutableInline)
+            .Select(s => Sha256Source(s.TextContent.Replace("\r\n", "\n").Replace("\r", "\n")))
+            .ToList();
+
+        foreach (string hash in emitted)
+        {
+            Assert.True(
+                served.Contains(hash),
+                $"{name}: emitted {hash}, which matches no executable inline script in the rendered output.");
+        }
+
+        if (allScriptsAreStatic)
+        {
+            Assert.Equal(
+                served.OrderBy(h => h, StringComparer.Ordinal),
+                emitted.OrderBy(h => h, StringComparer.Ordinal));
+        }
+    }
+
+    /// <summary>
+    /// Every Csp/* fixture, rendered. Params exist only to be filled — the point
+    /// is the served bytes, not the values in them. The last column says whether
+    /// every executable inline script the fixture serves is build-time static,
+    /// and so whether the emitted set must be complete as well as sound.
+    /// </summary>
+    public static TheoryData<string, string, string[], bool> HashedTemplates() => new()
+    {
+        { "inline", Templates.Csp.Inline.ToHtmlString(Nonce: "r4nd0m"), Templates.Csp.Inline.InlineScriptCspHashes, true },
+        { "crlf", Templates.Csp.Crlf.ToHtmlString(), Templates.Csp.Crlf.InlineScriptCspHashes, true },
+        { "two", Templates.Csp.Two.ToHtmlString(), Templates.Csp.Two.InlineScriptCspHashes, true },
+        { "closetag", Templates.Csp.Closetag.ToHtmlString(), Templates.Csp.Closetag.InlineScriptCspHashes, true },
+        { "json", Templates.Csp.Json.ToHtmlString(), Templates.Csp.Json.InlineScriptCspHashes, true },
+        { "branch-true", Templates.Csp.Branch.ToHtmlString(Flag: true), Templates.Csp.Branch.InlineScriptCspHashes, true },
+        { "commented", Templates.Csp.Commented.ToHtmlString(), Templates.Csp.Commented.InlineScriptCspHashes, true },
+        { "rawtext", Templates.Csp.Rawtext.ToHtmlString(), Templates.Csp.Rawtext.InlineScriptCspHashes, true },
+        { "attribute", Templates.Csp.Attribute.ToHtmlString(), Templates.Csp.Attribute.InlineScriptCspHashes, true },
+
+        // Dynamic bodies: sound but deliberately incomplete, per the remarks.
+        { "dynamic", Templates.Csp.Dynamic.ToHtmlString(Value: "1"), Templates.Csp.Dynamic.InlineScriptCspHashes, false },
+        { "unquoted", Templates.Csp.Unquoted.ToHtmlString(Value: "1"), Templates.Csp.Unquoted.InlineScriptCspHashes, false },
+        { "escaped", Templates.Csp.Escaped.ToHtmlString(), Templates.Csp.Escaped.InlineScriptCspHashes, false },
+    };
+
+    /// <summary>
+    /// What CSP hashes: an inline script (no src) the browser would execute. The
+    /// type test mirrors IsExecutableScript in the generator, but reads the
+    /// attribute off a parsed DOM rather than off scanned text.
+    /// </summary>
+    private static bool IsExecutableInline(IElement script)
+    {
+        if (!string.IsNullOrEmpty(script.GetAttribute("src")) || script.TextContent.Length == 0)
+        {
+            return false;
+        }
+
+        string? type = script.GetAttribute("type")?.Trim();
+        if (type is null)
+        {
+            return true;
+        }
+
+        int semicolon = type.IndexOf(';');
+        if (semicolon >= 0)
+        {
+            type = type[..semicolon].Trim();
+        }
+
+        return type.Length == 0
+            || type.Equals("module", StringComparison.OrdinalIgnoreCase)
+            || type.Equals("text/javascript", StringComparison.OrdinalIgnoreCase)
+            || type.Equals("application/javascript", StringComparison.OrdinalIgnoreCase)
+            || type.Equals("text/ecmascript", StringComparison.OrdinalIgnoreCase)
+            || type.Equals("application/ecmascript", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Everything between each open tag's '&gt;' and its '&lt;/script'.</summary>
