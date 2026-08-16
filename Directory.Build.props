@@ -43,9 +43,11 @@
          JauntyQ.* packages (versions in Directory.Packages.props).
 
        Package mode is opt-in ONLY. There used to be an auto-default here that
-       set it when JauntyQRoot was empty, which could never fire: the probe just
-       above always assigns JauntyQRoot a path, so the condition was dead and the
-       fallback it promised did not exist. CI passes the flag explicitly (see
+       set it when JauntyQRoot was empty. The probe just above assigns JauntyQRoot
+       a path on every ordinary path, so the condition was all but dead — the one
+       way left to reach it was an explicit global -p:JauntyQRoot= (empty), which
+       a props file cannot reassign. That case now hits the fail-fast below, which
+       is the intent. CI passes the flag explicitly (see
        .github/workflows/ci.yml), which is the only way package mode is ever
        reached — deleted rather than repaired, because a silent fallback to
        older pinned packages is worse than the fail-fast below. -->
