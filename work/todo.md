@@ -37,6 +37,14 @@ Small, clear, and could be picked up without a design decision.
 
 Real, but needs a decision, a dependency, or more information first. Say which.
 
+- **Ten cleanup scripts still refuse their own documented `--` flags.** PowerShell strips one
+  leading dash, so `--execute` binds to nothing and errors out; only `devmarks-app.ps1`,
+  `relocate-nativeweb-to-extrode-legacy-org.ps1` and (as of 2026-08-17) `007-session-token-at-rest.ps1` +
+  `csp-hash-scan-context.ps1` carry the `ValueFromRemainingArguments` shim that accepts them. The
+  other ten in `scripts/cleanup/` document the POSIX spelling in their headers and reject it —
+  `-e` works, `--execute` does not. Mechanical fix, one shim each, but every script has a
+  different second flag so it wants reading rather than a sed. Recorded 2026-08-17.
+
 - **A session key that cannot be a raw `Guid`.** Spec 007 routes every session read, write and
   delete through `SessionToken`, but `Guid.Parse(token.CookieValue)` still recovers the plaintext
   in one hop, so a new write path could bypass the hash and would compile. Making that

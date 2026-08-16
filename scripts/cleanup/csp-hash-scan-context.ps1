@@ -12,13 +12,25 @@
 #     They started as throwaway probes and are now the regression fixtures for
 #     the three over-authorization shapes; deleting them deletes the coverage.
 
-[CmdletBinding()]
 param(
     [Alias('e')][switch]$Execute,
-    [switch]$DeleteStampedProducts
+    [switch]$DeleteStampedProducts,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
 
 $ErrorActionPreference = 'Stop'
+
+# PowerShell binds -Execute / -e; accept the POSIX spellings too so the
+# interface is identical in both shells. Without this, PowerShell strips one
+# leading dash and reports "A parameter cannot be found that matches parameter
+# name '-delete-stamped-products'" for the very spelling the header documents.
+foreach ($a in $Rest) {
+    switch ($a) {
+        '--execute'                 { $Execute = $true }
+        '--delete-stamped-products' { $DeleteStampedProducts = $true }
+        default { Write-Host "unknown argument: $a" -ForegroundColor Red; exit 2 }
+    }
+}
 
 $repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
 $tmp  = "$env:LOCALAPPDATA\Temp"
