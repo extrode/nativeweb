@@ -20,10 +20,11 @@ project does not know what it is yet.>
 
 | Path | What |
 |---|---|
-| `src/` | <the code> |
-| `tests/` | <the tests> |
+| `apps/` | Deployable services. `apps/web` is the epass.io IdP |
+| `libs/` | Shared libraries: render, auth, data, mail, security, assets |
+| `tests/` | Three tiers per app: `*.tests.unit`, `*.tests.integration`, `*.tests.e2e` |
 | `work/` | Current work: tasklist, status window, backlog, milestones |
-| `docs/` | Specs, plans, architecture, decisions, conventions, lessons |
+| `docs/` | Specs, plans, architecture, decisions, conventions, lessons, and [`configuration.md`](docs/configuration.md) |
 | `scripts/` | Operational scripts. `scripts/cleanup/` is written but never run |
 
 Agent instructions are in `AGENTS.md`. `CLAUDE.md` is a one-line shim that imports it.
