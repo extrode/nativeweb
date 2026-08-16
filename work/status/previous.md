@@ -2,6 +2,14 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Overnight backlog** (three branches, merged 2026-08-17). `chore/test-and-skeleton-hygiene`
+  removed the two dead OpenApi package pins (approved beforehand: dependency removal) and made
+  `check-publish-budgets.ps1` default to the port ci.yml actually passes, guarded by a test that
+  reads both files. `feat/render-diagnostics-locations` gave every NWT diagnostic a real file and
+  line — they were all `Location.None`, so nothing in a build log was clickable — validated
+  `@param` types so a type with a space in it is NWT003 rather than a C# error in generated code,
+  and added NWT016, which rejects interpolation inside a tag but outside a quoted attribute value.
+  That last one makes `TemplateWriter`'s own safety comment checkable for the first time.
 - **IdP correctness backlog** (`fix/idp-correctness-backlog`, merged 2026-08-17). `POST
   /auth/2fa/verify` answered an expired challenge with a bare 302, and that form is htmx-driven,
   so the sign-in page's whole document was swapped into the 2FA card. Now `Redirects.To`, along

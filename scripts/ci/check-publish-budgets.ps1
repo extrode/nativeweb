@@ -6,7 +6,10 @@ param(
     [Parameter(Mandatory = $true)][string]$ExePath,
     [Parameter(Mandatory = $true)][string]$Name,
     [string]$BudgetFile = '',
-    [int]$Port = 5999
+    # 5998, matching what ci.yml passes. It used to default to 5999, which no
+    # caller ever used: running the script by hand exercised a port the pipeline
+    # never touches, so a port-specific failure could only show up in CI.
+    [int]$Port = 5998
 )
 
 $ErrorActionPreference = 'Stop'

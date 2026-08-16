@@ -138,7 +138,19 @@ Merged into `dev`, not yet tagged.
   markup, and reading its bytes as markup invents structure that is not there. No existing
   template in the repo or the skeleton trips it.
 
+### Removed
+- **The two OpenApi package pins** — `Microsoft.AspNetCore.OpenApi` 10.0.7 and
+  `Microsoft.OpenApi` 2.7.5 had no `PackageReference` anywhere in the repo, so central version
+  management was pinning versions of packages nothing restored. The second existed only to
+  hold the first's transitive above a vulnerable 2.0.0, so its comment had been describing a
+  relationship that no longer existed. Removed on explicit approval, since a dependency removal
+  is not something to do unasked.
+
 ### Fixed
+- **The publish-budget script's port default was dead** — `check-publish-budgets.ps1`
+  defaulted `-Port` to 5999 while its only caller, ci.yml, passes 5998. Running it by hand
+  therefore used a port the pipeline never touches. Now 5998, with `PublishBudgetScriptTests`
+  reading both files so the two cannot drift apart again silently.
 - **Every render diagnostic pointed at nothing** — NWT001–NWT015 were all raised with
   `Location.None`, so a template mistake produced an error with no file attached: nothing to
   click in a build log, and an IDE squiggle on the project rather than the line. Templates are
