@@ -470,11 +470,41 @@ internal static class InlineScriptHashes
 
         return type.Length == 0
             || type.Equals("module", StringComparison.OrdinalIgnoreCase)
-            || type.Equals("text/javascript", StringComparison.OrdinalIgnoreCase)
-            || type.Equals("application/javascript", StringComparison.OrdinalIgnoreCase)
-            || type.Equals("text/ecmascript", StringComparison.OrdinalIgnoreCase)
-            || type.Equals("application/ecmascript", StringComparison.OrdinalIgnoreCase);
+            || JavaScriptMimeTypes.Contains(type);
     }
+
+    /// <summary>
+    /// The HTML standard's "JavaScript MIME type" set, verbatim. A browser
+    /// evaluates a classic script whose type essence-matches any of these, so
+    /// every one of them needs a hash on a nonce-free page.
+    /// </summary>
+    /// <remarks>
+    /// The legacy spellings are not decoration. They are the failure direction
+    /// that costs something: an unrecognised-but-executing type means no hash,
+    /// which means a script the browser runs everywhere except under this CSP —
+    /// blocked in production with every test green. Recognising one needlessly
+    /// would only add an allowlist entry for bytes the page already ships.
+    /// </remarks>
+    private static readonly HashSet<string> JavaScriptMimeTypes =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "application/ecmascript",
+            "application/javascript",
+            "application/x-ecmascript",
+            "application/x-javascript",
+            "text/ecmascript",
+            "text/javascript",
+            "text/javascript1.0",
+            "text/javascript1.1",
+            "text/javascript1.2",
+            "text/javascript1.3",
+            "text/javascript1.4",
+            "text/javascript1.5",
+            "text/jscript",
+            "text/livescript",
+            "text/x-ecmascript",
+            "text/x-javascript",
+        };
 
     /// <summary>
     /// The quoted value of a named attribute in an open tag's text, or null when

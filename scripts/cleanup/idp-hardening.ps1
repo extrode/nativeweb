@@ -6,8 +6,20 @@
 
 param(
     [Alias('e')][switch]$execute,
-    [switch]$DeleteSeededUser
+    [switch]$DeleteSeededUser,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
+
+# PowerShell binds -Execute / -e; accept the POSIX spellings too so the
+# interface is identical in both shells. Without this it strips one leading
+# dash and rejects the very spelling this script's header documents.
+foreach ($a in $Rest) {
+    switch ($a) {
+        '--execute'                   { $execute = $true }
+        '--delete-seeded-user'        { $DeleteSeededUser = $true }
+        default { Write-Host "unknown argument: $a" -ForegroundColor Red; exit 2 }
+    }
+}
 
 $ErrorActionPreference = 'Stop'
 

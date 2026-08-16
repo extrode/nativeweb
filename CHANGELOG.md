@@ -126,6 +126,24 @@ Merged into `dev`, not yet tagged.
   Final state: 319 unit / 206 integration / 44 e2e green, zero-warning NativeAOT publish.
 
 ### Fixed
+- **Legacy JavaScript MIME types went unhashed, so a CSP blocked its own scripts** —
+  `IsExecutableScript` recognised five `type` spellings; the HTML standard names sixteen. A
+  script typed `text/jscript`, `application/x-javascript`, `text/livescript`, `text/javascript1.5`
+  or an `x-` variant still executes in every browser, but got no hash, so on a nonce-free public
+  page it was blocked by the very policy meant to allow it — in production only, with the whole
+  suite green. The full set is now carried, transcribed independently on both sides so the
+  lockstep can still disagree with itself, and pinned by `templates/csp/legacytypes.html`, which
+  keeps a `text/template` control in the same fixture that must stay unhashed. Last of the three
+  2026-08-03 CSP review findings.
+- **Cleanup scripts rejected the `--execute` spelling their own headers documented** — PowerShell
+  strips one leading dash, so `--execute` and every second flag bound to nothing and died with "a
+  parameter cannot be found". Twelve of the fourteen scripts in `scripts/cleanup/` had the gap;
+  all now carry the `ValueFromRemainingArguments` shim, so `-e` and `--execute` are one flag in
+  both shells and an unknown argument exits 2 rather than being absorbed. Two of them —
+  `remove-webauthn-scratch-scripts.ps1` and `remove-scratch-inspect-tool.sh` — predated the
+  interface entirely and deleted on a bare invocation with no dry run at all; both now print by
+  default, gate the deletion behind `--execute` plus a second named flag, and refuse to touch a
+  path that turns out to be tracked or a `TEMP` that is not a directory.
 - **A commented-out script authorized itself in the CSP** — `InlineScriptHashes` searched the
   emitted bytes for a literal `<script` with no idea what HTML context it sat in, so static text
   a browser never treats as markup was hashed into `script-src` anyway: inside a comment, inside

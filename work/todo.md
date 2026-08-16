@@ -37,14 +37,6 @@ Small, clear, and could be picked up without a design decision.
 
 Real, but needs a decision, a dependency, or more information first. Say which.
 
-- **Ten cleanup scripts still refuse their own documented `--` flags.** PowerShell strips one
-  leading dash, so `--execute` binds to nothing and errors out; only `devmarks-app.ps1`,
-  `relocate-nativeweb-to-extrode-legacy-org.ps1` and (as of 2026-08-17) `007-session-token-at-rest.ps1` +
-  `csp-hash-scan-context.ps1` carry the `ValueFromRemainingArguments` shim that accepts them. The
-  other ten in `scripts/cleanup/` document the POSIX spelling in their headers and reject it —
-  `-e` works, `--execute` does not. Mechanical fix, one shim each, but every script has a
-  different second flag so it wants reading rather than a sed. Recorded 2026-08-17.
-
 - **A session key that cannot be a raw `Guid`.** Spec 007 routes every session read, write and
   delete through `SessionToken`, but `Guid.Parse(token.CookieValue)` still recovers the plaintext
   in one hop, so a new write path could bypass the hash and would compile. Making that
@@ -246,15 +238,15 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   partial splice doesn't return to its start state; supporting that shape would format the two
   remaining manzil pages.
 - ~~`tests/nativeweb.web.tests.e2e/AppProcessFixture.cs` never drains the redirected stdout/stderr~~ — done 2026-08-03, `chore/v9-pre-existing-findings`, same shape as manzil's spec 006 T9 fix. Worth carrying back to the skeleton and to manzil: both discard the drained output (`static (_, _) => { }` / no tail in the timeout message), so a startup failure there still reports nothing but the elapsed 60 seconds.
-- CSP hash generator, remaining findings from the 2026-08-03 review (the CRLF one is fixed):
-  (a) `InlineScriptHashes.ScanStatic` has no comment or raw-text awareness, unlike
-  `TemplateFormatter`, so a commented-out `<script>` is hashed and its body becomes an executable
-  source anywhere in the document — a gadget an HTML-injection foothold could reuse; (b) the
-  `IsExecutableScript` MIME allowlist omits legacy-but-still-executing types (`text/jscript`,
-  `application/x-javascript`), which are silently unhashed and so blocked; (c) the class doc
-  justifies silent drops by "the consuming app's lockstep test, which recomputes hashes from the
-  actually-served response" — no such test exists in either app, so a partial-borne script can
-  ship permanently blocked with every suite green.
+- ~~CSP hash generator, remaining findings from the 2026-08-03 review~~ — **all three done**.
+  (a) comment / raw-text / attribute-value awareness, and (c) the app-level lockstep that
+  recomputes from the served response, landed 2026-08-16 in `fix/csp-hash-scan-context`
+  (`docs/plans/2026-08-16-003-csp-hash-scan-context.md`). (b) the `IsExecutableScript` MIME
+  allowlist landed 2026-08-17 in `fix/loose-ends`: it now carries the HTML standard's whole
+  JavaScript MIME type set, so `text/jscript`, `application/x-javascript`, `text/livescript`,
+  the `text/javascript1.x` versioned spellings and the `x-` variants are hashed rather than
+  silently blocked. `templates/csp/legacytypes.html` pins it, with a `text/template` control in
+  the same fixture that must stay unhashed.
 - Skeleton templates are CRLF in the working tree although `.gitattributes:15` says
   `*.html text eol=lf`; the blobs are LF, so the two disagree. `git add --renormalize` would fix
   it but touches every template, so it is its own change. Harmless now that the hash generator

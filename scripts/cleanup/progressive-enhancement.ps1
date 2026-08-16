@@ -4,8 +4,19 @@
 # fully merged branches (git branch -d refuses unmerged work).
 
 param(
-    [Alias('e')][switch]$Execute
+    [Alias('e')][switch]$Execute,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
+
+# PowerShell binds -Execute / -e; accept the POSIX spellings too so the
+# interface is identical in both shells. Without this it strips one leading
+# dash and rejects the very spelling this script's header documents.
+foreach ($a in $Rest) {
+    switch ($a) {
+        '--execute'                   { $Execute = $true }
+        default { Write-Host "unknown argument: $a" -ForegroundColor Red; exit 2 }
+    }
+}
 
 $ErrorActionPreference = 'Stop'
 

@@ -106,6 +106,42 @@ public sealed class InlineScriptHashTests
         Assert.Empty(Templates.Csp.Json.InlineScriptCspHashes);
 
     /// <summary>
+    /// The legacy JavaScript MIME types still execute, so they still need a
+    /// hash. This failure direction is the expensive one: an executing script
+    /// the scanner does not recognise gets no hash and is blocked by the very
+    /// CSP that was meant to allow it — in production only, with every other
+    /// test in this file green.
+    /// </summary>
+    /// <remarks>
+    /// The expected bodies are written out by hand rather than extracted from
+    /// the render, so this cannot agree with the scanner by sharing its rules.
+    /// 'text/template' is the control: it is in the same fixture and must stay
+    /// unhashed, so a scanner that simply hashed every script would fail here
+    /// rather than pass six times over.
+    /// </remarks>
+    [Fact]
+    public void LegacyJavaScriptMimeTypes_AreStillHashed()
+    {
+        string[] executable =
+        [
+            "\n    var jscript = 1;\n  ",
+            "\n    var xjavascript = 2;\n  ",
+            "\n    var livescript = 3;\n  ",
+            "\n    var versioned = 4;\n  ",
+            "\n    var xecmascript = 5;\n  ",
+            "\n    var cased = 6;\n  ",
+        ];
+
+        Assert.Equal(
+            executable.Select(Sha256Source),
+            Templates.Csp.Legacytypes.InlineScriptCspHashes);
+
+        Assert.DoesNotContain(
+            Sha256Source("\n    var neverRun = 7;\n  "),
+            Templates.Csp.Legacytypes.InlineScriptCspHashes);
+    }
+
+    /// <summary>
     /// '&lt;!--' puts the browser in script-data-escaped state, where the next
     /// '&lt;/script&gt;' does not end the element. That state is not modelled,
     /// so such a body is refused rather than framed wrongly.
@@ -215,6 +251,7 @@ public sealed class InlineScriptHashTests
         { "commented", Templates.Csp.Commented.ToHtmlString(), Templates.Csp.Commented.InlineScriptCspHashes, true },
         { "rawtext", Templates.Csp.Rawtext.ToHtmlString(), Templates.Csp.Rawtext.InlineScriptCspHashes, true },
         { "attribute", Templates.Csp.Attribute.ToHtmlString(), Templates.Csp.Attribute.InlineScriptCspHashes, true },
+        { "legacytypes", Templates.Csp.Legacytypes.ToHtmlString(), Templates.Csp.Legacytypes.InlineScriptCspHashes, true },
 
         // Dynamic bodies: sound but deliberately incomplete, per the remarks.
         { "dynamic", Templates.Csp.Dynamic.ToHtmlString(Value: "1"), Templates.Csp.Dynamic.InlineScriptCspHashes, false },
@@ -248,11 +285,36 @@ public sealed class InlineScriptHashTests
 
         return type.Length == 0
             || type.Equals("module", StringComparison.OrdinalIgnoreCase)
-            || type.Equals("text/javascript", StringComparison.OrdinalIgnoreCase)
-            || type.Equals("application/javascript", StringComparison.OrdinalIgnoreCase)
-            || type.Equals("text/ecmascript", StringComparison.OrdinalIgnoreCase)
-            || type.Equals("application/ecmascript", StringComparison.OrdinalIgnoreCase);
+            || JavaScriptMimeTypes.Contains(type);
     }
+
+    /// <summary>
+    /// A second, independent transcription of the HTML standard's JavaScript
+    /// MIME type set. Deliberately not shared with the generator's copy — the
+    /// lockstep is only worth running if the two sides can disagree. What pins
+    /// the behaviour is LegacyJavaScriptMimeTypes_AreStillHashed above, whose
+    /// expectations are hand-written bodies rather than a list.
+    /// </summary>
+    private static readonly HashSet<string> JavaScriptMimeTypes =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "application/ecmascript",
+            "application/javascript",
+            "application/x-ecmascript",
+            "application/x-javascript",
+            "text/ecmascript",
+            "text/javascript",
+            "text/javascript1.0",
+            "text/javascript1.1",
+            "text/javascript1.2",
+            "text/javascript1.3",
+            "text/javascript1.4",
+            "text/javascript1.5",
+            "text/jscript",
+            "text/livescript",
+            "text/x-ecmascript",
+            "text/x-javascript",
+        };
 
     /// <summary>Everything between each open tag's '&gt;' and its '&lt;/script'.</summary>
     private static List<string> RenderedScriptBodies(string html)
