@@ -17,6 +17,15 @@ Small, clear, and could be picked up without a design decision.
   sign-out, register, settings), which is wider than the nit that raised it. Left as 302
   deliberately — 2026-08-03.
 
+- No configuration reference exists: none of `NativeWeb:RateLimit:*:PermitLimit` (five keys),
+  `NativeWeb:Db:*`, `NativeWeb:Readiness:CacheSeconds`, `NativeWeb:ForwardedHeaders:KnownProxies`
+  or `NativeWeb:Telemetry:Enabled` appears in `docs/`, in `appsettings.json`, or anywhere an
+  operator would look — every one is discoverable only by reading `Program.cs`. Noted while
+  adding the readiness knob 2026-08-03; the gap is pre-existing and repo-wide, so it wants one
+  doc rather than a line appended per change. Matters most for
+  `ForwardedHeaders:KnownProxies`, whose default silently degrades rate limiting to a single
+  shared partition.
+
 ## Later
 
 Real, but needs a decision, a dependency, or more information first. Say which.
@@ -166,11 +175,20 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   and `EnsureJauntyQRoot` now probes the generator csproj, so an empty checkout dir fails at the
   gate rather than as CS0246. (b) `AppProcessFixture` drains stdout/stderr and keeps a 200-line
   tail, which the startup `TimeoutException` now reports. (c) `ilammy/msvc-dev-cmd` pinned to
-  `0b201ec74fa43914dc39ae48a89fd1d8cb592756`; the clang/zlib1g-dev half is moot — no devmarks
-  job survives in `ci.yml` after the extraction. (d) `/readyz` carries a new per-IP `probe`
-  policy (120/60s, `NativeWeb:RateLimit:Probe:PermitLimit`); `/healthz` deliberately stays
-  unlimited and a test pins that asymmetry. **Still open, in manzil.my:** its `/` endpoint has
-  no rate-limit policy and its `/readyz` is the same un-rate-limited DB round trip.
+  `0b201ec74fa43914dc39ae48a89fd1d8cb592756`, and the clang/zlib1g-dev install landed after all
+  — it is not the (extracted) devmarks job that needs it but the surviving `test` job's e2e
+  step, whose fixture runs an inner NativeAOT publish on the Linux runner. That same step now
+  sets `JauntyQUsePackages` as an env var, because `$DOTNET_BUILD_ARGS` reaches only the outer
+  `dotnet test` and MSBuild reads bare env vars as properties. Both copied from
+  `skeleton/.github/workflows/ci.yml`, and both **unverifiable until the CI package-feed gap is
+  resolved** — CI cannot restore in package mode today, so nothing here has run green on a
+  runner. (d) `/readyz` is bounded by `ReadinessCache` (1s, `NativeWeb:Readiness:CacheSeconds`)
+  rather than by a rate limit: partitioning is per-IP, and until `ForwardedHeaders:KnownProxies`
+  is configured every client shares the proxy's partition *including the load balancer's own
+  probe*, so a limiter would have let anyone spend the budget and make the next real probe 429
+  — a remote off-switch for a healthy instance. A test pins that neither probe is rate limited.
+  **Still open, in manzil.my:** its `/` endpoint has no rate-limit policy and its `/readyz` is
+  the same unbounded DB round trip; `ReadinessCache` is the shape to pattern-copy.
 - V10 removal review: `Directory.Packages.props` pins `Microsoft.AspNetCore.OpenApi` 10.0.7 and
   `Microsoft.OpenApi` 2.7.5 with no remaining consumer in any csproj (the transitive-override
   comment is now false); removing pins counts as dependency removal, so left for a confirmed

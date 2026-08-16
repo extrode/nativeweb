@@ -95,7 +95,21 @@ jobs:
       - name: Integration tests
         run: dotnet test tests/nativeweb.web.tests.integration --no-build $DOTNET_BUILD_ARGS
 
+      - name: Install NativeAOT link prerequisites
+        # The e2e fixture's inner publish does a full NativeAOT link on this
+        # Linux runner, which needs clang and zlib headers.
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
       - name: E2E tests
+        # AppProcessFixture publishes apps/web itself (Release; the outer
+        # --no-build does not apply to that inner publish). The env var is what
+        # reaches that CHILD process -- $DOTNET_BUILD_ARGS only applies to the
+        # outer `dotnet test`, and MSBuild reads bare environment variables as
+        # properties. Without it the inner publish evaluates in checkout mode
+        # and EnsureJauntyQRoot fails the whole e2e tier on a runner that has
+        # no jauntyq sibling. Same wiring as skeleton/.github/workflows/ci.yml.
+        env:
+          JauntyQUsePackages: "true"
         run: dotnet test tests/nativeweb.web.tests.e2e --no-build $DOTNET_BUILD_ARGS
 
   aot-publish:
