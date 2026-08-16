@@ -8,8 +8,20 @@
 [CmdletBinding()]
 param(
     [Alias('e')][switch]$Execute,
-    [switch]$DeleteScratch
+    [switch]$DeleteScratch,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
+
+# PowerShell binds -Execute / -e; accept the POSIX spellings too so the
+# interface is identical in both shells. Without this it strips one leading
+# dash and rejects the very spelling this script's header documents.
+foreach ($a in $Rest) {
+    switch ($a) {
+        '--execute'                   { $Execute = $true }
+        '--delete-scratch'            { $DeleteScratch = $true }
+        default { Write-Host "unknown argument: $a" -ForegroundColor Red; exit 2 }
+    }
+}
 
 $ErrorActionPreference = 'Stop'
 
