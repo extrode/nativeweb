@@ -19,6 +19,9 @@
     <!-- TestDatabase talks to Postgres directly; declared, not left to flow
          transitively from the app reference. -->
     <PackageReference Include="Npgsql" />
+    <!-- The public-page CSP lockstep parses the served HTML with a real parser
+         rather than trusting the build-time scan that produced the header. -->
+    <PackageReference Include="AngleSharp" />
   </ItemGroup>
 
   <ItemGroup>

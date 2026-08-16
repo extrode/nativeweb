@@ -1,4 +1,10 @@
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
+
+using AngleSharp.Html.Dom;
+using AngleSharp.Html.Parser;
 
 using __PRODUCT__.Middleware;
 
@@ -14,7 +20,7 @@ namespace __PRODUCT__.Tests.Integration;
 // ResponseHardeningTests, condensed to one file: the product grows its own
 // per-feature files beside this one rather than growing this one.
 [Collection(__PRODUCT__Collection.Name)]
-public sealed class SmokeTests(__PRODUCT__Factory factory)
+public sealed partial class SmokeTests(__PRODUCT__Factory factory)
 {
     [Fact]
     public async Task HomePage_IsServedAsHtmlWithTheSecurityHeaderSet()
@@ -33,14 +39,9 @@ public sealed class SmokeTests(__PRODUCT__Factory factory)
 
         // "/" is a public page (spec 006), so this anonymous request gets the
         // nonce-free CSP whose inline scripts are authorized by build-time
-        // hashes. Both halves are asserted: a nonce reappearing here means the
-        // page went back to being uncacheable, and a missing hash means the
-        // page is cacheable with nothing authorizing the scripts it carries.
+        // hashes. A nonce reappearing here means the page went back to being
+        // uncacheable.
         Assert.DoesNotContain("nonce-", csp, StringComparison.Ordinal);
-        foreach (string hash in __PRODUCT__.Templates.Home.Index.InlineScriptCspHashes)
-        {
-            Assert.Contains("'" + hash + "'", csp, StringComparison.Ordinal);
-        }
         Assert.Contains("frame-ancestors 'none'", csp, StringComparison.Ordinal);
         Assert.Contains("report-uri /csp-report", csp, StringComparison.Ordinal);
 
@@ -48,6 +49,60 @@ public sealed class SmokeTests(__PRODUCT__Factory factory)
         Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
         Assert.Contains("camera=()", Assert.Single(response.Headers.GetValues("Permissions-Policy")), StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// The lockstep: the CSP's hash sources recomputed from the response that
+    /// was actually served, rather than compared against the constants the
+    /// header was built from.
+    /// </summary>
+    /// <remarks>
+    /// Comparing `InlineScriptCspHashes` to the header proves only that the
+    /// header was built from that array — both sides come from the same
+    /// build-time scan, so a scan that frames a body wrongly, misses a script or
+    /// invents one agrees with itself and the suite stays green while the
+    /// browser blocks the page. This parses the served HTML with AngleSharp,
+    /// hashes what it finds, and asserts set equality with the sources in the
+    /// header. Both directions matter here in a way they do not at the generator
+    /// tier: a public page is served without a nonce, so an inline script with
+    /// no hash is a script that does not run, and a hash with no script is an
+    /// allowlist entry for bytes the page does not ship.
+    ///
+    /// <para>
+    /// This is also the only layer that can see a script carried in by a
+    /// partial. `InlineScriptHashes.Collect` walks the page's own nodes, so a
+    /// partial-borne script is never hashed — a fact invisible to every
+    /// generator-tier test, and a blank page here.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task PublicPageCsp_AuthorizesExactlyTheInlineScriptsTheResponseCarries()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/");
+        string html = await response.Content.ReadAsStringAsync();
+        string csp = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
+
+        IHtmlDocument document = new HtmlParser().ParseDocument(html);
+        var served = document.QuerySelectorAll("script")
+            .Where(s => string.IsNullOrEmpty(s.GetAttribute("src")) && s.TextContent.Length > 0)
+            .Select(s => "sha256-" + Convert.ToBase64String(
+                SHA256.HashData(Encoding.UTF8.GetBytes(s.TextContent.Replace("\r\n", "\n").Replace("\r", "\n")))))
+            .ToList();
+
+        // Not a vacuous pass: the layout ships inline scripts, so a page that
+        // parsed to none would mean the response was not the page.
+        Assert.NotEmpty(served);
+
+        var authorized = CspHashPattern().Matches(csp).Select(m => m.Groups[1].Value).ToList();
+
+        Assert.Equal(
+            served.OrderBy(h => h, StringComparer.Ordinal),
+            authorized.OrderBy(h => h, StringComparer.Ordinal));
+    }
+
+    [GeneratedRegex(@"'(sha256-[A-Za-z0-9+/=]+)'")]
+    private static partial Regex CspHashPattern();
 
     [Fact]
     public async Task Healthz_ReportsLive()

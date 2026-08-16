@@ -5,6 +5,18 @@ The task that just finished: merged into `dev`, not necessarily released. One ta
 `../tasklist.md` into `next`. When a release is tagged, the same work is summarised in
 `../../CHANGELOG.md`.
 
+- **CSP inline-script hash scanning** (`fix/csp-hash-scan-context`, merged `--no-ff`;
+  `docs/plans/2026-08-16-003-csp-hash-scan-context.md`). `InlineScriptHashes` hashed any static
+  `<script` it found regardless of HTML context, so a commented-out script, a `<script>` inside
+  `<textarea>`/`<title>`, and one inside another tag's attribute value each added a `script-src`
+  entry for a script the page does not ship. `Phase.Outside` now walks tags with comment /
+  raw-text / in-tag states carried across node boundaries. The reason it survived: every test
+  compared the generated constants against the CSP header built from those same constants.
+  Replaced by two real lockstep layers — an AngleSharp theory over every `Csp/*` fixture, and the
+  skeleton's app-level test recomputing from the served response (verified on a stamped product,
+  and perturbed by injecting a stray hash). Suites 386 / 122 / 256 / 59 green; publish
+  zero-warning at 36,932,096 B.
+
 - **Spec 007 — session tokens hashed at rest** (`feat/007-session-token-at-rest`, merged
   `--no-ff`). The `__Host-NativeWeb.Session` cookie value *was* the `bff_store` primary key,
   written verbatim, so any read of that table yielded live bearer credentials for fourteen days.
