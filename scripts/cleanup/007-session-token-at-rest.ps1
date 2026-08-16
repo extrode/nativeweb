@@ -15,12 +15,22 @@
 #     back during the run and the working tree matches HEAD; they are inside
 #     the shell's own temp and not this script's business.
 
-[CmdletBinding()]
 param(
-    [Alias('e')][switch]$Execute
+    [Alias('e')][switch]$Execute,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
 
 $ErrorActionPreference = 'Stop'
+
+# PowerShell binds -Execute / -e; accept the POSIX spelling too so the interface
+# is identical in both shells. Without this, PowerShell strips one leading dash
+# and refuses '--execute', the spelling the header documents.
+foreach ($a in $Rest) {
+    switch ($a) {
+        '--execute' { $Execute = $true }
+        default { Write-Host "unknown argument: $a" -ForegroundColor Red; exit 2 }
+    }
+}
 
 $repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
 
