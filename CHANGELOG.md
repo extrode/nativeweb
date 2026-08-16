@@ -125,7 +125,36 @@ Merged into `dev`, not yet tagged.
   the startup-timeout path and derives the RID instead of hardcoding `win-x64`.
   Final state: 319 unit / 206 integration / 44 e2e green, zero-warning NativeAOT publish.
 
+### Added
+- **NWT016: interpolation loose in a tag is a build error** — `TemplateWriter` encodes
+  `<`, `>`, `&`, `"` and `'` and nothing else, and its own comment says that is safe "in text
+  and QUOTED-attribute contexts, which are the only contexts templates may interpolate into".
+  Nothing enforced that. A space is not encoded, so `class={{X}}` lets one value close the
+  attribute and open `onfocus=…`, and `<div {{X}}>` is the same escape by a shorter route. The
+  generator now rejects both. Block tokens are exempt — `<span{{if C}} title="{{X}}"{{/if}}>`
+  is what the real layout writes, and a block emits nothing itself; its contents are separate
+  tokens, checked on their own. The scanner walks tags and skips comments but is deliberately
+  not a tokenizer, and it jumps over every `{{…}}` region wholesale: an expression is C#, not
+  markup, and reading its bytes as markup invents structure that is not there. No existing
+  template in the repo or the skeleton trips it.
+
 ### Fixed
+- **Every render diagnostic pointed at nothing** — NWT001–NWT015 were all raised with
+  `Location.None`, so a template mistake produced an error with no file attached: nothing to
+  click in a build log, and an IDE squiggle on the project rather than the line. Templates are
+  `AdditionalText`s with no syntax tree to hang a location on, but `Location.Create` takes a
+  path and a span directly. The parser now carries character offsets — through the header, the
+  body tokens and onto the nodes themselves — so parse-stage findings point at the token that
+  caused them, counting the header lines and surviving a BOM and CRLF endings; findings that
+  only emerge after parsing (layout not found, a class-name collision) point at the file, which
+  is still a path an editor can open.
+- **`@param` types went into the generated signature unchecked** — `@param` splits on the last
+  space, so `@param My Model model` took `My Model` as the type and copied it verbatim into the
+  render method. The author got a C# syntax error naming a line in a file they had never
+  written. It is NWT003 against the template line now. The check is a plausibility filter, not
+  a type parser: generics, arrays, nullable annotations and `global::`-qualified names all pass,
+  and a well-formed name that does not exist stays the compiler's to reject, which it words
+  better than we could.
 - **An expired 2FA challenge swapped the sign-in page into the 2FA card** — `POST
   /auth/2fa/verify` answered a missing or expired challenge cookie with a bare
   `Results.Redirect`, and that form opts into htmx via `data-nw-target`. htmx chases a 302 by

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
 
 namespace NativeWeb.Render.Generator;
 
@@ -30,31 +31,34 @@ internal static class TemplateEmitter
                 switch (error.Kind)
                 {
                     case ParseErrorKind.Header:
-                        Report(context, model, TemplateDiagnostics.HeaderMalformed, model.Path, error.Message);
+                        ReportAt(context, model, error.Offset, TemplateDiagnostics.HeaderMalformed, model.Path, error.Message);
                         break;
                     case ParseErrorKind.Expression:
-                        Report(context, model, TemplateDiagnostics.ExpressionRejected, model.Path, error.Expression!, error.OffendingChar);
+                        ReportAt(context, model, error.Offset, TemplateDiagnostics.ExpressionRejected, model.Path, error.Expression!, error.OffendingChar);
                         break;
                     case ParseErrorKind.Partial:
-                        Report(context, model, TemplateDiagnostics.PartialArgMismatch, model.Path, error.Expression!, error.Message);
+                        ReportAt(context, model, error.Offset, TemplateDiagnostics.PartialArgMismatch, model.Path, error.Expression!, error.Message);
+                        break;
+                    case ParseErrorKind.LooseAttribute:
+                        ReportAt(context, model, error.Offset, TemplateDiagnostics.LooseAttributeInterpolation, model.Path, error.Message);
                         break;
                     default:
-                        Report(context, model, TemplateDiagnostics.UnbalancedBlock, model.Path, error.Message);
+                        ReportAt(context, model, error.Offset, TemplateDiagnostics.UnbalancedBlock, model.Path, error.Message);
                         break;
                 }
 
                 broken.Add(model.Path);
             }
 
-            foreach (string directive in model.UnknownDirectives)
+            foreach ((string directive, int offset) in model.UnknownDirectives)
             {
-                Report(context, model, TemplateDiagnostics.UnknownDirective, model.Path, directive);
+                ReportAt(context, model, offset, TemplateDiagnostics.UnknownDirective, model.Path, directive);
                 broken.Add(model.Path);
             }
 
-            foreach (string param in model.MalformedParams)
+            foreach ((string param, int offset) in model.MalformedParams)
             {
-                Report(context, model, TemplateDiagnostics.ParamMalformed, model.Path, param);
+                ReportAt(context, model, offset, TemplateDiagnostics.ParamMalformed, model.Path, param);
                 broken.Add(model.Path);
             }
         }
@@ -901,9 +905,78 @@ internal static class TemplateEmitter
         return literal.ToString();
     }
 
-    private static void Report(SourceProductionContext context, TemplateModel model, DiagnosticDescriptor descriptor, params object[] args)
+    /// <summary>
+    /// Reports against the template file as a whole. For findings discovered
+    /// after parsing — a layout that does not resolve, a class-name collision —
+    /// where there is no single token to blame.
+    /// </summary>
+    private static void Report(SourceProductionContext context, TemplateModel model, DiagnosticDescriptor descriptor, params object[] args) =>
+        ReportAt(context, model, -1, descriptor, args);
+
+    /// <summary>
+    /// Reports at a character offset in the template file, or at the file itself
+    /// when <paramref name="offset"/> is negative or out of range.
+    /// </summary>
+    /// <remarks>
+    /// Every one of these used to be <c>Location.None</c>, which renders as a
+    /// diagnostic with no file at all: the message named the logical template
+    /// path in its text, so a person could find it, but no editor could jump to
+    /// it, nothing double-clickable appeared in a build log, and the IDE showed
+    /// the error against the project rather than the line. A template is an
+    /// <c>AdditionalText</c> and not part of the compilation, so it has no syntax
+    /// tree to hang a location on — but <c>Location.Create</c> takes a path, a
+    /// span and a line span directly, which is exactly the case it exists for.
+    /// </remarks>
+    private static void ReportAt(SourceProductionContext context, TemplateModel model, int offset, DiagnosticDescriptor descriptor, params object[] args)
     {
-        _ = model;
-        context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None, args));
+        context.ReportDiagnostic(Diagnostic.Create(descriptor, Locate(model, offset), args));
+    }
+
+    private static Location Locate(TemplateModel model, int offset)
+    {
+        if (model.PhysicalPath.Length == 0)
+        {
+            return Location.None;
+        }
+
+        string source = model.Source;
+        if (offset < 0 || offset > source.Length)
+        {
+            // The file, positioned at its start. Still infinitely more useful
+            // than Location.None, which names no file whatsoever.
+            return Location.Create(
+                model.PhysicalPath,
+                new TextSpan(0, 0),
+                new LinePositionSpan(new LinePosition(0, 0), new LinePosition(0, 0)));
+        }
+
+        int line = 0;
+        int lineStart = 0;
+        for (int i = 0; i < offset; i++)
+        {
+            if (source[i] == '\n')
+            {
+                line++;
+                lineStart = i + 1;
+            }
+        }
+
+        // To end of line, so the squiggle covers the offending construct rather
+        // than a zero-width caret nobody can see.
+        int end = source.IndexOf('\n', offset);
+        if (end < 0)
+        {
+            end = source.Length;
+        }
+        else if (end > offset && source[end - 1] == '\r')
+        {
+            end--;
+        }
+
+        LinePosition start = new(line, offset - lineStart);
+        return Location.Create(
+            model.PhysicalPath,
+            TextSpan.FromBounds(offset, end),
+            new LinePositionSpan(start, new LinePosition(line, end - lineStart)));
     }
 }

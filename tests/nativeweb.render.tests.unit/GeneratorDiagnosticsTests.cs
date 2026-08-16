@@ -314,4 +314,170 @@ public sealed class GeneratorDiagnosticsTests
 
         Assert.Empty(diagnostics);
     }
+
+    // ---- locations ----------------------------------------------------------
+
+    /// <summary>
+    /// Every NWT diagnostic used to carry <c>Location.None</c>, so the build log
+    /// had nothing to click and the IDE hung the error on the project rather than
+    /// the line. The expectations here are written out by hand from the fixture
+    /// rather than recomputed from it, because a location derived the same way
+    /// the generator derives it would agree with any offset, right or wrong.
+    /// </summary>
+    [Fact]
+    public void Diagnostic_PointsAtTheTemplateFileAndTheOffendingLine()
+    {
+        // Line 0: "<!--#template"
+        // Line 1: "@param string Title"
+        // Line 2: "@bogus thing"          <- the error, at column 0
+        // Line 3: "--><p>x</p>"
+        ImmutableArray<Diagnostic> diagnostics = Run(
+            ("templates/broken.html", "<!--#template\n@param string Title\n@bogus thing\n--><p>x</p>"));
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("NWT002", diagnostic.Id);
+
+        FileLinePositionSpan span = diagnostic.Location.GetLineSpan();
+        Assert.Equal("templates/broken.html", span.Path);
+        Assert.Equal(2, span.StartLinePosition.Line);
+        Assert.Equal(0, span.StartLinePosition.Character);
+        Assert.Equal(2, span.EndLinePosition.Line);
+        Assert.Equal("@bogus thing".Length, span.EndLinePosition.Character);
+    }
+
+    [Fact]
+    public void Diagnostic_InTheBody_CountsTheHeaderLinesToo()
+    {
+        // Line 0: "<!--#template"
+        // Line 1: "-->"
+        // Line 2: "<p>ok</p>"
+        // Line 3: "<p>{{Bad; Statement}}</p>"   <- NWT012, token starts at column 3
+        ImmutableArray<Diagnostic> diagnostics = Run(
+            ("templates/broken.html", "<!--#template\n-->\n<p>ok</p>\n<p>{{Bad; Statement}}</p>"));
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("NWT012", diagnostic.Id);
+
+        FileLinePositionSpan span = diagnostic.Location.GetLineSpan();
+        Assert.Equal("templates/broken.html", span.Path);
+        Assert.Equal(3, span.StartLinePosition.Line);
+        Assert.Equal(3, span.StartLinePosition.Character);
+    }
+
+    [Fact]
+    public void Diagnostic_WithABomAndCrlfLineEndings_StillPointsAtTheRightLine()
+    {
+        // The BOM is one character the parser strips before anything else, and
+        // CRLF puts a '\r' at the end of every line: both shift offsets, and a
+        // location that ignored either would be off by one from the first line on.
+        ImmutableArray<Diagnostic> diagnostics = Run(
+            ("templates/broken.html", "﻿<!--#template\r\n@param string Title\r\n@bogus thing\r\n--><p>x</p>"));
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        FileLinePositionSpan span = diagnostic.Location.GetLineSpan();
+        Assert.Equal(2, span.StartLinePosition.Line);
+        Assert.Equal(0, span.StartLinePosition.Character);
+        // The '\r' belongs to the line ending, not to the directive.
+        Assert.Equal("@bogus thing".Length, span.EndLinePosition.Character);
+    }
+
+    // ---- @param types -------------------------------------------------------
+
+    /// <summary>
+    /// '@param' splits on the LAST space, so a type containing one silently
+    /// swallowed the words before it and was copied into the generated method
+    /// signature unchecked. The author saw a C# syntax error in a file they never
+    /// wrote, naming a line number in generated code.
+    /// </summary>
+    [Theory]
+    [InlineData("@param My Model model")]
+    [InlineData("@param string Foo bar")]
+    [InlineData("@param int* Count")]
+    public void ParamTypeThatIsNotAPlausibleTypeName_ReportsNwt003(string declaration) =>
+        AssertSingleDiagnostic("NWT003", ("templates/broken.html", $"<!--#template\n{declaration}\n--><p>x</p>"));
+
+    /// <summary>
+    /// The check is a plausibility filter, not a C# type parser: everything a
+    /// real template writes must still pass. A name that is well-formed but does
+    /// not exist stays the compiler's to reject — it words that better than we
+    /// could, and duplicating the judgement here would only add a way to be wrong.
+    /// </summary>
+    [Theory]
+    [InlineData("string")]
+    [InlineData("string?")]
+    [InlineData("string[]")]
+    [InlineData("Html")]
+    [InlineData("__PRODUCT__.Render.AssetUrls")]
+    [InlineData("global::System.Collections.Generic.IReadOnlyList<string>")]
+    [InlineData("IReadOnlyList<KeyValuePair<string,int>>")]
+    public void PlausibleParamTypes_AreAccepted(string type)
+    {
+        ImmutableArray<Diagnostic> diagnostics = Run(
+            ("templates/page.html", $"<!--#template\n@param {type} Value\n--><p>ok</p>"));
+
+        Assert.Empty(diagnostics);
+    }
+
+    // ---- NWT016: interpolation loose in a tag -------------------------------
+
+    /// <summary>
+    /// <c>TemplateWriter</c> encodes <c>&lt;&gt;&amp;"'</c> and nothing else, which
+    /// its own comment says is safe "in text and QUOTED-attribute contexts, which
+    /// are the only contexts templates may interpolate into". That invariant was
+    /// asserted in prose and enforced nowhere: a space is not encoded, so a value
+    /// in an unquoted attribute can close it and open <c>onfocus=…</c>, and the
+    /// attribute-name position is the same escape by a shorter route.
+    /// </summary>
+    [Theory]
+    [InlineData("<div class={{Value}}>x</div>")]
+    [InlineData("<div class = {{Value}}>x</div>")]
+    [InlineData("<div data-x=prefix{{Value}}>x</div>")]
+    [InlineData("<div {{Value}}>x</div>")]
+    [InlineData("<div class=\"a\" {{Value}}>x</div>")]
+    [InlineData("<div title={{t:app.name}}>x</div>")]
+    public void InterpolationLooseInATag_ReportsNwt016(string body) =>
+        AssertSingleDiagnostic(
+            "NWT016",
+            ("locales/en.json", "{ \"app.name\": \"x\" }"),
+            ("templates/page.html", $"<!--#template\n@param string Value\n-->{body}"));
+
+    /// <summary>
+    /// The negatives matter more than the positives here: a guard that fires on
+    /// ordinary markup gets deleted rather than obeyed.
+    /// </summary>
+    [Theory]
+    // The ordinary quoted cases, single and double.
+    [InlineData("<div class=\"{{Value}}\">x</div>")]
+    [InlineData("<div class='{{Value}}'>x</div>")]
+    [InlineData("<div class=\"a {{Value}} b\">x</div>")]
+    // Text content, which is the other safe context.
+    [InlineData("<p>{{Value}}</p>")]
+    [InlineData("<p>a {{Value}} b</p>")]
+    // Quotes INSIDE the expression, inside a quoted attribute — what every real
+    // layout writes, since Assets.Resolve takes a string literal.
+    [InlineData("<img src=\"{{Value.Resolve(\"/img/logo.svg\")}}\" alt=\"\">")]
+    [InlineData("<img src=\"{{Value.Resolve(\"/a.svg\")}}\" title=\"{{Value}}\">")]
+    // The sharp edge, and the reason the scanner jumps over {{…}} wholesale
+    // rather than counting quotes as it goes: an ODD number of quotes inside one
+    // expression. The two lines above happen to balance, so they would survive a
+    // The case the {{…}} skip actually exists for: markup-like text INSIDE an
+    // expression. A scanner reading expression bytes as markup opens a tag at
+    // the '<' of "<b class" that nothing ever closes, and then reports the next
+    // interpolation — in plain text, in no tag at all — as loose.
+    [InlineData("<p>{{Value.Replace(\"<b class\", \"\")}}{{Value}}</p>")]
+    // A block token in the attribute-name position emits nothing itself, so it
+    // is not an interpolation; its contents are separate tokens, checked on
+    // their own. The real layout writes exactly this.
+    [InlineData("<span{{if Value.Length != 0}} title=\"{{Value}}\"{{/if}}>x</span>")]
+    // Interpolation after a comment that contains a tag-like fragment.
+    [InlineData("<!-- <div class=x --><p>{{Value}}</p>")]
+    // '<' that does not open a tag.
+    [InlineData("<p>a < b and {{Value}}</p>")]
+    public void InterpolationInASafeContext_IsAccepted(string body)
+    {
+        ImmutableArray<Diagnostic> diagnostics = Run(
+            ("templates/page.html", $"<!--#template\n@param string Value\n-->{body}"));
+
+        Assert.Empty(diagnostics);
+    }
 }

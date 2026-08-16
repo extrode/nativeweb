@@ -93,12 +93,20 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   - URL-context safety: `href="{{Url}}"` with a `javascript:` value passes both encoder paths
     untouched (same gap as Razor). Full fix is HTML-context-aware generation; interim is the
     documented convention that URL values from user data get scheme-validated in C#.
-  - Unquoted-attribute interpolation (`<a href={{Url}}>`) is injectable via space/`=`; the
-    generator could detect-and-reject interpolation into unquoted attributes.
-  - NWT diagnostics all report at `Location.None`; parser would need to carry line/col offsets
-    to point at the token.
-  - `@param` type text goes into the generated signature unvalidated (typo = raw C# error, not
-    NWT003).
+  - ~~Unquoted-attribute interpolation (`<a href={{Url}}>`) is injectable via space/`=`; the
+    generator could detect-and-reject interpolation into unquoted attributes.~~ Done
+    2026-08-17 (`feat/render-diagnostics-locations`) as NWT016, which covers the
+    attribute-name position (`<div {{X}}>`) too — the same escape by a shorter route.
+  - ~~NWT diagnostics all report at `Location.None`; parser would need to carry line/col offsets
+    to point at the token.~~ Done 2026-08-17. Parse-stage findings point at the token;
+    post-parse ones (layout not found, class collision) point at the file, which is still a
+    path an editor can open.
+  - ~~`@param` type text goes into the generated signature unvalidated (typo = raw C# error, not
+    NWT003).~~ Done 2026-08-17 — a plausibility check, not a type parser: it catches a type
+    with a space in it (the one mistake `@param`'s last-space split creates) and leaves a
+    well-formed name that does not exist to the C# compiler, which words it better.
+  - No reference page lists the NWT diagnostics for template authors; each descriptor's message
+    is the only documentation, and there is now no one place to see the sixteen of them.
   - No escape hatch for a literal `{{` in template text (would break Vue-style inline syntax if
     ever needed; Alpine/htmx don't use it).
   - Diagnostics tests discard the output compilation, so a template emitting invalid C# only

@@ -17,13 +17,16 @@ public sealed class RenderTemplateGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        IncrementalValueProvider<ImmutableArray<(string Path, string Source)>> templates =
+        // PhysicalPath rides alongside the logical one purely so diagnostics can
+        // name a file an editor can open: everything else here addresses
+        // templates logically, and LogicalPath throws the real path away.
+        IncrementalValueProvider<ImmutableArray<(string Path, string PhysicalPath, string Source)>> templates =
             context.AdditionalTextsProvider
                 .Where(static text =>
                     text.Path.EndsWith(".html", StringComparison.OrdinalIgnoreCase)
                     && LogicalPath(text.Path) is not null)
                 .Select(static (text, cancellationToken) =>
-                    (LogicalPath(text.Path)!, text.GetText(cancellationToken)?.ToString() ?? ""))
+                    (LogicalPath(text.Path)!, text.Path, text.GetText(cancellationToken)?.ToString() ?? ""))
                 .Collect();
 
         IncrementalValueProvider<ImmutableArray<(string Id, string Source)>> locales =
@@ -44,11 +47,11 @@ public sealed class RenderTemplateGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(templates.Combine(locales).Combine(rootNamespace), static (productionContext, input) =>
         {
             Dictionary<string, TemplateModel> models = new(StringComparer.Ordinal);
-            foreach ((string path, string source) in input.Left.Left.OrderBy(p => p.Path, StringComparer.Ordinal))
+            foreach ((string path, string physicalPath, string source) in input.Left.Left.OrderBy(p => p.Path, StringComparer.Ordinal))
             {
                 // Same logical path twice (e.g. two projects' AdditionalFiles merged)
                 // falls out as NWT009 via class-name collision; last one wins here.
-                models[path] = TemplateModel.Parse(path, source);
+                models[path] = TemplateModel.Parse(path, physicalPath, source);
             }
 
             List<LocaleModel> catalogs = [.. input.Left.Right

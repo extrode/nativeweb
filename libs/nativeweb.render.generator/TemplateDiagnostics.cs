@@ -71,4 +71,8 @@ internal static class TemplateDiagnostics
     public static readonly DiagnosticDescriptor LocaleMalformed = Error(
         "NWT015", "Malformed locale catalog",
         "Locale file '{0}': {1}");
+
+    public static readonly DiagnosticDescriptor LooseAttributeInterpolation = Error(
+        "NWT016", "Interpolation outside a quoted attribute value",
+        "Template '{0}': {1} — TemplateWriter encodes '<', '>', '&', '\"' and '\\'' only, which is safe in text and inside a quoted attribute value and nowhere else; quote the attribute value");
 }
