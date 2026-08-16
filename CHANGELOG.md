@@ -126,7 +126,14 @@ Merged into `dev`, not yet tagged.
   lost a `JauntyQUsePackages` auto-default that could never fire and now probes the JauntyQ
   generator csproj instead of the bare directory. CI pins `ilammy/msvc-dev-cmd` to a commit, and
   the e2e step gained the clang/zlib prerequisites and the `JauntyQUsePackages` env var its inner
-  publish needs — both unverifiable until the package-feed gap is closed.
+  publish needs — both unverifiable until the package-feed gap is closed. A follow-up Fable
+  review then found the cache was reading `DateTimeOffset.UtcNow`: a backward clock step (NTP
+  correction, VM resume) extends the window by the size of the step, so a dead database would
+  have kept reporting ready for exactly as long as the guarantee said it could not. The clock is
+  now monotonic and typed as elapsed-since-an-origin so a wall clock no longer compiles; the
+  fixture's `DisposeAsync` goes through the same hardened stop path as the failure paths rather
+  than repeating the unguarded kill it documents as unsafe; and the log tail is its own type so
+  its bound is tested by pushing past it rather than by hoping the app logged enough.
 
 ---
 
