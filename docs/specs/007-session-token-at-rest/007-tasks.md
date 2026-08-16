@@ -2,7 +2,7 @@
 Plan: ./007-plan.md
 Spec: ./007-spec.md
 
-- [ ] T1 `SessionToken` choke-point type — files: `apps/web/Auth/SessionToken.cs`,
+- [x] T1 `SessionToken` choke-point type — files: `libs/nativeweb.auth/SessionToken.cs`,
   `tests/nativeweb.web.tests.unit/SessionTokenTests.cs` — covers: R1, R2, R4 — done when:
   the type exposes only `Mint`, `TryFromCookie`, `CookieValue` and `StorageId`, production
   cannot obtain the plaintext as a `Guid`, and a unit test pins the parity vector
