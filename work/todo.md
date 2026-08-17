@@ -470,7 +470,9 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   an oversight: NativeWeb resolved its own version of this by moving the row into migration 0055
   and retiring `db/seed/ci` entirely, so the skeleton was already doing the right thing. Copying
   a seed step across would have propagated the mistake, not the fix.
-- `ActionPinTests.ThirdPartyActions_ArePinnedToASha` scans workflows for the `uses:` key without
-  skipping comments, so merely *mentioning* the key in a comment fails the test with
-  "`uses: `` has no version at all". Hit 2026-08-17 in `skeleton/.github/workflows/ci.yml`;
-  worked around by rewording the comment. Fails in the safe direction, so low priority.
+- ~~`ActionPinTests.ThirdPartyActions_ArePinnedToASha` scans workflows for the `uses:` key without
+  skipping comments~~ — **done 2026-08-18**, `fix/action-pin-comment-scan`. The pattern is
+  anchored to the start of a line with only whitespace and an optional `- ` sequence marker
+  allowed before the key, which is what excludes `#`. Nine tests: four commented shapes that must
+  yield nothing, four real step shapes, and one document carrying both. The comment reworded
+  around it in `skeleton/.github/workflows/ci.yml` can now say whatever it likes.
