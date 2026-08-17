@@ -15,13 +15,17 @@
 #   chore/ci-fix-cleanup-entries      added those two to this list
 #   fix/ci-encryption-key-env         the Slice 2 key env vars CI never set
 #   chore/env-fix-cleanup-entry       added those two to this list
+#   fix/ci-integration-500            the CI first-party application seed and the
+#                                     user-secrets/env precedence fix behind it
+#   chore/ci-500-cleanup-entries      added those two, and the repro databases
 #
 # The third is this script's own branch. It can delete itself because the script
 # is merged into dev before it is ever run, so the commit survives the branch.
 #
 # Dry run is the default and always exits 0; --execute / -e is the only way to
 # act. Deleting the scratch feeds is irreversible beyond that, so it needs
-# --delete-scratch on top of --execute.
+# --delete-scratch on top of --execute, and dropping the repro databases needs
+# --drop-repro-databases on top of --execute.
 #
 # Kept deliberately (do NOT add here):
 #   - The ~16 older docs/* and chore/* branches in `git branch --list`. They
@@ -37,6 +41,7 @@
 param(
     [Alias('e')][switch]$Execute,
     [switch]$DeleteScratch,
+    [switch]$DropReproDatabases,
     [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
 
@@ -56,6 +61,7 @@ foreach ($a in $Rest) {
     switch ($a) {
         '--execute' { $Execute = $true }
         '--delete-scratch' { $DeleteScratch = $true }
+        '--drop-repro-databases' { $DropReproDatabases = $true }
         default { Write-Host "unknown argument: $a" -ForegroundColor Red; exit 2 }
     }
 }
@@ -89,7 +95,9 @@ foreach ($b in @(
         'fix/ci-solution-restore-and-publish-path',
         'chore/ci-fix-cleanup-entries',
         'fix/ci-encryption-key-env',
-        'chore/env-fix-cleanup-entry')) {
+        'chore/env-fix-cleanup-entry',
+        'fix/ci-integration-500',
+        'chore/ci-500-cleanup-entries')) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {
@@ -129,6 +137,14 @@ $scratch = @(
     'C:\tmp\pubprobe',
     'C:\tmp\ci.yml.bak',
     'C:\tmp\ci2.bak',
+    # From diagnosing the 33 integration failures on run 32014071743.
+    'C:\tmp\ci3.bak',
+    'C:\tmp\ci3.log',
+    'C:\tmp\scg.bak',
+    'C:\tmp\itest.log',
+    'C:\tmp\mig.err',
+    'C:\tmp\nativeweb_dev.cols',
+    'C:\tmp\nativeweb_cirepro.cols',
     (Join-Path $env:LOCALAPPDATA 'Temp\sbomprobe1')
 )
 foreach ($d in $scratch) {
@@ -142,6 +158,42 @@ foreach ($d in $scratch) {
     }
     else {
         Write-Host "would remove $d (with --execute --delete-scratch)"
+    }
+}
+
+Write-Host '-- 4. repro databases (needs --drop-repro-databases as well as --execute)'
+# Local Postgres databases built to reproduce CI's schema exactly: migrations
+# only (nativeweb_cirepro, nativeweb_cirepro2), migrations + the local dev seed
+# (nativeweb_cirepro3, the run that proved the dev seed breaks six
+# SessionAuthTests), and migrations + db/seed/ci (nativeweb_cirepro4,
+# nativeweb_cifinal, the 258-green runs). All are throwaway; each is rebuilt in
+# under a minute by creating the database and replaying db/migrations then
+# db/seed/ci.
+#
+# Its own flag because dropping a database is irreversible and unrecoverable in
+# a way deleting a directory of downloaded nupkgs is not. nativeweb_dev is NOT
+# in this list and must never be: it is the local development database.
+$reproDatabases = @(
+    'nativeweb_cirepro',
+    'nativeweb_cirepro2',
+    'nativeweb_cirepro3',
+    'nativeweb_cirepro4',
+    'nativeweb_cifinal'
+)
+foreach ($d in $reproDatabases) {
+    if ($Execute -and $DropReproDatabases) {
+        Write-Host "DO   drop database $d"
+        psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS $d"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "FAILED to drop $d" -ForegroundColor Red
+            $failed = $true
+        }
+    }
+    elseif ($Execute) {
+        Write-Host "keep  database $d (pass --drop-repro-databases to drop)"
+    }
+    else {
+        Write-Host "would drop database $d (with --execute --drop-repro-databases)"
     }
 }
 
