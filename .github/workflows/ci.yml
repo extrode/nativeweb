@@ -67,6 +67,22 @@ jobs:
             PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_test -v ON_ERROR_STOP=1 -f "$f"
           done
 
+      # NativeWeb.slnx lists the two JauntyQ projects as solution members, so a
+      # local checkout can co-develop them. That listing is unconditional,
+      # unlike the ProjectReference in Directory.Build.props, so a
+      # solution-wide restore loads them even in package mode -- and on a runner
+      # with no sibling checkout that is MSB3202 ("project file was not found")
+      # raised before package mode is ever consulted. Dropping them from the
+      # runner's working copy is the whole fix; nothing commits or pushes it.
+      #
+      # If this step ever fails saying the projects are not in the solution,
+      # they have been removed for real and this step should be deleted too.
+      - name: Drop the JauntyQ sibling projects from the solution
+        run: >
+          dotnet sln NativeWeb.slnx remove
+          ../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj
+          ../jauntyq/src/JauntyQ.Runtime/JauntyQ.Runtime.csproj
+
       # nuget.config declares the jauntyq-github source but deliberately carries
       # no credentials. Package source mapping means only JauntyQ.* is ever
       # looked up there, so this step is what makes package mode resolvable at
