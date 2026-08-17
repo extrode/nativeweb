@@ -376,11 +376,18 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   assert ci.yml applies no seed at all (re-adding one would make CI pass while a fresh production
   database stayed broken), and the seed file itself is left to
   `scripts/cleanup/ci-seed-retirement.ps1` for the user to run.
-- `RealmResolver` throwing an `InvalidOperationException` for missing *configuration* is why that
-  cost a CI round trip to diagnose: `ErrorPageMiddleware` renders "Something went wrong" and the
-  message only reaches the log. Both other config gaps of this class (`ContactProtector`,
-  `PairwiseSubjectDeriver`) degrade to 503 instead. Worth making the three consistent, and worth
-  a startup check — the row is resolvable at boot, so nothing needs to wait for a request.
+- ~~`RealmResolver` throwing an `InvalidOperationException` for missing *configuration*.~~ **Done
+  2026-08-17**, `fix/realm-resolver-consistency`. `ResolveFirstPartyAsync` now returns null and
+  both call sites answer 503, the same status an unconfigured connection string or an absent
+  `PairwiseSubjectDeriver` already gives, so one class of problem has one status. A boot-time
+  check (`StartupConfigGuards.FailStartupIfFirstPartyApplicationMissing`) refuses to start outside
+  Development when the database answers and the row is absent.
+
+  The check is deliberately three-valued. Anything that stops it *reaching* the database --
+  unconfigured, unreachable, unmigrated, wrong credentials -- is `Indeterminate` and does **not**
+  fail startup: refusing to boot because Postgres is not up yet breaks an ordinary rolling deploy,
+  and `/readyz` already reports that state far better than a dead process does. "Cannot tell" must
+  never be reported as "wrong". Only `Missing` exits.
 - ~~`skeleton/.github/workflows/ci.yml` applies migrations only, so a stamped product carries the
   same gap.~~ **Not a gap -- closed 2026-08-17.** Checked while pinning the action above: the
   skeleton has no `RealmResolver`, no first-party application and no `db/seed/` at all, so there
