@@ -138,6 +138,16 @@ NO_TRANSACTION_MARKER='@no-transaction'
 # safety net on the first real run of this code.
 strip_sql_comments() {
   awk '
+    # Line comments FIRST, and the order is load-bearing. Doing dollar quotes
+    # first lets a $$ inside a comment ("payloads may contain $$") open a region
+    # that closes on a real $$ later in the file, swallowing every statement in
+    # between -- including a BEGIN;/COMMIT; that must not be wrapped. Comments
+    # first can instead truncate a dollar-quoted body containing --, which at
+    # worst hides a statement inside a plpgsql function; that direction is
+    # harmless here because such statements are not transaction control.
+    # Neither order is a real lexer. That is what the runtime warning check in
+    # apply_and_record is for.
+    { gsub(/--.*$/, "") }
     {
       line = $0
       # Dollar-quoted regions ($$ or $tag$), which may span lines. Inside one,
@@ -163,27 +173,54 @@ strip_sql_comments() {
       }
       $0 = out
     }
-    { gsub(/--.*$/, "") }
-    { while (match($0, /\/\*.*\*\//)) gsub(/\/\*.*\*\//, "") }
-    /\/\*/ { inblock = 1; sub(/\/\*.*$/, "") }
-    inblock && /\*\// { inblock = 0; sub(/^.*\*\//, "") }
-    !inblock || /\*\// { print }
+    # Inside a block comment that opened on an earlier line: discard until the
+    # closer, then carry on with whatever follows it on that line.
+    inblock {
+      if (match($0, /\*\//)) { $0 = substr($0, RSTART + RLENGTH); inblock = 0 }
+      else { next }
+    }
+    {
+      # Complete block comments. The naive /\*.*\*/ is greedy, so
+      # `/* a */ BEGIN; /* b */` would delete the BEGIN; between them -- this
+      # matches the shortest span instead.
+      while (match($0, /\/\*[^*]*\*+([^\/*][^*]*\*+)*\//)) {
+        $0 = substr($0, 1, RSTART - 1) " " substr($0, RSTART + RLENGTH)
+      }
+      # An opener with no closer on this line: keep the code BEFORE it. The
+      # earlier version printed nothing for such a line, losing any statement
+      # that preceded the comment.
+      if (match($0, /\/\*/)) { $0 = substr($0, 1, RSTART - 1); inblock = 1 }
+      print
+    }
   ' "$1"
 }
 
 mode_of() {
   local f="$1" stripped
-  if grep -qF -- "$NO_TRANSACTION_MARKER" "$f"; then
+  # Anchored to a comment at the start of a line, not matched anywhere in the
+  # file. A loose match relocates the 0030 bug onto the marker itself: a comment
+  # saying "this does not need @no-transaction" would opt the file out of
+  # atomicity, silently, while reading as the opposite.
+  if grep -qE "^[[:space:]]*--[[:space:]]*$NO_TRANSACTION_MARKER\b" "$f"; then
     echo nowrap
     return
   fi
 
   stripped="$(strip_sql_comments "$f")"
-  # The transaction-opening forms all end in a semicolon: `BEGIN;`, `BEGIN WORK;`,
-  # `BEGIN ISOLATION LEVEL ...;`, `START TRANSACTION;`. plpgsql's block-opening
-  # BEGIN never does. Requiring it is what separates the two, and the dollar-quote
-  # stripping above is the belt to that braces.
-  if printf '%s' "$stripped" | grep -qiE '\bconcurrently\b|\bvacuum\b|\balter[[:space:]]+system\b|\bcreate[[:space:]]+(database|tablespace)\b|^[[:space:]]*(begin|start[[:space:]]+transaction)[^;]*;'; then
+  # Transaction control is detected by its TERMINATORS as well as its openers.
+  # COMMIT and END are what actually break a wrap -- they end the runner's
+  # transaction early -- and a file can carry one without a BEGIN this scan can
+  # see (copy-paste, or a BEGIN hidden by whatever the stripper above missed).
+  # Guarding only BEGIN guards the wrong keyword. Fable, second review pass.
+  #
+  # No line anchor: `TRUNCATE staging; BEGIN; ...` puts it mid-line, and the old
+  # ^ made that invisible.
+  #
+  # The semicolon stays required for BEGIN/END: the transaction forms all take
+  # one (`BEGIN;`, `BEGIN WORK;`, `BEGIN ISOLATION LEVEL ...;`), and plpgsql's
+  # block-opening BEGIN and closing END never do. That is what keeps 0049's
+  # function body from tripping this.
+  if printf '%s' "$stripped" | grep -qiE '\bconcurrently\b|\bvacuum\b|\balter[[:space:]]+system\b|\bcreate[[:space:]]+(database|tablespace)\b|\b(begin|end|commit|rollback)[[:space:]]*;|\b(begin|start)[[:space:]]+(transaction|work|isolation)\b'; then
     echo "ERROR: $(basename "$f") contains a statement that cannot run inside a" >&2
     echo "       transaction block, or opens its own transaction, but does not carry" >&2
     echo "       the '-- $NO_TRANSACTION_MARKER' marker." >&2
@@ -203,14 +240,59 @@ apply_and_record() {
 
   case "$mode" in
     wrapped)
-      # psql reports errors as `psql:<stdin>:N` here rather than by filename, and
+      # stderr is captured rather than passed through so it can be CHECKED, not
+      # merely shown. See the warning check below -- that is the point of the
+      # temp file, and it is the one guard here that does not depend on this
+      # script parsing SQL correctly.
+      #
+      # psql also reports errors as `psql:<stdin>:N` rather than by filename, and
       # for a failure in the appended INSERT, N is past the end of the file. The
-      # `apply NNNN` line above is the only correlation, so say the path outright
-      # -- during a cutover, "which file is <stdin>" is not a question worth
-      # spending minutes on.
+      # `apply NNNN` line above is the only correlation, so say the path outright:
+      # during a cutover, "which file is <stdin>" is not a question worth minutes.
+      local err status=0
+      err="$(mktemp)"
       { cat "$f"; record_sql "$version"; } \
-        | app_psql --single-transaction -f - >/dev/null \
-        || { echo "      (failed applying $f -- psql reports it as <stdin>)" >&2; return 1; }
+        | app_psql --single-transaction -f - >/dev/null 2>"$err" || status=$?
+      cat "$err" >&2
+
+      # THE BACKSTOP. Everything above tries to predict which files open their own
+      # transaction; this detects it happening. psql emits exactly this warning
+      # when a wrapped file runs BEGIN, and it is the only runtime trace -- without
+      # the check, a file whose COMMIT ends the outer transaction early leaves the
+      # remaining statements in autocommit and the run looks completely clean.
+      #
+      # Worth having precisely because it does not depend on the classifier being
+      # right. Comments, dollar quoting, a COMMIT with no BEGIN, a BEGIN mid-line,
+      # a keyword split across lines: every one of those defeats a text scan, and
+      # none of them defeats this. Fable's second review pass, 2026-08-17.
+      #
+      # It fires AFTER the damage rather than preventing it, and that is still the
+      # whole value: the operator learns the database is in an unknown state
+      # instead of believing the migration was atomic.
+      # Bash string matching rather than grep, and that is not a style choice.
+      # The first version used `grep -qiF`, which SIGABRTs on this machine's GNU
+      # grep 3.0 under git-bash (exit 134, reproducible: -i together with -F).
+      # Sitting in an `if` condition, the crash read as "no match" -- so the
+      # backstop silently failed open, and the first run that was supposed to
+      # prove it worked instead exited 0 with the warning printed and ignored.
+      # A safety net whose failure mode is "reports safe" is worse than none.
+      local errtext
+      errtext="$(cat "$err")" || errtext='(unreadable)'
+      if [[ "$errtext" == *"already a transaction in progress"* || "$errtext" == '(unreadable)' ]]; then
+        rm -f "$err"
+        echo "ERROR: $(basename "$f") opened its own transaction while being wrapped." >&2
+        echo "       Its COMMIT ended the wrapping transaction early, so any statement" >&2
+        echo "       after it ran in autocommit and this migration was NOT atomic." >&2
+        echo "       The database is in an unknown state -- inspect it before re-running." >&2
+        echo "       Then add '-- $NO_TRANSACTION_MARKER' to that file so it is never wrapped." >&2
+        exit 1
+      fi
+      rm -f "$err"
+
+      if [ "$status" -ne 0 ]; then
+        echo "      (failed applying $f -- psql reports it as <stdin>)" >&2
+        return 1
+      fi
       ;;
     nowrap)
       echo "      (@no-transaction: applied outside a wrapping transaction)"
