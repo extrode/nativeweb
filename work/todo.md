@@ -71,11 +71,13 @@ Small, clear, and could be picked up without a design decision.
   pinned tag (`git describe`). Do **not** suppress `JNT8004` to get a green badge: it guards
   security-sensitive lookup paths, and suppressing it hides the skew instead of closing it.
 
-- IdP: `Redirects.To` answers a no-JS POST with `Results.Redirect`, i.e. **302**, where **303**
-  is the semantically correct status for a POST → GET transition. Every browser treats them
-  identically here, so nothing is broken; changing it touches every caller (OAuth consent,
-  sign-out, register, settings), which is wider than the nit that raised it. Left as 302
-  deliberately — 2026-08-03.
+- ~~IdP: `Redirects.To` answers a no-JS POST with 302 where 303 is correct~~ — **done
+  2026-08-18**, `fix/redirect-see-other`, on the user's call. A POST now gets 303, a GET keeps
+  302, and the pair is asserted deliberately in `RedirectStatusTests` so a later blanket edit to
+  either shows up. Only two existing assertions had to change, both of which were asserting the
+  status of a no-JS POST. Nothing observable changes in a browser; the reason to say it is that
+  the OAuth surface is followed by native and machine clients whose stacks are less uniform
+  about the 302 convention.
 
 - ~~`AppProcessFixture.DeleteCert` catches only `IOException` … and `_certPath` is never
   nulled~~ — **fixed 2026-08-16** in `fix/v9-fable-findings`; it catches every exception and
