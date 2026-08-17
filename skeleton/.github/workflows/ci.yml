@@ -152,7 +152,13 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      # Pinned to a SHA, not the mutable v1 tag. This is a third-party action whose
+      # step runs with the workflow's token on every push, so a moved tag would swap
+      # the code executed here with no change landing in the repo -- and a stamped
+      # product inherits whatever this file says. SHA is v1 as of 2026-08-17
+      # (resolved with `gh api repos/ilammy/msvc-dev-cmd/git/ref/tags/v1`); bump
+      # deliberately, and read the diff.
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
       - name: Publish (NativeAOT)
         run: dotnet publish apps/__product__/__product__.csproj -c Release -p:NativeWebUsePackages=true -p:JauntyQUsePackages=true
