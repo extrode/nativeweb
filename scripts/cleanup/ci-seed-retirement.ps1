@@ -149,7 +149,9 @@ Write-Host '   - db/seed/README.md: DONE in chore/retire-ci-seed; ci/ is struck 
 Write-Host '     marked retired, with the reason under it.'
 Write-Host '   - work/todo.md: DONE, the entry that scheduled this is struck through.'
 Write-Host '   - the unit count does not change: CiSeedTests was rewritten, not removed. 420.'
-Write-Host '   - what IS left: commit the staged deletion. This script stages, never commits.'
+Write-Host '   - the staged deletion was committed on chore/remove-ci-seed-file and merged.'
+Write-Host '     Nothing is left. This script stages and never commits, so that step was'
+Write-Host '     real when it was printed; it is not any more.'
 
 Write-Host '-- remaining state'
 git -C $repo status --short | Write-Host
