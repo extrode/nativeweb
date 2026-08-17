@@ -32,15 +32,14 @@ Small, clear, and could be picked up without a design decision.
   back on stderr via `RAISE WARNING`, and psql on Windows writes CRLF so the marker read has to
   strip the CR.
 
-- **Migrations now hold locks for a whole file — check the long ones before the cutover.**
-  `db/migrate.sh` wraps each migration in one transaction (2026-08-17), which is right for
-  atomicity and costs lock duration: every lock a file takes is held until its last statement
-  commits, where autocommit released them statement by statement. Free against an empty or idle
-  database, not free against one serving traffic — it blocks readers and writers for the length
-  of the file and widens the deadlock window. Nothing to do today, since every migration here has
-  only ever run against a provisioning database. **Before pointing this at a live epass.io
-  database, review the multi-`ALTER TABLE` migrations and split any that are long.** Raised by
-  Fable reviewing that change.
+- ~~**Migrations now hold locks for a whole file — check the long ones before the cutover.**~~ —
+  **reviewed 2026-08-18**, `docs/migration-lock-review.md`. Nothing to change today; the review
+  is the deliverable. `0021_realm_scoping` is the one that would hurt: for six tables it does
+  ADD COLUMN → whole-table UPDATE → SET NOT NULL → ADD FK → CREATE INDEX, so wrapped it holds
+  ACCESS EXCLUSIVE on every table a sign-in touches at once. `0013_cascades_and_fk_indexes` is
+  second. Every CONCURRENTLY migration already carries `@no-transaction` and is unaffected. The
+  doc lists what to do if migrations are ever pointed at a live database rather than a
+  provisioning one.
 
 - **The JauntyQ source generator drops its whole output on incremental rebuild, intermittently.**
   Hit twice on 2026-08-17, both times in `libs/nativeweb.auth`: the entire `JauntyQ.Generated`
