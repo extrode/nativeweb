@@ -46,7 +46,9 @@ $branches = @(
     'chore/editorconfig-naming-rules',
     # The branch this script itself was written on.
     'chore/away-backlog-cleanup-script',
-    'chore/cleanup-script-self-reference'
+    'chore/cleanup-script-self-reference',
+    'chore/status-away-slate',
+    'chore/cleanup-script-final'
 )
 
 foreach ($b in $branches) {
