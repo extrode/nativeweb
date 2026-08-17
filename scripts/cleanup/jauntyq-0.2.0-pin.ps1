@@ -22,6 +22,9 @@
 #   fix/first-party-application-migration  moved the first-party row into migration 0055
 #   chore/ci-green-status             recorded the first green CI run
 #   chore/ci-migration-cleanup-entries this list update
+#   chore/ci-scratch-entries          scratch files from the review round
+#   chore/ci-seed-retirement-script   scripts/cleanup/ci-seed-retirement.ps1
+#   chore/final-cleanup-entries       these last four lines
 #
 # The third is this script's own branch. It can delete itself because the script
 # is merged into dev before it is ever run, so the commit survives the branch.
@@ -105,7 +108,10 @@ foreach ($b in @(
         'fix/demote-multi-source',
         'fix/first-party-application-migration',
         'chore/ci-green-status',
-        'chore/ci-migration-cleanup-entries')) {
+        'chore/ci-migration-cleanup-entries',
+        'chore/ci-scratch-entries',
+        'chore/ci-seed-retirement-script',
+        'chore/final-cleanup-entries')) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {
@@ -161,6 +167,7 @@ $scratch = @(
     'C:\tmp\migonly.err',
     'C:\tmp\no55.err',
     'C:\tmp\cl_before.md',
+    'C:\tmp\csr.log',
     (Join-Path $env:LOCALAPPDATA 'Temp\sbomprobe1')
 )
 foreach ($d in $scratch) {
