@@ -81,8 +81,23 @@ record() {
   app_psql -c "INSERT INTO schema_migrations (version) VALUES ('$1') ON CONFLICT (version) DO NOTHING;" >/dev/null
 }
 
+# Deliberately a PLAIN insert, where record() below uses ON CONFLICT DO NOTHING.
+#
+# This one runs inside the wrap, and that changes what the primary key is worth.
+# Two runners racing both pass is_tracked before either commits, so both apply
+# the file. With ON CONFLICT the loser's INSERT quietly does nothing, its
+# transaction commits, and both exit 0 having applied the same migration twice --
+# loud for DDL, SILENT for a data migration, which is the exact class this runner
+# exists to protect. With a plain INSERT the loser hits the unique constraint,
+# and because it is inside the wrap the whole transaction rolls back: the second
+# apply is undone atomically and the run exits non-zero.
+#
+# So the conflict clause was not protection here, it was the thing suppressing
+# the only symptom. is_tracked has already filtered out versions that are
+# genuinely applied, so the only conflict reachable from this path IS the race.
+# Fable, fifth pass.
 record_sql() {
-  printf "\nINSERT INTO schema_migrations (version) VALUES ('%s') ON CONFLICT (version) DO NOTHING;\n" "$1"
+  printf "\nINSERT INTO schema_migrations (version) VALUES ('%s');\n" "$1"
 }
 
 # Asks the SERVER whether the wrap survived, rather than reading its log.
@@ -269,12 +284,13 @@ mode_of() {
   # top of that. Matching only `commit;` misses `COMMIT WORK;` and friends, which
   # end the wrap exactly as effectively.
   #
-  # AND CHAIN is the one that MUST be caught here, because it is the only form
-  # with no runtime trace at all: it commits the wrapping transaction and opens a
-  # fresh one, so psql never warns about a transaction already in progress or
-  # about none being in progress. The backstop cannot see it. This scan is the
-  # only thing that can.
-  if printf '%s' "$stripped" | grep -qiE '\bconcurrently\b|\bvacuum\b|\balter[[:space:]]+system\b|\bcreate[[:space:]]+(database|tablespace)\b|\bprepare[[:space:]]+transaction\b|\b(commit|end|rollback|abort|begin)([[:space:]]+(work|transaction))?[[:space:]]*;|\b(commit|end|rollback)[[:space:]]+and[[:space:]]+chain\b|\b(begin|start)[[:space:]]+(transaction|work|isolation)\b'; then
+  # AND CHAIN gets no warning from psql at all -- it commits the wrapping
+  # transaction and immediately opens a fresh one, so the server reports neither
+  # "already in progress" nor "no transaction in progress". Catching it here is
+  # therefore worth doing, but it is NOT the only thing that can: the transaction
+  # id guard sees it, because the id changes. That is what covers the spellings
+  # this regex still misses, `COMMIT WORK AND CHAIN;` among them.
+  if printf '%s' "$stripped" | grep -qiE '\bconcurrently\b|\bvacuum\b|\balter[[:space:]]+system\b|\bcreate[[:space:]]+(database|tablespace)\b|\bprepare[[:space:]]+transaction\b|\b(commit|end|rollback|abort|begin)([[:space:]]+(work|transaction))?[[:space:]]*;|\b(commit|end|rollback)([[:space:]]+(work|transaction))?[[:space:]]+and[[:space:]]+chain\b|\b(begin|start)[[:space:]]+(transaction|work|isolation)\b'; then
     echo "ERROR: $(basename "$f") contains a statement that cannot run inside a" >&2
     echo "       transaction block, or opens its own transaction, but does not carry" >&2
     echo "       the '-- $NO_TRANSACTION_MARKER' marker." >&2
