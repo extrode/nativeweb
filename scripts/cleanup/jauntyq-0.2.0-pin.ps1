@@ -8,6 +8,8 @@
 #   chore/jauntyq-0.2.0-pin           bumped both Directory.Packages.props pins
 #                                     to 0.2.0 and rewrote that todo entry
 #   chore/jauntyq-pin-cleanup-script  this script
+#   docs/local-packages-auth          nuget.config note on local feed auth
+#   chore/cleanup-script-auth-branches  added the last two lines to this list
 #
 # The third is this script's own branch. It can delete itself because the script
 # is merged into dev before it is ever run, so the commit survives the branch.
@@ -76,7 +78,9 @@ Write-Host '-- 2. merged branches (git branch -d refuses if unmerged)'
 foreach ($b in @(
         'chore/jauntyq-version-skew-note',
         'chore/jauntyq-0.2.0-pin',
-        'chore/jauntyq-pin-cleanup-script')) {
+        'chore/jauntyq-pin-cleanup-script',
+        'docs/local-packages-auth',
+        'chore/cleanup-script-auth-branches')) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {
