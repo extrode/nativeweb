@@ -2,6 +2,17 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Bounded backlog run** (four branches, merged 2026-08-17). Taken simplest-first while the user
+  was away, on the scope they set on the way out. `fix/migrate-record-in-transaction` made
+  `db/migrate.sh` apply and record in one transaction, asks the server whether the wrap survived
+  rather than trusting its log, and lets a concurrent double-apply fail loudly.
+  `chore/skeleton-local-mode-ci` rebuilt the skeleton's CI in checkout mode — the package mode it
+  forced could never restore, because the private feed does not exist — with the framework checked
+  out as a SIBLING of the product: nested, `Directory.Packages.props` discovery walks up out of the
+  clone into the product's copy and restore dies NU1008 on both JauntyQ projects, measured. That
+  run also closed a vacuous pass of my own: a `(?m)` job-header regex that would not step over a
+  `\r`, so the sweep found no jobs and reported green. `fix/415-before-antiforgery` is the
+  400-vs-415 decision below, now taken. The JauntyQ generator flake is written up.
 - **CI closeout and the first-party application gap** (many branches, merged 2026-08-17). The CI
   chain went green end to end for the first time, including `aot-publish` and all three test
   tiers. Behind it: migration 0055 creates the first-party application row for every deployment,
@@ -33,14 +44,5 @@ The task completed most recently, kept for one rotation so the next one has cont
   ordering was examined and deliberately left alone — it is consistent at all 23
   `ValidateRequestAsync` sites, so it is a design decision to make, not a slip to fix; recorded in
   `work/todo.md`.
-- **Loose ends** (`fix/loose-ends`, merged 2026-08-17). Closed the last of the three 2026-08-03
-  CSP review findings: `IsExecutableScript` now carries the HTML standard's whole JavaScript MIME
-  type set, so `text/jscript`, `application/x-javascript`, `text/livescript`, the
-  `text/javascript1.x` forms and the `x-` variants are hashed instead of silently blocked on a
-  nonce-free page. Pinned by `templates/csp/legacytypes.html` (six executable spellings plus a
-  `text/template` control), perturbation-checked. Separately, twelve of the fourteen cleanup
-  scripts rejected the `--execute` spelling their headers documented; all now take it, and the
-  two that predated the interface and deleted on a bare invocation are dry-run-by-default with a
-  second named flag for the deletion.
-- Before that: spec 007 (session tokens hashed at rest) and `fix/csp-hash-scan-context` (HTML
-  context in the hash scan, plus the two lockstep layers that recompute).
+- Before that: `fix/loose-ends` (the last 2026-08-03 CSP review finding, plus the cleanup-script
+  `--execute` interface), spec 007 (session tokens hashed at rest) and `fix/csp-hash-scan-context`.

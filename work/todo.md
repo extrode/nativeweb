@@ -120,16 +120,25 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   `composite`, and there is no Deno JS-action runtime to select. Deno can run *inside* a step;
   it cannot replace the runtime that executes `checkout`. Blocked on upstream releases.
 
-- **Antiforgery is validated before `HasFormContentType` at all 23 POST sites — decide, don't
-  drift.** Recorded as a defect ("a non-form POST gets 400 not the intended 415") in the V4
-  review; on inspection it is not a slip in four files but the same order in every one, which
-  makes it a design choice nobody has written down. There is a real argument for keeping it: the
-  CSRF check runs before the request body is interpreted at all, and swapping the order lets a
-  caller with no token learn whether its content type would have been accepted. There is a real
-  argument for changing it: 415 is the more informative answer, and a client sending JSON to a
-  form endpoint currently gets told its token is bad. Either is defensible; what is not is
-  leaving it undecided while the review note calls it a bug. Needs a decision, then one sweep —
-  it moves status codes on 23 endpoints, so it is not a quiet fix. Raised again 2026-08-17.
+- ~~**Antiforgery is validated before `HasFormContentType` at all 23 POST sites — decide, don't
+  drift.**~~ **Decided and done 2026-08-17** (user: "swap to 415 first"), branch
+  `fix/415-before-antiforgery`. The count was 26 validating handlers, not 23: 17 carried the
+  400/415 pair and were swapped, six read the form through a tolerant ternary with no 415, and
+  three accept a request that may or may not be a form (WebAuthn enroll/verify, sign-out) and
+  had to keep accepting both. The "lets a caller learn whether its content type would have been
+  accepted" argument was checked and does not hold: the 415 decision reads only the caller's own
+  `Content-Type`, never server or session state, so it is the same answer for everyone. Guarded
+  by a source-order sweep (`ContentTypeGuardOrderingTests`) plus HTTP-level facts
+  (`ContentTypeGuardTests`).
+
+- **The six tolerant-ternary handlers still answer a misleading 400 for a JSON body.** Noted by
+  Fable while reviewing the sweep above: `AdminEndpoints.PostApplicationDisable` /
+  `PostApplicationRotateSecret` and `SettingsEndpoints.PostTwoFactorDisable` /
+  `PostRecoveryCodesRegenerate` / `PostWebAuthnRemove` / `PostSessionsRevokeOthers` validate
+  antiforgery, then read the form through a ternary that tolerates a non-form request rather
+  than answering 415. A JSON POST with no header token therefore gets exactly the 400 this
+  branch removed elsewhere. Deliberately left alone — extending the sweep to them is a second
+  decision about six more endpoints, not a follow-through on the first.
 
 - **A session key that cannot be a raw `Guid`.** Spec 007 routes every session read, write and
   delete through `SessionToken`, but `Guid.Parse(token.CookieValue)` still recovers the plaintext
@@ -286,8 +295,9 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   `Redirects.To`. The note's "RedirectResult's comment says 303 but emits 302" was stale: there is
   no `RedirectResult`, and `Redirects.To`'s comment says 302 and emits 302. The separate 302-vs-303
   question above is still deliberately unchanged.
-- ValidateAsync (4 files) checks antiforgery before HasFormContentType, so a non-form POST
-  gets 400 not the intended 415 (pre-existing).
+- ~~ValidateAsync (4 files) checks antiforgery before HasFormContentType, so a non-form POST
+  gets 400 not the intended 415 (pre-existing).~~ Fixed 2026-08-17 — see the decided entry
+  above. It was seven files and 17 handlers, not four.
 - Anonymous pages (home, /u/*) mint an antiforgery cookie via Chrome.For/GetAndStoreTokens,
   making the crawlable pages uncacheable (pre-existing convention) — revisit in V7 perf work.
 - Home route sits outside the "public" rate-limit group (pre-existing) — revisit in V5/V6.
