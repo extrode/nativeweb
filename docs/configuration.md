@@ -102,13 +102,31 @@ the app claim health for minutes after its database has gone.
 
 | Key | Default | Notes |
 |---|---|---|
-| `NativeWeb:Telemetry:Enabled` | unset (off) | Compared case-insensitively against the literal `"true"`; anything else is off |
+| `NativeWeb:Telemetry:Enabled` | unset (**on**) | Compared case-insensitively against the literal `"false"`; anything else — including unset — is on |
 
 Metrics and traces over OTLP, including Npgsql's built-in `ActivitySource` and `Meter`. The
 endpoint and protocol come from the standard `OTEL_EXPORTER_OTLP_*` environment variables, not from
-a `NativeWeb:` key.
+a `NativeWeb:` key. The default endpoint is `localhost:4317`; with no collector there, export
+failures are background warnings and never request failures.
 
-**Off by default and must be turned on before the epass.io traffic switch.**
+**On by default since 2026-08-17.** It was opt-in until then, which is the shape that produces a
+flag first exercised in production. `"0"`, `"no"` and a padded `" false "` are *not* off — the
+comparison fails toward exporting, because the failure being guarded against is a host that
+quietly stopped reporting and was noticed only when someone went looking for a graph.
+
+Resource attributes are `service.name = nativeweb.web` and `service.version = <informational
+version>`, the same string `/version` returns. Without them a collector sees
+`unknown_service:<host process>` and cannot tell two instances apart.
+
+Nothing needs redacting at the app: the ASP.NET Core instrumentation redacts every `url.query`
+*value* to the literal `Redacted` (parameter names survive), and no route in this app carries a
+secret in its path — the only route parameters are `{id:long}`, `{clientId:guid}` and `{id}`.
+`TelemetryTests` asserts the redaction rather than assuming it, since it is a package default.
+
+One exception, and it is Development-only: `/dev/inbox/{destination}` takes an email address in
+the path, so a developer host exporting to a shared collector would send those addresses as
+`url.path`. The route is mapped only under `IsDevelopment()` and never exists in a production
+posture, but point a dev host at a throwaway collector rather than the production one.
 
 ## Antiforgery and data protection
 

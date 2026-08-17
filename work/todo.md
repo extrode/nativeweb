@@ -364,8 +364,9 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   Until they do, a push to `dev` in either framework repo can turn every stamped product's CI
   red with nothing having changed in that product. Pin to tags when the first release lands.
   Raised 2026-08-17.
-- `deno run -A ~/.claude/tools/structure-audit.js` warns that the repo `.gitignore` does not
-  ignore `tmp/`. One line, no scratch file exists there yet. Raised 2026-08-17.
+- ~~`.gitignore` does not ignore `tmp/`~~ — done 2026-08-17, `feat/enable-telemetry`. Escalated
+  from warning to error the moment that branch put a throwaway NativeAOT publish there: 159
+  scratch files exposed to `git add -A` on the commit about to be made.
 - ~~V9 review findings that are pre-existing on dev~~ — done 2026-08-03,
   `chore/v9-pre-existing-findings`. (a) root `Directory.Build.props` dead `JauntyQUsePackages`
   auto-default deleted (it could never fire: the probe above it always assigns `JauntyQRoot`)
