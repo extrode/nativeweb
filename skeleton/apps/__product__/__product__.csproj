@@ -58,9 +58,11 @@
   </ItemGroup>
 
   <!-- Framework libs: local checkout via ProjectReference for co-development;
-       pinned NuGet packages in package mode (-p:NativeWebUsePackages=true, e.g.
-       CI with no sibling checkout). Same dual-mode split JauntyQ uses in
-       libs/__product__.data. -->
+       pinned NuGet packages in package mode (-p:NativeWebUsePackages=true).
+       Same dual-mode split JauntyQ uses in libs/__product__.data. CI is NOT the
+       package-mode case: .github/workflows/ci.yml checks the framework out as a
+       SIBLING of this repository and builds in checkout mode, because the package
+       feed does not exist. -->
   <ItemGroup Condition="'$(NativeWebUsePackages)' != 'true'">
     <!-- Passphrases (Argon2id), OpaqueTokens, Sha256Hex, BotTraps. -->
     <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.security\nativeweb.security.csproj" />
