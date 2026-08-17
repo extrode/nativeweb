@@ -71,10 +71,27 @@ Agent instructions are in `AGENTS.md`. `CLAUDE.md` is a one-line shim that impor
 
 `.github/workflows/ci.yml` builds in **checkout mode**, the same mode a developer machine uses.
 A runner has no sibling checkout, so the workflow clones `extrode-legacy-org/NativeWeb` and `extrode-legacy-org/jauntyq`
-into `.ci-framework/` and points `NativeWebRoot` / `JauntyQRoot` at them. Both are workflow-level
-*environment* variables rather than `-p:` flags, because `dotnet list package` accepts no `-p:`
-and the e2e fixture's NativeAOT publish runs as a child process — MSBuild reads bare environment
-variables as properties, so one definition covers all of it.
+and points `NativeWebRoot` / `JauntyQRoot` at them. Both are workflow-level *environment*
+variables rather than `-p:` flags, because `dotnet list package` accepts no `-p:` and the e2e
+fixture's NativeAOT publish runs as a child process — MSBuild reads bare environment variables as
+properties, so one definition covers all of it.
+
+The workspace is laid out as **siblings**, with this product in `product/`:
+
+```
+$GITHUB_WORKSPACE/
+  product/     <- this repository
+  NativeWeb/
+  jauntyq/
+```
+
+That is load-bearing, not tidiness. `Directory.Packages.props` discovery walks up from each
+project and does not stop at a repository boundary, so a framework clone placed *inside*
+`product/` inherits this repo's copy — which sets `ManagePackageVersionsCentrally=true`. jauntyq
+ships no `Directory.Packages.props` and its `PackageReference`s carry `Version` attributes, so
+central package management switches on underneath it and restore dies with NU1008 on both JauntyQ
+projects (measured 2026-08-17; siblings build clean). `defaults.run.working-directory: product` is
+what keeps every `run:` step pointed at this repository.
 
 **Set the `FRAMEWORK_CHECKOUT_TOKEN` repository secret** before the first run. The framework repos
 are private and the default `GITHUB_TOKEN` is scoped to this repository only, so without it the
@@ -96,6 +113,8 @@ The stamp leaves deliberate placeholders. Replace every one before the product f
 - `wwwroot/img/logo.svg` — the placeholder logo.
 - `deploy/__product__.service` / `install-windows-service.ps1` — connection string and URLs.
 - `docs/security-baseline.md` — tick the checklist, honestly.
+- **The `FRAMEWORK_CHECKOUT_TOKEN` repository secret.** The one setup step with no artifact in
+  this repo, so nothing here will remind you: CI cannot check out the framework without it.
 - `nuget.config` — the `framework-github` source points at `extrode-legacy-org`'s registry. Repoint it if
   your framework packages publish elsewhere; the `packageSourceMapping` beside it is what keeps
   `NativeWeb.*`/`JauntyQ.*` from ever resolving against nuget.org, so keep the two in step.

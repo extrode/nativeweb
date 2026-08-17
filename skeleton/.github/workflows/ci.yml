@@ -17,10 +17,23 @@ env:
   # (pass the two flags yourself) for the day those packages publish; it is just
   # no longer what CI depends on.
   #
-  # A runner has no SIBLING checkout for the `$(NativeWebRoot)` / `$(JauntyQRoot)`
-  # probes in Directory.Build.props, so the "Check out the framework" steps below
-  # clone both repositories into .ci-framework/ and these two variables point the
-  # probes at them. They are BARE variables, not -p: flags, on purpose: MSBuild
+  # A runner has no sibling checkout for the `$(NativeWebRoot)` / `$(JauntyQRoot)`
+  # probes in Directory.Build.props, so the steps below clone both repositories
+  # and these two variables point the probes at them.
+  #
+  # THE PRODUCT IS CHECKED OUT INTO product/, NOT the workspace root, so that the
+  # framework clones are its SIBLINGS rather than its children. That is not
+  # cosmetic. Nested under the product, `Directory.Packages.props` discovery walks
+  # up out of the clone and finds the PRODUCT's copy, which sets
+  # ManagePackageVersionsCentrally=true; jauntyq ships no Directory.Packages.props
+  # of its own and its PackageReferences carry Version attributes, so central
+  # package management switches on underneath it and restore dies. Measured
+  # 2026-08-17 in exactly this layout: NU1008 on JauntyQ.Generator and
+  # JauntyQ.Runtime, naming eleven and four packages. The sibling layout builds
+  # clean. `defaults.run.working-directory` below is what keeps every run: step
+  # pointed at the product.
+  #
+  # They are BARE variables, not -p: flags, on purpose: MSBuild
   # reads bare environment variables as properties, so one definition here reaches
   # `dotnet restore`, `dotnet build`, `dotnet test`, `dotnet list package` (which
   # accepts no -p: at all) and the NativeAOT publish the e2e fixture spawns as a
@@ -33,14 +46,21 @@ env:
   # If either checkout is wrong or missing the build FAILS LOUDLY -- Ensure*Root
   # in Directory.Build.props probes for a sentinel csproj, so an empty or stale
   # directory is an error rather than a silently-skipped ProjectReference and a
-  # pile of CS0246s. Verified 2026-08-17 against a stamped product: correct roots
-  # build clean (0 warnings), a bogus NativeWebRoot produces 10 "NativeWeb
-  # checkout not found" errors.
+  # pile of CS0246s. Verified 2026-08-17 against a product stamped from this
+  # skeleton, in this workspace layout: correct roots build clean, a bogus
+  # NativeWebRoot produces 10 "NativeWeb checkout not found" errors.
   # ---------------------------------------------------------------------------
-  NativeWebRoot: ${{ github.workspace }}/.ci-framework/NativeWeb
-  JauntyQRoot: ${{ github.workspace }}/.ci-framework/jauntyq
+  NativeWebRoot: ${{ github.workspace }}/NativeWeb
+  JauntyQRoot: ${{ github.workspace }}/jauntyq
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+# Every `run:` step operates on the product, which the checkout steps place in
+# product/ rather than at the workspace root. `uses:` steps are unaffected --
+# actions/checkout takes its own `path:`.
+defaults:
+  run:
+    working-directory: product
 
 jobs:
   test:
@@ -69,6 +89,8 @@ jobs:
       __PRODUCT____Db__ConnectionString: "Host=localhost;Database=__product___test;Username=__product___app;Password=ci_test_password"
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: product
 
       # The framework, as a checkout rather than as packages -- this is what makes
       # the NativeWebRoot / JauntyQRoot variables at the top of this file resolve.
@@ -95,16 +117,18 @@ jobs:
         with:
           repository: extrode-legacy-org/NativeWeb
           ref: dev
-          path: .ci-framework/NativeWeb
+          path: NativeWeb
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+          persist-credentials: false
 
       - name: Check out the framework (JauntyQ)
         uses: actions/checkout@v4
         with:
           repository: extrode-legacy-org/jauntyq
           ref: dev
-          path: .ci-framework/jauntyq
+          path: jauntyq
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -138,9 +162,11 @@ jobs:
       # transitive) has a known CVE. `dotnet list` takes no -p: properties -- the
       # reason NativeWebRoot / JauntyQRoot are workflow-level environment
       # variables, which MSBuild reads as properties, so evaluation here resolves
-      # the same way the restore above did. In checkout mode this walks the
-      # framework's ProjectReferences too, so the audit now covers the framework's
-      # own package graph rather than just the pinned NativeWeb.* facades.
+      # the same way the restore above did. It reports the SOLUTION's projects, so
+      # framework packages appear only where they flow through an ordinary
+      # ProjectReference; anything the framework marks PrivateAssets="all" -- the
+      # JauntyQ generator's whole dependency graph, for one -- contributes nothing
+      # here and has to be audited where it is built.
       #
       # The command exits 0 either way, so the gate is two greps: fail on any
       # "> PackageName" finding line, and fail if the positive "no vulnerable
@@ -192,6 +218,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: product
 
       # Same framework checkout as the test job, and for the same reason -- this
       # job resolves NativeWebRoot / JauntyQRoot from the workflow-level variables
@@ -202,16 +230,18 @@ jobs:
         with:
           repository: extrode-legacy-org/NativeWeb
           ref: dev
-          path: .ci-framework/NativeWeb
+          path: NativeWeb
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+          persist-credentials: false
 
       - name: Check out the framework (JauntyQ)
         uses: actions/checkout@v4
         with:
           repository: extrode-legacy-org/jauntyq
           ref: dev
-          path: .ci-framework/jauntyq
+          path: jauntyq
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@v4
         with:
