@@ -25,6 +25,29 @@ env:
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
+  # Slice 2's two encryption-key secrets. Program.cs registers ContactProtector
+  # and StoreDataProtector only when these are configured, and the endpoints
+  # resolve them via RequestServices and return 503 when they are absent -- a
+  # deliberate "missing config degrades the feature, doesn't crash the app"
+  # posture. NativeWebFactory reads exactly these two variable names and its
+  # comment says CI sets them "as real env vars instead" of the user-secrets
+  # store local dev uses. Nothing ever did, so the integration tier failed the
+  # first time it ran on a runner: 27 DI resolution failures and 17 endpoints
+  # answering ServiceUnavailable. The e2e tier reads NativeWeb__ContactKey too,
+  # in TestDatabase, and throws outright when it is missing.
+  #
+  # Defined at workflow level so the e2e fixture's CHILD process inherits them:
+  # AppProcessFixture launches the app with UseShellExecute=false, which copies
+  # the parent environment.
+  #
+  # These are test values and deliberately not secrets, which is why they are
+  # here in the clear rather than in the secret store. DeriveKey SHA256s
+  # anything that is not already a 32-byte encoded key, so they only have to be
+  # stable and non-empty, and every row they protect lives in a database this
+  # job creates and throws away. Do not reuse either value anywhere real.
+  NativeWeb__ContactKey: ci-test-contact-key-not-a-secret
+  NativeWeb__StoreEncryptionKey: ci-test-store-encryption-key-not-a-secret
+
 jobs:
   test:
     # Unit/integration/e2e are plain JIT test hosts, not AOT publishes, so
