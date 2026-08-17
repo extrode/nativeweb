@@ -99,6 +99,12 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   anonymous traffic it would speed up no longer reaches PostgreSQL at all. The case that *is*
   still open is the authenticated list pages (a user's own bookmarks, their tag lists), which are
   never cached and still run count-then-page. Different case, needs its own measurement.
+  **Not measurable here any more, checked 2026-08-17: those pages are not in this repo.** Spec 003
+  extracted the bookmarking app to manzil.my, and `apps/` now holds `web` alone — no bookmark or
+  tag endpoint, route or query file survives, and the IdP has no paged list page at all. So the
+  item is misfiled rather than open: it belongs to manzil.my's backlog, against manzil.my's schema
+  and traffic, and any measurement taken here would be of code that no longer exists. Carry it
+  across before acting on it; do not re-open it as NativeWeb work.
 - CSRF (user, 2026-07-30): the framework antiforgery is kept for its BREACH-masked token, but the
   user dislikes how the `<meta name="request-verification-token">` + hidden-input plumbing looks.
   Candidate: a Rails-style per-session token behind a small helper so the markup reads cleaner —
