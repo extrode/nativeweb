@@ -6,10 +6,11 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- Nothing in flight. `fix/ci-package-feed` is merged into `dev`: the repo now has a
-  `nuget.config` pointing `JauntyQ.*` at GitHub Packages, ci.yml authenticates with the job's
-  own `GITHUB_TOKEN`, and CI runs on `dev` and `main` instead of skipping exactly the branches
-  work lands on.
-- **Blocked on one action outside the repo:** the `extrode-legacy-org` org has to grant this repo read
-  access to the `jauntyq` packages. Until then CI's restore fails 401 rather than NU1101 — the
-  wiring is right and the credential is not yet permitted.
+- Nothing in flight. The CI chain is closed: run 32020940278 on `dev` is the first fully green
+  run, with `aot-publish` plus all three test tiers passing (409 unit / 258 integration /
+  62 E2E). E2E had never executed on a runner before this one.
+- The `extrode-legacy-org` org package grant that blocked `fix/ci-package-feed` is **no longer blocking** --
+  restore now authenticates and resolves `JauntyQ.*` from GitHub Packages on the runner.
+- Next decision, not a task: the first-party application row exists in CI and in local dev, but
+  a fresh production database still has none. Before the epass.io cutover it becomes either a
+  migration or a documented provisioning step. See `../todo.md`.

@@ -85,6 +85,27 @@ Merged into `dev`, not yet tagged.
   every user out. Found by the V6 Fable review and left pre-cutover; closed before it became a
   question of invalidating live sessions rather than empty ones.
 
+### Fixed
+- **CI is green end to end for the first time** (run 32020940278) — every tier now actually
+  executes on a runner: 409 unit, 258 integration, and 62 E2E, the last of which had never run
+  on CI at all. Two defects behind the last red run:
+  - `db/migrations` alone does not produce a database the app can serve a request against.
+    `RealmResolver.ResolveFirstPartyAsync` throws when the first-party application row is
+    absent and no migration creates it, so every first-party realm resolution answered 500 --
+    33 integration failures, none of which named the missing row, because `ErrorPageMiddleware`
+    renders its own page rather than a stack trace. `db/seed/ci/` now carries exactly that row.
+    The existing dev seed was tried instead and rejected by measurement: its `TRUNCATE users
+    CASCADE` does not restart the identity sequence, so alice lands on id 2 while
+    `TestDatabase.SeededUserId` is 1, failing six `SessionAuthTests`.
+  - `AddUserSecrets` appends its source, so the user-secrets store outranked a real environment
+    variable. With `ConnectionStrings__NativeWeb` exported the integration fixture wrote rows to
+    one database while the app under test read another, reporting "Incorrect username or
+    password" with no hint of why -- which meant no CI-only failure could be reproduced locally
+    at all. User-secrets are now inserted below the environment-variables source, matching the
+    default non-slim host precedence. A Fable review then caught the reordering helper
+    corrupting the order for more than one added source (it walked onto the environment source
+    and demoted that), a latent contract bug the single-source tests all passed over.
+
 ### Removed
 - The DevMarks projects (`apps/devmarks`, `libs/nativeweb.devmarks.data`,
   `tests/nativeweb.devmarks.tests.*`, `db/devmarks`), now living in the manzil.my repo; CI,
