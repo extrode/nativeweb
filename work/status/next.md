@@ -4,6 +4,8 @@ Exactly **one** task, the next one to start, pulled from `../tasklist.md` when t
 advances. The full task list for this body of work is `../tasklist.md`; the unscheduled backlog is
 `../todo.md`; where the project is going is `../milestones.md`.
 
-- Nothing queued. Candidates: `work/todo.md`
-  backlog, or the sign-off-gated epass.io production cutover (user-gated; enable
-  `NativeWeb:Telemetry:Enabled` first).
+- **The epass.io production cutover.** Sign-off gated, and `NativeWeb:Telemetry:Enabled` goes on
+  before the traffic switch, not after — the point of the telemetry is to watch the switch.
+- Behind it, the `work/todo.md` items that need a decision rather than work: the skeleton's
+  release process (whether NativeWeb versions and publishes itself), the session key type
+  (JauntyQ-wide), and the Node 20 → 24 action bump (blocked upstream).

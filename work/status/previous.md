@@ -2,6 +2,19 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **CI closeout and the first-party application gap** (many branches, merged 2026-08-17). The CI
+  chain went green end to end for the first time, including `aot-publish` and all three test
+  tiers. Behind it: migration 0055 creates the first-party application row for every deployment,
+  which is what `db/seed/ci` had been papering over for CI alone — measured 33/258 integration
+  failures with 0055 withheld against 258/258 with it. `RealmResolver.ResolveFirstPartyAsync`
+  now returns null rather than throwing, both call sites answer 503, and a three-valued boot
+  check refuses to start outside Development only when the database *answers* and the row is
+  absent. `db/seed/ci` is retired and deleted; `CiSeedTests` was rewritten to assert the
+  inverse, that ci.yml applies no seed at all. Fable's review caught a real defect in
+  `DemoteBelowEnvironmentVariables`, which was wrong for more than one added source and had four
+  passing tests that were all single-source. The skeleton's `msvc-dev-cmd` is SHA-pinned, guarded
+  by `ActionPinTests` over both repositories' workflows. Cleanup ran: 97 merged branches, 29
+  scratch files and 8 repro databases removed.
 - **Overnight backlog** (three branches, merged 2026-08-17). `chore/test-and-skeleton-hygiene`
   removed the two dead OpenApi package pins (approved beforehand: dependency removal) and made
   `check-publish-budgets.ps1` default to the port ci.yml actually passes, guarded by a test that

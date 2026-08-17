@@ -21,6 +21,17 @@ Small, clear, and could be picked up without a design decision.
   The test has two guards against passing vacuously: one asserting the scan finds both
   repositories' workflows, one asserting at least one third-party action is actually under test.
 
+- **The JauntyQ source generator drops its whole output on incremental rebuild, intermittently.**
+  Hit twice on 2026-08-17, both times in `libs/nativeweb.auth`: the entire `JauntyQ.Generated`
+  namespace vanished, so every file in the project failed CS0246 — including files the edit had
+  not touched. A clean rebuild fixed it both times, and nothing was wrong with the source.
+  Dangerous because of what it looks like: the second occurrence buried a genuine compile error
+  of mine under 40 spurious ones, and the instinct is to "fix" code that was never broken. If
+  the whole namespace disappears at once, rebuild clean before believing the errors.
+  Not diagnosed. Reproducing it means catching the flake with binlogs on, which nothing here
+  does routinely; the generator lives in the JauntyQ checkout, so the investigation is over
+  there rather than in this repo. Recorded 2026-08-17.
+
 - **JauntyQ package skew: watch for it recurring.** Closed for now — JauntyQ 0.2.0 published
   2026-08-17 and the pins here moved to match, verified by building the solution in package mode
   against the 0.2.0 nupkgs (0 warnings, 0 errors) and reproducing the old `JNT8004 No index
