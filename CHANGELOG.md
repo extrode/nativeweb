@@ -149,6 +149,18 @@ Merged into `dev`, not yet tagged.
   explicit feedback; covered by all three test tiers.
 
 ### Changed
+- **Telemetry is on by default** (spec 003 R33, `docs/plans/2026-08-17-004-enable-telemetry.md`) —
+  `NativeWeb:Telemetry:Enabled` inverts from opt-in to opt-out: anything that is not the literal
+  `"false"` exports, including the key being absent. An opt-in flag is one first exercised in
+  production, which is precisely what the epass.io cutover could not afford. The resource now
+  carries `service.name = nativeweb.web` and `service.version`; before this it was
+  `unknown_service:<host process>`, so two instances were indistinguishable at the collector.
+  No app-level redaction was added, and that is measured rather than assumed: the ASP.NET Core
+  instrumentation already redacts every `url.query` value to `Redacted` (a package default, so
+  a test asserts it), and no production route carries a secret in its path. Verified against the
+  NativeAOT image, not just the JIT test host — 35.2 MB, 619 ms to `/healthz`, no trim warnings.
+  The skeleton deliberately stays opt-in: default-off is right for a template, default-on is a
+  deployment decision this product has made.
 - **IdP hardening close-out** (spec 002, `docs/specs/002-idp-hardening/`) — the deferred
   security/conformance backlog closed across seven reviewed branches:
   reset-code issuance capped per identifier (30 s floor + 5/24 h rolling window, one atomic

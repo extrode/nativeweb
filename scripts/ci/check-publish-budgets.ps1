@@ -39,10 +39,12 @@ $startInfo.WorkingDirectory = (Split-Path (Resolve-Path $ExePath).Path)
 $startInfo.UseShellExecute = $false
 $startInfo.EnvironmentVariables['ASPNETCORE_URLS'] = $baseUrl
 $startInfo.EnvironmentVariables['ASPNETCORE_ENVIRONMENT'] = 'Development'
-# Telemetry ON for this launch, deliberately: the in-proc TelemetryTests run
-# under CoreCLR, so this is the only place the OTel registration path is
-# exercised inside the actual NativeAOT image before production flips the
-# flag. No collector exists here; export failures are background warnings.
+# Telemetry ON for this launch. Redundant since 2026-08-17, when the flag became
+# opt-out and a bare launch would enable it anyway -- kept explicit because this
+# is the ONLY place the OTel registration path runs inside the actual NativeAOT
+# image (TelemetryTests is a CoreCLR host), so the intent should not depend on a
+# default that could move again. No collector exists here; export failures are
+# background warnings.
 $startInfo.EnvironmentVariables['NativeWeb__Telemetry__Enabled'] = 'true'
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()

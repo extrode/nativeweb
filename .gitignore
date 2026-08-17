@@ -44,3 +44,7 @@ Thumbs.db
 .claude/
 .specify/
 .worktrees/
+
+# Scratch: probes, dumps, diffs, throwaway publishes. Repo-local by rule so it is
+# never shared with another project; never committed.
+tmp/

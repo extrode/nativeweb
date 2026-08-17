@@ -87,5 +87,6 @@ this document. Items marked ☐ are known-open, with the reason.
   documented as an accepted bypass in `BotTraps.IssueCanary`.
 - **CI package-mode feed gap** — the CVE gate runs against the package-mode restore, which CI
   cannot currently complete (known JauntyQ feed gap, tracked in memory/README).
-- **OTel off by default** — enable `NativeWeb:Telemetry:Enabled` before the epass.io traffic
-  switch (V7 delivers the hooks).
+- **Collector address** — telemetry is on by default (2026-08-17) but
+  `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, so it exports to `localhost:4317` and fails in the
+  background. Where the collector lives is an operator decision still open.
