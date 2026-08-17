@@ -111,7 +111,10 @@ xact_guard_open_sql() {
 xact_guard_close_sql() {
   printf '%s\n' "" \
     "DO \$guard\$ BEGIN" \
-    "  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '_migrate_xact_guard') THEN" \
+    "  -- to_regclass('pg_temp....') resolves through THIS session's temp schema." \
+    "  -- A bare pg_class lookup on relname matches another session's temp table of" \
+    "  -- the same name, so two concurrent runs would hide each other's rollback." \
+    "  IF to_regclass('pg_temp._migrate_xact_guard') IS NULL THEN" \
     "    RAISE EXCEPTION 'migration rolled back the transaction this runner opened';" \
     "  END IF;" \
     "  IF (SELECT xid FROM _migrate_xact_guard) <> txid_current() THEN" \
@@ -302,7 +305,16 @@ apply_and_record() {
       # during a cutover, "which file is <stdin>" is not a question worth minutes.
       local err status=0
       err="$(mktemp)"
-      { xact_guard_open_sql; cat "$f"; record_sql "$version"; xact_guard_close_sql; } \
+      # ORDER: guard closes BEFORE the tracking row is written, and that is not
+      # cosmetic. With the INSERT first, a migration that ROLLBACKs breaks the
+      # wrap, the INSERT then commits on its own in autocommit, and the guard
+      # raises afterwards -- leaving the database recorded-but-not-applied, which
+      # every later run reports as `skip`. That is the single worst state this
+      # runner can produce, and the previous ordering manufactured it. Closing
+      # first means ON_ERROR_STOP halts psql before the INSERT is ever reached:
+      # applied-but-unrecorded at worst, which a re-run surfaces loudly instead
+      # of hiding. Fable, fourth pass.
+      { xact_guard_open_sql; cat "$f"; xact_guard_close_sql; record_sql "$version"; } \
         | app_psql --single-transaction -f - >/dev/null 2>"$err" || status=$?
       cat "$err" >&2
 
