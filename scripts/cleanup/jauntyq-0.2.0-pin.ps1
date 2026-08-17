@@ -183,7 +183,11 @@ $reproDatabases = @(
 foreach ($d in $reproDatabases) {
     if ($Execute -and $DropReproDatabases) {
         Write-Host "DO   drop database $d"
-        psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS $d"
+        # -w: never prompt for a password. Without it, a machine whose local auth is not
+        # trust/peer for `postgres` stalls the script on an invisible prompt part-way
+        # through an irreversible section, with no record of which databases already went.
+        # Failing loudly and setting $failed is the only acceptable behaviour here.
+        psql -w -h localhost -U postgres -c "DROP DATABASE IF EXISTS $d"
         if ($LASTEXITCODE -ne 0) {
             Write-Host "FAILED to drop $d" -ForegroundColor Red
             $failed = $true
