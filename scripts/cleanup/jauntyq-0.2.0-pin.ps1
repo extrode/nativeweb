@@ -7,6 +7,10 @@
 #   chore/jauntyq-version-skew-note   recorded the JNT8004 skew in work/todo.md
 #   chore/jauntyq-0.2.0-pin           bumped both Directory.Packages.props pins
 #                                     to 0.2.0 and rewrote that todo entry
+#   chore/jauntyq-pin-cleanup-script  this script
+#
+# The third is this script's own branch. It can delete itself because the script
+# is merged into dev before it is ever run, so the commit survives the branch.
 #
 # Dry run is the default and always exits 0; --execute / -e is the only way to
 # act. Deleting the scratch feeds is irreversible beyond that, so it needs
@@ -68,7 +72,8 @@ Write-Host '-- 2. merged branches (git branch -d refuses if unmerged)'
 # report and skip. Only a -d that refuses an unmerged branch is an error.
 foreach ($b in @(
         'chore/jauntyq-version-skew-note',
-        'chore/jauntyq-0.2.0-pin')) {
+        'chore/jauntyq-0.2.0-pin',
+        'chore/jauntyq-pin-cleanup-script')) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {
