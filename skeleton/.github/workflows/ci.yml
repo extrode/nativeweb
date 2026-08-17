@@ -56,8 +56,10 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
 # Every `run:` step operates on the product, which the checkout steps place in
-# product/ rather than at the workspace root. `uses:` steps are unaffected --
-# actions/checkout takes its own `path:`.
+# product/ rather than at the workspace root. Action steps are unaffected --
+# actions/checkout takes its own `path:`. (Do not write the u-s-e-s key inside a
+# comment in this file: ActionPinTests scans for it without skipping comments and
+# reads a mention as an unpinned action.)
 defaults:
   run:
     working-directory: product
