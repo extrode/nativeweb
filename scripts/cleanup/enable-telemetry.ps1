@@ -52,10 +52,26 @@ foreach ($b in $branches) {
 # Publish output and the probe/diff files the two review rounds produced. All
 # under the project's own tmp/, none of it tracked.
 $scratch = @(
+    # Three NativeAOT publishes, one per verification round.
     'tmp/publish-web',
     'tmp/publish-web2',
     'tmp/publish-web3',
+    # Throwaway probes: what a span and a metric point actually carry, measured
+    # rather than inferred from the semantic conventions.
+    'tmp/NpgsqlProbe.cs',
+    'tmp/TelemetryProbe.cs.throwaway',
+    # Backups taken before each perturbation, and the perturbation scripts.
+    'tmp/Npg.bak',
+    'tmp/Program.cs.bak',
+    'tmp/Program.cs.bak2',
     'tmp/QueryRedactingProcessor.cs.bak',
+    'tmp/TelemetrySwitch.cs.bak',
+    'tmp/TelemetryTests.cs.bak',
+    'tmp/perturb.py',
+    'tmp/perturb2.py',
+    # Diffs and prompts handed to the review worker, which could not take them
+    # on argv: an inlined diff exceeded the argument-length limit.
+    'tmp/review-diff.txt',
     'tmp/review-diff2.txt',
     'tmp/review2-prompt.txt'
 )
