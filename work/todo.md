@@ -21,6 +21,27 @@ Small, clear, and could be picked up without a design decision.
   The test has two guards against passing vacuously: one asserting the scan finds both
   repositories' workflows, one asserting at least one third-party action is actually under test.
 
+- **Two `migrate.sh` runs at once will double-apply a migration, silently.** Nothing serializes
+  the runner. Both processes pass `is_tracked` before either records, both apply the file, and
+  `ON CONFLICT DO NOTHING` swallows the second tracking INSERT. DDL fails loudly on the second
+  apply; a **data** migration double-applies with no error at all — and 0054 is the worst case,
+  since re-running it would hash already-hashed session ids and sign every user out permanently
+  (it guards itself, which is why this is a gap rather than a live bug). The fix is a
+  `pg_advisory_lock` taken for the whole run, which needs one connection held open across the
+  loop — a structural change to how the runner invokes psql, not a one-liner. Not a problem
+  today: one operator, one machine, and CI runs it once per job. **It becomes a real problem the
+  moment a deploy pipeline can run two jobs at once.** Found by Fable, 2026-08-17.
+
+- **Migrations now hold locks for a whole file — check the long ones before the cutover.**
+  `db/migrate.sh` wraps each migration in one transaction (2026-08-17), which is right for
+  atomicity and costs lock duration: every lock a file takes is held until its last statement
+  commits, where autocommit released them statement by statement. Free against an empty or idle
+  database, not free against one serving traffic — it blocks readers and writers for the length
+  of the file and widens the deadlock window. Nothing to do today, since every migration here has
+  only ever run against a provisioning database. **Before pointing this at a live epass.io
+  database, review the multi-`ALTER TABLE` migrations and split any that are long.** Raised by
+  Fable reviewing that change.
+
 - **The JauntyQ source generator drops its whole output on incremental rebuild, intermittently.**
   Hit twice on 2026-08-17, both times in `libs/nativeweb.auth`: the entire `JauntyQ.Generated`
   namespace vanished, so every file in the project failed CS0246 — including files the edit had
@@ -117,7 +138,21 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   change, hence a decision, not a fix. Recorded 2026-08-16, from the spec 007 review; the spec's
   R4 says the same rather than claiming to be met.
 
-- **`migrate.sh` applies and records in separate connections.** `app_psql -f "$f"` then
+- ~~**`migrate.sh` applies and records in separate connections.**~~ **Done 2026-08-17,
+  `fix/migrate-record-in-transaction`.** `apply_and_record` now pipes the migration and its
+  `schema_migrations` row into one `psql --single-transaction`, so either both land or neither
+  does. Files that cannot be wrapped are detected by content rather than listed — `CONCURRENTLY`
+  (six migrations; Postgres rejects it inside a transaction block) and an explicit `BEGIN` (0054
+  only) — so a new migration of either kind needs no edit to the runner.
+
+  **The consequence was worse than this entry claimed.** Measured against scratch databases with
+  a migration that creates a table then calls a missing function: the old runner committed the
+  CREATE TABLE, recorded nothing, and then failed on `relation already exists` on *every*
+  subsequent run. Not "re-applies it" — a database no re-run can fix without someone editing
+  `schema_migrations` by hand. The new runner rolls the whole thing back and fails the next time
+  on the real error, so fixing the SQL is the whole recovery. Original note follows.
+
+  `app_psql -f "$f"` then
   `record "$version"` (`db/migrate.sh:53,79-80`), so a crash between the two commits the
   migration and loses the tracking, and the next run re-applies it. Harmless for DDL, which is
   what every migration before 0054 is; not harmless for a data `UPDATE`. 0054 works around it by
