@@ -43,7 +43,10 @@ $branches = @(
     'fix/redirect-see-other',
     'fix/415-tolerant-ternary-handlers',
     'chore/release-compressed-asset-check',
-    'chore/editorconfig-naming-rules'
+    'chore/editorconfig-naming-rules',
+    # The branch this script itself was written on.
+    'chore/away-backlog-cleanup-script',
+    'chore/cleanup-script-self-reference'
 )
 
 foreach ($b in $branches) {
