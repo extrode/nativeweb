@@ -10,6 +10,9 @@
 #   chore/jauntyq-pin-cleanup-script  this script
 #   docs/local-packages-auth          nuget.config note on local feed auth
 #   chore/cleanup-script-auth-branches  added the last two lines to this list
+#   fix/ci-solution-restore-and-publish-path  the two CI fixes the first green
+#                                     build exposed
+#   chore/ci-fix-cleanup-entries      added those two to this list
 #
 # The third is this script's own branch. It can delete itself because the script
 # is merged into dev before it is ever run, so the commit survives the branch.
@@ -80,7 +83,9 @@ foreach ($b in @(
         'chore/jauntyq-0.2.0-pin',
         'chore/jauntyq-pin-cleanup-script',
         'docs/local-packages-auth',
-        'chore/cleanup-script-auth-branches')) {
+        'chore/cleanup-script-auth-branches',
+        'fix/ci-solution-restore-and-publish-path',
+        'chore/ci-fix-cleanup-entries')) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {
@@ -117,6 +122,8 @@ $scratch = @(
     'C:\tmp\jq020pkgs',
     'C:\tmp\jq010pkgs',
     'C:\tmp\feedauth',
+    'C:\tmp\pubprobe',
+    'C:\tmp\ci.yml.bak',
     (Join-Path $env:LOCALAPPDATA 'Temp\sbomprobe1')
 )
 foreach ($d in $scratch) {
