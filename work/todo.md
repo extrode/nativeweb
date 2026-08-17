@@ -21,6 +21,16 @@ Small, clear, and could be picked up without a design decision.
   The test has two guards against passing vacuously: one asserting the scan finds both
   repositories' workflows, one asserting at least one third-party action is actually under test.
 
+- **Migrations now hold locks for a whole file — check the long ones before the cutover.**
+  `db/migrate.sh` wraps each migration in one transaction (2026-08-17), which is right for
+  atomicity and costs lock duration: every lock a file takes is held until its last statement
+  commits, where autocommit released them statement by statement. Free against an empty or idle
+  database, not free against one serving traffic — it blocks readers and writers for the length
+  of the file and widens the deadlock window. Nothing to do today, since every migration here has
+  only ever run against a provisioning database. **Before pointing this at a live epass.io
+  database, review the multi-`ALTER TABLE` migrations and split any that are long.** Raised by
+  Fable reviewing that change.
+
 - **The JauntyQ source generator drops its whole output on incremental rebuild, intermittently.**
   Hit twice on 2026-08-17, both times in `libs/nativeweb.auth`: the entire `JauntyQ.Generated`
   namespace vanished, so every file in the project failed CS0246 — including files the edit had
