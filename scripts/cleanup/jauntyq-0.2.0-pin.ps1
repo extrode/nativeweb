@@ -153,6 +153,14 @@ $scratch = @(
     'C:\tmp\mig.err',
     'C:\tmp\nativeweb_dev.cols',
     'C:\tmp\nativeweb_cirepro.cols',
+    # From the Fable/GLM review round and the 0055 migration work.
+    'C:\tmp\ci500.diff',
+    'C:\tmp\scg2.bak',
+    'C:\tmp\m55.bak',
+    'C:\tmp\dry2.log',
+    'C:\tmp\migonly.err',
+    'C:\tmp\no55.err',
+    'C:\tmp\cl_before.md',
     (Join-Path $env:LOCALAPPDATA 'Temp\sbomprobe1')
 )
 foreach ($d in $scratch) {
