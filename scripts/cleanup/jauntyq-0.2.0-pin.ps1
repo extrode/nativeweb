@@ -25,6 +25,10 @@
 #   chore/ci-scratch-entries          scratch files from the review round
 #   chore/ci-seed-retirement-script   scripts/cleanup/ci-seed-retirement.ps1
 #   chore/final-cleanup-entries       these last four lines
+#   chore/retire-ci-seed              removed the ci.yml seed step, rewrote CiSeedTests
+#   chore/skeleton-action-pin         SHA-pinned the skeleton's msvc-dev-cmd + ActionPinTests
+#   fix/realm-resolver-consistency    503 instead of throw, plus the boot-time row check
+#   chore/three-task-cleanup-entries  this list update
 #
 # The third is this script's own branch. It can delete itself because the script
 # is merged into dev before it is ever run, so the commit survives the branch.
@@ -111,7 +115,11 @@ foreach ($b in @(
         'chore/ci-migration-cleanup-entries',
         'chore/ci-scratch-entries',
         'chore/ci-seed-retirement-script',
-        'chore/final-cleanup-entries')) {
+        'chore/final-cleanup-entries',
+        'chore/retire-ci-seed',
+        'chore/skeleton-action-pin',
+        'fix/realm-resolver-consistency',
+        'chore/three-task-cleanup-entries')) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {
@@ -168,6 +176,11 @@ $scratch = @(
     'C:\tmp\no55.err',
     'C:\tmp\cl_before.md',
     'C:\tmp\csr.log',
+    'C:\tmp\noseed.err',
+    'C:\tmp\scg3.bak',
+    'C:\tmp\nw.bak',
+    'C:\tmp\sk.bak',
+    'C:\tmp\ciy.bak',
     (Join-Path $env:LOCALAPPDATA 'Temp\sbomprobe1')
 )
 foreach ($d in $scratch) {
@@ -202,6 +215,7 @@ $reproDatabases = @(
     'nativeweb_cirepro3',
     'nativeweb_cirepro4',
     'nativeweb_cifinal',
+    'nativeweb_noseed',
     # From proving migration 0055 closes the production gap: migrations-only, and the
     # same schema with 0055 withheld (the run that reproduced CI's 33 failures exactly).
     'nativeweb_migonly',
