@@ -28,7 +28,9 @@
 #   chore/retire-ci-seed              removed the ci.yml seed step, rewrote CiSeedTests
 #   chore/skeleton-action-pin         SHA-pinned the skeleton's msvc-dev-cmd + ActionPinTests
 #   fix/realm-resolver-consistency    503 instead of throw, plus the boot-time row check
-#   chore/three-task-cleanup-entries  this list update
+#   chore/three-task-cleanup-entries  the previous list update
+#   chore/remove-ci-seed-file         git rm of the seed, staged by ci-seed-retirement.ps1
+#   chore/list-seed-removal-branch    this list update
 #
 # The third is this script's own branch. It can delete itself because the script
 # is merged into dev before it is ever run, so the commit survives the branch.
@@ -119,7 +121,9 @@ foreach ($b in @(
         'chore/retire-ci-seed',
         'chore/skeleton-action-pin',
         'fix/realm-resolver-consistency',
-        'chore/three-task-cleanup-entries')) {
+        'chore/three-task-cleanup-entries',
+        'chore/remove-ci-seed-file',
+        'chore/list-seed-removal-branch')) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {

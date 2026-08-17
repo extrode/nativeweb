@@ -1,6 +1,12 @@
 # ci-seed-retirement.ps1 -- retire db/seed/ci, superseded 2026-08-17 by
 # db/migrations/0055_first_party_application.sql.
 #
+# RUN AND SPENT, 2026-08-17. The seed is gone and the removal is committed on
+# chore/remove-ci-seed-file. Re-running is a harmless no-op -- section 2 reports
+# "not tracked; already gone" and section 3 "already gone" -- but there is
+# nothing left for it to do. Kept as the record of what was removed and why.
+# The follow-ups in section 4 were already done before it ran; see below.
+#
 # db/seed/ci existed for one reason: a migrations-only database had no first-party
 # application row, so RealmResolver.ResolveFirstPartyAsync threw and every
 # first-party realm resolution answered 500 (33 integration failures on CI).
@@ -138,10 +144,12 @@ else {
     Write-Host 'would remove db/seed/ci once empty (with --execute --delete-tracked)'
 }
 
-Write-Host '-- 4. what to do after this runs'
-Write-Host '   - db/seed/README.md still describes ci/ in the present tense; reword it.'
-Write-Host '   - work/todo.md carries the entry that scheduled this; tick it off.'
-Write-Host '   - the unit count does not change: CiSeedTests was rewritten, not removed.'
+Write-Host '-- 4. after this runs (all three were already done before it ran, 2026-08-17)'
+Write-Host '   - db/seed/README.md: DONE in chore/retire-ci-seed; ci/ is struck through and'
+Write-Host '     marked retired, with the reason under it.'
+Write-Host '   - work/todo.md: DONE, the entry that scheduled this is struck through.'
+Write-Host '   - the unit count does not change: CiSeedTests was rewritten, not removed. 420.'
+Write-Host '   - what IS left: commit the staged deletion. This script stages, never commits.'
 
 Write-Host '-- remaining state'
 git -C $repo status --short | Write-Host
