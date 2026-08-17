@@ -328,8 +328,10 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   them: `skeleton/.github/workflows/ci.yml` sets `NativeWebUsePackages` and `JauntyQUsePackages`
   as *env vars* on the e2e step, MSBuild reads bare env vars as properties, and env is
   inherited by the child publish. Same wiring NativeWeb's own e2e step got on 2026-08-03.
+  (Superseded 2026-08-17: those two env vars are gone. The mechanism is unchanged and is now
+  what the whole workflow rests on — `NativeWebRoot`/`JauntyQRoot` at workflow level.)
 
-- **The skeleton has the gap NativeWeb just closed, one level up, and it needs a decision.**
+- ~~**The skeleton has the gap NativeWeb just closed, one level up, and it needs a decision.**
   `libs/*` here are all `IsPackable` with `NativeWeb.*` package ids, and the skeleton builds
   against them with `-p:NativeWebUsePackages=true` — but this repo has no `publish.yml`
   (only `ci.yml`), so nothing has ever pushed a `NativeWeb.*` package anywhere, and the
@@ -337,7 +339,22 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   2026-08-17 for JauntyQ, and it is why the skeleton's suites have never run. Not a fix:
   it needs a call on whether NativeWeb versions and releases itself independently
   (jauntyq's `publish.yml` on `v*` tags is the pattern to copy), which is a release-process
-  decision rather than a wiring one. Raised 2026-08-17.
+  decision rather than a wiring one.~~ **Done 2026-08-17**, `chore/skeleton-local-mode-ci`,
+  and it turned out not to need the release decision at all: CI now builds in **checkout
+  mode**, cloning `extrode-legacy-org/NativeWeb` and `extrode-legacy-org/jauntyq` into `.ci-framework/` and pointing
+  `NativeWebRoot` / `JauntyQRoot` at them as workflow-level *environment* variables (one
+  definition reaches `dotnet list package`, which takes no `-p:`, and the e2e fixture's child
+  publish). The skeleton also now ships the missing `nuget.config`. The publish-vs-not
+  decision is deferred, not answered — package mode still exists, still has no feed, and is
+  simply no longer what CI depends on. Requires a `FRAMEWORK_CHECKOUT_TOKEN` secret on each
+  stamped product repo, since both framework repos are private.
+- **Neither framework checkout in `skeleton/.github/workflows/ci.yml` is pinned to a tag** —
+  both use `ref: dev`, because neither repo publishes tags (NativeWeb has no `main` at all).
+  Until they do, a push to `dev` in either framework repo can turn every stamped product's CI
+  red with nothing having changed in that product. Pin to tags when the first release lands.
+  Raised 2026-08-17.
+- `deno run -A ~/.claude/tools/structure-audit.js` warns that the repo `.gitignore` does not
+  ignore `tmp/`. One line, no scratch file exists there yet. Raised 2026-08-17.
 - ~~V9 review findings that are pre-existing on dev~~ — done 2026-08-03,
   `chore/v9-pre-existing-findings`. (a) root `Directory.Build.props` dead `JauntyQUsePackages`
   auto-default deleted (it could never fire: the probe above it always assigns `JauntyQRoot`)
