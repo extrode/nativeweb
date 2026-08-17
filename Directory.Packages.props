@@ -19,8 +19,8 @@
     <!-- JauntyQ pin: used only when building without a local jauntyq checkout
          (package mode, e.g. CI, -p:JauntyQUsePackages=true). Bump deliberately
          after a new jauntyq v* tag publishes. -->
-    <PackageVersion Include="JauntyQ.Generator" Version="0.1.0" />
-    <PackageVersion Include="JauntyQ.Runtime" Version="0.1.0" />
+    <PackageVersion Include="JauntyQ.Generator" Version="0.2.0" />
+    <PackageVersion Include="JauntyQ.Runtime" Version="0.2.0" />
     <!-- WebAuthn/FIDO2 attestation+assertion verification (passkeys). Verified
          NativeAOT-clean via a standalone publish spike (TreatWarningsAsErrors +
          trim/AOT analyzers, zero warnings; native .exe runs incl. NSec/libsodium

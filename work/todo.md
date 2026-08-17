@@ -11,34 +11,24 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 Small, clear, and could be picked up without a design decision.
 
-- **CI compiles now, and fails on JauntyQ version skew — `JNT8004` ×15, checked 2026-08-17.**
-  The GitHub Packages grant landed (NativeWeb has Read on `JauntyQ.Generator` and
-  `JauntyQ.Runtime`), so restore and authentication are green on both jobs for the first time and
-  run `31993957088` reached compile. It fails there: `JNT8004 No index covers ... used as a
-  filter/join key` on `email_addresses.value_bidx`, `phone_numbers.value_bidx`,
-  `login_attempts.username_hash` and `temp_codes.hashed_username`.
+- **JauntyQ package skew: watch for it recurring.** Closed for now — JauntyQ 0.2.0 published
+  2026-08-17 and the pins here moved to match, verified by building the solution in package mode
+  against the 0.2.0 nupkgs (0 warnings, 0 errors) and reproducing the old `JNT8004 No index
+  covers ...` failures against 0.1.0 to prove the probe reaches the generator.
 
-  **Not a NativeWeb defect.** Those columns are indexed — `0029_contact_encryption.sql` and
-  `0022_realm_unique_constraints.sql` create composite `(realm_id, <column>)` unique indexes, and
-  the queries filter on both parts, which is leading-column coverage. `dotnet build
-  libs/nativeweb.data` against the local checkout is clean, 0 warnings, 0 errors.
+  Worth keeping in mind because **nothing in the build can detect this class of skew.** The
+  packaged generator is a compile-time source generator, so its diagnostics fire in *this* repo,
+  not in JauntyQ's suite — a green JauntyQ build says nothing about whether consumers compile.
+  0.1.0 predated migration-parser index-DDL support (JauntyQ's own `CHANGELOG.md` recorded it as
+  a known limitation), and since NativeWeb declares its whole schema in migration DDL, the
+  packaged generator saw every index as absent. The local checkout was 1079 commits past the tag
+  and still stamped `<Version>0.1.0</Version>`, identical to the published package, so no version
+  string distinguished them.
 
-  The cause is that the published `JauntyQ.*` **0.1.0** predates migration-parser index-DDL
-  support, which JauntyQ's own `CHANGELOG.md` records as a then-known limitation ("the migration
-  parser does not model index DDL"). NativeWeb declares its schema entirely in migration DDL, so
-  the packaged generator cannot see any of these indexes. The local checkout is
-  `v0.1.0-1079-gd6ec8a8` — 1079 commits past the tag — and has the support.
-
-  **The trap is that both stamp `<Version>0.1.0</Version>`**, so no version string distinguishes
-  1079 commits of divergence and nothing in the build can warn about it. Expect this to recur on
-  every future divergence until a newer tag ships.
-
-  Fix belongs to JauntyQ, not here: bump `<Version>` in its `Directory.Build.props`, tag, push —
-  `publish.yml` triggers on `v*` and guards that the tag matches that property. Then bump both
-  `PackageVersion` pins in this repo's `Directory.Packages.props` (and `skeleton/`'s, which
-  carries the same pins) and re-run CI. Do **not** suppress `JNT8004` to get a green badge: it
-  guards four security-sensitive lookup paths, and suppressing it hides the skew instead of
-  closing it.
+  If package-mode CI ever fails on a diagnostic that a local checkout build does not reproduce,
+  suspect skew before suspecting the code, and check how far the checkout has drifted past the
+  pinned tag (`git describe`). Do **not** suppress `JNT8004` to get a green badge: it guards
+  security-sensitive lookup paths, and suppressing it hides the skew instead of closing it.
 
 - IdP: `Redirects.To` answers a no-JS POST with `Results.Redirect`, i.e. **302**, where **303**
   is the semantically correct status for a POST → GET transition. Every browser treats them
