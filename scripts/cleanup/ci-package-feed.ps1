@@ -1,6 +1,13 @@
 # ci-package-feed.ps1 -- cleanup after the CI package-feed fix, 2026-08-17.
-# Produced by one branch, merged into dev:
-#   fix/ci-package-feed   nuget.config + GitHub Packages auth + CI on dev/main
+# Produced by three branches, merged into dev in this order:
+#   fix/ci-package-feed              nuget.config + GitHub Packages auth + CI on dev/main
+#   chore/ci-feed-cleanup-script     this script
+#   fix/ci-solution-jauntyq-projects drop the sibling projects CI cannot restore
+#
+# The last of those exists because the first CI run this repo has ever had
+# failed at MSB3202 before reaching any of the feed wiring: NativeWeb.slnx
+# lists the JauntyQ projects unconditionally, so a solution-wide restore
+# loads them even in package mode.
 #
 # Dry run is the default and always exits 0; --execute / -e is the only way to
 # act. Deleting the probe directories is irreversible in the sense that they
@@ -49,8 +56,13 @@ Write-Host '-- 1. worktrees'
 # None were created; the prune catches a stale registration from an earlier run.
 Act 'git worktree prune' { git -C $repo worktree prune }
 
-Write-Host '-- 2. merged branch (git branch -d refuses if unmerged)'
-Act 'delete branch fix/ci-package-feed' { git -C $repo branch -d 'fix/ci-package-feed' }
+Write-Host '-- 2. merged branches (git branch -d refuses if unmerged)'
+foreach ($b in @(
+        'fix/ci-package-feed',
+        'chore/ci-feed-cleanup-script',
+        'fix/ci-solution-jauntyq-projects')) {
+    Act "delete branch $b" { git -C $repo branch -d $b }
+}
 
 Write-Host '-- 3. restore probe directories'
 # Written by the isolated `dotnet restore --packages` runs that reproduced
