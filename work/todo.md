@@ -439,9 +439,12 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 - `Directory.Build.targets` disables precompressed static-asset generation in Debug as a
   workaround for a framework defect: `StaticAssetDevelopmentRuntimeHandler` resolves compressed
   variants against `wwwroot` instead of the manifest content roots, so a gzip-accepting client got
-  a zero-length body. Remove the property once the SDK resolves the variant correctly. Note the
-  Debug build no longer exercises compressed-asset serving at all, so only `dotnet publish`
-  covers that path — a Release smoke check is what would catch a regression there.
+  a zero-length body. Remove the property once the SDK resolves the variant correctly. The Debug
+  build no longer exercises compressed-asset serving at all, so only `dotnet publish` covers that
+  path — **the Release smoke check now exists** (2026-08-18, `chore/release-compressed-asset-check`):
+  `CompressedAssetTests` in the e2e tier, against the published binary the fixture launches, asserts
+  a gzip-accepting client gets `Content-Encoding: gzip`, a body smaller than the identity response,
+  and one that gunzips to exactly that response. What remains is removing the workaround itself.
 - manzil.my needs the same `Directory.Build.targets` workaround; it has the identical defect.
 - ~~A fresh **production** database has the same first-party-application gap CI hit.~~ **Closed
   2026-08-17** by `db/migrations/0055_first_party_application.sql`: every deployment now gets the

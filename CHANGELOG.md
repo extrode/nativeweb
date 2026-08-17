@@ -86,6 +86,14 @@ Merged into `dev`, not yet tagged.
   question of invalidating live sessions rather than empty ones.
 
 ### Fixed
+- **Compressed static assets are covered in Release** -- `Directory.Build.targets` disables
+  precompressed variants in Debug to work around a framework defect, so no Debug build, and
+  therefore no unit or integration test, ever exercised the compressed path. `CompressedAssetTests`
+  in the e2e tier asks the published binary directly: a gzip-accepting client must get
+  `Content-Encoding: gzip`, a body smaller than the identity response, and one that gunzips to
+  exactly that response. The size check is the point -- if publish quietly stops emitting variants
+  when the workaround is removed, every client falls back to identity and nothing else anywhere
+  says so.
 - **A form POST with the wrong media type is answered 415, not 400** -- antiforgery reads its
   token from the form as well as the header, so `ValidateRequestAsync` on a JSON body threw and
   the handler blamed the token. The content-type guard now runs first at all 23 handlers in
