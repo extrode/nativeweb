@@ -18,6 +18,10 @@
 #   fix/ci-integration-500            the CI first-party application seed and the
 #                                     user-secrets/env precedence fix behind it
 #   chore/ci-500-cleanup-entries      added those two, and the repro databases
+#   fix/demote-multi-source           the Fable review fix to the config-source demotion
+#   fix/first-party-application-migration  moved the first-party row into migration 0055
+#   chore/ci-green-status             recorded the first green CI run
+#   chore/ci-migration-cleanup-entries this list update
 #
 # The third is this script's own branch. It can delete itself because the script
 # is merged into dev before it is ever run, so the commit survives the branch.
@@ -97,7 +101,11 @@ foreach ($b in @(
         'fix/ci-encryption-key-env',
         'chore/env-fix-cleanup-entry',
         'fix/ci-integration-500',
-        'chore/ci-500-cleanup-entries')) {
+        'chore/ci-500-cleanup-entries',
+        'fix/demote-multi-source',
+        'fix/first-party-application-migration',
+        'chore/ci-green-status',
+        'chore/ci-migration-cleanup-entries')) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {
@@ -178,7 +186,11 @@ $reproDatabases = @(
     'nativeweb_cirepro2',
     'nativeweb_cirepro3',
     'nativeweb_cirepro4',
-    'nativeweb_cifinal'
+    'nativeweb_cifinal',
+    # From proving migration 0055 closes the production gap: migrations-only, and the
+    # same schema with 0055 withheld (the run that reproduced CI's 33 failures exactly).
+    'nativeweb_migonly',
+    'nativeweb_no55'
 )
 foreach ($d in $reproDatabases) {
     if ($Execute -and $DropReproDatabases) {
