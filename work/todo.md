@@ -21,16 +21,16 @@ Small, clear, and could be picked up without a design decision.
   The test has two guards against passing vacuously: one asserting the scan finds both
   repositories' workflows, one asserting at least one third-party action is actually under test.
 
-- **Two `migrate.sh` runs at once will double-apply a migration, silently.** Nothing serializes
-  the runner. Both processes pass `is_tracked` before either records, both apply the file, and
-  `ON CONFLICT DO NOTHING` swallows the second tracking INSERT. DDL fails loudly on the second
-  apply; a **data** migration double-applies with no error at all — and 0054 is the worst case,
-  since re-running it would hash already-hashed session ids and sign every user out permanently
-  (it guards itself, which is why this is a gap rather than a live bug). The fix is a
-  `pg_advisory_lock` taken for the whole run, which needs one connection held open across the
-  loop — a structural change to how the runner invokes psql, not a one-liner. Not a problem
-  today: one operator, one machine, and CI runs it once per job. **It becomes a real problem the
-  moment a deploy pipeline can run two jobs at once.** Found by Fable, 2026-08-17.
+- ~~**Two `migrate.sh` runs at once will double-apply a migration, silently.**~~ — **done
+  2026-08-18**, `fix/migrate-run-lock`. A coprocess psql holds a session-level
+  `pg_advisory_lock` for the whole run, taken before the first `is_tracked` read and released
+  by an EXIT trap; a second runner prints `wait  another migrate.sh is running against <db>`
+  and queues. Verified for real by `db/test-run-lock.sh` (7 checks, ~1 min against an
+  already-migrated database), with three structural facts in `MigrateRunnerTests` so deleting
+  the lock also fails the normal suite. Two things measured on the way, both recorded in the
+  script: psql's stdout is block-buffered through a pipe so the readiness marker has to come
+  back on stderr via `RAISE WARNING`, and psql on Windows writes CRLF so the marker read has to
+  strip the CR.
 
 - **Migrations now hold locks for a whole file — check the long ones before the cutover.**
   `db/migrate.sh` wraps each migration in one transaction (2026-08-17), which is right for
