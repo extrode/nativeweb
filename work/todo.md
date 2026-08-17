@@ -132,14 +132,17 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   by a source-order sweep (`ContentTypeGuardOrderingTests`) plus HTTP-level facts
   (`ContentTypeGuardTests`).
 
-- **The six tolerant-ternary handlers still answer a misleading 400 for a JSON body.** Noted by
-  Fable while reviewing the sweep above: `AdminEndpoints.PostApplicationDisable` /
+- ~~**The six tolerant-ternary handlers still answer a misleading 400 for a JSON body.**~~
+  **Decided and done 2026-08-18** (user: "extend the 415 sweep to the six handlers"), branch
+  `fix/415-tolerant-ternary-handlers`. `AdminEndpoints.PostApplicationDisable` /
   `PostApplicationRotateSecret` and `SettingsEndpoints.PostTwoFactorDisable` /
-  `PostRecoveryCodesRegenerate` / `PostWebAuthnRemove` / `PostSessionsRevokeOthers` validate
-  antiforgery, then read the form through a ternary that tolerates a non-form request rather
-  than answering 415. A JSON POST with no header token therefore gets exactly the 400 this
-  branch removed elsewhere. Deliberately left alone — extending the sweep to them is a second
-  decision about six more endpoints, not a follow-through on the first.
+  `PostRecoveryCodesRegenerate` / `PostWebAuthnRemove` / `PostSessionsRevokeOthers` each got the
+  same guard ahead of `ValidateRequestAsync`, and the ternary they read the form through became
+  a plain `ReadFormAsync` — there is no longer a path where the form is absent. 17 guarded
+  handlers became 23, three remain deliberately unguarded (WebAuthn enroll/verify, sign-out).
+  Behaviour proved by `AuthenticatedContentTypeGuardTests`, which needs a session for all six
+  and an operator for two; the source-order sweep's 415 floor moved 15 → 20 so the six cannot
+  regress silently.
 
 - **A session key that cannot be a raw `Guid`.** Spec 007 routes every session read, write and
   delete through `SessionToken`, but `Guid.Parse(token.CookieValue)` still recovers the plaintext

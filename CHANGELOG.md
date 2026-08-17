@@ -88,14 +88,18 @@ Merged into `dev`, not yet tagged.
 ### Fixed
 - **A form POST with the wrong media type is answered 415, not 400** -- antiforgery reads its
   token from the form as well as the header, so `ValidateRequestAsync` on a JSON body threw and
-  the handler blamed the token. The content-type guard now runs first at all 17 handlers in
-  `apps/web/Auth` that carry both. Not a security change: a request that IS a form reaches
-  antiforgery unchanged, and the 415 path is reachable only by requests antiforgery was going to
-  reject anyway; the 415 decision reads the caller's own `Content-Type` and no server state, so
-  it is not an oracle. Nine handlers are deliberately untouched -- six read the form through a
-  tolerant ternary, and three (WebAuthn enroll/verify, sign-out) accept either a JSON body with a
-  header token or a real form, so a 415 guard would reject a request that has to work. Held by a
-  source-order sweep over every handler plus HTTP-level facts on two endpoints.
+  the handler blamed the token. The content-type guard now runs first at all 23 handlers in
+  `apps/web/Auth` that carry both -- 17 in the first pass, and the six signed-in ones that had
+  read the form through a tolerant ternary swept in after (2026-08-18): `PostApplicationDisable`,
+  `PostApplicationRotateSecret`, `PostTwoFactorDisable`, `PostRecoveryCodesRegenerate`,
+  `PostWebAuthnRemove`, `PostSessionsRevokeOthers`. Their ternary became a plain `ReadFormAsync`,
+  since the guard leaves no path on which the form is absent. Not a security change: a request
+  that IS a form reaches antiforgery unchanged, and the 415 path is reachable only by requests
+  antiforgery was going to reject anyway; the 415 decision reads the caller's own `Content-Type`
+  and no server state, so it is not an oracle. Three handlers are deliberately untouched --
+  WebAuthn enroll/verify and sign-out accept either a JSON body with a header token or a real
+  form, so a 415 guard would reject a request that has to work. Held by a source-order sweep over
+  every handler plus HTTP-level facts on anonymous endpoints and on all six signed-in ones.
 - **A freshly migrated database is now serviceable** -- `db/migrations/0055_first_party_application.sql`
   creates the first-party application row for every deployment, closing the gap CI hit and that a
   fresh production database would have hit identically at the epass.io cutover. Guarded on "realm 1
