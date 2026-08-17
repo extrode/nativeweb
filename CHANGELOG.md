@@ -147,6 +147,22 @@ Merged into `dev`, not yet tagged.
   is not something to do unasked.
 
 ### Fixed
+- **CI had no reachable source for the JauntyQ packages** — the repo carried no `nuget.config`
+  at all, so package-mode restore (`-p:JauntyQUsePackages=true`, the mode CI builds in) could
+  only see nuget.org, and `JauntyQ.Generator` / `JauntyQ.Runtime` are published to GitHub
+  Packages. It never failed on a developer machine, because `~/.nuget/packages` was already
+  populated by a local `dotnet pack` and the cache stood in for the feed; on a clean runner it
+  is `NU1101` on both. `nuget.config` now declares the GitHub Packages source and maps
+  `JauntyQ.*` to it, which also keeps an ordinary checkout-mode restore from touching an
+  authenticated source and stops those ids resolving off nuget.org. Credentials stay out of the
+  file: ci.yml authenticates with the job's own `GITHUB_TOKEN` immediately before restore.
+  `PackageFeedConfigTests` covers the two ways this rots silently — the source renamed in one
+  file but not the other, and a `JauntyQ.*` pattern added under nuget.org, which NuGet accepts
+  without complaint and which is the dependency-confusion shape.
+- **CI never ran on `dev` or `main`** — the push trigger excluded exactly the two branches
+  where work lands, on the theory that anything reaching them had already passed on a feature
+  branch. The merge itself was what nothing verified, and since finished work here ends as a
+  push straight to `dev`, the ordinary path ran no CI at all.
 - **The publish-budget script's port default was dead** — `check-publish-budgets.ps1`
   defaulted `-Port` to 5999 while its only caller, ci.yml, passes 5998. Running it by hand
   therefore used a port the pipeline never touches. Now 5998, with `PublishBudgetScriptTests`

@@ -221,9 +221,23 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
 - (V8) The plan's "`/` → landing where the product wants it" was deliberately deferred:
   both apps keep a dynamic session-aware `/`; manzil.my decides its own static landing
   during the V10 extraction.
-- Skeleton e2e process fixture runs its inner `dotnet publish` without the UsePackages flags,
+- ~~Skeleton e2e process fixture runs its inner `dotnet publish` without the UsePackages flags,
   so a stamped product's CI e2e step stays checkout-mode even once a package feed exists —
-  fold into the feed-gap fix (spec 003 R6).
+  fold into the feed-gap fix (spec 003 R6).~~ **Stale, checked 2026-08-17.** The fixture's
+  command line indeed omits them (`__PRODUCT__ProcessFixture.cs:35`), but it does not need
+  them: `skeleton/.github/workflows/ci.yml` sets `NativeWebUsePackages` and `JauntyQUsePackages`
+  as *env vars* on the e2e step, MSBuild reads bare env vars as properties, and env is
+  inherited by the child publish. Same wiring NativeWeb's own e2e step got on 2026-08-03.
+
+- **The skeleton has the gap NativeWeb just closed, one level up, and it needs a decision.**
+  `libs/*` here are all `IsPackable` with `NativeWeb.*` package ids, and the skeleton builds
+  against them with `-p:NativeWebUsePackages=true` — but this repo has no `publish.yml`
+  (only `ci.yml`), so nothing has ever pushed a `NativeWeb.*` package anywhere, and the
+  skeleton has no `nuget.config` to find one with. It is exactly the shape fixed on
+  2026-08-17 for JauntyQ, and it is why the skeleton's suites have never run. Not a fix:
+  it needs a call on whether NativeWeb versions and releases itself independently
+  (jauntyq's `publish.yml` on `v*` tags is the pattern to copy), which is a release-process
+  decision rather than a wiring one. Raised 2026-08-17.
 - ~~V9 review findings that are pre-existing on dev~~ — done 2026-08-03,
   `chore/v9-pre-existing-findings`. (a) root `Directory.Build.props` dead `JauntyQUsePackages`
   auto-default deleted (it could never fire: the probe above it always assigns `JauntyQRoot`)
@@ -235,9 +249,10 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   step, whose fixture runs an inner NativeAOT publish on the Linux runner. That same step now
   sets `JauntyQUsePackages` as an env var, because `$DOTNET_BUILD_ARGS` reaches only the outer
   `dotnet test` and MSBuild reads bare env vars as properties. Both copied from
-  `skeleton/.github/workflows/ci.yml`, and both **unverifiable until the CI package-feed gap is
-  resolved** — CI cannot restore in package mode today, so nothing here has run green on a
-  runner. (d) `/readyz` is bounded by `ReadinessCache` (1s, `NativeWeb:Readiness:CacheSeconds`)
+  `skeleton/.github/workflows/ci.yml`, and both were **unverifiable until the CI package-feed
+  gap was resolved** — that gap closed 2026-08-17 (`fix/ci-package-feed`), so the next push
+  is the first run that can actually exercise them. Still unverified until one goes green,
+  and it needs the org package-access grant to be in place first. (d) `/readyz` is bounded by `ReadinessCache` (1s, `NativeWeb:Readiness:CacheSeconds`)
   rather than by a rate limit: partitioning is per-IP, and until `ForwardedHeaders:KnownProxies`
   is configured every client shares the proxy's partition *including the load balancer's own
   probe*, so a limiter would have let anyone spend the budget and make the next real probe 429
