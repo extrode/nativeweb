@@ -117,7 +117,21 @@ Real, but needs a decision, a dependency, or more information first. Say which.
   change, hence a decision, not a fix. Recorded 2026-08-16, from the spec 007 review; the spec's
   R4 says the same rather than claiming to be met.
 
-- **`migrate.sh` applies and records in separate connections.** `app_psql -f "$f"` then
+- ~~**`migrate.sh` applies and records in separate connections.**~~ **Done 2026-08-17,
+  `fix/migrate-record-in-transaction`.** `apply_and_record` now pipes the migration and its
+  `schema_migrations` row into one `psql --single-transaction`, so either both land or neither
+  does. Files that cannot be wrapped are detected by content rather than listed — `CONCURRENTLY`
+  (six migrations; Postgres rejects it inside a transaction block) and an explicit `BEGIN` (0054
+  only) — so a new migration of either kind needs no edit to the runner.
+
+  **The consequence was worse than this entry claimed.** Measured against scratch databases with
+  a migration that creates a table then calls a missing function: the old runner committed the
+  CREATE TABLE, recorded nothing, and then failed on `relation already exists` on *every*
+  subsequent run. Not "re-applies it" — a database no re-run can fix without someone editing
+  `schema_migrations` by hand. The new runner rolls the whole thing back and fails the next time
+  on the real error, so fixing the SQL is the whole recovery. Original note follows.
+
+  `app_psql -f "$f"` then
   `record "$version"` (`db/migrate.sh:53,79-80`), so a crash between the two commits the
   migration and loses the tracking, and the next run re-applies it. Harmless for DDL, which is
   what every migration before 0054 is; not harmless for a data `UPDATE`. 0054 works around it by

@@ -15,10 +15,15 @@
 #   SUPERUSER_ROLE    default postgres -- must authenticate for 0002 only
 #                     (creates the citext extension; nativeweb_app can't)
 #
+# Each migration is applied together with its schema_migrations row in a single
+# transaction, so a crash cannot commit one without the other. See mode_of()
+# below for the two kinds of file that cannot be wrapped and why.
+#
 # CREATE INDEX CONCURRENTLY migrations (e.g. 0025) require autocommit with no
-# wrapping transaction. Plain `psql -f` already runs in autocommit mode --
-# each statement commits as it executes -- as long as we never pass `-1` /
-# `--single-transaction`. Do not add that flag here.
+# wrapping transaction, so `--single-transaction` must never be applied to them
+# and mode_of() detects them by content. Do not pass `-1` / `--single-transaction`
+# globally or to app_psql/super_psql themselves; it belongs only on the one
+# invocation in apply_and_record's `wrapped` arm.
 
 set -euo pipefail
 
@@ -53,6 +58,68 @@ record() {
   app_psql -c "INSERT INTO schema_migrations (version) VALUES ('$1') ON CONFLICT (version) DO NOTHING;" >/dev/null
 }
 
+record_sql() {
+  printf "\nINSERT INTO schema_migrations (version) VALUES ('%s') ON CONFLICT (version) DO NOTHING;\n" "$1"
+}
+
+# How a migration must be applied. The default is "wrapped": the file and its
+# schema_migrations row go to psql as ONE --single-transaction unit, so either
+# both land or neither does.
+#
+# That matters because the two used to be separate psql invocations, which meant
+# separate connections and separate transactions. A crash in the gap committed
+# the migration and lost the tracking, so the next run applied it a second time.
+# Harmless for DDL, which is every migration below 0054; not harmless for a data
+# migration, and 0055 is one. 0055 survives a double-apply only because its
+# WHERE NOT EXISTS guard was written for re-runnability on upgrade -- that is
+# luck, not design, and the next data migration need not be so lucky.
+#
+# Two kinds of file cannot be wrapped, and both are detected rather than listed,
+# so a new migration of either kind is handled without editing this runner:
+#
+#   concurrent  CREATE INDEX CONCURRENTLY cannot run inside a transaction block
+#               at all (Postgres rejects it). These stay in autocommit and are
+#               recorded afterwards, which leaves exactly the old gap. That is
+#               inherent to CONCURRENTLY rather than a shortcoming here: an index
+#               build that is interrupted leaves an INVALID index which the
+#               re-apply drops and rebuilds, so a second apply is the recovery
+#               path, not a hazard.
+#
+#   self        The file opens its own BEGIN/COMMIT. Wrapping it would nest, and
+#               its COMMIT would end the runner's transaction early, silently
+#               un-protecting everything after it. Only 0054 does this today,
+#               and it does it precisely because of the bug being fixed here --
+#               it writes its own schema_migrations row inside its transaction.
+#               Left alone deliberately: it is already applied to real databases,
+#               and the record() below is a no-op against its own row thanks to
+#               ON CONFLICT DO NOTHING.
+mode_of() {
+  if grep -qiE '\bconcurrently\b' "$1"; then
+    echo concurrent
+  elif grep -qiE '^[[:space:]]*begin[[:space:]]*;' "$1"; then
+    echo self
+  else
+    echo wrapped
+  fi
+}
+
+# Applies one migration and records it, atomically where that is possible.
+apply_and_record() {
+  local f="$1" version="$2" mode
+  mode="$(mode_of "$f")"
+
+  case "$mode" in
+    wrapped)
+      { cat "$f"; record_sql "$version"; } | app_psql --single-transaction -f - >/dev/null
+      ;;
+    concurrent|self)
+      echo "      ($mode: applied outside a wrapping transaction)"
+      app_psql -f "$f"
+      record "$version"
+      ;;
+  esac
+}
+
 # schema_migrations is defined by migration 0044, but the runner needs it to
 # exist before it can even check whether 0002 is tracked -- create it
 # defensively up front (IF NOT EXISTS makes 0044 itself a no-op later).
@@ -64,6 +131,9 @@ if is_tracked "$EXT_VERSION"; then
   echo "skip  $EXT_VERSION (already applied)"
 else
   echo "apply $EXT_VERSION (as $SUPERUSER_ROLE)"
+  # 0002 runs as the superuser, so it cannot share apply_and_record's app_psql.
+  # It is CREATE EXTENSION only -- DDL, idempotent, and the one migration whose
+  # double-apply is provably harmless -- so the old two-step is kept here.
   super_psql -f "$EXT_FILE"
   record "$EXT_VERSION"
 fi
@@ -76,8 +146,7 @@ for f in "$MIGRATIONS_DIR"/[0-9][0-9][0-9][0-9]_*.sql; do
     continue
   fi
   echo "apply $version"
-  app_psql -f "$f"
-  record "$version"
+  apply_and_record "$f" "$version"
 done
 
 echo "done"
