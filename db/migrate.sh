@@ -60,6 +60,120 @@ version_of() {
   basename "$1" | sed -E 's/^([0-9]{4})_.*/\1/'
 }
 
+# --- Run lock ---------------------------------------------------------------
+#
+# ONE runner at a time, for the whole run. Without this, two concurrent runs
+# both pass is_tracked before either records, both apply the file, and the
+# damage depends on what kind of migration it was: loud for DDL, SILENT for a
+# data migration. That is the class this runner exists to protect, and 0054 is
+# the worst case -- re-running it would hash already-hashed session ids and sign
+# every user out permanently. It guards itself, which made this a gap rather
+# than a live bug. Found by Fable, 2026-08-17.
+#
+# Not a problem with one operator on one machine, which is why it waited. It
+# becomes one the moment a deploy pipeline can run two jobs at once.
+#
+# WHY A COPROCESS. A session-level advisory lock lives and dies with its
+# connection, and every other psql call here opens its own. So the lock needs a
+# connection that outlives them all: a coprocess psql reading SQL from a pipe,
+# held open for the whole run and closed by the EXIT trap. A transaction-scoped
+# lock inside apply_and_record would not do -- by the time a runner reaches the
+# apply it has ALREADY decided the migration is untracked, so serialising there
+# only queues the second apply rather than preventing it.
+#
+# Advisory locks are per-database, so the key is a constant: two runs against
+# different databases do not block each other, and two against the same one do,
+# which is exactly the boundary that matters.
+RUN_LOCK_KEY=6f1a2b3c
+RUN_LOCK_KEY=$((0x$RUN_LOCK_KEY))
+RUN_LOCK_IN=''
+RUN_LOCK_OUT=''
+# `coproc RUN_LOCK` sets RUN_LOCK_PID itself; declared here only so the EXIT trap
+# can test it before the coprocess exists.
+RUN_LOCK_PID=''
+
+# Markers come back on STDERR, via RAISE WARNING, and that is not a stylistic
+# choice. psql's stdout is block-buffered when it is a pipe, so a `\echo` or a
+# SELECT result sits in the buffer and the read below blocks forever -- measured,
+# 2026-08-18. stderr is unbuffered, so a warning arrives as soon as it is
+# raised.
+#
+# The CR strip is the other half of that measurement: psql on Windows terminates
+# lines with CRLF, so `read` yields "RUN_LOCK_HELD\r" and an equality test
+# against the bare marker silently never matches. It cost an afternoon once.
+run_lock_marker() {
+  local want="$1" timeout="$2" line cr
+  cr=$'\r'
+  while IFS= read -r -t "$timeout" line <&"$RUN_LOCK_OUT"; do
+    line="${line%"$cr"}"
+    case "$line" in
+      *"$want"*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+acquire_run_lock() {
+  coproc RUN_LOCK { app_psql -Atq -f - 2>&1; }
+  RUN_LOCK_IN=${RUN_LOCK[1]}
+  RUN_LOCK_OUT=${RUN_LOCK[0]}
+  trap release_run_lock EXIT
+
+  # Try first, so the common case says nothing and the contended case explains
+  # itself rather than looking like a hang.
+  printf "DO \$lock\$ BEGIN IF pg_try_advisory_lock(%s) THEN RAISE WARNING 'NW_RUN_LOCK_HELD'; ELSE RAISE WARNING 'NW_RUN_LOCK_BUSY'; END IF; END \$lock\$;\n" \
+    "$RUN_LOCK_KEY" >&"$RUN_LOCK_IN"
+
+  local line cr status=busy
+  cr=$'\r'
+  while IFS= read -r -t 30 line <&"$RUN_LOCK_OUT"; do
+    line="${line%"$cr"}"
+    case "$line" in
+      *NW_RUN_LOCK_HELD*) status=held; break ;;
+      *NW_RUN_LOCK_BUSY*) status=busy; break ;;
+    esac
+  done
+
+  if [ "$status" = busy ]; then
+    echo "wait  another migrate.sh is running against $PGDATABASE; queuing behind it"
+    printf "DO \$lock\$ BEGIN PERFORM pg_advisory_lock(%s); RAISE WARNING 'NW_RUN_LOCK_HELD'; END \$lock\$;\n" \
+      "$RUN_LOCK_KEY" >&"$RUN_LOCK_IN"
+    # No timeout here: waiting is the correct behaviour, and a runner that gave
+    # up after N seconds would go on to do the unserialised thing this exists to
+    # prevent. A wait that is too long is an operator question; a wait that
+    # expires into a double-apply is a corrupted database.
+    if ! run_lock_marker NW_RUN_LOCK_HELD 86400; then
+      echo "ERROR: lost the connection holding the migration run lock while waiting." >&2
+      exit 1
+    fi
+  fi
+}
+
+# Releasing by asking psql to quit, rather than by closing a file descriptor:
+# bash will not take an array element as the {var} of an exec redirection, and
+# killing it would leave the exit status ambiguous. `\q` ends the session, which
+# is what actually drops the lock.
+release_run_lock() {
+  local held_status=0
+  [ -n "$RUN_LOCK_PID" ] || return 0
+
+  # If the holder died during the run, every migration after that point ran
+  # unserialised. Say so: the run may have been fine, but "probably fine" is not
+  # what this lock is for.
+  if ! kill -0 "$RUN_LOCK_PID" 2>/dev/null; then
+    echo "ERROR: the connection holding the migration run lock died before the run" >&2
+    echo "       finished, so some migrations were applied without it. Check for a" >&2
+    echo "       concurrent runner before trusting this database." >&2
+    held_status=1
+  else
+    printf '\\q\n' >&"$RUN_LOCK_IN" 2>/dev/null || true
+    wait "$RUN_LOCK_PID" 2>/dev/null || true
+  fi
+
+  RUN_LOCK_PID=''
+  return "$held_status"
+}
+
 # Runs in an `if` context, which suppresses set -e, so the psql exit status has to
 # be checked by hand. Without that a connection blip returns an empty count, reads
 # as "not tracked", and re-applies a migration that was already applied -- the very
@@ -395,6 +509,11 @@ apply_and_record() {
       ;;
   esac
 }
+
+# BEFORE anything reads or writes the database. is_tracked is the first thing a
+# racing runner can get wrong, so the lock has to be held before the first one
+# runs -- not merely before the first apply.
+acquire_run_lock
 
 # schema_migrations is defined by migration 0044, but the runner needs it to
 # exist before it can even check whether 0002 is tracked -- create it

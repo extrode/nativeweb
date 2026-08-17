@@ -149,6 +149,10 @@ Merged into `dev`, not yet tagged.
   explicit feedback; covered by all three test tiers.
 
 ### Changed
+
+- `db/migrate.sh` now serialises itself with a PostgreSQL advisory lock held for the whole
+  run, so two concurrent runners cannot both apply the same migration. A second runner says it
+  is queuing and waits. `db/test-run-lock.sh` verifies it.
 - **Telemetry is on by default** (spec 003 R33, `docs/plans/2026-08-17-004-enable-telemetry.md`) —
   `NativeWeb:Telemetry:Enabled` inverts from opt-in to opt-out: anything that is not the literal
   `"false"` exports, including the key being absent. An opt-in flag is one first exercised in

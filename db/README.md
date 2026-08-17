@@ -8,7 +8,22 @@ queries/      inline .sql query files; JauntyQ generates typed C# from these
 schema/       jaunty.schema.json — the committed schema snapshot JauntyQ reads
 seed/         sample data for local/dev databases (not production);
               apply with `psql -f db/seed/0001_dev_seed.sql`
+
+migrate.sh        applies migrations/ in order, tracking them in schema_migrations
+test-run-lock.sh  proves migrate.sh serialises itself; run it against an
+                  already-migrated database, it applies nothing
 ```
+
+## Running two migrations at once
+
+`migrate.sh` takes a PostgreSQL advisory lock for the whole run, so a second
+runner against the same database announces that it is queuing and waits. Without
+it both runners pass the "is this already applied?" check before either records,
+and both apply the file: loud for DDL, **silent for a data migration**.
+
+The lock is per-database, so runs against different databases do not block each
+other. `bash db/test-run-lock.sh` verifies the whole behaviour in about a minute
+and exits non-zero if any part of it has regressed.
 
 ## JauntyQ flow
 
