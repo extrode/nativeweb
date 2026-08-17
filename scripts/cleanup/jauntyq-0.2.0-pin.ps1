@@ -21,6 +21,9 @@
 #     predate this work and belong to their own; deleting them is a separate
 #     decision.
 #   - The jauntyq repo. Nothing here touched it; it was only read.
+#   - The jauntyq-github credential added to the per-user NuGet.Config. That is
+#     durable configuration, not scratch: it is what makes a local package-mode
+#     build possible at all, and nuget.config documents how it was set up.
 #   - No worktrees were created by this work, so there is nothing to remove.
 #     The prune below is only for a stale registration left by an earlier run.
 
@@ -109,6 +112,7 @@ $scratch = @(
     'C:\tmp\jq020probe',
     'C:\tmp\jq020pkgs',
     'C:\tmp\jq010pkgs',
+    'C:\tmp\feedauth',
     (Join-Path $env:LOCALAPPDATA 'Temp\sbomprobe1')
 )
 foreach ($d in $scratch) {
