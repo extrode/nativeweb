@@ -116,17 +116,41 @@ quietly stopped reporting and was noticed only when someone went looking for a g
 
 Resource attributes are `service.name = nativeweb.web` and `service.version = <informational
 version>`, the same string `/version` returns. Without them a collector sees
-`unknown_service:<host process>` and cannot tell two instances apart.
+`unknown_service:<host process>` and cannot tell two instances apart. `OTEL_SERVICE_NAME`
+overrides the name — one binary running staging and production wants two names, and a default
+that silently swallowed the standard variable would be worse than no default.
 
-Nothing needs redacting at the app: the ASP.NET Core instrumentation redacts every `url.query`
-*value* to the literal `Redacted` (parameter names survive), and no route in this app carries a
-secret in its path — the only route parameters are `{id:long}`, `{clientId:guid}` and `{id}`.
-`TelemetryTests` asserts the redaction rather than assuming it, since it is a package default.
+### What leaves the process
 
-One exception, and it is Development-only: `/dev/inbox/{destination}` takes an email address in
-the path, so a developer host exporting to a shared collector would send those addresses as
-`url.path`. The route is mapped only under `IsDevelopment()` and never exists in a production
-posture, but point a dev host at a throwaway collector rather than the production one.
+Measured 2026-08-17, not inferred from the semantic conventions. Every row is a package default,
+so each has a regression test; a driver or instrumentation bump that changes one fails the build
+rather than quietly changing what a collector receives.
+
+| Attribute | Carries | Test |
+|---|---|---|
+| `url.query` | Parameter **names**; every value replaced with `Redacted` | `TelemetryTests`, `QueryRedactingProcessorTests` |
+| `url.path` | The raw path. No production route has a secret in one — the only route parameters are `{id:long}`, `{clientId:guid}`, `{id}` | — |
+| `db.query.text` | The **parameterised** SQL. Values travel as parameters and never appear | `NpgsqlTelemetryTests` |
+| `db.npgsql.data_source`, `db.client.connection.pool.name` | The connection string **with the password stripped by the driver**. Host, database and DB username do leave the process | `NpgsqlTelemetryTests` |
+| span status on a failed query | SQLSTATE only (e.g. `22P02`). The Postgres error *text*, which quotes the offending value back, does not reach the span | `NpgsqlTelemetryTests` |
+
+The query redaction is **not** left to the instrumentation. The package redacts by default, but it
+reads `OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION` and the matching option is
+`internal`, so a host could switch it off and the app would have no in-code way to refuse. This is
+an identity provider — OAuth codes, device codes and passphrase-reset tokens all travel as query
+parameters — so `QueryRedactingProcessor` re-redacts before export regardless.
+
+One PII path exists and it is Development-only: `/dev/inbox/{destination}` takes an email address
+in the path, so a developer host would send those addresses as `url.path`. The route is mapped
+only under `IsDevelopment()` and never exists in a production posture, and the e2e tier (which
+drives it) has telemetry off — but point a dev host at a throwaway collector, not the real one.
+
+### Running without a collector
+
+Safe, and measured rather than assumed: shutdown takes **187 ms** with nothing listening on the
+endpoint and **201 ms** with a blackholed one, so a missing collector costs no shutdown latency
+worth bounding. The batch processor's queue is bounded and drops on overflow, and OTel routes
+export failures through its own `EventSource` rather than `ILogger`, so there is no log spam.
 
 ## Antiforgery and data protection
 

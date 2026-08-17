@@ -8,6 +8,8 @@ worth seeing here rather than hiding, but it is the exception.
 
 - **`feat/enable-telemetry`** — the user's 2026-08-17 decision to turn telemetry on, recorded in
   `docs/plans/2026-08-17-004-enable-telemetry.md`. Gate inverts to opt-out, resource gains a
-  service identity, five new tests (four integration, one unit class) all perturbation-checked.
-- Suite counts: **450 unit / 268 integration / 154 render / 62 e2e**, all green. NativeAOT publish
-  clean: 35.2 MB, 619 ms to `/healthz`, budgets exit 0.
+  service identity, `QueryRedactingProcessor` pins the query-value invariant the package would
+  otherwise let a host switch off, and `NpgsqlTelemetryTests` holds the four driver defaults that
+  stand between this IdP and a collector. Ten perturbations, all red.
+- Suite counts: **468 unit / 274 integration / 154 render / 62 e2e**, all green. NativeAOT publish
+  clean: 35.2 MB, 586 ms to `/healthz`, budgets exit 0.

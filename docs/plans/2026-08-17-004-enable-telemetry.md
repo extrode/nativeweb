@@ -36,9 +36,44 @@ credentials or subject identifiers. Probed rather than assumed, and largely they
   those endpoints (`/auth/passphrase/reset/verify`, `/oauth/login-link/start`) take their token
   in a query parameter, whose value is redacted, or in a POST body, which is not captured at all.
 
-So no custom `Filter` or `EnrichWithHttpRequest` redaction is needed. The redaction behaviour is
-a default, though, and a default can change under a package bump — hence a test that asserts it
-rather than a paragraph that assumes it.
+### What review changed
+
+The first cut concluded from the above that no app-level redaction was needed. Review pushed back
+on two points and was right on both.
+
+**Npgsql was never probed.** Only ASP.NET Core spans had been. This app puts passphrase hashes,
+session tokens and encrypted contact data through Npgsql, and the driver's `ActivitySource` and
+`Meter` are subscribed by name — so it was the largest unexamined surface, not a detail. Probed:
+
+- `db.npgsql.data_source` and `db.client.connection.pool.name` are the connection string. The
+  driver **strips the password** — verified with one present, since the dev string has none and
+  the first probe therefore proved nothing. Host, database and DB username do leave the process.
+- `db.query.text` is the parameterised SQL. A failing `SELECT @v::int` reports `SELECT @v::int`,
+  never the value.
+- A failed query reports **SQLSTATE only** — `22P02` in the status description, `error.type` and
+  `db.response.status_code`. The Postgres error text, which quotes the offending value back, does
+  not reach the span.
+
+No leak, but four package defaults now standing between an IdP and a collector, so
+`NpgsqlTelemetryTests` holds each as a regression test.
+
+**Query redaction is switchable from outside the app.** The package reads
+`OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION` (confirmed present in the 1.17.0
+assembly) and the matching option is `internal`, so a host can turn redaction off and the app has
+no in-code way to refuse. For an identity provider, "an OAuth code never leaves this process" is
+worth holding somewhere an environment variable cannot reach past, so `QueryRedactingProcessor`
+re-redacts before export. Names are kept rather than dropping the attribute, because on
+`/oauth/authorize` whether the response carried `code=` or `error=` is the first thing anyone
+debugging a client integration wants, and a name says nothing a route template does not.
+
+That processor is load-bearing rather than belt-and-braces, and the perturbation shows it: with
+the host disabling the package's redaction, removing the processor turns the test red.
+
+Two further review points were measured and did **not** reproduce:
+
+- *Shutdown hang with no collector.* 187 ms with nothing listening, 201 ms with a blackholed
+  endpoint. No explicit exporter timeout needed.
+- *`AddService` swallowing `OTEL_SERVICE_NAME`.* Real, and fixed — the variable is honoured.
 
 ### Alternatives rejected
 
@@ -56,8 +91,12 @@ rather than a paragraph that assumes it.
 ## Changes by area
 
 - `apps/web/Program.cs` — gate compares against `"false"`; `ConfigureResource` adds
-  `service.name` and `service.version`. The informational version is read once at builder time
-  and reused by `/version`, which computed its own copy.
+  `service.name` (overridable by `OTEL_SERVICE_NAME`) and `service.version`. The informational
+  version is read once at builder time and reused by `/version`, which computed its own copy.
+- `apps/web/QueryRedactingProcessor.cs` — re-redacts `url.query` before export.
+- `tests/nativeweb.web.tests.e2e/AppProcessFixture.cs` — telemetry off. This tier drives
+  `/dev/inbox/{destination}`, so without it an e2e run would export email addresses to anything
+  listening on `localhost:4317`.
 - `tests/nativeweb.web.tests.integration/NativeWebFactory.cs` — `NativeWeb__Telemetry__Enabled=false`
   in the static ctor, beside the other tier-wide env overrides. Safe because `UseSetting` outranks
   a process environment variable under `CreateSlimBuilder` — measured, not assumed, so the
