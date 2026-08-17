@@ -126,6 +126,24 @@ jobs:
             exit 1
           fi
 
+      # Put NativeWeb.slnx back before any test runs. The removal step above
+      # edits the runner's working copy, and PackageFeedConfigTests reads that
+      # same file to assert the solution still declares the JauntyQ projects the
+      # removal step names -- a rename-on-one-side guard. Reading the mutated
+      # copy makes it assert the opposite of what it means and fail every time.
+      #
+      # This never showed up before because CI had never reached the test step:
+      # every earlier run died at restore (401/NU1101) or at compile (JNT8004
+      # from the 0.1.0 generator). The first green build was the first time this
+      # test ran on a runner at all.
+      #
+      # Everything solution-wide is finished by here -- restore, build, and the
+      # vulnerable gate, which resolves NativeWeb.slnx from the working dir. The
+      # test steps below all name a project path explicitly, so none of them
+      # reloads the solution and none needs the JauntyQ projects gone.
+      - name: Restore the solution file the removal step edited
+        run: git checkout -- NativeWeb.slnx
+
       - name: Install Playwright browsers
         run: pwsh tests/nativeweb.web.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
@@ -183,10 +201,20 @@ jobs:
           --password ${{ secrets.GITHUB_TOKEN }}
           --store-password-in-clear-text
 
+      # -o pins the output path. Without it the publish directory is not
+      # knowable from here: PublishAot infers a RuntimeIdentifier at publish
+      # time (adding win-x64), and msvc-dev-cmd above exports Platform=x64,
+      # which MSBuild reads as a property like any other environment variable
+      # and which inserts a further x64 segment. The runner wrote to
+      # bin\x64\Release\net10.0\win-x64\publish\ while the budget step below
+      # looked in bin/Release/net10.0/win-x64/publish/ -- a path that is correct
+      # for a local publish outside the VS developer environment, which is
+      # presumably where it was written. Neither segment is visible to static
+      # evaluation, so nothing could have caught the drift by inspection.
       - name: Publish (NativeAOT)
-        run: dotnet publish apps/web/nativeweb.web.csproj -c Release -p:JauntyQUsePackages=true
+        run: dotnet publish apps/web/nativeweb.web.csproj -c Release -p:JauntyQUsePackages=true -o publish/web
 
       # Spec 003 R36: size + time-to-/healthz against scripts/ci/publish-budgets.json.
       # Budgets are null (record-only) until the close-out baseline is recorded.
       - name: Publish budgets (web)
-        run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath apps/web/bin/Release/net10.0/win-x64/publish/nativeweb.web.exe -Name nativeweb.web -Port 5998
+        run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath publish/web/nativeweb.web.exe -Name nativeweb.web -Port 5998
