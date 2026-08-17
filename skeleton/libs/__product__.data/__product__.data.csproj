@@ -16,7 +16,8 @@
 
   <!-- JauntyQ: source generator (as analyzer) + runtime. Local checkout via
        ProjectReference for co-development; pinned NuGet packages in package
-       mode (-p:JauntyQUsePackages=true, e.g. CI with no sibling checkout). -->
+       mode (-p:JauntyQUsePackages=true). CI is NOT the package-mode case: it
+       clones jauntyq into .ci-framework/ and builds in checkout mode. -->
   <ItemGroup Condition="'$(JauntyQUsePackages)' != 'true'">
     <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj"
                       OutputItemType="Analyzer"

@@ -7,26 +7,38 @@ on:
 
 env:
   # ---------------------------------------------------------------------------
-  # KNOWN GAP: this workflow cannot pass yet, and that is deliberate.
+  # This workflow builds in CHECKOUT mode, which is the same mode a developer
+  # machine uses and the only one that resolves today.
   #
-  # Package mode is the only resolution CI can use -- a GitHub runner has no
-  # sibling NativeWeb or jauntyq checkout for the `$(NativeWebRoot)` /
-  # `$(JauntyQRoot)` probes in Directory.Build.props. But the private
-  # NativeWeb.* / JauntyQ.* feed DOES NOT EXIST YET: nothing has been pushed
-  # anywhere the runner can reach, so `dotnet restore` below fails and every
-  # later step (including the CVE gate) never runs.
+  # It used to force package mode (-p:NativeWebUsePackages=true
+  # -p:JauntyQUsePackages=true) and could not pass: the private NativeWeb.* /
+  # JauntyQ.* feed does not exist, so `dotnet restore` died and every later step
+  # -- the CVE gate included -- never ran. Package mode is still available
+  # (pass the two flags yourself) for the day those packages publish; it is just
+  # no longer what CI depends on.
   #
-  # The working path today is checkout mode: build locally with sibling
-  # NativeWeb + jauntyq checkouts, or pass -p:NativeWebRoot=... -p:JauntyQRoot=...
-  # explicitly.
+  # A runner has no SIBLING checkout for the `$(NativeWebRoot)` / `$(JauntyQRoot)`
+  # probes in Directory.Build.props, so the "Check out the framework" steps below
+  # clone both repositories into .ci-framework/ and these two variables point the
+  # probes at them. They are BARE variables, not -p: flags, on purpose: MSBuild
+  # reads bare environment variables as properties, so one definition here reaches
+  # `dotnet restore`, `dotnet build`, `dotnet test`, `dotnet list package` (which
+  # accepts no -p: at all) and the NativeAOT publish the e2e fixture spawns as a
+  # CHILD process. A -p: flag reaches only the command it is written on, which is
+  # what made the old file need four separate copies of the same setting.
   #
-  # The workflow is wired ahead of the feed on purpose (spec 003 R1/R6): when a
-  # private feed is provisioned, add its source and this file needs no edit.
-  # Until then, treat a red CI run that dies at Restore as the known gap, not a
-  # regression -- and do not "fix" it by deleting these flags, which would make
-  # the build silently look for checkouts that are not there.
+  # Both are absolute, via github.workspace: MSBuild resolves a relative root
+  # against each project's own directory, not the repo root.
+  #
+  # If either checkout is wrong or missing the build FAILS LOUDLY -- Ensure*Root
+  # in Directory.Build.props probes for a sentinel csproj, so an empty or stale
+  # directory is an error rather than a silently-skipped ProjectReference and a
+  # pile of CS0246s. Verified 2026-08-17 against a stamped product: correct roots
+  # build clean (0 warnings), a bogus NativeWebRoot produces 10 "NativeWeb
+  # checkout not found" errors.
   # ---------------------------------------------------------------------------
-  DOTNET_BUILD_ARGS: -p:NativeWebUsePackages=true -p:JauntyQUsePackages=true
+  NativeWebRoot: ${{ github.workspace }}/.ci-framework/NativeWeb
+  JauntyQRoot: ${{ github.workspace }}/.ci-framework/jauntyq
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
@@ -58,6 +70,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The framework, as a checkout rather than as packages -- this is what makes
+      # the NativeWebRoot / JauntyQRoot variables at the top of this file resolve.
+      #
+      # Both repositories are private, so actions/checkout's default GITHUB_TOKEN,
+      # which is scoped to THIS repository alone, cannot read them:
+      # FRAMEWORK_CHECKOUT_TOKEN must be a repository secret holding a token with
+      # read access to both. Without it the step fails with "Repository not found",
+      # and that is the right failure -- there is no arrangement here where a green
+      # run silently skipped the framework.
+      #
+      # `ref` is a moving branch because neither framework repository publishes
+      # tags yet (NativeWeb has no `main` at all as of 2026-08-17). Pin both to a
+      # tag as soon as they do: on a branch, a push to the framework can turn this
+      # product's CI red with nothing having changed here.
+      #
+      # LICENCE: JauntyQ is used from a local checkout under terms permitting
+      # self-hosted-SaaS use of its generated output only. Cloning it here is fine
+      # for a product this organisation hosts itself; do not enable this workflow
+      # in a repository outside those terms, and never ship the resulting binary
+      # to a third party.
+      - name: Check out the framework (NativeWeb)
+        uses: actions/checkout@v4
+        with:
+          repository: extrode-legacy-org/NativeWeb
+          ref: dev
+          path: .ci-framework/NativeWeb
+          token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+
+      - name: Check out the framework (JauntyQ)
+        uses: actions/checkout@v4
+        with:
+          repository: extrode-legacy-org/jauntyq
+          ref: dev
+          path: .ci-framework/jauntyq
+          token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
@@ -81,25 +129,24 @@ jobs:
         run: bash db/migrate.sh
 
       - name: Restore
-        run: dotnet restore $DOTNET_BUILD_ARGS
+        run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore $DOTNET_BUILD_ARGS
+        run: dotnet build --no-restore
 
       # Spec 003 R31: fail the build when any resolved package (direct or
-      # transitive) has a known CVE. `dotnet list` takes no -p: properties, but
-      # MSBuild reads properties from the environment, so the UsePackages vars
-      # as env vars make project evaluation here match the package-mode restore
-      # above (without them, evaluation falls back to checkout mode and sibling
-      # dirs that do not exist on the runner). The command exits 0 either way,
-      # so the gate is two greps: fail on any "> PackageName" finding line, and
-      # fail if the positive "no vulnerable packages" confirmation never appears
-      # -- an audit that evaluated nothing (broken sources, format change) must
-      # not pass silently.
+      # transitive) has a known CVE. `dotnet list` takes no -p: properties -- the
+      # reason NativeWebRoot / JauntyQRoot are workflow-level environment
+      # variables, which MSBuild reads as properties, so evaluation here resolves
+      # the same way the restore above did. In checkout mode this walks the
+      # framework's ProjectReferences too, so the audit now covers the framework's
+      # own package graph rather than just the pinned NativeWeb.* facades.
+      #
+      # The command exits 0 either way, so the gate is two greps: fail on any
+      # "> PackageName" finding line, and fail if the positive "no vulnerable
+      # packages" confirmation never appears -- an audit that evaluated nothing
+      # (broken sources, format change) must not pass silently.
       - name: Vulnerable package gate
-        env:
-          NativeWebUsePackages: "true"
-          JauntyQUsePackages: "true"
         run: |
           out=$(dotnet list package --vulnerable --include-transitive)
           echo "$out"
@@ -116,10 +163,10 @@ jobs:
         run: pwsh tests/__product__.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Unit tests
-        run: dotnet test tests/__product__.tests.unit --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test tests/__product__.tests.unit --no-build
 
       - name: Integration tests
-        run: dotnet test tests/__product__.tests.integration --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test tests/__product__.tests.integration --no-build
 
       - name: Install NativeAOT link prerequisites
         # The e2e fixture's inner publish does a full NativeAOT link on this
@@ -128,14 +175,12 @@ jobs:
 
       - name: E2E tests
         # __PRODUCT__ProcessFixture publishes apps/__product__ itself (Release,
-        # no --no-build shortcut applies to that inner publish). The UsePackages
-        # env vars are what reach that CHILD process -- $DOTNET_BUILD_ARGS only
-        # applies to the outer `dotnet test`, and MSBuild reads bare environment
-        # variables as properties.
-        env:
-          NativeWebUsePackages: "true"
-          JauntyQUsePackages: "true"
-        run: dotnet test tests/__product__.tests.e2e --no-build $DOTNET_BUILD_ARGS
+        # no --no-build shortcut applies to that inner publish). That inner
+        # publish is a CHILD process, so it inherits the workflow-level
+        # NativeWebRoot / JauntyQRoot environment variables and resolves the
+        # framework the same way -- which is precisely why those are environment
+        # variables rather than -p: flags on the outer command.
+        run: dotnet test tests/__product__.tests.e2e --no-build
 
   aot-publish:
     # The NativeAOT gate: MSVC's cl.exe/link.exe (via vcvars) are only
@@ -147,6 +192,26 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Same framework checkout as the test job, and for the same reason -- this
+      # job resolves NativeWebRoot / JauntyQRoot from the workflow-level variables
+      # too. See the long note on those steps above for the token, the ref pinning
+      # and the JauntyQ licence constraint.
+      - name: Check out the framework (NativeWeb)
+        uses: actions/checkout@v4
+        with:
+          repository: extrode-legacy-org/NativeWeb
+          ref: dev
+          path: .ci-framework/NativeWeb
+          token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+
+      - name: Check out the framework (JauntyQ)
+        uses: actions/checkout@v4
+        with:
+          repository: extrode-legacy-org/jauntyq
+          ref: dev
+          path: .ci-framework/jauntyq
+          token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -161,4 +226,4 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
       - name: Publish (NativeAOT)
-        run: dotnet publish apps/__product__/__product__.csproj -c Release -p:NativeWebUsePackages=true -p:JauntyQUsePackages=true
+        run: dotnet publish apps/__product__/__product__.csproj -c Release

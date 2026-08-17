@@ -67,13 +67,25 @@ script (`install-windows-service.ps1`).
 
 Agent instructions are in `AGENTS.md`. `CLAUDE.md` is a one-line shim that imports it.
 
-## The package-feed gap
+## How CI resolves the framework
 
-Package mode (`-p:NativeWebUsePackages=true -p:JauntyQUsePackages=true`) is what CI is wired
-for, but **the private NativeWeb/JauntyQ feed does not exist yet**, so a package-mode restore
-cannot succeed anywhere — including `.github/workflows/ci.yml`, which dies at Restore until a
-feed is provisioned. Checkout mode is the working path today. The packages are private-feed
-only in any case: the JauntyQ license limits generated output to self-hosted use.
+`.github/workflows/ci.yml` builds in **checkout mode**, the same mode a developer machine uses.
+A runner has no sibling checkout, so the workflow clones `extrode-legacy-org/NativeWeb` and `extrode-legacy-org/jauntyq`
+into `.ci-framework/` and points `NativeWebRoot` / `JauntyQRoot` at them. Both are workflow-level
+*environment* variables rather than `-p:` flags, because `dotnet list package` accepts no `-p:`
+and the e2e fixture's NativeAOT publish runs as a child process — MSBuild reads bare environment
+variables as properties, so one definition covers all of it.
+
+**Set the `FRAMEWORK_CHECKOUT_TOKEN` repository secret** before the first run. The framework repos
+are private and the default `GITHUB_TOKEN` is scoped to this repository only, so without it the
+checkout step fails with `Repository not found`.
+
+Package mode (`-p:NativeWebUsePackages=true -p:JauntyQUsePackages=true`) still exists and is still
+unusable: **the private NativeWeb/JauntyQ feed does not exist yet**, so a package-mode restore
+cannot succeed anywhere. CI used to force it and died at Restore on every run; it no longer
+depends on it. The packages are private-feed only in any case — the JauntyQ license limits
+generated output to self-hosted use, which is also why enabling this workflow in a repository
+outside those terms is not permitted.
 
 ## Before shipping
 
@@ -84,9 +96,11 @@ The stamp leaves deliberate placeholders. Replace every one before the product f
 - `wwwroot/img/logo.svg` — the placeholder logo.
 - `deploy/__product__.service` / `install-windows-service.ps1` — connection string and URLs.
 - `docs/security-baseline.md` — tick the checklist, honestly.
-- When the package feed exists: add a `NuGet.config` with the private source and a
-  `packageSourceMapping` confining `NativeWeb.*`/`JauntyQ.*` to it, so package mode never
-  resolves those IDs against nuget.org.
+- `nuget.config` — the `framework-github` source points at `extrode-legacy-org`'s registry. Repoint it if
+  your framework packages publish elsewhere; the `packageSourceMapping` beside it is what keeps
+  `NativeWeb.*`/`JauntyQ.*` from ever resolving against nuget.org, so keep the two in step.
+- `.github/workflows/ci.yml` — the `extrode-legacy-org/NativeWeb` and `extrode-legacy-org/jauntyq` checkout targets,
+  and the `ref: dev` on each. Pin those to a tag once the framework publishes them.
 
 ## Status
 

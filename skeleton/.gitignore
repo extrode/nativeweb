@@ -44,3 +44,8 @@ Thumbs.db
 .claude/
 .specify/
 .worktrees/
+
+# Framework checkouts fetched by .github/workflows/ci.yml (NativeWebRoot /
+# JauntyQRoot). Each is a full clone of another repository, so one unignored
+# tree turns the next `git add -A` into a commit of the entire framework.
+.ci-framework/
