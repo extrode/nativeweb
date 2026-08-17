@@ -2,6 +2,20 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Away backlog slate** (seven branches, merged 2026-08-18). The items the user picked on the
+  way out, plus the two they decided rather than deferred. `db/migrate.sh` now takes a
+  session-level advisory lock through a psql coproc before it reads anything, so a second runner
+  queues and says so instead of racing `is_tracked`; verified by `db/test-run-lock.sh` rather than
+  an xUnit fact, because launching the runner from .NET on Windows deadlocks on the redirected
+  pipe and the failure would look exactly like the bug. `Redirects.To` answers a POST with 303 and
+  a GET with 302 -- Minimal APIs has no 303 helper, so `Location` is set by hand. The 415 sweep
+  reached the last six handlers, taking guarded handlers from 17 to 23 and turning six tolerant
+  ternaries into plain `ReadFormAsync`. `CompressedAssetTests` covers the one asset path only
+  `dotnet publish` exercises. `.editorconfig` gained field/local/parameter naming rules -- and the
+  find behind them: IDE1006 was off, so every naming rule in that file, including one written at
+  `severity = warning` on day one, had never run. The solution measured at a single violation.
+  `docs/migration-lock-review.md` records which migrations would hurt against a live database.
+
 - **Bounded backlog run** (four branches, merged 2026-08-17). Taken simplest-first while the user
   was away, on the scope they set on the way out. `fix/migrate-record-in-transaction` made
   `db/migrate.sh` apply and record in one transaction, asks the server whether the wrap survived

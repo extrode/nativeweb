@@ -6,10 +6,8 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **`feat/enable-telemetry`** — the user's 2026-08-17 decision to turn telemetry on, recorded in
-  `docs/plans/2026-08-17-004-enable-telemetry.md`. Gate inverts to opt-out, resource gains a
-  service identity, `QueryRedactingProcessor` pins the query-value invariant the package would
-  otherwise let a host switch off, and `NpgsqlTelemetryTests` holds the four driver defaults that
-  stand between this IdP and a collector. Ten perturbations, all red.
-- Suite counts: **468 unit / 274 integration / 154 render / 62 e2e**, all green. NativeAOT publish
-  clean: 35.2 MB, 586 ms to `/healthz`, budgets exit 0.
+- Nothing in flight. The away backlog slate is merged into `dev` and unpushed; what remains on
+  `work/todo.md` is either blocked on the user (epass.io cutover sign-off, collector address,
+  session key type, JauntyQ CI feed) or blocked upstream (Node 20 to 24, the framework `ref: dev`
+  pin, the SDK fix that would let `Directory.Build.targets` lose its Debug compression workaround).
+- Suite counts: **485 unit / 290 integration / 154 render / 64 e2e**, all green.
