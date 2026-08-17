@@ -250,8 +250,17 @@ Real, but needs a decision, a dependency, or more information first. Say which.
 - Analyzer risk pair (from V1 review, 2026-07-31): `TreatWarningsAsErrors` with unpinned
   `AnalysisLevel=latest-recommended` means an SDK bump can hard-break the build on new rules;
   consider pinning the level or adding a `WarningsNotAsErrors` escape hatch before the cutover.
-- .editorconfig naming rules cover interfaces/types/members only — private fields, constants,
-  locals and parameters are unenforced (V1 review note).
+- ~~.editorconfig naming rules cover interfaces/types/members only — private fields, constants,
+  locals and parameters are unenforced (V1 review note).~~ **Done 2026-08-18**,
+  `chore/editorconfig-naming-rules`: rules added for const fields and static readonly fields
+  (PascalCase), private fields (`_camelCase`), locals and parameters (camelCase). The measurement
+  the user asked for first: **one violation across the whole solution** — a local const named
+  `Yaml` in `ActionPinTests` — so the rules went in enforcing rather than advisory. The real find
+  was that none of the naming rules ran at all: IDE1006 has to be enabled by
+  `dotnet_diagnostic.IDE1006.severity`, and without it a rule's own severity is decorative, which
+  is why `interface_should_be_begins_with_i` had been silent since the file was written.
+  `EditorConfigNamingTests` guards both that line and dangling rule references. Not measured:
+  `skeleton/`, which is not in `NativeWeb.slnx` and cannot build unstamped.
 
 ## Dropped
 

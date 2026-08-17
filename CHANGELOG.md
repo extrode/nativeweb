@@ -86,6 +86,16 @@ Merged into `dev`, not yet tagged.
   question of invalidating live sessions rather than empty ones.
 
 ### Fixed
+- **The .editorconfig naming rules now actually run** -- IDE1006 has to be enabled by
+  `dotnet_diagnostic.IDE1006.severity`; a rule's own `severity = warning` decides how loud a
+  violation is, not whether the analyzer runs. Without that line the whole naming section was
+  decorative, which is why `interface_should_be_begins_with_i` had reported nothing since the file
+  was written (measured: renaming a field to `BadlyNamedLines` built clean before, IDE1006 after).
+  Rules added for const and static readonly fields (PascalCase), private fields (`_camelCase`),
+  locals and parameters (camelCase). Enforcing rather than advisory, because the solution measured
+  at exactly one violation -- a local const named `Yaml` -- fixed in the same commit.
+  `EditorConfigNamingTests` guards the enable line and catches a rule pointing at a symbol spec or
+  style that does not exist, the other way one goes quiet without failing anything.
 - **Compressed static assets are covered in Release** -- `Directory.Build.targets` disables
   precompressed variants in Debug to work around a framework defect, so no Debug build, and
   therefore no unit or integration test, ever exercised the compressed path. `CompressedAssetTests`
