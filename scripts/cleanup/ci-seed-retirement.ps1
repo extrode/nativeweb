@@ -9,17 +9,19 @@
 # runs migrations before the seed, so the seed's WHERE NOT EXISTS never fires:
 # it is now a guarded no-op.
 #
-# Three things go together, and the order matters:
-#   1. .github/workflows/ci.yml   the "Apply CI seed" step  <- a CODE EDIT, not this script
-#   2. db/seed/ci/                the seed file and directory
-#   3. tests/.../CiSeedTests.cs   asserts the workflow step exists
+# Two things went together, and the order mattered:
+#   1. .github/workflows/ci.yml   the "Apply CI seed" step  <- DONE, chore/retire-ci-seed
+#   2. db/seed/ci/                the seed file and directory  <- THIS SCRIPT
 #
-# THIS SCRIPT DOES 2 AND 3 ONLY. Step 1 is a workflow change that belongs in a
-# branch with a green CI run behind it, not in a cleanup script -- and it must land
-# FIRST. Deleting the seed while ci.yml still applies it breaks the build: the glob
-# `db/seed/ci/*.sql` matches nothing, bash passes the literal pattern through, and
-# psql fails on a file that does not exist. So section 1 below is a hard
-# precondition that refuses to act until ci.yml no longer names the step.
+# Step 1 landed first, deliberately. Deleting the seed while ci.yml still applied it
+# would break the build: the glob `db/seed/ci/*.sql` matches nothing, bash passes the
+# literal pattern through, and psql fails on a file that does not exist. Section 1
+# below still enforces that ordering, so this stays safe to run out of order.
+#
+# CiSeedTests.cs is NOT deleted. It was rewritten in the same branch to assert the
+# opposite of what it used to -- that ci.yml applies no seed at all -- because
+# re-adding one would make CI pass while a fresh production database stayed broken,
+# and nothing else would notice.
 #
 # Verification behind the supersession, measured 2026-08-17 against a local
 # database built exactly as ci.yml builds one:
@@ -86,8 +88,7 @@ Write-Host '-- 2. superseded files (needs --delete-tracked as well as --execute)
 # git rm rather than Remove-Item: these are tracked, and leaving the index
 # disagreeing with the working tree is a worse state than either end of the change.
 $tracked = @(
-    'db/seed/ci/0001_first_party_application.sql',
-    'tests/nativeweb.web.tests.unit/CiSeedTests.cs'
+    'db/seed/ci/0001_first_party_application.sql'
 )
 foreach ($f in $tracked) {
     git -C $repo ls-files --error-unmatch $f 2>$null | Out-Null
@@ -140,7 +141,7 @@ else {
 Write-Host '-- 4. what to do after this runs'
 Write-Host '   - db/seed/README.md still describes ci/ in the present tense; reword it.'
 Write-Host '   - work/todo.md carries the entry that scheduled this; tick it off.'
-Write-Host '   - run the unit tier: CiSeedTests is gone, so 413 becomes 410.'
+Write-Host '   - the unit count does not change: CiSeedTests was rewritten, not removed.'
 
 Write-Host '-- remaining state'
 git -C $repo status --short | Write-Host
