@@ -11,6 +11,9 @@ worth seeing here rather than hiding, but it is the exception.
   62 E2E). E2E had never executed on a runner before this one.
 - The `extrode-legacy-org` org package grant that blocked `fix/ci-package-feed` is **no longer blocking** --
   restore now authenticates and resolves `JauntyQ.*` from GitHub Packages on the runner.
-- Next decision, not a task: the first-party application row exists in CI and in local dev, but
-  a fresh production database still has none. Before the epass.io cutover it becomes either a
-  migration or a documented provisioning step. See `../todo.md`.
+- The production first-party-application gap is **closed**: migration 0055 creates the row for
+  every deployment, so `db/migrations` alone now yields a serviceable database. Verified by
+  running the integration tier against a migrations-only database (258/258) and against the same
+  schema with 0055 withheld (33 failures, the exact CI set).
+- One deletion awaiting a go-ahead: `db/seed/ci/`, its `ci.yml` step and `CiSeedTests` are now
+  redundant. See `../todo.md`.
