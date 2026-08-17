@@ -367,10 +367,11 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   never recorded, which is safe because `ResolveFirstPartyAsync` matches on `client_id` and reads
   `app.Id` without ever consulting `secret_hash`. Measured: every migration but 0055 applied gives
   33/258 integration failures, the exact CI set; with 0055 it is 258/258.
-- `db/seed/ci/` and the `Apply CI seed` step in `ci.yml` are now redundant — migration 0055 runs
-  first, so the seed's `WHERE NOT EXISTS` makes it a no-op. Harmless, but it is dead weight and
-  `CiSeedTests` asserts a workflow step nothing needs. Removing all three (the seed file, the
-  workflow step, `CiSeedTests`) is a deletion and needs a go-ahead.
+- ~~`db/seed/ci/` and the `Apply CI seed` step in `ci.yml` are now redundant.~~ **Done
+  2026-08-17**, `chore/retire-ci-seed`: the workflow step is gone, `CiSeedTests` was rewritten to
+  assert ci.yml applies no seed at all (re-adding one would make CI pass while a fresh production
+  database stayed broken), and the seed file itself is left to
+  `scripts/cleanup/ci-seed-retirement.ps1` for the user to run.
 - `RealmResolver` throwing an `InvalidOperationException` for missing *configuration* is why that
   cost a CI round trip to diagnose: `ErrorPageMiddleware` renders "Something went wrong" and the
   message only reaches the log. Both other config gaps of this class (`ContactProtector`,
