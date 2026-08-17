@@ -11,6 +11,12 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 Small, clear, and could be picked up without a design decision.
 
+- `skeleton/.github/workflows/ci.yml` pins `ilammy/msvc-dev-cmd@v1`, a mutable tag, where this
+  repo's `ci.yml` deliberately pins the SHA and explains why: a third-party action runs with the
+  workflow's token on every push, and a moved tag swaps the executed code with no change landing
+  in the repo. Same reasoning applies to a stamped product. Noticed 2026-08-17 while fixing the
+  publish-path bug; out of scope for that branch.
+
 - **JauntyQ package skew: watch for it recurring.** Closed for now — JauntyQ 0.2.0 published
   2026-08-17 and the pins here moved to match, verified by building the solution in package mode
   against the 0.2.0 nupkgs (0 warnings, 0 errors) and reproducing the old `JNT8004 No index
