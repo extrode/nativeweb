@@ -128,7 +128,7 @@ rather than quietly changing what a collector receives.
 
 | Attribute | Carries | Test |
 |---|---|---|
-| `url.query` | Parameter **names**; every value replaced with `Redacted` | `TelemetryTests`, `QueryRedactingProcessorTests` |
+| `url.query` | Only the **names** of parameters that had a value; the value is replaced with `Redacted`, and a segment with no `=` at all is replaced whole | `TelemetryTests`, `QueryRedactingProcessorTests` |
 | `url.path` | The raw path. No production route has a secret in one — the only route parameters are `{id:long}`, `{clientId:guid}`, `{id}` | — |
 | `db.query.text` | The **parameterised** SQL. Values travel as parameters and never appear | `NpgsqlTelemetryTests` |
 | `db.npgsql.data_source`, `db.client.connection.pool.name` | The connection string **with the password stripped by the driver**. Host, database and DB username do leave the process | `NpgsqlTelemetryTests` |
@@ -142,8 +142,9 @@ parameters — so `QueryRedactingProcessor` re-redacts before export regardless.
 
 One PII path exists and it is Development-only: `/dev/inbox/{destination}` takes an email address
 in the path, so a developer host would send those addresses as `url.path`. The route is mapped
-only under `IsDevelopment()` and never exists in a production posture, and the e2e tier (which
-drives it) has telemetry off — but point a dev host at a throwaway collector, not the real one.
+only under `IsDevelopment()` and never exists in a production posture, and both e2e launchers
+(`AppProcessFixture` and `StartupGuardProcessTests`) turn telemetry off — but point a dev host at
+a throwaway collector, not the real one.
 
 ### Running without a collector
 

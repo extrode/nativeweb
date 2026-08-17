@@ -69,11 +69,11 @@ debugging a client integration wants, and a name says nothing a route template d
 That processor is load-bearing rather than belt-and-braces, and the perturbation shows it: with
 the host disabling the package's redaction, removing the processor turns the test red.
 
-Two further review points were measured and did **not** reproduce:
+Two further review points, with different outcomes:
 
-- *Shutdown hang with no collector.* 187 ms with nothing listening, 201 ms with a blackholed
-  endpoint. No explicit exporter timeout needed.
-- *`AddService` swallowing `OTEL_SERVICE_NAME`.* Real, and fixed — the variable is honoured.
+- *Shutdown hang with no collector* — measured, and it does **not** reproduce: 187 ms with
+  nothing listening, 201 ms against a blackholed endpoint. No explicit exporter timeout needed.
+- *`AddService` swallowing `OTEL_SERVICE_NAME`* — real, and fixed. The variable is honoured.
 
 ### Alternatives rejected
 
