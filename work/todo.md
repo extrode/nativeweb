@@ -27,14 +27,18 @@ Small, clear, and could be picked up without a design decision.
   directory. Output now drains through the `OutputDataReceived` events into a `BoundedLogTail`
   rather than two `ReadToEndAsync` calls, so a timeout can report the last 200 lines instead of
   nothing. `ProcessRunTests` covers all three exits.
-- No configuration reference exists: none of `NativeWeb:RateLimit:*:PermitLimit` (five keys),
-  `NativeWeb:Db:*`, `NativeWeb:Readiness:CacheSeconds`, `NativeWeb:ForwardedHeaders:KnownProxies`
-  or `NativeWeb:Telemetry:Enabled` appears in `docs/`, in `appsettings.json`, or anywhere an
-  operator would look — every one is discoverable only by reading `Program.cs`. Noted while
-  adding the readiness knob 2026-08-03; the gap is pre-existing and repo-wide, so it wants one
-  doc rather than a line appended per change. Matters most for
-  `ForwardedHeaders:KnownProxies`, whose default silently degrades rate limiting to a single
-  shared partition.
+- ~~No configuration reference exists~~ — **already done; entry was stale, checked 2026-08-17.**
+  `docs/configuration.md` (201 lines) documents all 32 `NativeWeb:` keys plus
+  `ConnectionStrings:NativeWeb`, and gives `ForwardedHeaders:KnownProxies` its own section
+  precisely because its default collapses rate limiting into one shared partition. It is
+  self-guarding: `tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs` asserts in *both*
+  directions — every key the source reads is listed, and every listed key is one something reads
+  — with a third test that fails if either scan finds nothing, so the pair cannot pass by
+  comparing two empty sets. `NativeWeb:Smtp:*` comes from `SmtpOptions` by reflection rather than
+  from source literals, since the section is bound and its sub-keys appear as literals nowhere.
+  The only apparent gap, `NativeWeb:EpassLegacyMode`, is not a real key: it is a negative fixture
+  in `StartupConfigGuardTests` proving the legacy-key guard matches `Epass` as a whole segment
+  only, and documenting it would be wrong.
 
 ## Later
 
