@@ -36,6 +36,16 @@ over PostgreSQL. It was stamped from the NativeWeb skeleton (spec 003).
 - JauntyQ resolves dual-mode the same way: local checkout (`$(JauntyQRoot)`) or pinned
   `JauntyQ.*` packages via `-p:JauntyQUsePackages=true`.
 
+## Tooling runtime: Deno, never Node
+Deno is a first-class citizen here and Node is not. Any new script that would have been
+JavaScript or TypeScript is a Deno script, run with `deno run -A <script.ts>`, dependencies
+imported by URL or from JSR. **Do not introduce `package.json`, a lockfile, `node_modules`, or an
+`npm`/`npx` invocation.** The only tracked JS is what the browser loads, and that is served, not
+run. Two places Node appears regardless, neither ours to choose: GitHub Actions executes a
+`uses:` action as a bundled `dist/index.js` on its own Node binary (`runs.using` has no Deno
+option, so `actions/checkout` cannot be moved off it), and `Microsoft.Playwright` drives a
+Node-based browser driver under the .NET API.
+
 ## Testing (required before merge)
 Every feature ships with all three layers of coverage:
 - Unit tests (xUnit).

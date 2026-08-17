@@ -34,6 +34,23 @@ architecture and plan docs there).
 - JauntyQ resolves dual-mode: local checkout (`$(JauntyQRoot)`, probed in `Directory.Build.props`)
   for co-development, or pinned `JauntyQ.*` packages in CI via `-p:JauntyQUsePackages=true`.
 
+## Tooling runtime: Deno, never Node
+Deno is a first-class citizen here and Node is not. Any new script that would have been
+JavaScript or TypeScript is a Deno script, run with `deno run -A <script.ts>`, dependencies
+imported by URL or from JSR. **Do not introduce `package.json`, a lockfile, `node_modules`, or an
+`npm`/`npx` invocation** — the repo has none today (one browser-side `libs/nativeweb.assets/boot.js`
+is the only tracked JS, and it is served, not run) and that is worth keeping. Existing tooling in
+`tools/` and `scripts/` is Python and PowerShell; leave it, and note that global `AGENTS.md` fixes
+cleanup scripts as `.ps1`/`.sh` regardless.
+
+Two places Node appears anyway, neither ours to choose:
+- **GitHub Actions.** A `uses:` action of the common kind is a bundled `dist/index.js` the runner
+  executes with its own Node binary. `runs.using` accepts `node20`, `node24`, `docker` and
+  `composite` — there is no Deno action runtime, so `actions/checkout` cannot be moved off Node.
+  Deno can run inside a `run:` step; it cannot replace the thing that executes the step.
+- **Playwright.** `Microsoft.Playwright` drives a Node-based browser driver under the .NET API.
+  `playwright.ps1 install` is that driver, not a Node dependency of ours.
+
 ## Testing (required before merge)
 Every feature ships with all three layers of coverage:
 - Unit tests (xUnit).
