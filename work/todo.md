@@ -360,3 +360,17 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   Debug build no longer exercises compressed-asset serving at all, so only `dotnet publish`
   covers that path — a Release smoke check is what would catch a regression there.
 - manzil.my needs the same `Directory.Build.targets` workaround; it has the identical defect.
+- A fresh **production** database has the same first-party-application gap CI hit: no migration
+  creates the row `NativeWeb:FirstPartyClientId` names, and `RealmResolver.ResolveFirstPartyAsync`
+  throws without it, so `/oauth/authorize`, the consent page and the TOTP step-up all 500. CI is
+  covered by `db/seed/ci/0001_first_party_application.sql`, which is deliberately CI-only. Decide
+  before the epass.io cutover whether that row becomes a migration (every deployment gets one,
+  with a rotate-me secret) or a documented provisioning step — CI having it does not mean
+  production will.
+- `RealmResolver` throwing an `InvalidOperationException` for missing *configuration* is why that
+  cost a CI round trip to diagnose: `ErrorPageMiddleware` renders "Something went wrong" and the
+  message only reaches the log. Both other config gaps of this class (`ContactProtector`,
+  `PairwiseSubjectDeriver`) degrade to 503 instead. Worth making the three consistent, and worth
+  a startup check — the row is resolvable at boot, so nothing needs to wait for a request.
+- `skeleton/.github/workflows/ci.yml` applies migrations only, so a stamped product carries the
+  same gap. Fold in whatever the item above decides rather than copying the CI seed across now.

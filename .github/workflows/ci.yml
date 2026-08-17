@@ -90,6 +90,22 @@ jobs:
             PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_test -v ON_ERROR_STOP=1 -f "$f"
           done
 
+      # db/migrations alone does not produce a database the app can serve a
+      # request against: RealmResolver.ResolveFirstPartyAsync throws when the
+      # first-party application row is missing, and no migration creates one.
+      # That cost 33 integration failures -- /oauth/authorize, the consent page,
+      # the TOTP step-up and every authorization-code exchange behind them, all
+      # 500 -- and none of them said "first-party application not found",
+      # because the app answers with its own error page rather than a stack
+      # trace. db/seed/ci holds exactly that row and nothing else; see the file
+      # for why the dev seed is not usable here.
+      - name: Apply CI seed
+        run: |
+          for f in db/seed/ci/*.sql; do
+            echo "Applying $f"
+            PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_test -v ON_ERROR_STOP=1 -f "$f"
+          done
+
       # NativeWeb.slnx lists the two JauntyQ projects as solution members, so a
       # local checkout can co-develop them. That listing is unconditional,
       # unlike the ProjectReference in Directory.Build.props, so a
