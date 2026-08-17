@@ -11,11 +11,15 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 Small, clear, and could be picked up without a design decision.
 
-- `skeleton/.github/workflows/ci.yml` pins `ilammy/msvc-dev-cmd@v1`, a mutable tag, where this
-  repo's `ci.yml` deliberately pins the SHA and explains why: a third-party action runs with the
-  workflow's token on every push, and a moved tag swaps the executed code with no change landing
-  in the repo. Same reasoning applies to a stamped product. Noticed 2026-08-17 while fixing the
-  publish-path bug; out of scope for that branch.
+- ~~`skeleton/.github/workflows/ci.yml` pins `ilammy/msvc-dev-cmd@v1`, a mutable tag.~~ **Done
+  2026-08-17**, `chore/skeleton-action-pin`: pinned to
+  `0b201ec74fa43914dc39ae48a89fd1d8cb592756`, resolved with
+  `gh api repos/ilammy/msvc-dev-cmd/git/ref/tags/v1` rather than copied on faith, and it matches
+  the SHA this repo already pinned. `ActionPinTests` now guards **both** workflows: every
+  non-`actions/*` `uses:` must be a 40-hex SHA. `actions/*` stays on tags deliberately -- GitHub
+  publishes it from the trust boundary already running the workflow, so a SHA buys nothing there.
+  The test has two guards against passing vacuously: one asserting the scan finds both
+  repositories' workflows, one asserting at least one third-party action is actually under test.
 
 - **JauntyQ package skew: watch for it recurring.** Closed for now — JauntyQ 0.2.0 published
   2026-08-17 and the pins here moved to match, verified by building the solution in package mode
@@ -377,5 +381,10 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   message only reaches the log. Both other config gaps of this class (`ContactProtector`,
   `PairwiseSubjectDeriver`) degrade to 503 instead. Worth making the three consistent, and worth
   a startup check — the row is resolvable at boot, so nothing needs to wait for a request.
-- `skeleton/.github/workflows/ci.yml` applies migrations only, so a stamped product carries the
-  same gap. Fold in whatever the item above decides rather than copying the CI seed across now.
+- ~~`skeleton/.github/workflows/ci.yml` applies migrations only, so a stamped product carries the
+  same gap.~~ **Not a gap -- closed 2026-08-17.** Checked while pinning the action above: the
+  skeleton has no `RealmResolver`, no first-party application and no `db/seed/` at all, so there
+  is no row to seed. More to the point, migrations-only is now the *correct* posture rather than
+  an oversight: NativeWeb resolved its own version of this by moving the row into migration 0055
+  and retiring `db/seed/ci` entirely, so the skeleton was already doing the right thing. Copying
+  a seed step across would have propagated the mistake, not the fix.
