@@ -40,12 +40,11 @@
 # Dry run is the default and always exits 0; --execute / -e is the only way to
 # act. Deleting the scratch feeds is irreversible beyond that, so it needs
 # --delete-scratch on top of --execute, and dropping the repro databases needs
-# --drop-repro-databases on top of --execute.
+# --drop-repro-databases on top of --execute. Deleting branches this work did not
+# create needs --delete-all-merged, which is section 2b and is not this script's
+# original job -- see the paragraph there.
 #
 # Kept deliberately (do NOT add here):
-#   - The ~16 older docs/* and chore/* branches in `git branch --list`. They
-#     predate this work and belong to their own; deleting them is a separate
-#     decision.
 #   - The jauntyq repo. Nothing here touched it; it was only read.
 #   - The jauntyq-github credential added to the per-user NuGet.Config. That is
 #     durable configuration, not scratch: it is what makes a local package-mode
@@ -57,6 +56,7 @@ param(
     [Alias('e')][switch]$Execute,
     [switch]$DeleteScratch,
     [switch]$DropReproDatabases,
+    [switch]$DeleteAllMerged,
     [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
 
@@ -77,6 +77,10 @@ foreach ($a in $Rest) {
         '--execute' { $Execute = $true }
         '--delete-scratch' { $DeleteScratch = $true }
         '--drop-repro-databases' { $DropReproDatabases = $true }
+        '--delete-all-merged' { $DeleteAllMerged = $true }
+        # --delete-scratched is a near-miss for --delete-scratch that has been typed
+        # here for real. Exit 2 rather than accepting it: a cleanup script that
+        # guesses at what you meant is the last place for a helpful correction.
         default { Write-Host "unknown argument: $a" -ForegroundColor Red; exit 2 }
     }
 }
@@ -101,7 +105,7 @@ Act 'git worktree prune' { git -C $repo worktree prune }
 Write-Host '-- 2. merged branches (git branch -d refuses if unmerged)'
 # A branch already deleted by hand is the desired end state, not a failure:
 # report and skip. Only a -d that refuses an unmerged branch is an error.
-foreach ($b in @(
+$thisWorksBranches = @(
         'chore/jauntyq-version-skew-note',
         'chore/jauntyq-0.2.0-pin',
         'chore/jauntyq-pin-cleanup-script',
@@ -127,7 +131,9 @@ foreach ($b in @(
         'chore/remove-ci-seed-file',
         'chore/list-seed-removal-branch',
         'chore/correct-spent-script-note',
-        'chore/list-final-note-branches')) {
+        'chore/list-final-note-branches')
+
+foreach ($b in $thisWorksBranches) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {
@@ -140,6 +146,50 @@ foreach ($b in @(
         if ($LASTEXITCODE -ne 0) {
             Write-Host "FAILED to delete $b (unmerged?)" -ForegroundColor Red
             $script:failed = $true
+        }
+    }
+}
+
+Write-Host '-- 2b. every other branch already merged into dev (needs --delete-all-merged)'
+# Scope widened deliberately, 2026-08-17, on the user's instruction. Sections 1-4
+# clean up after one body of work; this section does not, and that is the whole
+# reason it needs its own flag and its own paragraph.
+#
+# The header used to claim it left "~16 older docs/* and chore/*" branches alone.
+# Measured 2026-08-17: 98 local branches, ALL merged into dev and NONE unmerged.
+# Section 2's named list covers 26, main is excluded, and 71 are left -- against a
+# header that claimed ~16. The repo has never had a branch cleanup; sparing 16 was
+# never a decision anyone made, it was an estimate nobody counted.
+#
+# What is actually lost here is names, not commits: every branch below is merged,
+# so its history is reachable from dev and `git branch -d` is a pointer deletion.
+# But a branch name is sometimes the only surviving statement of why a change was
+# made, and unlike sections 3 and 4 this touches work that predates all of it and
+# belongs to whoever wrote it. Hence: never in the dry run's action set, never
+# under bare --execute, and the full list printed before anything happens so 72
+# names can be read rather than counted.
+#
+# main and dev are excluded by name, and the current branch by HEAD -- git -d
+# refuses to delete the branch you are standing on, but failing on it would set
+# $failed and exit 1 over something that was never in scope.
+$otherMerged = @(git -C $repo branch --merged dev --format='%(refname:short)') |
+    Where-Object { $_ -and $_ -notin @('dev', 'main', $branch) -and $_ -notin $thisWorksBranches }
+
+if ($otherMerged.Count -eq 0) {
+    Write-Host 'skip  no other merged branches'
+}
+elseif (-not $DeleteAllMerged) {
+    Write-Host "would delete $($otherMerged.Count) other merged branch(es) (with --execute --delete-all-merged):"
+    foreach ($b in $otherMerged) { Write-Host "        $b" }
+}
+else {
+    foreach ($b in $otherMerged) {
+        Act "delete branch $b" {
+            git -C $repo branch -d $b
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "FAILED to delete $b (unmerged?)" -ForegroundColor Red
+                $script:failed = $true
+            }
         }
     }
 }
