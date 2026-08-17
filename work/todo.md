@@ -360,13 +360,17 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   Debug build no longer exercises compressed-asset serving at all, so only `dotnet publish`
   covers that path — a Release smoke check is what would catch a regression there.
 - manzil.my needs the same `Directory.Build.targets` workaround; it has the identical defect.
-- A fresh **production** database has the same first-party-application gap CI hit: no migration
-  creates the row `NativeWeb:FirstPartyClientId` names, and `RealmResolver.ResolveFirstPartyAsync`
-  throws without it, so `/oauth/authorize`, the consent page and the TOTP step-up all 500. CI is
-  covered by `db/seed/ci/0001_first_party_application.sql`, which is deliberately CI-only. Decide
-  before the epass.io cutover whether that row becomes a migration (every deployment gets one,
-  with a rotate-me secret) or a documented provisioning step — CI having it does not mean
-  production will.
+- ~~A fresh **production** database has the same first-party-application gap CI hit.~~ **Closed
+  2026-08-17** by `db/migrations/0055_first_party_application.sql`: every deployment now gets the
+  row, guarded on "realm 1 has no applications" so existing deployments neither duplicate it nor
+  gain a dead row. The secret is generated with `gen_random_uuid()` inside the migration and
+  never recorded, which is safe because `ResolveFirstPartyAsync` matches on `client_id` and reads
+  `app.Id` without ever consulting `secret_hash`. Measured: every migration but 0055 applied gives
+  33/258 integration failures, the exact CI set; with 0055 it is 258/258.
+- `db/seed/ci/` and the `Apply CI seed` step in `ci.yml` are now redundant — migration 0055 runs
+  first, so the seed's `WHERE NOT EXISTS` makes it a no-op. Harmless, but it is dead weight and
+  `CiSeedTests` asserts a workflow step nothing needs. Removing all three (the seed file, the
+  workflow step, `CiSeedTests`) is a deletion and needs a go-ahead.
 - `RealmResolver` throwing an `InvalidOperationException` for missing *configuration* is why that
   cost a CI round trip to diagnose: `ErrorPageMiddleware` renders "Something went wrong" and the
   message only reaches the log. Both other config gaps of this class (`ContactProtector`,
