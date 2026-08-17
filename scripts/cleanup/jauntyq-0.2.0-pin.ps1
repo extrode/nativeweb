@@ -30,7 +30,9 @@
 #   fix/realm-resolver-consistency    503 instead of throw, plus the boot-time row check
 #   chore/three-task-cleanup-entries  the previous list update
 #   chore/remove-ci-seed-file         git rm of the seed, staged by ci-seed-retirement.ps1
-#   chore/list-seed-removal-branch    this list update
+#   chore/list-seed-removal-branch    the previous list update
+#   chore/correct-spent-script-note   corrected ci-seed-retirement.ps1's last open item
+#   chore/list-final-note-branches    this list update, and the last one
 #
 # The third is this script's own branch. It can delete itself because the script
 # is merged into dev before it is ever run, so the commit survives the branch.
@@ -123,7 +125,9 @@ foreach ($b in @(
         'fix/realm-resolver-consistency',
         'chore/three-task-cleanup-entries',
         'chore/remove-ci-seed-file',
-        'chore/list-seed-removal-branch')) {
+        'chore/list-seed-removal-branch',
+        'chore/correct-spent-script-note',
+        'chore/list-final-note-branches')) {
 
     git -C $repo show-ref --verify --quiet "refs/heads/$b"
     if ($LASTEXITCODE -ne 0) {
