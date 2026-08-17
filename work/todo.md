@@ -341,8 +341,9 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   (jauntyq's `publish.yml` on `v*` tags is the pattern to copy), which is a release-process
   decision rather than a wiring one.~~ **Done 2026-08-17**, `chore/skeleton-local-mode-ci`,
   and it turned out not to need the release decision at all: CI now builds in **checkout
-  mode**, cloning `extrode-legacy-org/NativeWeb` and `extrode-legacy-org/jauntyq` into `.ci-framework/` and pointing
-  `NativeWebRoot` / `JauntyQRoot` at them as workflow-level *environment* variables (one
+  mode**, checking `extrode-legacy-org/NativeWeb` and `extrode-legacy-org/jauntyq` out as SIBLINGS of the product
+  (which moves into `product/`) and pointing `NativeWebRoot` / `JauntyQRoot` at them as
+  workflow-level *environment* variables (one
   definition reaches `dotnet list package`, which takes no `-p:`, and the e2e fixture's child
   publish). The skeleton also now ships the missing `nuget.config`. The publish-vs-not
   decision is deferred, not answered — package mode still exists, still has no feed, and is

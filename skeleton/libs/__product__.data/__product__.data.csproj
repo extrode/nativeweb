@@ -17,7 +17,9 @@
   <!-- JauntyQ: source generator (as analyzer) + runtime. Local checkout via
        ProjectReference for co-development; pinned NuGet packages in package
        mode (-p:JauntyQUsePackages=true). CI is NOT the package-mode case: it
-       clones jauntyq into .ci-framework/ and builds in checkout mode. -->
+       checks jauntyq out as a SIBLING of this repository and builds in checkout
+       mode. Sibling, not nested: nested, this repo's Directory.Packages.props
+       reaches it and central package management fails its restore (NU1008). -->
   <ItemGroup Condition="'$(JauntyQUsePackages)' != 'true'">
     <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj"
                       OutputItemType="Analyzer"
