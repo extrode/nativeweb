@@ -85,6 +85,41 @@ record_sql() {
   printf "\nINSERT INTO schema_migrations (version) VALUES ('%s') ON CONFLICT (version) DO NOTHING;\n" "$1"
 }
 
+# Asks the SERVER whether the wrap survived, rather than reading its log.
+#
+# The transaction id is captured before the migration runs and compared after it.
+# Any transaction control inside the file -- BEGIN, COMMIT, END, ROLLBACK, ABORT,
+# COMMIT AND CHAIN, whatever spelling, in whatever place a text scan failed to
+# look -- ends or replaces the transaction, so the id changes and this raises. A
+# ROLLBACK instead discards the temp table, and the missing relation raises too.
+#
+# This replaced matching psql's stderr for "already a transaction in progress".
+# Two reasons, both found the hard way:
+#   * Those strings are localised by the server's lc_messages, so on a non-English
+#     server the check would silently never fire. The obvious fix -- forcing
+#     lc_messages=C through PGOPTIONS -- is not available: it is a superuser-only
+#     parameter, and nativeweb_app setting it makes every connection fail outright
+#     with "permission denied to set parameter". Measured, not assumed.
+#   * COMMIT AND CHAIN produces NO warning at all, so no amount of log reading
+#     could ever have caught it.
+# A transaction id is a number the server computes. It is not translated, not
+# suppressible, and not dependent on this script parsing SQL correctly.
+xact_guard_open_sql() {
+  printf "\nCREATE TEMP TABLE _migrate_xact_guard AS SELECT txid_current() AS xid;\n"
+}
+
+xact_guard_close_sql() {
+  printf '%s\n' "" \
+    "DO \$guard\$ BEGIN" \
+    "  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '_migrate_xact_guard') THEN" \
+    "    RAISE EXCEPTION 'migration rolled back the transaction this runner opened';" \
+    "  END IF;" \
+    "  IF (SELECT xid FROM _migrate_xact_guard) <> txid_current() THEN" \
+    "    RAISE EXCEPTION 'migration ran transaction control; the wrap was broken and this file was NOT applied atomically';" \
+    "  END IF;" \
+    "END \$guard\$;"
+}
+
 # How a migration must be applied. The default is "wrapped": the file and its
 # schema_migrations row go to psql as ONE --single-transaction unit, so either
 # both land or neither does.
@@ -148,10 +183,35 @@ strip_sql_comments() {
     # Neither order is a real lexer. That is what the runtime warning check in
     # apply_and_record is for.
     { gsub(/--.*$/, "") }
+    # Inside a block comment that opened on an earlier line: discard until the
+    # closer, then carry on with whatever follows it on that line.
+    inblock {
+      if (match($0, /\*\//)) { $0 = substr($0, RSTART + RLENGTH); inblock = 0 }
+      else { next }
+    }
     {
-      line = $0
+      # Complete block comments. The naive /\*.*\*/ is greedy, so
+      # `/* a */ BEGIN; /* b */` would delete the BEGIN; between them -- this
+      # matches the shortest span instead.
+      while (match($0, /\/\*[^*]*\*+([^\/*][^*]*\*+)*\//)) {
+        $0 = substr($0, 1, RSTART - 1) " " substr($0, RSTART + RLENGTH)
+      }
+      # An opener with no closer on this line: keep the code BEFORE it. The
+      # earlier version printed nothing for such a line, losing any statement
+      # that preceded the comment.
+      if (match($0, /\/\*/)) { $0 = substr($0, 1, RSTART - 1); inblock = 1 }
+    }
+    {
       # Dollar-quoted regions ($$ or $tag$), which may span lines. Inside one,
       # nothing is SQL as far as classification is concerned.
+      #
+      # LAST, after both comment forms, and that ordering is the fix for a bug
+      # this file previously claimed to have fixed while not actually having done
+      # so: a $$ appearing inside a comment would open a phantom region closing
+      # on a real $$ further down, swallowing every statement between -- a
+      # BEGIN;/COMMIT; pair included, silently. Fable caught the discrepancy
+      # between the comment above and the rule order below it.
+      line = $0
       out = ""
       while (length(line) > 0) {
         if (indollar) {
@@ -171,26 +231,7 @@ strip_sql_comments() {
         out = out line
         line = ""
       }
-      $0 = out
-    }
-    # Inside a block comment that opened on an earlier line: discard until the
-    # closer, then carry on with whatever follows it on that line.
-    inblock {
-      if (match($0, /\*\//)) { $0 = substr($0, RSTART + RLENGTH); inblock = 0 }
-      else { next }
-    }
-    {
-      # Complete block comments. The naive /\*.*\*/ is greedy, so
-      # `/* a */ BEGIN; /* b */` would delete the BEGIN; between them -- this
-      # matches the shortest span instead.
-      while (match($0, /\/\*[^*]*\*+([^\/*][^*]*\*+)*\//)) {
-        $0 = substr($0, 1, RSTART - 1) " " substr($0, RSTART + RLENGTH)
-      }
-      # An opener with no closer on this line: keep the code BEFORE it. The
-      # earlier version printed nothing for such a line, losing any statement
-      # that preceded the comment.
-      if (match($0, /\/\*/)) { $0 = substr($0, 1, RSTART - 1); inblock = 1 }
-      print
+      print out
     }
   ' "$1"
 }
@@ -220,7 +261,17 @@ mode_of() {
   # one (`BEGIN;`, `BEGIN WORK;`, `BEGIN ISOLATION LEVEL ...;`), and plpgsql's
   # block-opening BEGIN and closing END never do. That is what keeps 0049's
   # function body from tripping this.
-  if printf '%s' "$stripped" | grep -qiE '\bconcurrently\b|\bvacuum\b|\balter[[:space:]]+system\b|\bcreate[[:space:]]+(database|tablespace)\b|\b(begin|end|commit|rollback)[[:space:]]*;|\b(begin|start)[[:space:]]+(transaction|work|isolation)\b'; then
+  # The terminator forms are spelled more ways than they look. Postgres accepts
+  # COMMIT/END/ROLLBACK/ABORT bare, or with WORK or TRANSACTION, and AND CHAIN on
+  # top of that. Matching only `commit;` misses `COMMIT WORK;` and friends, which
+  # end the wrap exactly as effectively.
+  #
+  # AND CHAIN is the one that MUST be caught here, because it is the only form
+  # with no runtime trace at all: it commits the wrapping transaction and opens a
+  # fresh one, so psql never warns about a transaction already in progress or
+  # about none being in progress. The backstop cannot see it. This scan is the
+  # only thing that can.
+  if printf '%s' "$stripped" | grep -qiE '\bconcurrently\b|\bvacuum\b|\balter[[:space:]]+system\b|\bcreate[[:space:]]+(database|tablespace)\b|\bprepare[[:space:]]+transaction\b|\b(commit|end|rollback|abort|begin)([[:space:]]+(work|transaction))?[[:space:]]*;|\b(commit|end|rollback)[[:space:]]+and[[:space:]]+chain\b|\b(begin|start)[[:space:]]+(transaction|work|isolation)\b'; then
     echo "ERROR: $(basename "$f") contains a statement that cannot run inside a" >&2
     echo "       transaction block, or opens its own transaction, but does not carry" >&2
     echo "       the '-- $NO_TRANSACTION_MARKER' marker." >&2
@@ -251,7 +302,7 @@ apply_and_record() {
       # during a cutover, "which file is <stdin>" is not a question worth minutes.
       local err status=0
       err="$(mktemp)"
-      { cat "$f"; record_sql "$version"; } \
+      { xact_guard_open_sql; cat "$f"; record_sql "$version"; xact_guard_close_sql; } \
         | app_psql --single-transaction -f - >/dev/null 2>"$err" || status=$?
       cat "$err" >&2
 
@@ -278,12 +329,27 @@ apply_and_record() {
       # A safety net whose failure mode is "reports safe" is worse than none.
       local errtext
       errtext="$(cat "$err")" || errtext='(unreadable)'
-      if [[ "$errtext" == *"already a transaction in progress"* || "$errtext" == '(unreadable)' ]]; then
+      # Two warnings, not one. `already a transaction in progress` means the file
+      # ran BEGIN inside the wrap; `there is no transaction in progress` means it
+      # ran a COMMIT that ended the wrap, which psql reports at its own closing
+      # commit. A file with a stray COMMIT and no BEGIN produces only the second,
+      # so checking the first alone left that case completely silent.
+      if [[ "$errtext" == *"the wrap was broken"* \
+         || "$errtext" == *"rolled back the transaction this runner opened"* \
+         || "$errtext" == *"already a transaction in progress"* \
+         || "$errtext" == *"no transaction in progress"* \
+         || "$errtext" == '(unreadable)' ]]; then
         rm -f "$err"
-        echo "ERROR: $(basename "$f") opened its own transaction while being wrapped." >&2
-        echo "       Its COMMIT ended the wrapping transaction early, so any statement" >&2
-        echo "       after it ran in autocommit and this migration was NOT atomic." >&2
-        echo "       The database is in an unknown state -- inspect it before re-running." >&2
+        echo "ERROR: $(basename "$f") ran transaction control while being wrapped." >&2
+        echo "       Either it opened its own transaction, or it committed the one this" >&2
+        echo "       runner opened. Every statement after that point ran in autocommit," >&2
+        echo "       so the migration was NOT atomic." >&2
+        echo "" >&2
+        echo "       The version may ALREADY BE RECORDED: the tracking INSERT is appended" >&2
+        echo "       after the file, so if it ran in autocommit it committed on its own." >&2
+        echo "       A naive re-run would then print 'skip $version' and look healthy while" >&2
+        echo "       the database is half-migrated. Inspect before re-running." >&2
+        echo "" >&2
         echo "       Then add '-- $NO_TRANSACTION_MARKER' to that file so it is never wrapped." >&2
         exit 1
       fi
@@ -306,6 +372,23 @@ apply_and_record() {
 # exist before it can even check whether 0002 is tracked -- create it
 # defensively up front (IF NOT EXISTS makes 0044 itself a no-op later).
 app_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());" >/dev/null
+
+# Two files sharing a version prefix (0007_a.sql and 0007_b.sql) is silent data
+# loss dressed as success: the first is applied and recorded, and every run after
+# that prints `skip 0007` for BOTH, so the second is never applied and never
+# will be. Nothing downstream notices, because the tracking table only ever knew
+# about versions. Cheap to detect, so detect it. Noted by Fable, 2026-08-17.
+duplicate_versions="$(
+  for f in "$MIGRATIONS_DIR"/[0-9][0-9][0-9][0-9]_*.sql; do version_of "$f"; done | sort | uniq -d
+)"
+if [ -n "$duplicate_versions" ]; then
+  echo "ERROR: two or more migrations share a version prefix:" >&2
+  for v in $duplicate_versions; do
+    echo "       $v -> $(basename -a "$MIGRATIONS_DIR"/"$v"_*.sql | tr '\n' ' ')" >&2
+  done
+  echo "       Only the first would ever be applied; the rest are skipped forever." >&2
+  exit 1
+fi
 
 EXT_FILE="$MIGRATIONS_DIR/0002_extensions.sql"
 EXT_VERSION="$(version_of "$EXT_FILE")"

@@ -21,6 +21,17 @@ Small, clear, and could be picked up without a design decision.
   The test has two guards against passing vacuously: one asserting the scan finds both
   repositories' workflows, one asserting at least one third-party action is actually under test.
 
+- **Two `migrate.sh` runs at once will double-apply a migration, silently.** Nothing serializes
+  the runner. Both processes pass `is_tracked` before either records, both apply the file, and
+  `ON CONFLICT DO NOTHING` swallows the second tracking INSERT. DDL fails loudly on the second
+  apply; a **data** migration double-applies with no error at all — and 0054 is the worst case,
+  since re-running it would hash already-hashed session ids and sign every user out permanently
+  (it guards itself, which is why this is a gap rather than a live bug). The fix is a
+  `pg_advisory_lock` taken for the whole run, which needs one connection held open across the
+  loop — a structural change to how the runner invokes psql, not a one-liner. Not a problem
+  today: one operator, one machine, and CI runs it once per job. **It becomes a real problem the
+  moment a deploy pipeline can run two jobs at once.** Found by Fable, 2026-08-17.
+
 - **Migrations now hold locks for a whole file — check the long ones before the cutover.**
   `db/migrate.sh` wraps each migration in one transaction (2026-08-17), which is right for
   atomicity and costs lock duration: every lock a file takes is held until its last statement
