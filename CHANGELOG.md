@@ -150,6 +150,10 @@ Merged into `dev`, not yet tagged.
 
 ### Changed
 
+- `Redirects.To` answers a no-JS POST with **303 See Other** instead of 302. A GET still
+  gets 302. Nothing changes in a browser; it matters for the non-browser clients that follow
+  the OAuth surface.
+
 - `db/migrate.sh` now serialises itself with a PostgreSQL advisory lock held for the whole
   run, so two concurrent runners cannot both apply the same migration. A second runner says it
   is queuing and waits. `db/test-run-lock.sh` verifies it.
