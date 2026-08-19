@@ -29,7 +29,7 @@ Built in this order; each task's tests ship in the same branch as its code.
 
 - [x] **T13** Unit tier — files: `tests/nativeweb.signin.epass.tests.unit/` — covers: R15 — done when: ticket, return path, result type, options validation and client outcomes are all covered, and every new green test has been perturbed to confirm it fails.
 
-- [ ] **T14** NativeAOT publish gate — files: `apps/sample` or a probe app — covers: R13 — done when: a publish of a consumer of this library exits 0 with zero IL2026/IL3050, proving RDG sees the hand-written `Map*` calls.
+- [x] **T14** NativeAOT publish gate — files: `apps/sample` or a probe app — covers: R13 — done when: a publish of a consumer of this library exits 0 with zero IL2026/IL3050, proving RDG sees the hand-written `Map*` calls.
 
 - [ ] **T15** Integration tier — files: `tests/nativeweb.signin.epass.tests.integration/` — covers: R3, R7, R15 — done when: a JauntyQ-backed `ILoginFlowStore` runs against real PostgreSQL, passes the T6 conformance fixture, and a rendered provider failure contains no provider-supplied text.
 
