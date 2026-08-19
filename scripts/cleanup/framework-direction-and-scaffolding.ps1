@@ -51,7 +51,9 @@ $branches = @(
     'feat/scaffolding-poc',
     # The branches this script itself was written on.
     'chore/framework-direction-cleanup-script',
-    'chore/cleanup-script-self-reference'
+    'chore/cleanup-script-self-reference',
+    'docs/t10-relying-party-extraction',
+    'chore/cleanup-script-doc-branch'
 )
 
 foreach ($b in $branches) {
