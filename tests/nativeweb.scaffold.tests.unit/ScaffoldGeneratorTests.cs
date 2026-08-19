@@ -46,6 +46,13 @@ public sealed class ScaffoldGeneratorTests
             public sealed class ScaffoldMultilineAttribute : System.Attribute { }
             public sealed class ScaffoldReadOnlyAttribute : System.Attribute { }
             public sealed class ScaffoldKeyAttribute : System.Attribute { }
+
+            [System.AttributeUsage(System.AttributeTargets.Assembly)]
+            public sealed class ScaffoldRootAttribute : System.Attribute
+            {
+                public ScaffoldRootAttribute(string path) => Path = path;
+                public string Path { get; }
+            }
         }
         """;
 
@@ -292,6 +299,79 @@ public sealed class ScaffoldGeneratorTests
         Assert.DoesNotContain(
             updated.SyntaxTrees.SelectMany(t => t.GetDiagnostics()),
             d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    // The scaffold root. Hardcoding "/admin" was the original shape, so these guard
+    // the whole surface it leaked into: the route group, every link in the index,
+    // the page header, and the per-model base path the forms and redirects use.
+    [Fact]
+    public void ScaffoldRoot_DefaultsToAdmin()
+    {
+        (_, string source) = Run(Attributes, ArticleModel);
+
+        Assert.Contains("private const string BasePath = \"/admin/articles\";", source, StringComparison.Ordinal);
+        Assert.Contains("endpoints.MapGet(\"/admin\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ScaffoldRoot_MovesEveryEmittedPath()
+    {
+        const string root = """[assembly: NativeWeb.Scaffold.ScaffoldRoot("/manage")]""";
+
+        (ImmutableArray<Diagnostic> diagnostics, string source) = Run(Attributes, root, ArticleModel);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("private const string BasePath = \"/manage/articles\";", source, StringComparison.Ordinal);
+        Assert.Contains("endpoints.MapGet(\"/manage\"", source, StringComparison.Ordinal);
+        Assert.Contains("href=\\\"/manage/articles\\\"", source, StringComparison.Ordinal);
+
+        // The point of the test: not one path may be left behind on the old root.
+        Assert.DoesNotContain("/admin", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ScaffoldRoot_TrimsATrailingSlash()
+    {
+        const string root = """[assembly: NativeWeb.Scaffold.ScaffoldRoot("/manage/")]""";
+
+        (_, string source) = Run(Attributes, root, ArticleModel);
+
+        Assert.Contains("private const string BasePath = \"/manage/articles\";", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("//articles", source, StringComparison.Ordinal);
+    }
+
+    // "/" is legal and means the site root, where the index is "/" and a model sits
+    // directly at "/articles". The empty-string normalisation must not leak out.
+    [Fact]
+    public void ScaffoldRoot_SupportsTheSiteRoot()
+    {
+        const string root = """[assembly: NativeWeb.Scaffold.ScaffoldRoot("/")]""";
+
+        (ImmutableArray<Diagnostic> diagnostics, string source) = Run(Attributes, root, ArticleModel);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("private const string BasePath = \"/articles\";", source, StringComparison.Ordinal);
+        Assert.Contains("endpoints.MapGet(\"/\"", source, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("admin")]
+    [InlineData("")]
+    [InlineData("/admin?x=1")]
+    [InlineData("/two words")]
+    public void ScaffoldRoot_ThatIsNotAPath_ReportsNws002(string bad)
+    {
+        string root = $"[assembly: NativeWeb.Scaffold.ScaffoldRoot(\"{bad}\")]";
+
+        (ImmutableArray<Diagnostic> diagnostics, string source) = Run(Attributes, root, ArticleModel);
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("NWS002", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+
+        // Nothing is emitted on a bad root, so a typo cannot silently publish an
+        // admin UI at a path the author did not choose.
+        Assert.Equal(string.Empty, source);
     }
 
     private static int Occurrences(string haystack, string needle)

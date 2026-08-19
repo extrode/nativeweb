@@ -22,6 +22,8 @@ namespace NativeWeb.Scaffold.Generator;
 public sealed class ScaffoldGenerator : IIncrementalGenerator
 {
     private const string ScaffoldAttribute = "NativeWeb.Scaffold.ScaffoldAttribute";
+    private const string ScaffoldRootAttribute = "NativeWeb.Scaffold.ScaffoldRootAttribute";
+    internal const string DefaultRoot = "/admin";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -31,9 +33,59 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                 predicate: static (node, _) => true,
                 transform: static (ctx, _) => Build(ctx));
 
+        // The assembly-level [ScaffoldRoot]. Projected to a string so the pipeline
+        // caches on the value: keeping the Compilation itself in the provider would
+        // invalidate every downstream step on any edit at all.
+        IncrementalValueProvider<string?> root = context.CompilationProvider
+            .Select(static (compilation, _) => ReadRoot(compilation));
+
         context.RegisterSourceOutput(
-            models.Where(static m => m is not null).Collect(),
-            static (spc, all) => Emit(spc, all!));
+            models.Where(static m => m is not null).Collect().Combine(root),
+            static (spc, pair) => Emit(spc, pair.Left!, pair.Right));
+    }
+
+    // The raw attribute value, or null when the assembly does not carry one.
+    // Validation happens at emit time, where a diagnostic can be reported.
+    private static string? ReadRoot(Compilation compilation)
+    {
+        foreach (AttributeData attribute in compilation.Assembly.GetAttributes())
+        {
+            if (attribute.AttributeClass?.ToDisplayString() == ScaffoldRootAttribute
+                && attribute.ConstructorArguments.Length == 1
+                && attribute.ConstructorArguments[0].Value is string path)
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    // "/manage/" -> "/manage"; "/" -> ""; absent -> "/admin". An empty result is
+    // valid and means the site root, so the caller cannot treat "" as failure --
+    // hence the separate bool.
+    internal static bool TryNormalizeRoot(string? raw, out string normalized)
+    {
+        normalized = DefaultRoot;
+
+        if (raw is null)
+        {
+            return true;
+        }
+
+        string trimmed = raw.Trim();
+        if (trimmed.Length == 0 || trimmed[0] != '/')
+        {
+            return false;
+        }
+
+        if (trimmed.IndexOf('?') >= 0 || trimmed.IndexOf('#') >= 0 || trimmed.IndexOf(' ') >= 0)
+        {
+            return false;
+        }
+
+        normalized = trimmed.TrimEnd('/');
+        return true;
     }
 
     private static ScaffoldModel? Build(GeneratorAttributeSyntaxContext ctx)
@@ -174,10 +226,16 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
         return word + "s";
     }
 
-    private static void Emit(SourceProductionContext spc, ImmutableArray<ScaffoldModel> models)
+    private static void Emit(SourceProductionContext spc, ImmutableArray<ScaffoldModel> models, string? rawRoot)
     {
         if (models.IsDefaultOrEmpty)
         {
+            return;
+        }
+
+        if (!TryNormalizeRoot(rawRoot, out string root))
+        {
+            spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.BadRoot, Location.None, rawRoot));
             return;
         }
 
@@ -191,12 +249,14 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
 
             spc.AddSource(
                 model.TypeName + ".Scaffold.g.cs",
-                SourceText.From(ScaffoldEmitter.Emit(model), Encoding.UTF8));
+                SourceText.From(ScaffoldEmitter.Emit(model, root), Encoding.UTF8));
         }
 
         spc.AddSource(
             "ScaffoldRuntime.g.cs",
-            SourceText.From(ScaffoldEmitter.EmitRuntime(models.Where(m => m.KeyProperty.Length > 0).ToList()), Encoding.UTF8));
+            SourceText.From(
+                ScaffoldEmitter.EmitRuntime(models.Where(m => m.KeyProperty.Length > 0).ToList(), root),
+                Encoding.UTF8));
     }
 }
 
@@ -206,6 +266,14 @@ internal static class Diagnostics
         id: "NWS001",
         title: "Scaffolded model has no key",
         messageFormat: "'{0}' is decorated [Scaffold] but no property carries [ScaffoldKey]. Add it to the property that identifies a row.",
+        category: "NativeWeb.Scaffold",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor BadRoot = new(
+        id: "NWS002",
+        title: "Scaffold root is not a usable path",
+        messageFormat: "[assembly: ScaffoldRoot(\"{0}\")] is not a usable prefix. It must begin with '/' and contain no query, fragment or space.",
         category: "NativeWeb.Scaffold",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
