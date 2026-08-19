@@ -3,7 +3,7 @@ Plan: ./008-plan.md
 
 Built in this order; each task's tests ship in the same branch as its code.
 
-- [ ] **T1** Move `Pkce` and `Masking` into `nativeweb.security` — files: `libs/nativeweb.auth/{Pkce,Masking}.cs` → `libs/nativeweb.security/`, plus `using` updates at 15 call sites (`libs/nativeweb.auth/AuthFlows.cs:48`; `apps/web/Auth/{OAuthTokenEndpoints,OAuthLoginLinkEndpoints,OAuthEndpoints,OAuthDeviceEndpoints,FakeIdentifierResponses,PassphraseEndpoints}.cs`; 4 test files) — covers: R10 — done when: solution builds with 0 warnings, the full existing suite passes unchanged, and `nativeweb.auth` no longer declares either type.
+- [x] **T1** Move `Pkce` and `Masking` into `nativeweb.security` — files: `libs/nativeweb.auth/{Pkce,Masking}.cs` → `libs/nativeweb.security/`, plus `using` updates at 15 call sites (`libs/nativeweb.auth/AuthFlows.cs:48`; `apps/web/Auth/{OAuthTokenEndpoints,OAuthLoginLinkEndpoints,OAuthEndpoints,OAuthDeviceEndpoints,FakeIdentifierResponses,PassphraseEndpoints}.cs`; 4 test files) — covers: R10 — done when: solution builds with 0 warnings, the full existing suite passes unchanged, and `nativeweb.auth` no longer declares either type.
 
 - [ ] **T2** Library skeleton — files: `libs/nativeweb.signin.epass/nativeweb.signin.epass.csproj`, `NativeWeb.slnx` — covers: R10, R13 — done when: it references `nativeweb.security` and nothing else, builds clean, and a dependency check confirms `nativeweb.auth` is absent from its graph.
 

@@ -12,6 +12,7 @@
     <Project Path="libs/nativeweb.mail/nativeweb.mail.csproj" />
     <Project Path="libs/nativeweb.scaffold/nativeweb.scaffold.csproj" />
     <Project Path="libs/nativeweb.scaffold.generator/nativeweb.scaffold.generator.csproj" />
+    <Project Path="libs/nativeweb.signin.epass/nativeweb.signin.epass.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/nativeweb.web.tests.unit/nativeweb.web.tests.unit.csproj" />
