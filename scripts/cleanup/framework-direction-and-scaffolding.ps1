@@ -48,7 +48,10 @@ $branches = @(
     'fix/antiforgery-status-code',
     'docs/audit-and-bindasync-findings',
     'fix/audit-clear-bugs',
-    'feat/scaffolding-poc'
+    'feat/scaffolding-poc',
+    # The branches this script itself was written on.
+    'chore/framework-direction-cleanup-script',
+    'chore/cleanup-script-self-reference'
 )
 
 foreach ($b in $branches) {
