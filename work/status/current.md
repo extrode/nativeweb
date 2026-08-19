@@ -12,5 +12,5 @@ worth seeing here rather than hiding, but it is the exception.
   `work/todo.md` is either blocked on the user (epass.io cutover sign-off, collector address,
   session key type, JauntyQ CI feed) or blocked upstream (Node 20 to 24, the framework `ref: dev`
   pin, the SDK fix that would let `Directory.Build.targets` lose its Debug compression workaround).
-- Suite counts: **489 web-unit / 296 web-integration / 154 render / 49 scaffold-unit /
+- Suite counts: **489 web-unit / 296 web-integration / 154 render / 64 scaffold-unit /
   17 scaffold-integration / 64 e2e**. All green except e2e, not run this session.
