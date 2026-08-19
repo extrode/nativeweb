@@ -48,3 +48,10 @@ Thumbs.db
 # Scratch: probes, dumps, diffs, throwaway publishes. Repo-local by rule so it is
 # never shared with another project; never committed.
 tmp/
+
+# The AOT probe is a web-SDK project, so the SDK writes it a launchSettings.json
+# on build with a randomly assigned port. Nothing launches it -- it exists to be
+# published and have its warnings counted -- so the file is machine noise, and
+# committing it would put one machine's port in everyone's diff. The real apps'
+# launch settings (apps/web, apps/sample) stay tracked; this is scoped to the probe.
+tests/nativeweb.signin.epass.tests.aot/Properties/
