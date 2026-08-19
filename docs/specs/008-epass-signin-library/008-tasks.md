@@ -37,7 +37,23 @@ Built in this order; each task's tests ship in the same branch as its code.
 
 - [x] **T17** README and docs — files: `libs/nativeweb.signin.epass/README.md`, `CHANGELOG.md`, `work/status/current.md` — covers: R14 — done when: the README shows the ~8-line consumer wiring, states the library is epass-specific and claims no standards conformance, and documents the `v2` ticket format change.
 
-- [ ] **T18** Reviews — covers: all — done when: Fable has reviewed architecture and seams, glm-5.3 has reviewed the security-critical code, every finding has been verified here before being acted on, and the outcome is recorded.
+- [x] **T18** Reviews — covers: all — done when: Fable has reviewed architecture and seams, glm-5.3 has reviewed the security-critical code, every finding has been verified here before being acted on, and the outcome is recorded.
+
+  - **Outcome.** glm-5.3 found seven, none high or critical; Fable found eight, ranked.
+    Applied in `12e6dcf`: email trim + 254-byte cap and `code`/`state` bounds on the callback;
+    a repeated-byte signing key rejected; the taken-flow null guard; a rejected session cookie
+    cleared; `EpassTokens`/`EpassUser` `ToString` redacted; antiforgery registered and its
+    rejection logged at Debug; `SessionCookie`/`SessionTicket`/`SessionReadResult` made
+    internal; `RedirectUri` validated as a URL and cross-checked against `CallbackPath`;
+    `StartAsync` given `expiresAt`, which makes `FlowLifetime` live; a provider-initiated
+    `?error=` callback reported as `signin_failed`; a 10-second `HttpClient` timeout; query
+    keys named on `SignInQuery`; the fixture's in-process-lock caveat recorded.
+    Four calls deferred to the user in `~/.claude/away-questions.md`, each because it
+    contradicts the approved plan or changes the public API: a composed `BeginLoginAsync`
+    (with the `EpassClient` internalisation that follows it), the `OnSignedIn` -> `WithResolver`
+    rename, splitting `LoginPagePath` out of `LoginPath`, and rejecting a non-loopback
+    `http://` BaseUrl.
+    Unit tier 164/164 green; ten perturbations run against the new guards, all caught.
 
 - [x] **T19** Update the justsmtp handoff — files: `~/.claude/handoffs/justsmtp.com/2026-08-19-epass-signin-migration.md` — covers: R12 (hand-off only) — done when: §5 names the real API instead of TO BE FILLED, and the `v2` re-login consequence is stated.
 
