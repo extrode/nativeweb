@@ -1,6 +1,5 @@
 using System.Security.Claims;
 
-using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -22,8 +21,11 @@ public sealed class Program
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(args);
 
-        builder.Services.AddAntiforgery();
-        builder.Services.AddAuthorization();
+        // Antiforgery and authorization, which every scaffolded route needs.
+        builder.Services.AddScaffolding();
+
+        // Authentication is deliberately NOT part of that call: who may reach /admin
+        // is this app's decision, and a default from a library is one nobody reviews.
         builder.Services
             .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
@@ -43,25 +45,11 @@ public sealed class Program
 
         WebApplication app = builder.Build();
 
-        app.UseAuthentication();
-        app.UseAuthorization();
-        app.UseAntiforgery();
-
-        // UseAntiforgery() validates but does not reject: it records the failure on
-        // IAntiforgeryValidationFeature and calls next, and the form reader then throws
-        // a bare InvalidOperationException -- a 500 where a 400 belongs. Same fix as
-        // apps/web/Middleware/AntiforgeryValidationMiddleware.cs; noted in work/todo.md
-        // as something the framework should own rather than each app.
-        app.Use(async (context, next) =>
-        {
-            if (context.Features.Get<IAntiforgeryValidationFeature>() is { IsValid: false })
-            {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                return;
-            }
-
-            await next(context).ConfigureAwait(false);
-        });
+        // Authentication, authorization, antiforgery, and the guard that turns a failed
+        // antiforgery check into a 400 instead of a 500. Nothing is hidden: this is four
+        // public calls, and an app needing anything between them writes them out. See
+        // ScaffoldApplicationBuilderExtensions.UseScaffolding.
+        app.UseScaffolding();
 
         // Every route under /admin, for every [Scaffold] model in this assembly. This
         // one call is the whole of the admin UI's wiring.
