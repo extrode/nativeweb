@@ -29,11 +29,14 @@ That produces two very different projects:
 | `dotnet new` pack on public nuget (T2.2) | Pointless | Essential |
 | Package publishing (Q1) | Private feed, fine | Needs a licence renegotiation |
 
-**Everything in tiers 1-3 is worth doing for the internal case.** Roughly half of tier 2 is
-worth doing only for the public case. This doc assumes **internal** until decided otherwise,
-and D1's trailing "and others" is narrowed to *other products of ours* accordingly.
+**Q0 is decided: internal.** D1's trailing "and others" means *other products of ours*. The
+JauntyQ licence question is **noted and deliberately deferred** — it does not bind an internal,
+self-hosted framework, and it is revisited only if the public case is ever reopened.
 
-**Q0 is therefore the first question, and it gates T2.1 and T2.2.**
+Consequences, taken now:
+- T2.1's *publishable* half is out of scope; the internal performance baseline stays (§7).
+- T2.2 targets a **private** template feed, not public nuget.
+- Q1 narrows to the private feed and its reachability gap.
 
 ---
 
@@ -333,14 +336,48 @@ independent grounds, and both are right:
 4. The generator must read the policy attribute to know whether scope is mandatory, so the axes
    are **not fully orthogonal**.
 
-**And PostgreSQL row-level security was never considered.** On a Postgres-only stack RLS is the
-incumbent answer to exactly this problem and is *stronger*, because it holds regardless of query
-path — including all 190 hand-written queries a generator cannot touch. The claim "nobody does
-this at compile time" was true only with "at compile time" carrying all the weight.
+### Q3 resolved: the scope contract is the abstraction, RLS is an optional backstop
 
-**Q3 is now: RLS, compile-time injection, or RLS enforced with a compile-time check that the
-session variable is set?** The third is probably the answer, and it is a genuinely novel
-combination, but it is unproven and must not be recorded as decided.
+Both reviewers proposed PostgreSQL row-level security as the incumbent, stronger answer. It is
+stronger — it holds regardless of query path, including the 190 hand-written queries a generator
+cannot touch. **But it cannot be the mechanism, because it is not portable, and the layer below
+us already is.**
+
+JauntyQ is a four-dialect data layer (`ContractDialect`: `SqlServer`, `Postgres`, `MySql`,
+`Sqlite`, with a plan provider for each). Row-security support does not match that set:
+
+| Dialect | Row-level security | Notes |
+|---|---|---|
+| PostgreSQL | Yes, 9.5+ | Mature. Needs `FORCE ROW LEVEL SECURITY` or the table owner bypasses it |
+| SQL Server | Yes, 2016+ | Security policies over inline table-valued predicate functions |
+| MySQL / MariaDB | **No** | Only `DEFINER` views, a poor substitute |
+| SQLite | **No** | Nothing |
+
+**Two of four.** Making NativeWeb's security model depend on RLS would remove portability that
+JauntyQ already provides, which is the opposite of the intent.
+
+**So the framework abstraction is the scope contract, not its enforcement:**
+
+- **Layer 1 — portable and mandatory.** A model declares its scope; the generator emits the
+  predicate into reads and *forces* the owner column on writes; omitting it where the policy
+  requires it is a compile error. Works on all four dialects. This is what the framework
+  guarantees.
+- **Layer 2 — optional, deployment-time, Postgres and SQL Server only.** RLS as defence in
+  depth, catching what layer 1 cannot: hand-written queries, an operator at a `psql` prompt, a
+  future leak. Configured by the consumer, never required by the framework.
+
+Layer 1's known weakness stands: over hand-written SQL a generator can verify a scope parameter
+is *declared*, not that it is used in a `WHERE`. That is likely narrower than the reviewers
+assumed, because JauntyQ carries a first-class `JauntyQ.SqlParser` project and already scans
+parameters (`SqlParameterScanner.cs`) to emit `JNT1006`/`JNT1009`/`JNT8012`. **"Diagnose a
+declared scope parameter that never reaches a predicate" is plausibly within reach of machinery
+that exists** — but it is JauntyQ's to confirm, not ours to assume (Q7).
+
+RLS caveats to record before anyone enables layer 2: the application role must not own the
+tables or it bypasses policy; the session variable must be set with `SET LOCAL` inside a
+transaction, because a bare `SET` on a pooled Npgsql connection leaks into the next request; and
+policies become predicates that can change query plans, so it is a measurable cost, not a free
+one.
 
 **Also dropped and not noticed:** the handoff's mandatory audit/history-on-every-mutation
 (§3.2 there) has no attribute, no axis and no tier here, while §9 claims reconciliation.
@@ -369,20 +406,26 @@ query — decides whether any of this is pleasant to use.
 
 ## 10. Open questions
 
-**Q0 — Internal framework or public one?** Gates T2.1's publishable half and all of T2.2, and
-the JauntyQ licence may make "public" impossible without renegotiation (§0). **Answer this
-first.**
+**Q0 — Internal or public? RESOLVED: internal** (§0). Licence noted and deferred.
 
 **Q1 — Consumption and compatibility.** Package mode does not currently restore anywhere (§5).
 Publish `NativeWeb.*` to the private feed and fix the feed gap, or require every consumer to
 hold a checkout and accept lockstep upgrades? Package mode additionally needs a semver and
 deprecation policy that does not exist.
 
+**Q1b — Does the framework inherit `AGENTS.md`'s PostgreSQL-only binding?** *New.* JauntyQ
+supports four dialects (§8); `AGENTS.md` binds this repo to PostgreSQL. That is coherent while
+NativeWeb is one product, and incoherent once it is a framework other products consume. Proposed
+split: **epass.io stays PostgreSQL-only; ring 0 and ring 1 must not require a feature absent from
+any JauntyQ dialect.** Needs confirming, because it changes what "PostgreSQL only" governs.
+
 **Q2 — Minimal splits now, or defer?** §4 shows the reference-direction check needs
 `nativeweb.security` split and the OAuth-client primitives extracted first. Both reviewers say
 enforce now. That makes it roughly a day, not an afternoon.
 
-**Q3 — Row scoping: RLS, codegen, or both?** See §8. Blocks T3.1's design.
+**Q3 — Row scoping. RESOLVED: both, layered.** Portable generator enforcement is the framework
+guarantee; RLS is an optional deployment-time backstop on the two dialects that have it (§8).
+What remains open is the JauntyQ half, folded into Q7.
 
 **Q4 — Does the framework eventually leave this repo?** Not now. But if rings 0 and 2 are
 different products, a shared repo keeps leaking the boundary — and epass.io's gravity is
