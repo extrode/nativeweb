@@ -81,7 +81,7 @@ mechanism exists. That bounds the design space and keeps startup cost at zero.
 | HTML pages | 13 C# files of raw string literals; `HtmlEncoder.Default.Encode` called **by hand**, per field |
 | `nativeweb.render.generator` | Exists; drives **2 email templates**, **0** HTML pages |
 | `[AsParameters]`, `IEndpointFilter`, `AddEndpointFilter` | **Zero uses anywhere in the repo** |
-| Apps proving the libraries | **One.** DevMarks left for manzil.my at `0760c7c` |
+| Apps proving the libraries | **Two.** *Corrected 2026-08-19:* justsmtp.com is already a consumer — see §13 |
 | Published performance numbers | **Zero** |
 
 The last row of the SQL split matters for §4: `db/` sits at the **repo root**, not inside any
@@ -297,17 +297,29 @@ for:
 | Axis | Question | Django | Rails scaffold | Proposed |
 |---|---|---|---|---|
 | Generate what | which views exist | admin only | all seven RESTful | `[Scaffold]`, per-operation opt-out |
-| Who may | authorization | `is_staff` | not addressed | `[ScaffoldPolicy]` |
+| Who may | authorization | `is_staff` | not addressed | `[Auth]`, `[Auth(Role = "admin")]` |
 | Which rows | row-level scope | not addressed | not addressed | `[ScopedBy]` — **proposed, see below** |
 | **Which fields, per operation** | mass assignment | `fields`/`exclude` | `permit` | **unresolved** |
 
 Three corrections forced by review:
 
-**a. Not `[Authorize]`.** Reusing `Microsoft.AspNetCore.Authorization.AuthorizeAttribute` on a
-model class is a silent no-op — it is endpoint metadata — so a generator bug degrades to
-*unauthenticated scaffolded routes*. Defining our own attribute of the same name creates
-ambiguous references in every consumer file. Name it `[ScaffoldPolicy]`, or fold it into
-`[Scaffold]`.
+**a. `[Auth]`, not `[Authorize]` and not `[ScaffoldPolicy]`.** Reusing
+`Microsoft.AspNetCore.Authorization.AuthorizeAttribute` on a model class is a silent no-op — it
+is endpoint metadata — so a generator bug degrades to *unauthenticated scaffolded routes*, and
+defining our own attribute of that name creates ambiguous references in every consumer file.
+`[ScaffoldPolicy]` avoided the collision by being ugly. **`[Auth]` is the right answer:** it
+does not collide, and it reads as intended in the common case.
+
+```csharp
+[Auth]                        // any authenticated user
+[Auth(Role = "admin")]        // the 90% case, stated the short way
+[Auth(Policy = "...")]        // escape hatch to a full ASP.NET policy
+[Auth(Delete = "admin")]      // per-operation, per §8b
+```
+
+Simple thing simple, hard thing possible. Confirm at implementation time that no
+`AuthAttribute` exists in the referenced ASP.NET namespaces — a one-line compile check, not an
+assumption.
 
 **b. Authorization is per-operation, not per-model.** A user lists their own applications but
 only an operator deletes any. One policy per model cannot express epass.io's own screens, so the
@@ -457,3 +469,93 @@ Neither reviewer's list is fully absorbed above. These have no tier and no owner
   (§4 there) is the only answer available and it is currently demoted to a phase-6 concern.
 - **`libs/nativeweb.data/README.md` references a nonexistent `apps/api`.**
 - Stale build output from removed projects: `libs/epass.*` and `libs/nativeweb.devmarks.data`.
+
+---
+
+## 12. Measured: the T1.2 spike (2026-08-19)
+
+Run on branch `chore/endpoint-ergonomics-spike` (`eedad9e`), **not for merge**. The question was
+whether declarative form binding plus endpoint filters removes the hand-written preamble under
+NativeAOT. Four variants were built and tested against the real integration suite.
+
+| Variant | Builds AOT-clean | Binds form values | 415 on wrong content type | 400 on missing token |
+|---|---|---|---|---|
+| `[FromForm] ComplexType` | **No** — RDG003 + IL2026 + IL3050, 6 errors | — | — | — |
+| `[AsParameters]` + `[FromForm]` members | Yes, 0 warnings | **No — silently all null** | **No — 200 OK** | **No — 200 OK** |
+| `[AsParameters]` + explicit `RequireForm()` filter | Yes | **No — silently all null** | Yes | Yes |
+| `[FromForm] string` scalars + `RequireForm()` filter | Yes, 0 warnings | Yes | Yes | **No — 500, not 400** |
+
+**Findings, in order of importance:**
+
+1. **Complex-type `[FromForm]` is not NativeAOT-compatible.** The Request Delegate Generator
+   cannot statically resolve it (`RDG003`), falls back to reflection, and trips `IL2026`/`IL3050`.
+   With repo-wide `TreatWarningsAsErrors` the build simply fails. **The FastAPI-style "bind the
+   request to a declared model" shape is unavailable to us at the platform level.** This is the
+   single most important thing the spike established, and it was assumed to work in the first
+   draft of §7.
+2. **`[AsParameters]` ignores form sources silently.** It compiles clean and binds every field
+   to `null`, so validation reports "all fields are required" for a perfectly good submission.
+   Nothing warns. This is a worse failure mode than the boilerplate it would replace.
+3. **Form binding does not attach antiforgery metadata**, so `UseAntiforgery()` — already wired
+   at `Program.cs:679` — never validated the endpoint. A form POST with **no token returned 200
+   OK**. Two of the three `ContentTypeGuardTests` for `/auth/register` caught this, which is
+   exactly why they exist.
+4. **Real `[FromForm]` scalar binding turns a 400 into a 500.** With binding that works, the
+   antiforgery failure is raised during argument binding, before any endpoint filter runs, so it
+   escapes to `ErrorPageMiddleware` as an unhandled exception. Fixable by mapping
+   `AntiforgeryValidationException` in that middleware, but that is a change to global error
+   handling, not a free win. 288/290 integration tests pass in this variant; the 2 failures are
+   both this.
+5. **The line-count win is small.** `RegisterEndpoints.cs` 393 → 378, plus a 59-line reusable
+   filter file. The first draft's "393 → roughly 120" was wrong by a wide margin: reading the
+   whole file shows roughly 250 of its 393 lines are enumeration defence, bot-trap timing
+   equalisation, stale-registration reclaim and code-attempt handling. **That is domain logic no
+   generator removes.** GLM's scepticism about the estimate was correct.
+
+**What the spike changes:**
+
+- **`RequireServices<T1,T2,T3>()` and `RequireForm()` are worth keeping.** They move the
+  503-degrade, the 415 and the antiforgery check from ~22 repeated lines inside each handler to
+  one declarative line at the route, where they are greppable and hard to forget. That is a real
+  ergonomic and safety win even though the line saving is modest.
+- **T1.2's generator is now better specified and smaller.** It cannot be a request-model binder,
+  because the platform will not statically bind one. What remains worth generating is the
+  strongly-typed *accessor* over `IFormCollection` plus validation — the generator emits the
+  `form["firstName"].ToString()` lookups from a declared record, so the declaration is the
+  contract and an undeclared field is unreachable.
+- **This is the first hard evidence for the whole thesis.** Every ergonomic gain here is a
+  source generator not because we prefer generators, but because the platform's reflective path
+  is closed by AOT. The spike is what turned that from an argument into a measurement.
+
+---
+
+## 13. Assessed: justsmtp.com as the first consumer
+
+**It is already a NativeWeb consumer.** §2's "one app proving the libraries" was wrong.
+
+| | justsmtp.com, measured 2026-08-19 |
+|---|---|
+| Size | 248 tracked `.cs` files, **52,664 lines**; 4 apps, 5 libs, 7 test projects |
+| Branch | `dev`, head `eb8bf68` |
+| NativeWeb wiring | `NativeWebRoot` dual-mode resolution **already in `Directory.Build.props:51-52`**, with an `EnsureNativeWebRoot` sentinel guard and `NativeWebUsePackages` branches already written |
+| References | `nativeweb.security`, `nativeweb.auth`, `nativeweb.render`, `nativeweb.render.generator` |
+| Symbols actually used from `nativeweb.auth` | `Pkce` (3), `Masking` (2), `Passphrases` (1), `OpaqueTokens` (1) |
+| Hand-written OIDC relying-party code | **1,169 lines** in `apps/web/Auth/`: `EpassClient.cs` 316, `AuthEndpoints.cs` 396, `SessionCookie.cs` 149, `SessionAuth.cs` 113, `LoginFlowStore.cs` 110, `SessionAuthenticationHandler.cs` 85 |
+
+**Three things this settles:**
+
+1. **The ring model is confirmed by real usage, not argument.** justsmtp pulls exactly four
+   symbols out of the 28-file `nativeweb.auth` IdP library, and three of them (`Pkce`,
+   `OpaqueTokens`, `Masking`) are OAuth-client primitives. The reviewers predicted this
+   precisely; §4's proposed extraction now has measured justification.
+2. **T1.0 is not a green-field build, it is an extraction with a working reference
+   implementation.** 1,169 lines of relying-party code already exist, already work, and already
+   have tests. The library is that code generalised, not invented.
+3. **D4's "two-day POC" was the wrong frame.** The first consumer is not a toy to be written; it
+   is a 52k-line product already in the position the POC was meant to create. **Recommendation:
+   drop the throwaway sample entirely (Q5 resolved), and treat justsmtp.com's existing
+   integration as the source of requirements.**
+
+Also noted: justsmtp's own `Directory.Build.props:43` records "NativeWeb is NOT on the JauntyQ
+path yet — it publishes no packages", so its package-mode branches are written but dead. That is
+Q1, stated from the consumer's side.
