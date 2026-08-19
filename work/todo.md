@@ -492,3 +492,85 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   allowed before the key, which is what excludes `#`. Nine tests: four commented shapes that must
   yield nothing, four real step shapes, and one document carrying both. The comment reworded
   around it in `skeleton/.github/workflows/ci.yml` can now say whatever it likes.
+
+## Security audit findings, 2026-08-19 (`review` on Opus + `glm-think` on GLM-5.3)
+
+Two independent audits of the `apps/web` request-handling surface, run after the antiforgery
+400/500 fix. Recorded, not fixed — each needs its own branch and a decision on priority. Both
+audits independently derived the structural point the T1.2 spike measured: **endpoint filters run
+after argument binding**, so `RequireForm()` and `RequireServices<>()` cannot guard a `[FromForm]`
+bind. That is why the antiforgery fix is middleware. `RequireServices<>()`'s 503-degrade has the
+same ordering flaw and is still unaddressed.
+
+**Converged (both audits):**
+- `apps/web/Auth/SignInEndpoints.cs:39` — `POST /auth/signout` is the only auth-surface form POST
+  with no `.RequireRateLimiting()` and no content-type guard, reachable unauthenticated, and does
+  a `bff_store` delete per request. Antiforgery tokens are free from any GET, so the token is no
+  throttle.
+- `apps/web/Program.cs:428-431` — `AddAntiforgery` pins only `HeaderName`. The antiforgery cookie
+  keeps framework defaults: no `__Host-` prefix, `SecurePolicy` left at `SameAsRequest`. It is the
+  one cookie in the app not pinned Secure, and the other half of the CSRF pair.
+
+**Enumeration oracles** (the register flow never got the defences the reset flow engineered):
+- `RegisterEndpoints.cs:173`, `:182` — "That username is already taken." for both a `users` row
+  and a pending `temp_users` row: a direct, unauthenticated account-existence oracle on the same
+  identifier used to sign in. Returns *before* `Passphrases.Hash`, so it is distinguishable by
+  timing as well as by body. Contradicts the email defence 40 lines below at `:205-225`.
+- `RegisterEndpoints.cs:238` — the genuine-registration branch awaits `codeSender.SendAsync` (SMTP)
+  and `breachChecker.CheckAsync` (HIBP, up to 2s) while the already-registered branch pays only a
+  dummy Argon2 hash. `PassphraseEndpoints.cs:254-264` backgrounds the send precisely to avoid this;
+  register did not get the same treatment. Latency is the oracle.
+- `RegisterEndpoints.cs:296` — register-verify returns a distinct "Too many attempts" message only
+  when a `temp_codes` row was staged, i.e. only when the email is *not* already registered.
+  `PassphraseEndpoints.cs:401-411` fixed this exact bug on purpose.
+
+**Correctness / functionality:**
+- `SecurityHeadersMiddleware.cs:57-61` vs `OAuthEndpoints.cs:404-405` — the CSP rationale claims
+  consent POSTs never redirect cross-origin via a 302. False: `Redirects.To` returns a real 303 to
+  the cross-origin `redirect_uri` for a request without `HX-Request` (`Redirects.cs:45-60`).
+  Chromium enforces `form-action` against redirect targets, so the no-JS consent path
+  `OAuthAuthorizePage.cs:14-18` deliberately supports is blocked there. Either widen the CSP to the
+  registered redirect origins or replace the comment with an honest statement of the tradeoff.
+- `SignInEndpoints.cs:49` — bare `Results.Redirect("/")` instead of `Redirects.To`, which is the
+  exact case `Redirects.cs:14-18` calls out: htmx chases the 302 by XHR and swaps a whole document
+  into a fragment slot. Latent until an anchor carries `data-nw-*`.
+
+**Cookie and rate-limit consistency:**
+- `SignInEndpoints.cs:400`, `WebAuthnEndpoints.cs:437`, `ReturnUrlAuth.cs:23` — challenge and
+  return-url cookies use `Secure = !environment.IsDevelopment()`, while the session cookie
+  (`SessionAuth.cs:89-96`) pins `Secure = true` unconditionally on the stated grounds that browsers
+  treat `http://localhost` as a secure context. The gate buys nothing and is a way to lose the flag;
+  these two carry pre-session step-up bearer tokens.
+- Full list of mapped routes with no `.RequireRateLimiting()`: `Program.cs:728` (`GET /`, known),
+  `:713`, `:717`, `:722`, `SignInEndpoints.cs:32`, `RegisterEndpoints.cs:37`, `:46`,
+  `TwoFactorEndpoints.cs:30`, `:39`, `WebAuthnEndpoints.cs:37`, `:46`, `PassphraseEndpoints.cs:43`,
+  `:50`, `:57`, `SettingsEndpoints.cs:23`, `AdminEndpoints.cs:25`, `SecurityTxtEndpoint.cs:21`,
+  `:22`. `/readyz` (`:803`) is a documented exclusion. The unauthenticated page-rendering GETs each
+  mint a data-protected antiforgery token per request and are the cheapest amplification surface in
+  the app; `GET /auth/webauthn/verify` also issues two DB queries once a challenge cookie is present.
+
+**Lower, recorded for completeness:**
+- `OAuthEndpoints.cs:38`, `:180-187` — `GET /oauth/authorize` is a state-changing GET and the
+  session cookie is `SameSite=Lax`, so it is sent on cross-site top-level navigation. Where
+  silent-SSO conditions hold, a cross-site link can drive a signed-in user into a grant with no
+  consent interaction. PKCE does not help; the attacker is the client. Conditional on realm config.
+- `AdminEndpoints.cs:484-510` — `imageUri`, `website`, `companyWebsite` validated by length only,
+  never parsed as URIs, and `imageUri` is emitted as `<img src>` on the public consent screen.
+  `default-src 'self'` blocks the load today, so this is stored junk rather than XSS — one CSP
+  change away from mattering.
+- `Layout.cs:69` — `{{antiforgeryToken}}` interpolated raw into a `<meta content="...">`, the only
+  unencoded request-derived interpolation in the Render layer. Safe because the token is base64url,
+  i.e. safe by a framework charset rather than by the encoder every sibling uses.
+- `PassphraseEndpoints.cs:295`, `:331` — `maskedDestination` round-trips through the client
+  unvalidated and is reflected into "We sent a code to {X}" on an unauthenticated reset page.
+  HTML-encoded, so content spoofing rather than XSS — on the one page whose job is telling the user
+  where a takeover code went. It is server-derivable from `hashedUsername`.
+- `WebAuthnEnrollPage.cs:44`, `PassphraseChangePage.cs:114`, `WebAuthnVerifyPage.cs:36` — WebAuthn
+  options JSON interpolated raw into `<script type="application/json">`, carrying a user-chosen
+  `username` with no charset restriction. Safe only because Fido2NetLib's `ToJson()` uses
+  System.Text.Json's HTML-escaping encoder — asserted in a comment, pinned by no test.
+- `CspReportEndpoint.cs:27-51` — no content-type guard and no origin check; `Sanitize` at `:59`
+  neutralises CR/LF and C0/C1 so the residual is log noise only.
+- `Program.cs:642-650` — `StaticPagesMiddleware` and `UseRouting` sit outside `ErrorPageMiddleware`,
+  so an exception in the clean-URL rewrite or in route matching bypasses both the error shell and
+  the security headers.
