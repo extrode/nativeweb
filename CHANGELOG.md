@@ -20,8 +20,11 @@ Merged into `dev`, not yet tagged.
   search, paging, create, edit, delete — with no hand-written route, handler, form or view.
   `apps/sample` is the demo: two decorated classes and one `app.MapScaffolding()` call.
   The emitted binder is a `record` implementing `IBindableFromHttpContext`, which is the one shape
-  that binds a form under NativeAOT with zero trim warnings; the record's parameter list *is* the
-  mass-assignment allowlist, so a key or a `[ScaffoldReadOnly]` property cannot be bound at all.
+  that binds a form under NativeAOT; the record's parameter list *is* the mass-assignment allowlist,
+  so a key or a `[ScaffoldReadOnly]` property cannot be bound at all. Routes are emitted as
+  `RequestDelegate`s rather than route handlers, because the Request Delegate Generator cannot see
+  another generator's output and the `Delegate` overloads it would otherwise fall back to carry
+  `RequiresUnreferencedCode`/`RequiresDynamicCode`. `apps/sample` publishes NativeAOT clean.
   Every mutating route re-attaches `IAntiforgeryMetadata`, which a `BindAsync`-bound handler would
   otherwise lack, and the content-type guard lives inside `BindAsync` because binding runs before
   the endpoint-filter pipeline.

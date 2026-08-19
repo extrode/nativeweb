@@ -177,18 +177,38 @@ public sealed class ScaffoldGeneratorTests
         Assert.Contains("StatusCodes.Status415UnsupportedMediaType", source, StringComparison.Ordinal);
     }
 
-    // A lambda whose only parameter is HttpContext and whose return is Task<T> is
-    // convertible to Func<HttpContext, Task>, so MapGet picks the RequestDelegate
-    // overload, throws the IResult away, and answers 200 with an empty body. The
-    // /new page did exactly that until this shape was pinned.
+    // Measured 2026-08-19: a NativeAOT publish failed IL2026/IL3050 on every
+    // generated Map* call. The Request Delegate Generator only rewrites Map* calls
+    // in the compilation's own syntax trees, and Roslyn does not feed one
+    // generator's output to another -- so an emitted Map* always binds the
+    // reflection-based Delegate overload. The RequestDelegate overloads carry
+    // neither attribute. Every route must go through ScaffoldEndpoints.Handle.
     [Fact]
-    public void NewPageHandler_ReturnsIResultSynchronouslySoItIsNotBoundAsARequestDelegate()
+    public void EveryRoute_IsMappedAsARequestDelegateSoTheAotPublishStaysClean()
+    {
+        (_, string source) = Run(Attributes, ArticleModel);
+
+        // Six per model plus the admin index. Counting rather than pattern-matching
+        // each route, because the failure mode is one route being missed.
+        int routes = Occurrences(source, ".MapGet(") + Occurrences(source, ".MapPost(");
+        Assert.Equal(7, routes);
+        Assert.Equal(routes, Occurrences(source, "ScaffoldEndpoints.Handle("));
+    }
+
+    [Fact]
+    public void RouteParameters_AreReadFromRouteValuesRatherThanBound()
+    {
+        (_, string source) = Run(Attributes, ArticleModel);
+
+        Assert.Contains("ScaffoldEndpoints.RouteValue(http, \"id\")", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NewPage_IsEmittedAsASynchronousPageHandler()
     {
         (_, string source) = Run(Attributes, ArticleModel);
 
         Assert.Contains("private static IResult NewPage(HttpContext http)", source, StringComparison.Ordinal);
-        Assert.Contains("group.MapGet(\"/new\", (HttpContext http) => NewPage(http))", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Task<IResult> NewAsync(HttpContext http)", source, StringComparison.Ordinal);
     }
 
     [Fact]
