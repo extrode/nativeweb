@@ -92,3 +92,28 @@ that feature into a 400; see `apps/web/Middleware/AntiforgeryValidationMiddlewar
 into the framework is on `work/todo.md`.
 
 Rate limiting is also the host's today. The scaffolded routes carry no policy.
+
+## Running the demo
+
+```
+cd apps/sample && dotnet run
+```
+
+Then open <http://localhost:5399/signin>, which grants the admin role and redirects to `/admin`.
+Every scaffolded `Article` route requires that role, so anywhere else is a 302 back to it. From
+Visual Studio, F5 uses the same profile and opens the same URL.
+
+**The demo is HTTP only, deliberately.** `WebApplication.CreateSlimBuilder` omits Kestrel's HTTPS
+configuration — that is much of what makes it slim, since certificate loading drags in the
+configuration binding an AOT publish would rather not have. Give it an `https://` address and it
+throws on startup, measured 2026-08-19:
+
+```
+System.InvalidOperationException: Call UseKestrelHttpsConfiguration() on IWebHostBuilder
+to automatically enable HTTPS when an https:// address is used.
+```
+
+The fix is the address, not that call: adding HTTPS back would stop the sample demonstrating the
+slim builder, and a deployment terminates TLS at the reverse proxy anyway. The default
+`launchSettings.json` the SDK writes for a new project *does* specify an `https://` URL, so the
+one in `apps/sample/Properties/` is checked in to override it.
