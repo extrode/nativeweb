@@ -53,7 +53,9 @@ $branches = @(
     'chore/framework-direction-cleanup-script',
     'chore/cleanup-script-self-reference',
     'docs/t10-relying-party-extraction',
-    'chore/cleanup-script-doc-branch'
+    'chore/cleanup-script-doc-branch',
+    'fix/scaffold-aot-request-delegates',
+    'chore/cleanup-script-aot-branch'
 )
 
 foreach ($b in $branches) {
