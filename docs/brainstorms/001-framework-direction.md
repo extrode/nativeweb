@@ -484,15 +484,33 @@ NativeAOT. Four variants were built and tested against the real integration suit
 | `[AsParameters]` + `[FromForm]` members | Yes, 0 warnings | **No — silently all null** | **No — 200 OK** | **No — 200 OK** |
 | `[AsParameters]` + explicit `RequireForm()` filter | Yes | **No — silently all null** | Yes | Yes |
 | `[FromForm] string` scalars + `RequireForm()` filter | Yes, 0 warnings | Yes | Yes | **No — 500, not 400** |
+| `BindAsync` / `IBindableFromHttpContext<T>` | Yes, 0 warnings | **Yes** | **No — 500** | **No — 200 OK** |
+| `BindAsync` + reattached guards (variant 5b) | Yes, 0 warnings | Yes | Yes | Yes |
+
+Variant 5b is variant 5 with the two dropped guards put back by hand, both inside the record's
+own declaration: a `HasFormContentType` check in `BindAsync` that throws
+`BadHttpRequestException(…, 415)` (which `ErrorPageMiddleware` already surfaces at its own
+status), and `.WithMetadata(…)` carrying an `IAntiforgeryMetadata` implementation. **289/290
+integration tests pass**; the one difference is that a JSON body with no token now answers 400
+rather than 415, because the antiforgery check fires before the content-type check. Both are
+correct rejections, so this is an ordering preference, not a hole.
 
 **Findings, in order of importance:**
 
-1. **Complex-type `[FromForm]` is not NativeAOT-compatible.** The Request Delegate Generator
-   cannot statically resolve it (`RDG003`), falls back to reflection, and trips `IL2026`/`IL3050`.
-   With repo-wide `TreatWarningsAsErrors` the build simply fails. **The FastAPI-style "bind the
-   request to a declared model" shape is unavailable to us at the platform level.** This is the
-   single most important thing the spike established, and it was assumed to work in the first
-   draft of §7.
+1. **The declared-model shape is available — but only via `BindAsync`, never via an attribute.**
+   Two of the three attribute routes are closed. Complex-type `[FromForm]` is not
+   NativeAOT-compatible at all: the Request Delegate Generator cannot statically resolve it
+   (`RDG003`), falls back to reflection, and trips `IL2026`/`IL3050`, so with repo-wide
+   `TreatWarningsAsErrors` the build fails. This is upstream-confirmed and deliberate — complex
+   form binding is shared with Blazor and needs dynamic codegen, so RDG emits a diagnostic rather
+   than generate wrong code ([dotnet/aspnetcore#61382](https://github.com/dotnet/aspnetcore/issues/61382)).
+   RDG accepts a form parameter only if it is `StringValues`, `string`, something with `TryParse`,
+   or an array of those. **The third route works:** a type implementing
+   `IBindableFromHttpContext<TSelf>` (or carrying a conventional static `BindAsync`) binds through
+   a compile-time-resolved static call, with no reflection and no RDG diagnostic — 0 warnings,
+   correct values. **So the FastAPI-style "bind the request to a declared model" API is reachable
+   under NativeAOT**, which the first draft of §7 assumed without evidence and the first draft of
+   this section wrongly declared impossible.
 2. **`[AsParameters]` ignores form sources silently.** It compiles clean and binds every field
    to `null`, so validation reports "all fields are required" for a perfectly good submission.
    Nothing warns. This is a worse failure mode than the boilerplate it would replace.
@@ -500,12 +518,23 @@ NativeAOT. Four variants were built and tested against the real integration suit
    at `Program.cs:679` — never validated the endpoint. A form POST with **no token returned 200
    OK**. Two of the three `ContentTypeGuardTests` for `/auth/register` caught this, which is
    exactly why they exist.
-4. **Real `[FromForm]` scalar binding turns a 400 into a 500.** With binding that works, the
-   antiforgery failure is raised during argument binding, before any endpoint filter runs, so it
-   escapes to `ErrorPageMiddleware` as an unhandled exception. Fixable by mapping
-   `AntiforgeryValidationException` in that middleware, but that is a change to global error
-   handling, not a free win. 288/290 integration tests pass in this variant; the 2 failures are
-   both this.
+4. **Anything that binds a form runs upstream of every endpoint filter.** This is the structural
+   fact behind findings 2, 3 and the 400/500 bug, and it applies to `[FromForm]`, `[AsParameters]`
+   and `BindAsync` alike: argument binding happens before the filter pipeline, so a guard written
+   as an `AddEndpointFilter` cannot protect the bind. **Request guards belong in middleware or in
+   the binder itself; only post-bind concerns belong in a filter.**
+
+   Concretely: `UseAntiforgery()` does not reject a bad token — it records the outcome on
+   `IAntiforgeryValidationFeature` and continues, expecting whatever reads the form to check that
+   feature. The RDG binder does not, so `FormFeature` throws a bare `InvalidOperationException`
+   and the request escaped as a 500. **Fixed 2026-08-19** (`fix/antiforgery-status-code`) by
+   `AntiforgeryValidationMiddleware`, placed immediately after `UseAntiforgery()`; 290/290
+   integration and 489/489 unit tests pass. Catching `InvalidOperationException` in
+   `ErrorPageMiddleware` was the other option and was rejected — genuine server bugs throw it too,
+   and mapping it to a client error would hide them.
+
+   Still open: `RequireServices<T>()`'s 503-degrade has the same ordering flaw and has not been
+   moved (recorded in `work/todo.md`).
 5. **The line-count win is small.** `RegisterEndpoints.cs` 393 → 378, plus a 59-line reusable
    filter file. The first draft's "393 → roughly 120" was wrong by a wide margin: reading the
    whole file shows roughly 250 of its 393 lines are enumeration defence, bot-trap timing
@@ -514,15 +543,21 @@ NativeAOT. Four variants were built and tested against the real integration suit
 
 **What the spike changes:**
 
-- **`RequireServices<T1,T2,T3>()` and `RequireForm()` are worth keeping.** They move the
-  503-degrade, the 415 and the antiforgery check from ~22 repeated lines inside each handler to
-  one declarative line at the route, where they are greppable and hard to forget. That is a real
-  ergonomic and safety win even though the line saving is modest.
-- **T1.2's generator is now better specified and smaller.** It cannot be a request-model binder,
-  because the platform will not statically bind one. What remains worth generating is the
-  strongly-typed *accessor* over `IFormCollection` plus validation — the generator emits the
-  `form["firstName"].ToString()` lookups from a declared record, so the declaration is the
-  contract and an undeclared field is unreachable.
+- **T1.2's generator now has a concrete target: emit variant 5b.** From a declared form record it
+  emits the `BindAsync` body, the content-type guard inside it, and the antiforgery metadata on
+  the route. Every one of those is a line a human currently has to remember, and the two the
+  spike measured being forgotten — the 415 and the token check — fail *silently* when omitted.
+  **This is the framework's whole argument in one endpoint:** the declaration is the contract, an
+  undeclared field is unreachable (Rails' strong parameters, enforced by the compiler), and the
+  guards cannot be left off because they are not written by hand at all.
+- **A caveat the generator must carry:** the guards are only free because the generator emits
+  them. Hand-written `BindAsync` is a foot-gun — variant 5 compiles clean, binds correctly, and
+  answers **200 OK to a POST with no antiforgery token**. Anything the framework lets a consumer
+  hand-write here needs an analyzer that fails the build when the metadata is missing.
+- **`RequireServices<T1,T2,T3>()` and `RequireForm()` are worth keeping** as the interim shape,
+  with the ordering caveat in finding 4: `RequireForm()` is a genuine 415 guard on a route whose
+  binder does not check, and `RequireServices<T>()` needs moving upstream before it can be
+  trusted for the same reason antiforgery was.
 - **This is the first hard evidence for the whole thesis.** Every ergonomic gain here is a
   source generator not because we prefer generators, but because the platform's reflective path
   is closed by AOT. The spike is what turned that from an argument into a measurement.
