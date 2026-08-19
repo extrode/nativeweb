@@ -35,7 +35,7 @@ Built in this order; each task's tests ship in the same branch as its code.
 
 - [ ] **T16** E2E tier — files: `tests/nativeweb.signin.epass.tests.e2e/` — covers: R15 — done when: Playwright drives sign-in, a replayed link, and sign-out against a running host.
 
-- [ ] **T17** README and docs — files: `libs/nativeweb.signin.epass/README.md`, `CHANGELOG.md`, `work/status/current.md` — covers: R14 — done when: the README shows the ~8-line consumer wiring, states the library is epass-specific and claims no standards conformance, and documents the `v2` ticket format change.
+- [x] **T17** README and docs — files: `libs/nativeweb.signin.epass/README.md`, `CHANGELOG.md`, `work/status/current.md` — covers: R14 — done when: the README shows the ~8-line consumer wiring, states the library is epass-specific and claims no standards conformance, and documents the `v2` ticket format change.
 
 - [ ] **T18** Reviews — covers: all — done when: Fable has reviewed architecture and seams, glm-5.3 has reviewed the security-critical code, every finding has been verified here before being acted on, and the outcome is recorded.
 
