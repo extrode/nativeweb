@@ -57,6 +57,16 @@ What does work is a type that binds itself through a compile-time static call:
 `IBindableFromHttpContext<TSelf>`. That is what the generator emits, and everything below follows
 from it.
 
+**And one thing a generator has to know that a hand-written endpoint does not.** Measured
+2026-08-19: the first NativeAOT publish of `apps/sample` failed with IL2026 and IL3050 on *every*
+emitted `MapGet`/`MapPost`. The Request Delegate Generator only rewrites `Map*` calls it can see in
+the compilation's own syntax trees, and Roslyn does not feed one generator's output to another — so
+an emitted `Map*` call always binds the reflection-based `Map*(..., Delegate)` overload. The fix is
+to emit `RequestDelegate`s instead (`ScaffoldEndpoints.Handle`), which carry neither attribute
+because there is nothing left to bind. Verified: `dotnet publish -c Release -r win-x64` produces a
+17 MB self-contained binary with zero trim or AOT warnings. **This applies to any NativeWeb
+generator that emits endpoints**, not just this one.
+
 ## Three guarantees the generated code carries
 
 **Mass assignment is closed by construction.** The emitted form is a `record` whose constructor

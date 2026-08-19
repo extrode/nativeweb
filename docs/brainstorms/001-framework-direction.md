@@ -594,3 +594,28 @@ correct rejections, so this is an ordering preference, not a hole.
 Also noted: justsmtp's own `Directory.Build.props:43` records "NativeWeb is NOT on the JauntyQ
 path yet — it publishes no packages", so its package-mode branches are written but dead. That is
 Q1, stated from the consumer's side.
+
+## 14. Measured: emitted endpoints and the RDG (2026-08-19)
+
+The T1.3 scaffolding generator turned up a limitation §12's hand-written spike could not: **the
+Request Delegate Generator does not run on another generator's output.**
+
+Roslyn does not feed one incremental generator's `AddSource` into another's input, so the RDG only
+rewrites `Map*` calls in the compilation's own syntax trees. Every `MapGet`/`MapPost` emitted by
+`ScaffoldGenerator` therefore bound `Map*(IEndpointRouteBuilder, string, Delegate)` — the
+reflection overload, annotated `RequiresUnreferencedCode` and `RequiresDynamicCode`. The first
+NativeAOT publish of `apps/sample` failed with 22 IL2026/IL3050 errors, all of them on generated
+lines, none of them fixable in the model or in the consumer's code.
+
+**The fix, and the rule it implies.** Emit `RequestDelegate`s. The
+`Map*(IEndpointRouteBuilder, string, RequestDelegate)` overloads carry neither attribute, because
+there is nothing to bind — the delegate takes `HttpContext` and reads what it needs, which a
+generator doing its own binding was already doing. Route values come from
+`HttpContext.Request.RouteValues`; the form comes from the generated record's own `ReadAsync`.
+Verified clean: `dotnet publish -c Release -r win-x64`, 17 MB binary, zero warnings.
+
+**This constrains T1.2.** §12 concluded that T1.2's generator should emit variant 5b. It still
+should — but it must emit it *as a `RequestDelegate`*, not as a route handler, or it reintroduces
+the whole class of trim warning the framework exists to avoid. A hand-written variant 5b endpoint
+is AOT-clean because the RDG sees it; the same code emitted is not. That asymmetry is invisible in
+a `dotnet build` and only appears on publish, which is why it survived §12's spike.

@@ -90,8 +90,12 @@ internal static class ScaffoldEmitter
         }
 
         sb.AppendLine("{");
-        sb.AppendLine("    /// <summary>Binds from the request form. Called by the generated request delegate.</summary>");
-        sb.AppendLine($"    public static async ValueTask<{form}?> BindAsync(HttpContext context, ParameterInfo parameter)");
+        sb.AppendLine("    /// <summary>The IBindableFromHttpContext entry point, for a hand-written handler that takes this type directly.</summary>");
+        sb.AppendLine($"    public static async ValueTask<{form}?> BindAsync(HttpContext context, ParameterInfo parameter) =>");
+        sb.AppendLine("        await ReadAsync(context).ConfigureAwait(false);");
+        sb.AppendLine();
+        sb.AppendLine("    /// <summary>Reads the form. What the generated request delegates call.</summary>");
+        sb.AppendLine($"    public static async ValueTask<{form}> ReadAsync(HttpContext context)");
         sb.AppendLine("    {");
         sb.AppendLine("        if (!context.Request.HasFormContentType)");
         sb.AppendLine("        {");
@@ -127,29 +131,24 @@ internal static class ScaffoldEmitter
         sb.AppendLine("    {");
         sb.AppendLine("        RouteGroupBuilder group = endpoints.MapGroup(BasePath);");
         sb.AppendLine();
-        sb.AppendLine("        group.MapGet(\"/\", (HttpContext http, CancellationToken ct) => ListAsync(http, ct))");
+        sb.AppendLine("        group.MapGet(\"/\", ScaffoldEndpoints.Handle(http => ListAsync(http, http.RequestAborted)))");
         sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Read)};");
         sb.AppendLine();
-        // Returns IResult synchronously, deliberately. A lambda whose only
-        // parameter is HttpContext and whose return is Task<T> matches
-        // Func<HttpContext, Task>, so MapGet binds the RequestDelegate overload
-        // instead of the route-handler one, the IResult is discarded, and the route
-        // answers 200 with an empty body. Silent, and it looks like a render bug.
-        sb.AppendLine("        group.MapGet(\"/new\", (HttpContext http) => NewPage(http))");
+        sb.AppendLine("        group.MapGet(\"/new\", ScaffoldEndpoints.Handle(http => Task.FromResult(NewPage(http))))");
         sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)};");
         sb.AppendLine();
-        sb.AppendLine($"        group.MapPost(\"/\", ({form} form, HttpContext http, CancellationToken ct) => CreateAsync(form, http, ct))");
+        sb.AppendLine("        group.MapPost(\"/\", ScaffoldEndpoints.Handle(http => CreateAsync(http, http.RequestAborted)))");
         sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)}");
         sb.AppendLine("            .WithMetadata(RequiresAntiforgery.Instance);");
         sb.AppendLine();
-        sb.AppendLine("        group.MapGet(\"/{id}\", (string id, HttpContext http, CancellationToken ct) => EditAsync(id, http, ct))");
+        sb.AppendLine("        group.MapGet(\"/{id}\", ScaffoldEndpoints.Handle(http => EditAsync(ScaffoldEndpoints.RouteValue(http, \"id\"), http, http.RequestAborted)))");
         sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)};");
         sb.AppendLine();
-        sb.AppendLine($"        group.MapPost(\"/{{id}}\", (string id, {form} form, HttpContext http, CancellationToken ct) => UpdateAsync(id, form, http, ct))");
+        sb.AppendLine("        group.MapPost(\"/{id}\", ScaffoldEndpoints.Handle(http => UpdateAsync(ScaffoldEndpoints.RouteValue(http, \"id\"), http, http.RequestAborted)))");
         sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)}");
         sb.AppendLine("            .WithMetadata(RequiresAntiforgery.Instance);");
         sb.AppendLine();
-        sb.AppendLine("        group.MapPost(\"/{id}/delete\", (string id, HttpContext http, CancellationToken ct) => DeleteAsync(id, http, ct))");
+        sb.AppendLine("        group.MapPost(\"/{id}/delete\", ScaffoldEndpoints.Handle(http => DeleteAsync(ScaffoldEndpoints.RouteValue(http, \"id\"), http, http.RequestAborted)))");
         sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Delete)}");
         sb.AppendLine("            .WithMetadata(RequiresAntiforgery.Instance);");
         sb.AppendLine();
@@ -264,8 +263,9 @@ internal static class ScaffoldEmitter
 
     private static void EmitCreate(StringBuilder sb, string type, string form)
     {
-        sb.AppendLine($"    private static async Task<IResult> CreateAsync({form} form, HttpContext http, CancellationToken ct)");
+        sb.AppendLine("    private static async Task<IResult> CreateAsync(HttpContext http, CancellationToken ct)");
         sb.AppendLine("    {");
+        sb.AppendLine($"        {form} form = await {form}.ReadAsync(http).ConfigureAwait(false);");
         sb.AppendLine($"        IScaffoldStore<{type}> store = http.RequestServices.GetRequiredService<IScaffoldStore<{type}>>();");
         sb.AppendLine("        var (item, error) = FromForm(form, null);");
         sb.AppendLine("        if (error is not null)");
@@ -281,8 +281,9 @@ internal static class ScaffoldEmitter
 
     private static void EmitUpdate(StringBuilder sb, string type, string form)
     {
-        sb.AppendLine($"    private static async Task<IResult> UpdateAsync(string id, {form} form, HttpContext http, CancellationToken ct)");
+        sb.AppendLine("    private static async Task<IResult> UpdateAsync(string id, HttpContext http, CancellationToken ct)");
         sb.AppendLine("    {");
+        sb.AppendLine($"        {form} form = await {form}.ReadAsync(http).ConfigureAwait(false);");
         sb.AppendLine($"        IScaffoldStore<{type}> store = http.RequestServices.GetRequiredService<IScaffoldStore<{type}>>();");
         sb.AppendLine($"        {type}? existing = await store.GetAsync(id, ct).ConfigureAwait(false);");
         sb.AppendLine("        if (existing is null)");
@@ -461,7 +462,7 @@ internal static class ScaffoldEmitter
         }
 
         sb.AppendLine();
-        sb.AppendLine("        endpoints.MapGet(\"/admin\", (HttpContext http) =>");
+        sb.AppendLine("        endpoints.MapGet(\"/admin\", ScaffoldEndpoints.Handle(http =>");
         sb.AppendLine("        {");
         sb.AppendLine("            StringBuilder sb = new(1024);");
         sb.AppendLine("            sb.Append(\"<div class=\\\"nws-head\\\"><h1>Admin</h1></div><ul class=\\\"nws-index\\\">\");");
@@ -471,8 +472,8 @@ internal static class ScaffoldEmitter
         }
 
         sb.AppendLine("            sb.Append(\"</ul>\");");
-        sb.AppendLine("            return Page(http, \"Admin\", sb.ToString());");
-        sb.AppendLine("        });");
+        sb.AppendLine("            return Task.FromResult(Page(http, \"Admin\", sb.ToString()));");
+        sb.AppendLine("        }));");
         sb.AppendLine();
         sb.AppendLine("        return endpoints;");
         sb.AppendLine("    }");
