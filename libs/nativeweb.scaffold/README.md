@@ -83,15 +83,48 @@ all three POSTs; the guard cannot be forgotten because nobody writes it.
 endpoint-filter pipeline, so a `RequireForm()` filter cannot protect a bind. The binder raises
 `BadHttpRequestException(415)` itself.
 
+## Wiring, and how to opt out of it
+
+Two extension methods stand in for the ceremony. Neither hides anything: both are a handful of
+public calls, and writing those calls instead is a supported thing to do rather than a fallback.
+
+```csharp
+builder.Services.AddScaffolding();   // AddAntiforgery() + AddAuthorization()
+
+app.UseScaffolding();                // the four calls below, in this order
+```
+
+`UseScaffolding()` expands to exactly:
+
+```csharp
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseAntiforgery();
+app.UseAntiforgeryRejection();
+```
+
+Write those four whenever the pipeline needs something between them — a rate limiter, a tenant
+resolver, a request logger. **The order is the load-bearing part**: antiforgery reads endpoint
+metadata so it must follow routing, and the rejection guard reads what antiforgery recorded so it
+must follow antiforgery.
+
+`UseAntiforgeryRejection()` is the one with behaviour rather than ceremony.
+`UseAntiforgery()` validates but does **not** reject: it records the failure on
+`IAntiforgeryValidationFeature` and calls the next middleware anyway. The request reaches the
+endpoint, the form reader throws a bare `InvalidOperationException`, and the caller gets a 500
+where a 400 belongs. The guard turns that into a 400 and, more importantly, stops the endpoint
+running at all. Safe to register unconditionally — a GET carries no such feature, so it is a
+no-op.
+
+**Authentication is deliberately not in `AddScaffolding()`.** Cookie name, login path and role
+membership are the application's security posture, and a default supplied by a library is one
+nobody reviews. A host that calls `AddScaffolding()` and no `AddAuthentication` gets scaffolded
+routes that 401 — the correct failure. `AddScaffolding_RegistersNoAuthenticationScheme` asserts
+the omission so it cannot be helpfully added later.
+
 ## What the host still owns
 
-`UseAntiforgery()` validates but does not reject: it records the failure on
-`IAntiforgeryValidationFeature` and calls next, and the form reader then throws a bare
-`InvalidOperationException` — a 500 where a 400 belongs. The host must run a middleware that turns
-that feature into a 400; see `apps/web/Middleware/AntiforgeryValidationMiddleware.cs`. Moving it
-into the framework is on `work/todo.md`.
-
-Rate limiting is also the host's today. The scaffolded routes carry no policy.
+Rate limiting. The scaffolded routes carry no policy.
 
 ## Running the demo
 

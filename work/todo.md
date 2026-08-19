@@ -577,10 +577,14 @@ same ordering flaw and is still unaddressed.
 
 ## Scaffolding POC follow-ups, 2026-08-19
 
-- `AntiforgeryValidationMiddleware` is duplicated: `apps/web/Middleware/` has the real one and
-  `apps/sample/Program.cs` inlines a copy. It is framework behaviour, not app behaviour — every
-  NativeWeb app needs it, because `UseAntiforgery()` records a failed validation and calls next
-  rather than rejecting. Belongs in a lib with an `app.UseNativeWebAntiforgery()` extension.
+- ~~`AntiforgeryValidationMiddleware` is duplicated: `apps/web/Middleware/` has the real one and
+  `apps/sample/Program.cs` inlines a copy.~~ — **half done 2026-08-19**,
+  `feat/scaffold-host-extensions`. The sample's copy is gone, replaced by
+  `app.UseAntiforgeryRejection()` in `libs/nativeweb.scaffold`, composed into `UseScaffolding()`
+  alongside authn/authz/antiforgery. **`apps/web` still has its own** and was deliberately not
+  touched: it is a different implementation with its own tests, and moving a live IdP onto a new
+  middleware is a change that wants its own branch and its own review. Do that when
+  `apps/web` next needs work in that area.
 - `apps/sample`'s `IScaffoldStore<T>` is in-memory, which contradicts the JauntyQ-for-all-data-access
   rule. Deliberate for a demo that must run without Postgres, but the POC does not yet prove the
   JauntyQ side of the seam. A JauntyQ-backed store for one model would.

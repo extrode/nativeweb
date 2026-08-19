@@ -28,6 +28,12 @@ Merged into `dev`, not yet tagged.
   Every mutating route re-attaches `IAntiforgeryMetadata`, which a `BindAsync`-bound handler would
   otherwise lack, and the content-type guard lives inside `BindAsync` because binding runs before
   the endpoint-filter pipeline.
+  Host wiring is two calls — `AddScaffolding()` and `UseScaffolding()` — that compose public
+  primitives rather than hiding them; `UseScaffolding()` expands to four individually callable
+  methods, one of which, `UseAntiforgeryRejection()`, supplies the 400 that `UseAntiforgery()`
+  does not (it records a failed validation and calls next, so the form reader throws and the
+  caller sees a 500). Authentication is deliberately excluded: who may reach `/admin` stays a
+  visible line in the application.
 
 - **Cacheable public pages** (spec 006) — anonymous `/` and `/u/*` are served from an
   in-process output cache, keyed by (path, `?page=`, negotiated locale) and bypassed on the
