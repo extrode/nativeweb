@@ -67,6 +67,7 @@ Five named per-IP fixed-window policies, all on a **60-second window** with `Que
 | `NativeWeb:RateLimit:OAuthAuthorize:PermitLimit` | `30` | `GET /oauth/authorize` and both consent POSTs. Higher because retries and multiple app launches are normal |
 | `NativeWeb:RateLimit:OAuth:PermitLimit` | `120` | `/oauth/token`, `/oauth/introspect`, `/oauth/device_authorization`, `/oauth/login-link/start`. Highest because a native client legitimately polls during the device flow |
 | `NativeWeb:RateLimit:CspReport:PermitLimit` | `10` | `POST /csp-report`, which only feeds the log |
+| `NativeWeb:RateLimit:Page:PermitLimit` | `240` | Unauthenticated page-rendering GETs (`/`, the sign-in/register/2FA/WebAuthn/reset pages, `security.txt`). Deliberately loose: a flood ceiling, not a security control, since each mints an antiforgery token per request. Probes (`/healthz`, `/version`, `/readyz`) are excluded — a 429 there reads as an unhealthy instance |
 
 These are configurable mainly because `WebApplicationFactory`'s `TestServer` has no real socket, so
 every request in a test process partitions under one `"unknown"` key and a large suite would
@@ -236,7 +237,7 @@ Worth knowing which keys will tell you they are wrong and which will not.
 |---|---|
 | **Throws at startup** | `BotTraps:MinAgeSeconds`, `FirstPartyClientId`, `Smtp:FromAddress` and `Smtp:SecurityMode` (when `Host` is set), any pre-rename `Epass:*` key, and the four required secrets outside Development |
 | **Clamped** | `Readiness:CacheSeconds` (max 30) |
-| **Silently defaulted** | every other numeric key — `Db:*`, all five `RateLimit:*`, `DeviceGrant:*`, `BreachCheck:RecheckAfterHours`, `PassphraseReset:MaxCodesPerDay` |
+| **Silently defaulted** | every other numeric key — `Db:*`, all six `RateLimit:*`, `DeviceGrant:*`, `BreachCheck:RecheckAfterHours`, `PassphraseReset:MaxCodesPerDay` |
 | **Silently ignored** | unparseable entries in `ForwardedHeaders:KnownProxies` and `WebAuthn:Origins` |
 
 `tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs` asserts this file lists every
