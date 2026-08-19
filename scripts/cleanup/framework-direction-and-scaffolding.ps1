@@ -55,7 +55,8 @@ $branches = @(
     'docs/t10-relying-party-extraction',
     'chore/cleanup-script-doc-branch',
     'fix/scaffold-aot-request-delegates',
-    'chore/cleanup-script-aot-branch'
+    'chore/cleanup-script-aot-branch',
+    'fix/sample-launch-profile'
 )
 
 foreach ($b in $branches) {
