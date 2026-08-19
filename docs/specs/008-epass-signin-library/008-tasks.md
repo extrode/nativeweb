@@ -31,7 +31,20 @@ Built in this order; each task's tests ship in the same branch as its code.
 
 - [x] **T14** NativeAOT publish gate — files: `apps/sample` or a probe app — covers: R13 — done when: a publish of a consumer of this library exits 0 with zero IL2026/IL3050, proving RDG sees the hand-written `Map*` calls.
 
-- [ ] **T15** Integration tier — files: `tests/nativeweb.signin.epass.tests.integration/` — covers: R3, R7, R15 — done when: a JauntyQ-backed `ILoginFlowStore` runs against real PostgreSQL, passes the T6 conformance fixture, and a rendered provider failure contains no provider-supplied text.
+- [x] **T15** Integration tier — files: `tests/nativeweb.signin.epass.tests.integration/` — covers: R3, R7, R15 — done when: a JauntyQ-backed `ILoginFlowStore` runs against real PostgreSQL, passes the T6 conformance fixture, and a rendered provider failure contains no provider-supplied text.
+
+  - **Outcome.** `tests/nativeweb.signin.epass.tests.integration/`, with its OWN JauntyQ
+    generation — `db/schema/signin.schema.json` and `db/queries/EpassLoginFlows/*.sql` — because
+    `epass_login_flows` belongs to a relying party and `db/` is the identity provider's schema.
+    The take is one `UPDATE ... WHERE used_at IS NULL AND expires_at > now() ... RETURNING`, so
+    the compare-and-swap is PostgreSQL's rather than the process's. 16/16 green against a real
+    database. Perturbations: dropping `used_at IS NULL` and `expires_at > now()` from `Take.sql`
+    fails four conformance tests; dropping the email cap, the trim, the antiforgery check, the
+    provider-initiated-error branch, and leaking a provider string into the failure redirect each
+    fail their own host test.
+  - **Found by the tier, fixed in the library:** `AddEpassSignIn` never registered the
+    authorization services, so a consumer following the README's wiring block verbatim met
+    `UseAuthorization` throwing at startup, naming a method the documentation never mentions.
 
 - [ ] **T16** E2E tier — files: `tests/nativeweb.signin.epass.tests.e2e/` — covers: R15 — done when: Playwright drives sign-in, a replayed link, and sign-out against a running host.
 
