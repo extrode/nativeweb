@@ -1,6 +1,33 @@
 namespace NativeWeb.Scaffold;
 
 /// <summary>
+/// The URL prefix every scaffolded route sits under. Defaults to <c>/admin</c>.
+/// </summary>
+/// <remarks>
+/// <para>Applied once, to the assembly:</para>
+/// <code>
+/// [assembly: ScaffoldRoot("/manage")]
+/// </code>
+/// <para>Compile-time rather than a <c>MapScaffolding(prefix)</c> parameter, so the
+/// per-model base path stays a <c>const</c> and every emitted link, redirect and
+/// form action is a literal. A runtime prefix would have to be threaded through
+/// every generated method or held in static state, and static state is shared by
+/// two hosts in one process — which is exactly what an integration suite is.</para>
+/// <para>Must begin with <c>/</c> and carry no query or fragment. A trailing slash
+/// is trimmed. <c>"/"</c> is legal and puts the scaffolding at the site root.</para>
+/// </remarks>
+[AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
+public sealed class ScaffoldRootAttribute : Attribute
+{
+    /// <summary>Creates the attribute.</summary>
+    /// <param name="path">The prefix, e.g. <c>/manage</c>.</param>
+    public ScaffoldRootAttribute(string path) => Path = path;
+
+    /// <summary>The prefix as written.</summary>
+    public string Path { get; }
+}
+
+/// <summary>
 /// Marks a model for CRUD scaffolding. The generator emits a route group, the
 /// list/create/edit/delete endpoints under it, and the HTML for each view.
 /// </summary>
@@ -15,7 +42,11 @@ public sealed class ScaffoldAttribute : Attribute
     /// <summary>Plural, human-facing name for headings and nav. Defaults to the type name.</summary>
     public string? Display { get; init; }
 
-    /// <summary>URL segment under <c>/admin</c>. Defaults to the lower-cased type name.</summary>
+    /// <summary>
+    /// URL segment under the scaffold root (<c>/admin</c> unless
+    /// <see cref="ScaffoldRootAttribute"/> says otherwise). Defaults to the
+    /// lower-cased, pluralised type name.
+    /// </summary>
     public string? Route { get; init; }
 }
 

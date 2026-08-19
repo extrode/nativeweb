@@ -44,6 +44,27 @@ Routes emitted per model, under `/admin/{route}`:
 
 No `[Auth]` at all means the routes are open. That is a choice made by omission.
 
+### Moving the UI off `/admin`
+
+One assembly-level attribute, and every route, link, form action and redirect follows:
+
+```csharp
+[assembly: ScaffoldRoot("/manage")]
+```
+
+`/admin` is only the default. `"/"` is legal and puts the scaffolding at the site root; a trailing
+slash is trimmed; anything that is not a path — no leading `/`, or carrying a query, fragment or
+space — is **NWS002, a build error**, and nothing is emitted. A typo cannot quietly publish an
+admin UI at a path nobody chose.
+
+Compile-time rather than a `MapScaffolding(prefix)` argument, deliberately: it keeps each model's
+base path a `const` so every emitted URL is a literal. A runtime prefix would have to be threaded
+through every generated method or parked in static state, and static state is shared by two hosts
+in one process — which is exactly what an integration suite is.
+
+The role in `[Auth(Role = "admin")]` is unrelated and has always been yours: any role name, with
+`Read`/`Write`/`Delete` overriding it per operation.
+
 ## Why a generator rather than reflection
 
 NativeAOT bans the reflection every other ecosystem's scaffolding is built on: no
