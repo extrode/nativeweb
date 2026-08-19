@@ -46,7 +46,19 @@ Built in this order; each task's tests ship in the same branch as its code.
     authorization services, so a consumer following the README's wiring block verbatim met
     `UseAuthorization` throwing at startup, naming a method the documentation never mentions.
 
-- [ ] **T16** E2E tier — files: `tests/nativeweb.signin.epass.tests.e2e/` — covers: R15 — done when: Playwright drives sign-in, a replayed link, and sign-out against a running host.
+- [x] **T16** E2E tier — files: `tests/nativeweb.signin.epass.tests.e2e/` — covers: R15 — done when: Playwright drives sign-in, a replayed link, and sign-out against a running host.
+
+  - **Outcome.** `tests/nativeweb.signin.epass.tests.e2e/`, driving the integration tier's
+    reference consumer with Chromium: ask for a link, follow the emailed link, be signed in as
+    the RESOLVER'S local key, replay the link and get `link_used`, sign out and watch the cookie
+    leave the browser. Plus a provider refusal asserted against the RENDERED page.
+    Perturbations: dropping `Secure` from the cookie attributes and making `SessionAuth.Clear`
+    a no-op each fail the journey.
+  - **The host had to move to HTTPS.** Chromium accepts the `Secure` attribute from insecure
+    localhost but refuses the `__Host-` prefix there, so over http every signed-in step silently
+    lost its session — the same finding `tests/nativeweb.web.tests.e2e/AppProcessFixture.cs`
+    already records. The host now mints its own self-signed certificate, round-tripped through
+    PKCS#12 because SChannel cannot serve a handshake from `CreateSelfSigned`'s ephemeral key.
 
 - [x] **T17** README and docs — files: `libs/nativeweb.signin.epass/README.md`, `CHANGELOG.md`, `work/status/current.md` — covers: R14 — done when: the README shows the ~8-line consumer wiring, states the library is epass-specific and claims no standards conformance, and documents the `v2` ticket format change.
 
