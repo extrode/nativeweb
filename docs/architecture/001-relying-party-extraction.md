@@ -7,7 +7,13 @@ and already shipping. T1.0 is not a design exercise. It is deciding, file by fil
 lines are *justsmtp's* and which are *every consumer's*, and moving the second set into
 `libs/nativeweb.rp`.
 
-Related: `docs/brainstorms/001-framework-direction.md` §7 (T1.0), §4 (the ring model).
+Related: `docs/brainstorms/001-framework-direction.md` §7 (T1.0), §4 (the ring model), and
+`docs/specs/008-epass-signin-library/` — the spec this doc fed.
+
+**Naming, decided 2026-08-19:** the library is **`nativeweb.signin.epass`**, not `nativeweb.rp`.
+`rp` is jargon needing a glossary; `oidc` and `oauth` claim a standard this flow does not
+implement; `idp` names the opposite role, and the identity provider is `apps/web` in this same
+repository. Read `libs/nativeweb.rp` below as `libs/nativeweb.signin.epass`.
 
 ---
 
