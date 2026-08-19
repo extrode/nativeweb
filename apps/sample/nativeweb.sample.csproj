@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- The scaffolding demo (brainstorm 001 T1.3). Two decorated models, no
+       hand-written CRUD code, no templates: everything under /admin is emitted by
+       libs/nativeweb.scaffold.generator at build time.
+
+       TargetFramework, Nullable, ImplicitUsings, IsAotCompatible and
+       TreatWarningsAsErrors come from Directory.Build.props. -->
+  <PropertyGroup>
+    <PublishAot>true</PublishAot>
+    <StripSymbols>true</StripSymbols>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <RootNamespace>NativeWeb.Sample</RootNamespace>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\nativeweb.scaffold\nativeweb.scaffold.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.scaffold.generator\nativeweb.scaffold.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

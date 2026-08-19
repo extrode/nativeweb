@@ -14,6 +14,18 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **CRUD scaffolding, generated** (brainstorm 001 T1.3) — `libs/nativeweb.scaffold` (attributes +
+  the six-method `IScaffoldStore<T>` seam) and `libs/nativeweb.scaffold.generator` (an incremental
+  source generator). A model carrying `[Scaffold]` and `[Auth]` gets a full admin CRUD UI — list,
+  search, paging, create, edit, delete — with no hand-written route, handler, form or view.
+  `apps/sample` is the demo: two decorated classes and one `app.MapScaffolding()` call.
+  The emitted binder is a `record` implementing `IBindableFromHttpContext`, which is the one shape
+  that binds a form under NativeAOT with zero trim warnings; the record's parameter list *is* the
+  mass-assignment allowlist, so a key or a `[ScaffoldReadOnly]` property cannot be bound at all.
+  Every mutating route re-attaches `IAntiforgeryMetadata`, which a `BindAsync`-bound handler would
+  otherwise lack, and the content-type guard lives inside `BindAsync` because binding runs before
+  the endpoint-filter pipeline.
+
 - **Cacheable public pages** (spec 006) — anonymous `/` and `/u/*` are served from an
   in-process output cache, keyed by (path, `?page=`, negotiated locale) and bypassed on the
   mere *presence* of a session or flash cookie, so a personal response can neither be stored

@@ -574,3 +574,22 @@ same ordering flaw and is still unaddressed.
 - `Program.cs:642-650` — `StaticPagesMiddleware` and `UseRouting` sit outside `ErrorPageMiddleware`,
   so an exception in the clean-URL rewrite or in route matching bypasses both the error shell and
   the security headers.
+
+## Scaffolding POC follow-ups, 2026-08-19
+
+- `AntiforgeryValidationMiddleware` is duplicated: `apps/web/Middleware/` has the real one and
+  `apps/sample/Program.cs` inlines a copy. It is framework behaviour, not app behaviour — every
+  NativeWeb app needs it, because `UseAntiforgery()` records a failed validation and calls next
+  rather than rejecting. Belongs in a lib with an `app.UseNativeWebAntiforgery()` extension.
+- `apps/sample`'s `IScaffoldStore<T>` is in-memory, which contradicts the JauntyQ-for-all-data-access
+  rule. Deliberate for a demo that must run without Postgres, but the POC does not yet prove the
+  JauntyQ side of the seam. A JauntyQ-backed store for one model would.
+- Hand-written `BindAsync` is a foot-gun the generator avoids and a human would not: nothing warns
+  when a `[FromForm]`-free handler loses its antiforgery metadata. An analyzer should flag an
+  `IBindableFromHttpContext` type reached from a POST with no `IAntiforgeryMetadata`.
+- Scaffolded pages carry no rate-limit policy. `apps/web`'s `RateLimitCoverageTests` would catch
+  that in that app; the generator should attach a policy name so it is not per-app vigilance.
+- `ScaffoldLayout.Page` embeds its own stylesheet rather than going through `nativeweb.render`.
+  Right for a self-contained demo, wrong once a consumer wants its own chrome — `Page` is the seam
+  to make overridable.
+- No e2e (Playwright) tier for the scaffolding. Unit + integration only.
