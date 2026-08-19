@@ -2,6 +2,23 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **epass sign-in library** (spec 008, `feat/008-signin-library`, merged 2026-08-19). T1–T19, the
+  relying-party half of the epass handshake as `libs/nativeweb.signin.epass` — a consumer supplies
+  an `ILoginFlowStore` and an `OnSignedIn` resolver and gets the start, callback and sign-out
+  endpoints, the signed `v2` session ticket and the open-redirect guard. `Pkce` and `Masking`
+  moved to `nativeweb.security` first (T1), so the library's graph does not touch `nativeweb.auth`.
+  Measured green: 164 unit / 16 integration / 2 e2e, full build with no warnings, AOT publish
+  exit 0 with zero IL2026/IL3050. Three findings from the reviews were real and fixed rather than
+  noted: `AddEpassSignIn` never called `AddAuthorization`, so the README's own wiring block threw
+  at first request; an unbounded login POST relayed whatever the form carried to the provider under
+  the client's credentials (now 254 bytes, RFC 5321, refused before any call); and an all-one-byte
+  signing key passed validation — the fix broke 20 fixtures that were using `new byte[32]`, which
+  is the finding proving itself. The conformance fixture lost its `ExpireAsync` hook: it now starts
+  a flow already expired, which additionally pins that a store honours the expiry it was *handed*
+  rather than inventing one. Two deliberate deviations from the approved plan: the fixture ships as
+  its own project (xunit must not be in a production package's closure) and `AddEpassSignIn` takes
+  only a configure delegate. The justsmtp.com migration (R12) is handed off, not done here.
+
 - **Away backlog slate** (seven branches, merged 2026-08-18). The items the user picked on the
   way out, plus the two they decided rather than deferred. `db/migrate.sh` now takes a
   session-level advisory lock through a psql coproc before it reads anything, so a second runner

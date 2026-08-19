@@ -14,6 +14,23 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Sign in with epass.io** (spec 008) — `libs/nativeweb.signin.epass`, the relying-party half of
+  the handshake, extracted so an application can consume epass.io without depending on
+  `nativeweb.auth`, which *is* an identity provider. A consumer supplies two things: an
+  `ILoginFlowStore` (their table) and an `OnSignedIn` resolver (their user provisioning). The
+  library owns the start, callback and sign-out endpoints at consumer-chosen paths, the signed
+  session cookie, and the open-redirect guard. Failures reach the consumer as one of eight machine
+  codes; no provider-supplied string ever reaches a page, a query string or a header.
+  `libs/nativeweb.signin.epass.testing` ships the conformance fixture that proves a consumer's
+  store takes atomically — the one property no single-threaded test can see.
+  Three tiers cover it: 164 unit facts, 16 integration facts through a real Kestrel host, a
+  JauntyQ store on real PostgreSQL and a stub provider, and 2 Playwright journeys in Chromium.
+  The integration host runs on HTTPS with a self-minted certificate, not for realism but because
+  Chromium accepts `Secure` from insecure localhost and **refuses the `__Host-` prefix there** —
+  over http the browser silently drops the session and the failure reads as a library bug.
+- **Session ticket format `v2`** — every field base64url-encoded before joining, so an arbitrary
+  string subject is representable. **Existing `v1` cookies stop verifying at cutover and every
+  signed-in user signs in once more.** There is no dual-read path.
 - **CRUD scaffolding, generated** (brainstorm 001 T1.3) — `libs/nativeweb.scaffold` (attributes +
   the six-method `IScaffoldStore<T>` seam) and `libs/nativeweb.scaffold.generator` (an incremental
   source generator). A model carrying `[Scaffold]` and `[Auth]` gets a full admin CRUD UI — list,
