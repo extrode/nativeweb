@@ -58,7 +58,9 @@ $branches = @(
     'chore/cleanup-script-aot-branch',
     'fix/sample-launch-profile',
     'feat/scaffold-host-extensions',
-    'chore/cleanup-script-host-extensions'
+    'chore/cleanup-script-host-extensions',
+    'feat/scaffold-configurable-root',
+    'chore/cleanup-script-root-branch'
 )
 
 foreach ($b in $branches) {
