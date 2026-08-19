@@ -6,14 +6,13 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **epass sign-in library (spec 008)** — in flight on `feat/008-signin-library`. T1-T14 done and
-  committed; T15 (integration, real PostgreSQL), T16 (E2E, Playwright), T17 (docs), T18 (reviews)
-  and T19 (the justsmtp handoff) remain.
-- Two deliberate deviations from the approved plan, both in `~/.claude/away-questions.md`: the
-  conformance fixture ships as its own project (xunit must not be in a production package's
-  closure), and `AddEpassSignIn` takes only a configure delegate rather than the plan's
-  `(IConfigurationSection, Action<T>)` pair.
+- **Nothing in flight.** Spec 008 finished and merged; see `previous.md`.
+- The next thing is the justsmtp.com migration (spec 008 R12), and it is **not this repo's work**:
+  it runs from `~/.claude/handoffs/justsmtp.com/2026-08-19-epass-signin-migration.md` in its own
+  session. Spec 008 therefore stays `Status: draft` here — its own tasks file records that it
+  cannot reach `done` until that session lands.
 - Scaffolding POC (brainstorm 001 T1.3) is merged; follow-ups on `work/todo.md`, none blocking.
 - Suite counts: **489 web-unit / 296 web-integration / 154 render / 64 scaffold-unit /
-  17 scaffold-integration / 152 signin-unit / 64 e2e**. All green except e2e, not run this session.
+  17 scaffold-integration / 164 signin-unit / 16 signin-integration / 2 signin-e2e / 64 e2e**.
+  Everything but the 64 web-e2e was run and is green; that tier was not run this session.
 - The AOT publish gate for the sign-in library measures exit 0, zero IL2026/IL3050, 16.6 MB exe.
