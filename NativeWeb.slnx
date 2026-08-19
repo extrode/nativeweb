@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/apps/">
     <Project Path="apps/web/nativeweb.web.csproj" />
+    <Project Path="apps/sample/nativeweb.sample.csproj" />
   </Folder>
   <Folder Name="/libs/">
     <Project Path="libs/nativeweb.data/nativeweb.data.csproj" />
@@ -9,12 +10,16 @@
     <Project Path="libs/nativeweb.security/nativeweb.security.csproj" />
     <Project Path="libs/nativeweb.auth/nativeweb.auth.csproj" />
     <Project Path="libs/nativeweb.mail/nativeweb.mail.csproj" />
+    <Project Path="libs/nativeweb.scaffold/nativeweb.scaffold.csproj" />
+    <Project Path="libs/nativeweb.scaffold.generator/nativeweb.scaffold.generator.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/nativeweb.web.tests.unit/nativeweb.web.tests.unit.csproj" />
     <Project Path="tests/nativeweb.web.tests.integration/nativeweb.web.tests.integration.csproj" />
     <Project Path="tests/nativeweb.render.tests.unit/nativeweb.render.tests.unit.csproj" />
     <Project Path="tests/nativeweb.web.tests.e2e/nativeweb.web.tests.e2e.csproj" />
+    <Project Path="tests/nativeweb.scaffold.tests.unit/nativeweb.scaffold.tests.unit.csproj" />
+    <Project Path="tests/nativeweb.scaffold.tests.integration/nativeweb.scaffold.tests.integration.csproj" />
   </Folder>
   <Project Path="../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj" />
   <Project Path="../jauntyq/src/JauntyQ.Runtime/JauntyQ.Runtime.csproj" />
