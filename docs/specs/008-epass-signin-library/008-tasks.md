@@ -39,7 +39,7 @@ Built in this order; each task's tests ship in the same branch as its code.
 
 - [ ] **T18** Reviews — covers: all — done when: Fable has reviewed architecture and seams, glm-5.3 has reviewed the security-critical code, every finding has been verified here before being acted on, and the outcome is recorded.
 
-- [ ] **T19** Update the justsmtp handoff — files: `~/.claude/handoffs/justsmtp.com/2026-08-19-epass-signin-migration.md` — covers: R12 (hand-off only) — done when: §5 names the real API instead of TO BE FILLED, and the `v2` re-login consequence is stated.
+- [x] **T19** Update the justsmtp handoff — files: `~/.claude/handoffs/justsmtp.com/2026-08-19-epass-signin-migration.md` — covers: R12 (hand-off only) — done when: §5 names the real API instead of TO BE FILLED, and the `v2` re-login consequence is stated.
 
 ## Analyze — requirement coverage
 
