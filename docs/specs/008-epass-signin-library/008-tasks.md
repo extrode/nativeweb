@@ -5,19 +5,19 @@ Built in this order; each task's tests ship in the same branch as its code.
 
 - [x] **T1** Move `Pkce` and `Masking` into `nativeweb.security` — files: `libs/nativeweb.auth/{Pkce,Masking}.cs` → `libs/nativeweb.security/`, plus `using` updates at 15 call sites (`libs/nativeweb.auth/AuthFlows.cs:48`; `apps/web/Auth/{OAuthTokenEndpoints,OAuthLoginLinkEndpoints,OAuthEndpoints,OAuthDeviceEndpoints,FakeIdentifierResponses,PassphraseEndpoints}.cs`; 4 test files) — covers: R10 — done when: solution builds with 0 warnings, the full existing suite passes unchanged, and `nativeweb.auth` no longer declares either type.
 
-- [ ] **T2** Library skeleton — files: `libs/nativeweb.signin.epass/nativeweb.signin.epass.csproj`, `NativeWeb.slnx` — covers: R10, R13 — done when: it references `nativeweb.security` and nothing else, builds clean, and a dependency check confirms `nativeweb.auth` is absent from its graph.
+- [x] **T2** Library skeleton — files: `libs/nativeweb.signin.epass/nativeweb.signin.epass.csproj`, `NativeWeb.slnx` — covers: R10, R13 — done when: it references `nativeweb.security` and nothing else, builds clean, and a dependency check confirms `nativeweb.auth` is absent from its graph.
 
-- [ ] **T3** Session ticket, format `v2` — files: `libs/nativeweb.signin.epass/SessionCookie.cs` — covers: R9 — done when: each field is base64url-encoded before joining so the delimiter cannot occur in a field; subject is charset- and length-validated; signature is verified constant-time before any field is believed; `SessionReadResult` distinguishes Valid/Malformed/BadSignature/Expired; a one-byte mutation reads as `BadSignature` and absence as `Malformed`.
+- [x] **T3** Session ticket, format `v2` — files: `libs/nativeweb.signin.epass/SessionCookie.cs` — covers: R9 — done when: each field is base64url-encoded before joining so the delimiter cannot occur in a field; subject is charset- and length-validated; signature is verified constant-time before any field is believed; `SessionReadResult` distinguishes Valid/Malformed/BadSignature/Expired; a one-byte mutation reads as `BadSignature` and absence as `Malformed`.
 
-- [ ] **T4** Return-path sanitiser — files: `libs/nativeweb.signin.epass/ReturnPath.cs` — covers: R8 — done when: off-site, protocol-relative (`//evil`), scheme-bearing and backslash-variant candidates all fall back; the fallback itself is rejected at startup unless relative.
+- [x] **T4** Return-path sanitiser — files: `libs/nativeweb.signin.epass/ReturnPath.cs` — covers: R8 — done when: off-site, protocol-relative (`//evil`), scheme-bearing and backslash-variant candidates all fall back; the fallback itself is rejected at startup unless relative.
 
-- [ ] **T5** Flow store contract — files: `libs/nativeweb.signin.epass/ILoginFlowStore.cs` — covers: R3, R4 — done when: `FlowTakeResult.Flow` is null unless `Taken`; `LoginFlow.ToString` redacts `Verifier`; the interface carries no schema or query type; XML docs state that `Taken` asserts an atomic compare-and-swap and that expiry is enforced in `TakeAsync`, not `SweepAsync`.
+- [x] **T5** Flow store contract — files: `libs/nativeweb.signin.epass/ILoginFlowStore.cs` — covers: R3, R4 — done when: `FlowTakeResult.Flow` is null unless `Taken`; `LoginFlow.ToString` redacts `Verifier`; the interface carries no schema or query type; XML docs state that `Taken` asserts an atomic compare-and-swap and that expiry is enforced in `TakeAsync`, not `SweepAsync`.
 
 - [ ] **T6** Concurrency conformance fixture — files: `libs/nativeweb.signin.epass/Testing/LoginFlowStoreConformance.cs` — covers: R3 — done when: an abstract xUnit fixture a consumer inherits proves two concurrent takes of one state yield exactly one `Taken`, and it fails against a deliberately non-atomic read-then-mark store.
 
-- [ ] **T7** Result type — files: `libs/nativeweb.signin.epass/EpassResult.cs` — covers: R5, R7 — done when: `Match` is the only way to reach `T`; there is no `IsOk`/`Success`/`Value`/implicit conversion; no provider-supplied string (`error` or `error_description`) appears on any public member.
+- [x] **T7** Result type — files: `libs/nativeweb.signin.epass/EpassResult.cs` — covers: R5, R7 — done when: `Match` is the only way to reach `T`; there is no `IsOk`/`Success`/`Value`/implicit conversion; no provider-supplied string (`error` or `error_description`) appears on any public member.
 
-- [ ] **T8** Wire DTOs and JSON context — files: `libs/nativeweb.signin.epass/EpassDtos.cs` — covers: R13 — done when: every serializer call goes through a hand-written `JsonSerializerContext`, no reflection overload is used, and provider error fields are internal.
+- [x] **T8** Wire DTOs and JSON context — files: `libs/nativeweb.signin.epass/EpassDtos.cs` — covers: R13 — done when: every serializer call goes through a hand-written `JsonSerializerContext`, no reflection overload is used, and provider error fields are internal.
 
 - [ ] **T9** Epass client — files: `libs/nativeweb.signin.epass/EpassClient.cs` — covers: R5, R6, R7 — done when: unconfigured returns `Unavailable` from every call rather than throwing; transport failure and timeout map to `Unavailable`; a provider refusal maps to `Refused` carrying a closed enum, never provider text; provider strings reach `ILogger` only.
 
@@ -27,7 +27,7 @@ Built in this order; each task's tests ship in the same branch as its code.
 
 - [ ] **T12** Endpoints and mapping — files: `libs/nativeweb.signin.epass/SignInEndpoints.cs` — covers: R1, R2, R7, R8 — done when: start/callback/logout map at consumer-chosen paths; sanitisation happens inside the callback and is not reachable as an opt-out helper; failures redirect to the consumer's login page with a machine code; `SignInResolver` returning null mints no session; the sweep runs as a hosted service.
 
-- [ ] **T13** Unit tier — files: `tests/nativeweb.signin.epass.tests.unit/` — covers: R15 — done when: ticket, return path, result type, options validation and client outcomes are all covered, and every new green test has been perturbed to confirm it fails.
+- [x] **T13** Unit tier — files: `tests/nativeweb.signin.epass.tests.unit/` — covers: R15 — done when: ticket, return path, result type, options validation and client outcomes are all covered, and every new green test has been perturbed to confirm it fails.
 
 - [ ] **T14** NativeAOT publish gate — files: `apps/sample` or a probe app — covers: R13 — done when: a publish of a consumer of this library exits 0 with zero IL2026/IL3050, proving RDG sees the hand-written `Map*` calls.
 
