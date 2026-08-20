@@ -256,17 +256,12 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      # Pinned to a SHA, not the mutable v1 tag. This is a third-party action whose
-      # step runs with the workflow's token on every push, so a moved tag would swap
-      # the code executed here with no change landing in the repo -- and a stamped
-      # product inherits whatever this file says. SHA is v1 as of 2026-08-17
-      # (resolved with `gh api repos/ilammy/msvc-dev-cmd/git/ref/tags/v1`); bump
-      # deliberately, and read the diff.
-      #
-      # Still node20, and not by choice: the action's last release is v1.13.0
-      # (2024-01-01) and its action.yml at HEAD is still `using: node20`, so no
-      # node24 version exists to bump to. Every other action here is node24.
-      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
-
+      # No step sets up MSVC, and none is needed: the ILCompiler runs its own
+      # bundled findvcvarsall.bat, which asks vswhere for the C++ tools and hands
+      # the linker an absolute path. See this repo's own ci.yml for the detail --
+      # a stamped product inherits whatever this file says, and what it used to
+      # say was a third-party action that was redundant and broke the publish
+      # path. If the tools are genuinely absent the publish fails with a named
+      # error, never a silent fallback.
       - name: Publish (NativeAOT)
         run: dotnet publish apps/__product__/__product__.csproj -c Release

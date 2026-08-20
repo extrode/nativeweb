@@ -200,9 +200,9 @@ jobs:
         run: dotnet test tests/nativeweb.web.tests.e2e --no-build $DOTNET_BUILD_ARGS
 
   aot-publish:
-    # The NativeAOT gate: MSVC's cl.exe/link.exe (via vcvars) are only
-    # available in the Windows Developer environment that windows-latest
-    # runners ship preinstalled (VS2022 Build Tools) -- this job proves
+    # The NativeAOT gate: the native link needs MSVC's link.exe, which
+    # windows-latest ships preinstalled (VS2022, Desktop development with
+    # C++) and which the ILCompiler locates itself -- this job proves
     # apps/web still links and stays warning-free under TreatWarningsAsErrors
     # for AOT/trim analysis, matching the local publish gate used throughout
     # Phase 0. It doesn't need Postgres: publish only compiles, it never runs
@@ -215,19 +215,20 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      # Pinned to a commit, not the mutable v1 tag: this action is a third party
-      # whose step runs with the workflow's token on every push, and a moved tag
-      # would swap the code executed here without any change landing in this
-      # repo. SHA is v1 as of 2026-08-03; bump deliberately, and read the diff.
+      # There is deliberately no MSVC setup step. This job used to run
+      # ilammy/msvc-dev-cmd, and it needed neither the action nor the developer
+      # environment: microsoft.dotnet.ilcompiler's own
+      # Microsoft.NETCore.Native.Windows.targets shells its bundled
+      # findvcvarsall.bat, which asks vswhere for the VC.Tools component and sets
+      # CppLinker to an absolute link.exe. Measured 2026-08-20: a full AOT publish
+      # of apps/web from a shell with no VCINSTALLDIR and no cl.exe on PATH links
+      # and exits 0 in 56s. If the tools really are missing the publish stops with
+      # "Platform linker not found", so the failure is named, not silent.
       #
-      # This is the one step still on node20, and not by choice: msvc-dev-cmd's
-      # last release is v1.13.0 (2024-01-01) and its action.yml at HEAD is still
-      # `using: node20`, so there is no node24 version to bump to. It keeps the
-      # runner's deprecation annotation until the action is either updated
-      # upstream or replaced by a `run:` step that sources vcvars64.bat and
-      # exports the environment through $GITHUB_ENV.
-      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
-
+      # Removing it also removed a defect: the action exported Platform=x64, which
+      # MSBuild reads as a property like any other environment variable, and that
+      # inserted an extra x64 segment into the publish path.
+      #
       # Same reason as the test job: this publish restores in package mode, so
       # it needs the jauntyq-github credential too.
       - name: Authenticate to GitHub Packages
@@ -239,14 +240,12 @@ jobs:
 
       # -o pins the output path. Without it the publish directory is not
       # knowable from here: PublishAot infers a RuntimeIdentifier at publish
-      # time (adding win-x64), and msvc-dev-cmd above exports Platform=x64,
-      # which MSBuild reads as a property like any other environment variable
-      # and which inserts a further x64 segment. The runner wrote to
+      # time, adding a win-x64 segment that is not visible to static evaluation.
+      # It was worse while msvc-dev-cmd ran: that action exported Platform=x64,
+      # MSBuild read it as a property, and the runner wrote to
       # bin\x64\Release\net10.0\win-x64\publish\ while the budget step below
-      # looked in bin/Release/net10.0/win-x64/publish/ -- a path that is correct
-      # for a local publish outside the VS developer environment, which is
-      # presumably where it was written. Neither segment is visible to static
-      # evaluation, so nothing could have caught the drift by inspection.
+      # looked in bin/Release/net10.0/win-x64/publish/. The action is gone and
+      # -o stays, because the RID segment alone is reason enough to pin.
       - name: Publish (NativeAOT)
         run: dotnet publish apps/web/nativeweb.web.csproj -c Release -p:JauntyQUsePackages=true -o publish/web
 
