@@ -43,13 +43,11 @@ is the only tracked JS, and it is served, not run) and that is worth keeping. Ex
 `tools/` and `scripts/` is Python and PowerShell; leave it, and note that global `AGENTS.md` fixes
 cleanup scripts as `.ps1`/`.sh` regardless.
 
-Two places Node appears anyway, neither ours to choose:
-- **GitHub Actions.** A `uses:` action of the common kind is a bundled `dist/index.js` the runner
-  executes with its own Node binary. `runs.using` accepts `node20`, `node24`, `docker` and
-  `composite` — there is no Deno action runtime, so `actions/checkout` cannot be moved off Node.
-  Deno can run inside a `run:` step; it cannot replace the thing that executes the step.
-- **Playwright.** `Microsoft.Playwright` drives a Node-based browser driver under the .NET API.
-  `playwright.ps1 install` is that driver, not a Node dependency of ours.
+Two places Node appears anyway, neither ours to choose, and both cut to the minimum on 2026-08-20:
+`actions/checkout@v7` is the only `uses:` step in either workflow (`runs.using` has no Deno
+option), and `Microsoft.Playwright` bundles its own node for the browser driver. **Nothing runs
+node20; no step runs Node that does not have to.** Why each survived, and why `setup-dotnet` and
+`ilammy/msvc-dev-cmd` did not, is in `docs/decisions/2026-08-20-001-node-runtime-in-ci.md`.
 
 ## Testing (required before merge)
 Every feature ships with all three layers of coverage:

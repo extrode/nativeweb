@@ -106,20 +106,14 @@ Small, clear, and could be picked up without a design decision.
 
 Real, but needs a decision, a dependency, or more information first. Say which.
 
-- **The three `uses:` actions in `ci.yml` still target the Node 20 runtime, which GitHub has
-  deprecated.** Every run now annotates "being forced to run on Node.js 24". Nothing is broken
-  and nothing in this repo is involved: a GitHub Action of the common kind is a bundled
-  `dist/index.js` that the *runner* executes with a Node binary it ships itself, so
-  `setup-dotnet` installing .NET is a Node program, and no part of this repo depends on Node.
-  The fix is a version bump to releases whose manifest says `node24` — `actions/checkout`,
-  `actions/setup-dotnet` — once those exist and have been read. `ilammy/msvc-dev-cmd` is the one
-  that actually needs watching: it is third-party and SHA-pinned deliberately, so it cannot drift
-  on its own, but it also gets no fix unless upstream publishes one and the pin is moved. If
-  Node 20 is removed before that happens, the `aot-publish` job breaks.
-  **Deno is not the escape hatch here**, though it is the standing preference everywhere else in
-  this repo (see `AGENTS.md`): the runner's `runs.using` accepts `node20`, `node24`, `docker` and
-  `composite`, and there is no Deno JS-action runtime to select. Deno can run *inside* a step;
-  it cannot replace the runtime that executes `checkout`. Blocked on upstream releases.
+- ~~**The three `uses:` actions in `ci.yml` still target the Node 20 runtime, which GitHub has
+  deprecated.**~~ **Done 2026-08-20**, branches `chore/bump-actions-node24`,
+  `chore/drop-msvc-dev-cmd`, `chore/drop-setup-dotnet`. Two of the three were deleted rather than
+  bumped, which is why the entry's "blocked on upstream releases" premise never had to hold:
+  `msvc-dev-cmd` set up a toolchain the ILCompiler locates itself, and `setup-dotnet` installed an
+  SDK both hosted images already ship. `actions/checkout@v7` is the only `uses:` step left in
+  either workflow. The SDK requirement now lives in `global.json`. Full reasoning and the
+  measurements in `docs/decisions/2026-08-20-001-node-runtime-in-ci.md`.
 
 - ~~**Antiforgery is validated before `HasFormContentType` at all 23 POST sites — decide, don't
   drift.**~~ **Decided and done 2026-08-17** (user: "swap to 415 first"), branch

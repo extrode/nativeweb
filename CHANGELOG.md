@@ -187,6 +187,13 @@ Merged into `dev`, not yet tagged.
     and demoted that), a latent contract bug the single-source tests all passed over.
 
 ### Removed
+- **`actions/setup-dotnet`, from both workflows.** Ubuntu 24.04 and Windows Server 2025 each ship
+  .NET SDK 10.0.110, 10.0.204 and 10.0.302 preinstalled, so `dotnet-version: "10.0.x"` installed
+  nothing. The requirement moved to a new `global.json` (`10.0.100`, `rollForward: latestFeature`),
+  which covers local builds the workflow never did; `SdkPinTests` holds it there and fails if a
+  workflow starts naming a second version. With this and the action below gone,
+  `actions/checkout@v7` is the only `uses:` step in either workflow — see
+  `docs/decisions/2026-08-20-001-node-runtime-in-ci.md`.
 - **Every third-party GitHub Action.** `ilammy/msvc-dev-cmd` was the last one, in both this
   repo's CI and the skeleton's, and it was doing nothing the toolchain does not do itself: the
   ILCompiler shells its own bundled `findvcvarsall.bat`, asks `vswhere` for the C++ tools and

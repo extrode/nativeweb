@@ -44,7 +44,9 @@ imported by URL or from JSR. **Do not introduce `package.json`, a lockfile, `nod
 run. Two places Node appears regardless, neither ours to choose: GitHub Actions executes a
 `uses:` action as a bundled `dist/index.js` on its own Node binary (`runs.using` has no Deno
 option, so `actions/checkout` cannot be moved off it), and `Microsoft.Playwright` drives a
-Node-based browser driver under the .NET API.
+Node-based browser driver under the .NET API. Keep it to that. `ci.yml` deliberately has no
+`setup-dotnet` step — the hosted images already ship the SDK and `global.json` states which band
+is required — and no third-party action at all.
 
 ## Testing (required before merge)
 Every feature ships with all three layers of coverage:
