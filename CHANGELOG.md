@@ -187,6 +187,14 @@ Merged into `dev`, not yet tagged.
     and demoted that), a latent contract bug the single-source tests all passed over.
 
 ### Removed
+- **Every third-party GitHub Action.** `ilammy/msvc-dev-cmd` was the last one, in both this
+  repo's CI and the skeleton's, and it was doing nothing the toolchain does not do itself: the
+  ILCompiler shells its own bundled `findvcvarsall.bat`, asks `vswhere` for the C++ tools and
+  hands the linker an absolute path — measured by publishing `apps/web` from a shell with no
+  `VCINSTALLDIR` and no `cl.exe` on `PATH` (links, exit 0, 56s). It was also the source of a real
+  defect: it exported `Platform=x64`, which MSBuild reads as a property, adding a segment to the
+  publish path that the budget step then could not find. `ActionPinTests` now asserts the count
+  of third-party actions is zero rather than at least one, so adding one is a visible decision.
 - The DevMarks projects (`apps/devmarks`, `libs/nativeweb.devmarks.data`,
   `tests/nativeweb.devmarks.tests.*`, `db/devmarks`), now living in the manzil.my repo; CI,
   solution and docs rescoped to the IdP.
