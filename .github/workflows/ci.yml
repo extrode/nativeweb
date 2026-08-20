@@ -79,9 +79,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: "10.0.x"
+      # No setup-dotnet step: ubuntu-latest (Ubuntu 24.04) ships .NET SDK 10.0.110,
+      # 10.0.204 and 10.0.302 preinstalled, so the action installed nothing and only
+      # cost a node process. global.json at the repo root is what pins the band --
+      # 10.0.100 with rollForward: latestFeature, so any 10.0.x satisfies it and an
+      # image without one fails by name instead of rolling forward to 9.x.
 
       - name: Apply migrations
         run: |
@@ -211,9 +213,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: "10.0.x"
+      # Same as the test job: windows-latest (Windows Server 2025) already ships the
+      # 10.0.x SDKs, and global.json pins which band is acceptable.
 
       # There is deliberately no MSVC setup step. This job used to run
       # ilammy/msvc-dev-cmd, and it needed neither the action nor the developer

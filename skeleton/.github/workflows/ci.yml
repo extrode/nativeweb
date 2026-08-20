@@ -139,9 +139,10 @@ jobs:
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
           persist-credentials: false
 
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: "10.0.x"
+      # No setup-dotnet step: the hosted images already ship the 10.0.x SDKs, so the
+      # action installed nothing. global.json at the product root pins which band is
+      # acceptable, and it travels with the stamped product rather than living only
+      # in a workflow the generated repo's owner may never read.
 
       - name: Provision __PRODUCT__ database
         run: |
@@ -252,9 +253,7 @@ jobs:
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
           persist-credentials: false
 
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: "10.0.x"
+      # Same as the test job: preinstalled SDK, global.json pins the band.
 
       # No step sets up MSVC, and none is needed: the ILCompiler runs its own
       # bundled findvcvarsall.bat, which asks vswhere for the C++ tools and hands
