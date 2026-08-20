@@ -597,3 +597,9 @@ same ordering flaw and is still unaddressed.
   Right for a self-contained demo, wrong once a consumer wants its own chrome — `Page` is the seam
   to make overridable.
 - No e2e (Playwright) tier for the scaffolding. Unit + integration only.
+- `ilammy/msvc-dev-cmd` is the last node20 action in either workflow, and there is nothing to bump
+  to: its final release is v1.13.0 (2024-01-01) and `action.yml` at HEAD is still `using: node20`.
+  So `aot-publish` keeps one deprecation annotation per run. The replacement, when it is worth
+  doing, is a `run:` step that calls `vcvars64.bat` and exports the resulting environment through
+  `$GITHUB_ENV` — which also removes the only third-party action in the repo. Guarded meanwhile by
+  `ActionPinTests.GitHubPublishedActions_AreOnANode24Major`, which covers `actions/*` only.
