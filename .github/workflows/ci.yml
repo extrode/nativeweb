@@ -77,9 +77,9 @@ jobs:
     env:
       ConnectionStrings__NativeWeb: "Host=localhost;Database=nativeweb_test;Username=nativeweb_app;Password=ci_test_password"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
 
@@ -209,9 +209,9 @@ jobs:
     # the app.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
 
@@ -219,6 +219,13 @@ jobs:
       # whose step runs with the workflow's token on every push, and a moved tag
       # would swap the code executed here without any change landing in this
       # repo. SHA is v1 as of 2026-08-03; bump deliberately, and read the diff.
+      #
+      # This is the one step still on node20, and not by choice: msvc-dev-cmd's
+      # last release is v1.13.0 (2024-01-01) and its action.yml at HEAD is still
+      # `using: node20`, so there is no node24 version to bump to. It keeps the
+      # runner's deprecation annotation until the action is either updated
+      # upstream or replaced by a `run:` step that sources vcvars64.bat and
+      # exports the environment through $GITHUB_ENV.
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
       # Same reason as the test job: this publish restores in package mode, so
