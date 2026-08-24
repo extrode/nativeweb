@@ -127,6 +127,23 @@ Small, clear, and could be picked up without a design decision.
 
 Real, but needs a decision, a dependency, or more information first. Say which.
 
+- **Strong-name the sign-in assemblies, or accept that `InternalsVisibleTo` is a simple-name
+  grant.** Spec 009 R3 says the bound on ticket minting "is the compiler's". Against an accident
+  it is; against someone who deliberately names an assembly `nativeweb.signin.epass.testing` it is
+  not, because neither assembly is strong-named. **Needs a decision** — strong-naming is repo-wide,
+  affects every package this repo ships, and is not something 009 should have taken on its own.
+  Raised by 009's review, 2026-08-25.
+- **`OnSignedIn` has the same last-wins defect `OnAddressSubmitted` just had.** A second call
+  appends a second `SignInResolver` and `GetService` returns it, so the first is silently
+  unreachable — no throw at registration, at container build, or in `Validate()`. Fixed for the
+  policy under 009 because that seam is 009's; **left for the resolver because it is 008 behaviour
+  a consumer may already depend on**, and changing it is a decision rather than a fix. One line in
+  `EpassSignInBuilder.OnSignedIn` when taken. Raised by 009's review, 2026-08-25.
+- **`ClearRejected()` sets no `no-store`.** `SessionAuth.Clear` now does, for both sign-out paths,
+  but the authenticate path writes its own cookie deletion when it rejects a cookie and does not.
+  Lower stakes — that response is whatever the consumer's page was — but it is the same drift.
+  Noted rather than fixed: out of 009's scope. Raised by 009's review, 2026-08-25.
+
 - ~~**The three `uses:` actions in `ci.yml` still target the Node 20 runtime, which GitHub has
   deprecated.**~~ **Done 2026-08-20**, branches `chore/bump-actions-node24`,
   `chore/drop-msvc-dev-cmd`, `chore/drop-setup-dotnet`. Two of the three were deleted rather than

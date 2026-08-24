@@ -26,19 +26,35 @@ Merged into `dev`, not yet tagged.
     is not told a link is on its way to somewhere it cannot arrive. It returns a `bool` rather
     than a failure code **on purpose**: a policy that could choose the code could choose a
     different one for an address it recognises, which is an account-enumeration oracle built out
-    of a feature. Called after the 254-byte bound, so a consumer's regex is never handed a
-    multi-megabyte form value; a policy that throws is a refusal, not an acceptance.
-  - **`TestSession`** in `NativeWeb.SignIn.Epass.Testing` — `Mint`, `MintExpired`, `Tamper` and
-    `CookieName`, over the library's own `SessionCookie` via `InternalsVisibleTo`. Under 008 a
-    consumer's integration tests reimplemented the ticket format by hand, which keeps passing
-    when the format changes. **No minting API was added to the production surface**: a public
-    `Mint` is an authentication bypass callable with any subject.
+    of a feature. That bound covers the **code**; the rest of the response does not bound itself,
+    because the policy holds the live `HttpContext` — the README says so rather than claiming
+    otherwise. Called after the 254-**character** bound (`string.Length`, so UTF-16 code units),
+    so a consumer's regex is never handed a multi-megabyte form value. A policy that throws is a
+    refusal, not an acceptance; a policy that cancels its own work is a broken policy and likewise
+    refuses; and a second `OnAddressSubmitted` throws rather than silently replacing the first.
+  - **`TestSession`** in `NativeWeb.SignIn.Epass.Testing` (**0.2.0**) — `Mint`, `MintExpired`,
+    `Tamper` and `CookieName`, over the library's own `SessionCookie` via `InternalsVisibleTo`.
+    Under 008 a consumer's integration tests reimplemented the ticket format by hand, which keeps
+    passing when the format changes. **No minting API was added to the production surface**: a
+    public `Mint` is an authentication bypass callable with any subject. The package is now marked
+    `DevelopmentDependency`, which is what actually keeps it and its xunit reference out of an
+    application's closure.
 
-  Coverage is now 175 unit facts, 27 integration and 3 Playwright journeys — up from 164 / 16 / 2
-  at 008. Every new test was perturbed and proved red first; the one that earns its keep asserts a
-  tampered ticket fails as `BadSignature` rather than `Malformed`, a distinction invisible from a
-  host because both come back anonymous. The AOT probe exercises both new seams and publishes
-  native clean.
+  Coverage is now 177 unit facts, 32 integration and 3 Playwright journeys — up from 164 / 16 / 2
+  at 008. Every new test was perturbed and proved red first. The AOT probe exercises both new seams
+  and publishes native clean.
+
+### Fixed
+- **Eleven findings from 009's own review**, all raised against code written on that branch and
+  confirmed by a shell-equipped refuter before being fixed. The four that mattered: a policy whose
+  own work timed out escaped as a **500 on an unauthenticated POST** because the
+  `OperationCanceledException` rethrow was unfiltered; `SignOutAsync` deleted the cookie but left
+  `HttpContext.User` **authenticated for the rest of the request**, so the filter the seam exists
+  for still rendered the signed-in page; the testing package was **genuinely publishable** while
+  four separate places called it undeployable; and a second `OnAddressSubmitted` **silently
+  disabled the first**. Also: `no-store` moved into the one shared sign-out implementation so the
+  two paths cannot drift, `Tamper` no longer throws `IndexOutOfRangeException` on a five-field
+  non-ticket, and the docs no longer describe a character bound as a byte bound.
 - **Sign in with epass.io** (spec 008) — `libs/nativeweb.signin.epass`, the relying-party half of
   the handshake, extracted so an application can consume epass.io without depending on
   `nativeweb.auth`, which *is* an identity provider. A consumer supplies two things: an

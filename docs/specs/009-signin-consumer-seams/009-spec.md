@@ -123,6 +123,11 @@ Branch `feat/009-signin-consumer-seams`. Every tier run from the worktree: **1,3
 failed, 0 skipped** across ten assemblies. The sign-in tiers moved 164 → 175 unit, 16 → 27
 integration, 2 → 3 e2e.
 
+**Then the full two-lens review ran, and eleven of its twelve findings were confirmed** — see the
+section after this table. The sign-in tiers ended at **177 unit / 32 integration / 3 e2e**; the
+other seven were untouched, because the only projects referencing `nativeweb.signin.epass*` are its
+own five. AOT gate re-run at `-r win-x64`: exit 0, zero IL2026/IL3050, 16,786,944-byte exe.
+
 | R | Verdict | How |
 | --- | --- | --- |
 | R1 | met | `SignOutAsync_MidRequest_EndsTheSession`, plus the e2e journey where Chromium's own jar drops the cookie |
@@ -130,11 +135,47 @@ integration, 2 → 3 e2e.
 | R3 | met, **with one half unprovable** — see below | `AMintedTicket_AuthenticatesItsSubject` |
 | R4 | met | `AnExpiredMintedTicket_IsRefused`, `ATamperedMintedTicket_IsRefused`, and at unit tier the distinction those two cannot show |
 | R5 | met | `ARefusedAddress_NeverReachesTheProvider` asserts `StartCalls == 0` and no stored flow |
-| R6 | met | `TwoRefusedAddresses_AreAnsweredIdentically` compares status, location and header set |
+| R6 | **met for the failure code, NOT for the response** — see below | `TwoRefusedAddresses_AreAnsweredIdentically` compares status, location and header set for two policies that write nothing; `APolicyWritingToTheResponse_IsNotPreventedFromDoingSo` pins what that test cannot see |
 | R7 | met | The 16 pre-009 integration facts and 164 pre-009 unit facts pass unchanged; `WithNoPolicyRegistered_NothingIsResolvable` asserts no permissive default was installed |
 | R8 | met | Native publish, `-r win-x64`: exit 0, zero IL2026/IL3050, 16.8 MB exe, both seams in the closure |
 | R9 | **not met here, by design** | Separate repository, sequenced after this merge |
 | R10 | met | Unit and integration for all three; e2e for sign-out |
+
+## What review found, 2026-08-25
+
+The two-lens `/code-review` pass raised twelve candidates, **eleven confirmed by a shell-equipped
+refuter and one dropped**. Four were defects in the seams themselves, four were false claims in
+prose written on this same branch, and the rest were smaller. All eleven are fixed here, and each
+fix carries a test that was perturbed and proved red: six perturbations, six failures, one per fix.
+
+| What | Where it was wrong |
+| --- | --- |
+| The testing package had **no `DevelopmentDependency`** | `IsPackable=true` with nothing making it private, so xunit and `TestSession` flow to a consumer's production closure. Four places — `TestSession.cs`, the csproj comment, `README.md`, this spec's own decision note — called it "deliberately undeployable" when nothing made it so. Fixed by setting the property; the prose now names it as the mechanism |
+| `catch (OperationCanceledException)` was **unfiltered** | A policy whose own HTTP call timed out escaped as a **500 on an unauthenticated POST**, measured, instead of the documented `address_unusable`. Now `when (context.RequestAborted.IsCancellationRequested)` |
+| `SignOutAsync` left `Context.User` **authenticated** | Measured in one request: cookie deleted, `authenticated=True nameid=local-42`. The documented case — a filter discovering a disabled account — deleted the cookie and rendered the signed-in page anyway. Now resets to an anonymous principal |
+| The seam set **no `no-store`**, the logout endpoint did | R2 says one implementation so the two cannot drift; they already had. `no-store` moved into `SessionAuth.Clear`, which is the one implementation |
+| A **second `OnAddressSubmitted` silently won** | `AddSingleton` appends, `GetService` returns last, so a merge could disable a security control with nothing thrown. Now throws |
+| `Tamper`'s rationale was **inverted** | It claimed the tampered payload must stay decodable so the ticket "parses but does not verify". `TryRead` compares the HMAC *before* decoding the payload, so `subject[0]='!'` kept the test green — measured. The claim is gone; the test now states the property it does prove |
+| `Tamper("v2..aa.bb.cc")` threw **`IndexOutOfRangeException`** | Documented as `ArgumentException`. Guarded |
+| Docs said the bound was **254 bytes** | The code is `email.Length` — UTF-16 code units. An SMTPUTF8 address inside 254 characters can exceed 254 bytes. Corrected wherever this branch wrote it |
+| `SignOutAsync` **throws after the response starts** | Undocumented, while the doc recommended middleware — the placement most likely to hit it. Now documented and asserted |
+| Version stayed **0.1.0** | The package gained a public type. Now 0.2.0 |
+| Two new tests were **weaker than they read** | `MintExpired` never asserted a non-zero-width window; the oversized-address test passed even against a host with no policy registered. Both tightened |
+
+The one dropped: a claim that the 254 bound was justified as a backtracking mitigation. It is not —
+the comment attaches backtracking to the *ordering*, and that reading is correct.
+
+**R6 is the finding that changes the spec rather than the code.** The requirement says a refusal
+cannot distinguish an address that has an account from one that does not, and calls the bound
+structural. Half of that holds: `AddressPolicy` returns `bool`, so there is no failure code for a
+consumer to choose, and no amount of consumer error can vary it. The other half does not. The
+policy is handed the live `HttpContext` — it must be, or it could not reach `RequestServices` or
+the client address — and review measured a header and a cookie written by a policy surviving onto
+the refusal. The library cannot take that away without taking away everything a policy decides on.
+So the response-shape bound is **documentary**, it is written down in the README and the delegate's
+own remarks, and `APolicyWritingToTheResponse_IsNotPreventedFromDoingSo` pins it so that the day
+the library does close it, the docs fail rather than rot. Timing is the same shape and is called
+out too: the provider call is capped by `ProviderTimeout` and a policy's own work is not.
 
 **R3's second half — "no minting API is reachable from a test referencing only the production
 library" — is guaranteed by construction and cannot be demonstrated by a test.** `SessionCookie`
@@ -142,6 +183,11 @@ is `internal` and the assembly grants `InternalsVisibleTo` to exactly two names,
 Any test written to prove unreachability would have to live in an assembly holding the grant, and
 would therefore reach it. The guarantee is the compiler's; the acceptance criterion as written
 asks for evidence no test in this solution can produce.
+
+Review sharpened that too: the grant is by **simple name**, and neither assembly is strong-named.
+"The guarantee is the compiler's" holds against an accident, not against someone who names an
+assembly `nativeweb.signin.epass.testing` on purpose. Strong-naming is a repo-wide decision and is
+on `work/todo.md` rather than taken here.
 
 **R9 is deliberately unmet.** justsmtp.com adopting the seams and deleting its three workarounds
 is a branch in another repository, sequenced after this one merges — the plan says so and the task
@@ -167,7 +213,9 @@ reopen them:
 - **The test-minting seam lives in the existing `nativeweb.signin.epass.testing` package**, reached
   by `InternalsVisibleTo`. That package already exists for the flow-store conformance fixture and
   already carries an xunit reference, so it is the one place a consumer can be handed internals
-  without an application's production closure acquiring them.
+  without an application's production closure acquiring them. **That last clause was aspirational
+  when written** — it became true only when review found `DevelopmentDependency` missing and this
+  branch set it.
 - **The address policy returns a boolean, not a failure code.** A consumer that could choose the
   code could choose a different one for an address it recognises, and that is an enumeration
   oracle built out of a feature. The bound is structural, not documentary.
