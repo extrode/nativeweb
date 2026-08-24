@@ -50,12 +50,23 @@ foreach ($a in $Rest) {
 $repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
 $stamped = 'C:\home\code\extrode-legacy-org.com\ciprobe'
 
-# Safety gate: everything below assumes the branches are already merged, which
-# means being on dev. A dry run says so and carries on; --execute refuses.
+# Safety gate. "Must be on dev" was the obvious rule and it is the wrong one here:
+# .worktrees/dev holds `dev`, git allows a branch in one worktree at a time, so the
+# main checkout CANNOT be on dev and an --execute run could never have started.
+# Corrected 2026-08-25; see scripts/cleanup/backlog-new-product-and-008-review.ps1,
+# which owns removing that worktree.
+#
+# What the gate protects is that nothing unmerged or uncommitted is destroyed, so
+# check that directly: the tree is clean, and HEAD is already merged into dev.
 $branch = git -C $repo branch --show-current
-if ($branch -ne 'dev') {
-    if ($Execute) { Write-Error "$repo is on '$branch', expected 'dev'; refusing." }
-    else { Write-Host "NOTE: $repo is on '$branch', expected 'dev' (execute would refuse)." }
+if (git -C $repo status --porcelain) {
+    if ($Execute) { Write-Error "$repo has uncommitted changes; refusing." }
+    else { Write-Host "NOTE: $repo has uncommitted changes (execute would refuse)." }
+}
+git -C $repo merge-base --is-ancestor HEAD dev
+if ($LASTEXITCODE -ne 0) {
+    if ($Execute) { Write-Error "$repo is on '$branch', which is not merged into dev; refusing." }
+    else { Write-Host "NOTE: $repo is on '$branch', not merged into dev (execute would refuse)." }
 }
 
 function Act($desc, [scriptblock]$action) {
