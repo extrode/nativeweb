@@ -1,0 +1,93 @@
+{
+  "dialect": "postgres",
+  "tables": {
+    "articles": {
+      "name": "articles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "title": {
+          "name": "title",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "author": {
+          "name": "author",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "body": {
+          "name": "body",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "published": {
+          "name": "published",
+          "dbType": "boolean",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "view_count": {
+          "name": "view_count",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "articles_pkey",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    }
+  },
+  "foreignKeys": [],
+  "procedures": {},
+  "sequences": {},
+  "enums": {}
+}

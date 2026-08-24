@@ -3,6 +3,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
+using Npgsql;
+
 using NativeWeb.Scaffold;
 using NativeWeb.Scaffold.Generated;
 
@@ -35,13 +37,38 @@ public sealed class Program
             });
 
         // The generated endpoints resolve IScaffoldStore<T> from RequestServices and
-        // know nothing else about persistence. Singleton only because this demo's
-        // store is in-memory; a JauntyQ-backed one would be scoped.
-        var articles = new ArticleStore();
+        // know nothing else about persistence. Which implementation answers is decided
+        // here, once, and no generated code is regenerated when it changes.
+        //
+        // Same degrade-rather-than-crash posture as apps/web: a missing connection
+        // string is not an error, it selects the in-memory store. That keeps
+        // `dotnet run`, the integration tier and the Playwright tier working with no
+        // database, while a configured string exercises the JauntyQ path against a
+        // real one. Both are IScaffoldStore<Article>; nothing above this line differs.
         var tags = new TagStore();
-        builder.Services.AddSingleton<IScaffoldStore<Article>>(articles);
         builder.Services.AddSingleton<IScaffoldStore<Tag>>(tags);
-        Seed.Fill(articles, tags);
+
+        string? connString = builder.Configuration.GetConnectionString("Sample");
+        if (string.IsNullOrWhiteSpace(connString))
+        {
+            var articles = new ArticleStore();
+            builder.Services.AddSingleton<IScaffoldStore<Article>>(articles);
+            Seed.Fill(articles, tags);
+        }
+        else
+        {
+            NpgsqlDataSource dataSource = new NpgsqlDataSourceBuilder(connString).Build();
+            builder.Services.AddSingleton(dataSource);
+
+            // Singleton, not scoped: the store holds no per-request state and takes a
+            // connection from the pool per call. See JauntyArticleStore's remarks.
+            builder.Services.AddSingleton<IScaffoldStore<Article>>(new JauntyArticleStore(dataSource));
+
+            // Tags are still in-memory, deliberately. Two models behind one seam with
+            // two entirely different implementations is the claim this demo is making,
+            // and it is only visible if they actually differ.
+            Seed.FillTags(tags);
+        }
 
         WebApplication app = builder.Build();
 
@@ -83,6 +110,7 @@ internal static class Seed
 {
     internal static void Fill(ArticleStore articles, TagStore tags)
     {
+        FillTags(tags);
         articles.Seed(new Article
         {
             Id = "a1",
@@ -116,6 +144,13 @@ internal static class Seed
             CreatedAt = new DateTime(2026, 8, 19, 8, 0, 0, DateTimeKind.Utc),
         });
 
+    }
+
+    // Split out because the JauntyQ path seeds tags but not articles: article rows
+    // live in PostgreSQL and are whatever the database already holds, which is the
+    // whole difference between a demo store and a real one.
+    internal static void FillTags(TagStore tags)
+    {
         tags.Seed(new Tag { Slug = "aot", Name = "NativeAOT", Color = "#5bbd83" });
         tags.Seed(new Tag { Slug = "htmx", Name = "HTMX", Color = "#7aa2f7" });
     }

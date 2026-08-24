@@ -14,6 +14,16 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **A JauntyQ-backed store for the scaffolding demo** — `apps/sample` now proves both sides of the
+  `IScaffoldStore<T>` seam. `JauntyArticleStore` satisfies the same six methods with JauntyQ
+  queries over PostgreSQL, and `ConnectionStrings:Sample` chooses between it and the in-memory
+  store; unset keeps the demo and the whole test suite running with no database at all. Nothing
+  above the seam changes and nothing is regenerated. `Tag` stays in-memory on purpose, so one app
+  demonstrates two models with entirely different persistence behind one contract. The demo's
+  schema, queries and snapshot live in `db/sample/`, deliberately apart from the identity schema
+  in `db/`. New `tests/nativeweb.sample.tests.unit`; the scaffolding integration and e2e tiers each
+  gained a JauntyQ-backed pass, the latter being the only place in the repo where JauntyQ-generated
+  code runs under NativeAOT.
 - **Sign in with epass.io** (spec 008) — `libs/nativeweb.signin.epass`, the relying-party half of
   the handshake, extracted so an application can consume epass.io without depending on
   `nativeweb.auth`, which *is* an identity provider. A consumer supplies two things: an

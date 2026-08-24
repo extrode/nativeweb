@@ -34,16 +34,48 @@ namespace NativeWeb.Scaffold.Tests.E2e;
 /// nothing to buy.
 /// </para>
 /// </remarks>
-public sealed class SampleProcessFixture : IAsyncLifetime
+public abstract class SampleProcessFixture : IAsyncLifetime
 {
     private static readonly TimeSpan PublishTimeout = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// The publish, run once for the whole tier however many fixtures want it.
+    /// </summary>
+    /// <remarks>
+    /// Both fixtures launch the same binary, and xUnit initializes the collection's
+    /// fixtures concurrently -- putting them in one collection does not serialize
+    /// them, which is what the first attempt assumed. Two `dotnet publish` runs
+    /// against one project then race for the same intermediate files, and ILC fails
+    /// with "the process cannot access the file ... .sourcelink", several layers
+    /// away from anything that mentions parallelism.
+    ///
+    /// Lazy&lt;Task&gt; rather than a lock: the second fixture awaits the first
+    /// publish's result instead of running its own no-op one, and a failure is
+    /// observed by both.
+    /// </remarks>
+    private static readonly Lazy<Task<string>> PublishedExe = new(PublishAsync);
 
     private Process? _process;
 
     private readonly LogTail _log = new();
 
-    /// <summary>Where the sample is listening. 5347 to stay clear of the web e2e tier's 5344.</summary>
-    public string BaseUrl { get; } = "http://localhost:5347";
+    private readonly string? _connectionString;
+
+    /// <param name="port">
+    /// One port per store, because both run for the whole tier: the same published
+    /// binary launched twice, differing only in configuration.
+    /// </param>
+    /// <param name="connectionString">
+    /// Null selects the in-memory store, exactly as an unset key does in production.
+    /// </param>
+    protected SampleProcessFixture(int port, string? connectionString)
+    {
+        BaseUrl = $"http://localhost:{port}";
+        _connectionString = connectionString;
+    }
+
+    /// <summary>Where this instance of the sample is listening.</summary>
+    public string BaseUrl { get; }
 
     /// <summary>The sample's most recent log lines, oldest first.</summary>
     public string LogTail => _log.ToString();
@@ -51,19 +83,7 @@ public sealed class SampleProcessFixture : IAsyncLifetime
     /// <inheritdoc/>
     public async Task InitializeAsync()
     {
-        string repoRoot = FindRepoRoot();
-        string csproj = Path.Combine(repoRoot, "apps", "sample", "nativeweb.sample.csproj");
-
-        await RunAsync("dotnet", $"publish \"{csproj}\" -c Release", repoRoot, PublishTimeout).ConfigureAwait(false);
-
-        string exePath = Path.Combine(
-            repoRoot, "apps", "sample", "bin", "Release", "net10.0", RuntimeInformation.RuntimeIdentifier, "publish",
-            OperatingSystem.IsWindows() ? "nativeweb.sample.exe" : "nativeweb.sample");
-
-        if (!File.Exists(exePath))
-        {
-            throw new FileNotFoundException($"Expected Release publish output at {exePath}.", exePath);
-        }
+        string exePath = await PublishedExe.Value.ConfigureAwait(false);
 
         var startInfo = new ProcessStartInfo(exePath)
         {
@@ -79,6 +99,15 @@ public sealed class SampleProcessFixture : IAsyncLifetime
         // and it is the only way into /admin. Without this the whole tier gets 302s
         // to a login page that does not exist outside Development.
         startInfo.EnvironmentVariables["ASPNETCORE_ENVIRONMENT"] = "Development";
+
+        // An environment variable rather than a command-line argument: this is the
+        // mechanism a deployment uses, and the published binary reads it through the
+        // same configuration provider either way. Absent, the app selects the
+        // in-memory store -- which is the in-memory fixture, not a fallback.
+        if (_connectionString is not null)
+        {
+            startInfo.EnvironmentVariables["ConnectionStrings__Sample"] = _connectionString;
+        }
 
         _process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start apps/sample.");
 
@@ -150,6 +179,26 @@ public sealed class SampleProcessFixture : IAsyncLifetime
         return _log.ToString();
     }
 
+    /// <summary>Publishes apps/sample Release and returns the path to the binary.</summary>
+    private static async Task<string> PublishAsync()
+    {
+        string repoRoot = FindRepoRoot();
+        string csproj = Path.Combine(repoRoot, "apps", "sample", "nativeweb.sample.csproj");
+
+        await RunAsync("dotnet", $"publish \"{csproj}\" -c Release", repoRoot, PublishTimeout).ConfigureAwait(false);
+
+        string exePath = Path.Combine(
+            repoRoot, "apps", "sample", "bin", "Release", "net10.0", RuntimeInformation.RuntimeIdentifier, "publish",
+            OperatingSystem.IsWindows() ? "nativeweb.sample.exe" : "nativeweb.sample");
+
+        if (!File.Exists(exePath))
+        {
+            throw new FileNotFoundException($"Expected Release publish output at {exePath}.", exePath);
+        }
+
+        return exePath;
+    }
+
     private static async Task RunAsync(string file, string arguments, string workingDirectory, TimeSpan timeout)
     {
         var startInfo = new ProcessStartInfo(file, arguments)
@@ -199,6 +248,21 @@ public sealed class SampleProcessFixture : IAsyncLifetime
             ?? throw new InvalidOperationException($"Could not locate NativeWeb.slnx above {AppContext.BaseDirectory}.");
     }
 }
+
+/// <summary>The demo with no database configured: the in-memory store.</summary>
+public sealed class InMemorySampleFixture() : SampleProcessFixture(5347, null);
+
+/// <summary>
+/// The same binary with a connection string, so <c>IScaffoldStore&lt;Article&gt;</c>
+/// resolves to the JauntyQ store.
+/// </summary>
+/// <remarks>
+/// This fixture is the only place in the repo where JauntyQ-generated code runs
+/// under NativeAOT. The integration tier exercises the same queries, but through a
+/// JIT-compiled test host; a data layer that works there and trims away here would
+/// fail for the first time in production.
+/// </remarks>
+public sealed class JauntySampleFixture() : SampleProcessFixture(5348, SampleE2eDatabase.ConnectionString);
 
 /// <summary>
 /// A bounded ring of log lines. Bounded because the alternative is holding a

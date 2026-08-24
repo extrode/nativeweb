@@ -21,7 +21,7 @@ namespace NativeWeb.Scaffold.Tests.E2e;
 /// <c>apps/sample/Models.cs</c>, so a failure here is a generator defect.
 /// </remarks>
 [Collection(ScaffoldE2eFixture.Name)]
-public sealed class ScaffoldedAdminFlowTests(SampleProcessFixture app, BrowserFixture browsers)
+public sealed class ScaffoldedAdminFlowTests(InMemorySampleFixture app, BrowserFixture browsers)
 {
     private const string ListPath = "/admin/articles";
 
