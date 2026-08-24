@@ -30,10 +30,26 @@
 
   <!-- Local checkout of JauntyQ (data-access source generator), referenced by
        project until JauntyQ ships on NuGet — same wiring as epass.io / reader.
-       Single-depth probe: NativeWeb sits one level under extrode.com, so
-       ..\..\extrode-legacy-org.com\jauntyq resolves to C:\home\code\extrode-legacy-org.com\jauntyq.
+       Two probes, not one. The first is the ordinary checkout, one level under
+       the org directory. The second is two levels deeper, which is where a
+       .worktrees/<branch> checkout sits — and without it EVERY worktree build in
+       this repository fails at restore, before a line of the branch's own code is
+       compiled. Found on the 009 branch; justsmtp's NativeWebRoot probe has
+       carried the same two-depth pair, for the same reason, since it was written.
+
+       Each probe is guarded by Exists() so the property is only assigned when the
+       path is real: a bare assignment would set JauntyQRoot to a directory that
+       does not exist and defeat EnsureJauntyQRoot below, whose whole job is to
+       name the wrong root rather than let it fail later as CS0246.
+
        Override with -p:JauntyQRoot=... if your checkout lives elsewhere. -->
   <PropertyGroup>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\extrode-legacy-org.com\jauntyq')">$(MSBuildThisFileDirectory)..\..\extrode-legacy-org.com\jauntyq</JauntyQRoot>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\..\..\extrode-legacy-org.com\jauntyq')">$(MSBuildThisFileDirectory)..\..\..\..\extrode-legacy-org.com\jauntyq</JauntyQRoot>
+
+    <!-- Neither probe matched. Assign the single-depth path anyway so
+         EnsureJauntyQRoot reports a concrete path rather than an empty string —
+         "not found at ''" tells a reader nothing about where it looked. -->
     <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\..\extrode-legacy-org.com\jauntyq</JauntyQRoot>
   </PropertyGroup>
 
