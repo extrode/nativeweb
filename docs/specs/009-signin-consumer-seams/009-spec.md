@@ -153,7 +153,7 @@ fix carries a test that was perturbed and proved red: six perturbations, six fai
 | The testing package had **no `DevelopmentDependency`** | `IsPackable=true` with nothing making it private, so xunit and `TestSession` flow to a consumer's production closure. Four places — `TestSession.cs`, the csproj comment, `README.md`, this spec's own decision note — called it "deliberately undeployable" when nothing made it so. Fixed by setting the property; the prose now names it as the mechanism |
 | `catch (OperationCanceledException)` was **unfiltered** | A policy whose own HTTP call timed out escaped as a **500 on an unauthenticated POST**, measured, instead of the documented `address_unusable`. Now `when (context.RequestAborted.IsCancellationRequested)` |
 | `SignOutAsync` left `Context.User` **authenticated** | Measured in one request: cookie deleted, `authenticated=True nameid=local-42`. The documented case — a filter discovering a disabled account — deleted the cookie and rendered the signed-in page anyway. Now resets to an anonymous principal |
-| The seam set **no `no-store`**, the logout endpoint did | R2 says one implementation so the two cannot drift; they already had. `no-store` moved into `SessionAuth.Clear`, which is the one implementation |
+| The seam set **no `no-store`**, the logout endpoint did | R2 says one implementation so the two cannot drift; they already had. `no-store` moved into `SessionAuth.Clear`, which is the one implementation. **That fix was itself wrong** — see "What the consumer's review found" below |
 | A **second `OnAddressSubmitted` silently won** | `AddSingleton` appends, `GetService` returns last, so a merge could disable a security control with nothing thrown. Now throws |
 | `Tamper`'s rationale was **inverted** | It claimed the tampered payload must stay decodable so the ticket "parses but does not verify". `TryRead` compares the HMAC *before* decoding the payload, so `subject[0]='!'` kept the test green — measured. The claim is gone; the test now states the property it does prove |
 | `Tamper("v2..aa.bb.cc")` threw **`IndexOutOfRangeException`** | Documented as `ArgumentException`. Guarded |
@@ -189,11 +189,36 @@ Review sharpened that too: the grant is by **simple name**, and neither assembly
 assembly `nativeweb.signin.epass.testing` on purpose. Strong-naming is a repo-wide decision and is
 on `work/todo.md` rather than taken here.
 
+## What the consumer's review found, 2026-08-25
+
+R9 landed the day after this spec was marked done: justsmtp adopted all three seams on
+`feat/010-signin-seams`. **Its review found one behavioural defect here, in a fix made on this
+branch**, and it is the kind only a consumer can find.
+
+`SessionAuth.Clear` **assigned** `Cache-Control: no-store` rather than adding it. justsmtp's
+dashboard gate sets `no-store, no-cache, must-revalidate, max-age=0` and `Pragma: no-cache` before
+the account lookup that decides to sign out, so the assignment returned one directive of the four
+and left the `Pragma` beside it with nothing to agree with — measured on the live response, not
+reasoned. The one directive that survived is what made it look right, and justsmtp's own new test
+asserted the weakened value, so the branch that introduced the defect also certified it.
+
+`SessionAuth.NoStore` now adds the directive if it is absent and leaves the header alone if it is
+present, matching by directive rather than by substring; `SignInEndpoints.NoStore` calls it, so the
+two paths still share one implementation as R2 requires. Six unit tests and two integration tests,
+all eight proved red against the assignment.
+
+The general rule this is an instance of, worth carrying into every future seam: **a library cannot
+tell that a consumer's header is stricter than its own, so it must not replace one.** The same
+applies to anything else a library writes onto a response a consumer has already touched.
+
 **R9 is deliberately unmet.** justsmtp.com adopting the seams and deleting its three workarounds
 is a branch in another repository, sequenced after this one merges — the plan says so and the task
 list has no task for it. Until it lands, these seams are compiled rather than used, and by the
 standard 008 set for itself (*"an extraction no consumer uses has not been tested, only
 compiled"*) that is the honest description.
+
+It landed on 2026-08-25, and the first thing it produced was the defect above. The standard 008
+set for itself is the right one.
 
 Two findings that were not in scope and are recorded rather than fixed:
 
