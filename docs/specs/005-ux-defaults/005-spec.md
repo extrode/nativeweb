@@ -1,5 +1,7 @@
 # 005 — Built-in UX defaults: error pages, busy states, flash, keyboard, validation
-Status: draft
+Status: done (all 35 tasks ticked; shipped 2026-08-02, archived to
+`work/archive/2026-08-02-ux-defaults.md`. Never moved off `draft` when it shipped; corrected
+2026-08-24.)
 Created: 2026-08-02
 
 ## Problem

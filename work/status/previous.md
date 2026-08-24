@@ -2,6 +2,27 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **CI Node-runtime cutover** (three branches, merged 2026-08-20; pushed 2026-08-24). GitHub is
+  withdrawing the node20 action runtime, and the useful question turned out not to be "what do we
+  bump" but "what is running Node at all". Two of the three actions were **deleted** rather than
+  bumped: `ilammy/msvc-dev-cmd` set up a toolchain the ILCompiler locates itself through its own
+  bundled `findvcvarsall.bat` (measured — a full AOT publish of `apps/web` from a shell with no
+  `VCINSTALLDIR` and no `cl.exe` on `PATH` links and exits 0 in 56s), and it was actively harmful,
+  exporting `Platform=x64` into MSBuild and inserting a phantom path segment into the publish
+  output; `actions/setup-dotnet` installed an SDK both hosted images already ship (10.0.110,
+  10.0.204, 10.0.302 on Ubuntu 24.04 and Windows Server 2025). The SDK requirement moved to
+  `global.json` (`10.0.100`, `rollForward: latestFeature`) in both this repo and the skeleton,
+  which is strictly wider coverage than the workflow had — it governs local builds too. That pin
+  is load-bearing and was proved so: perturbed to `rollForward: patch`, the SDK resolver itself
+  refuses with `sdk-not-found` before any test runs. `actions/checkout@v7` is now the only `uses:`
+  step across both workflows, so **no code from any account but GitHub's runs with the workflow
+  token**. `AtLeastOneThirdPartyActionIsPinned` could only survive by being weakened, so it was
+  inverted into `NoThirdPartyActionsAreUsed`; the SHA theory beside it stays as a latent guard.
+  494/494 web-unit green, build 0 warnings / 0 errors. One thing local measurement cannot cover:
+  `aot-publish` now depends on `vswhere` finding the C++ tools on the hosted image — it fails by
+  name (`Platform linker not found`) rather than silently, and reverting is one commit. Reasoning
+  and every measurement: `docs/decisions/2026-08-20-001-node-runtime-in-ci.md`.
+
 - **epass sign-in library** (spec 008, `feat/008-signin-library`, merged 2026-08-19). T1–T19, the
   relying-party half of the epass handshake as `libs/nativeweb.signin.epass` — a consumer supplies
   an `ILoginFlowStore` and an `OnSignedIn` resolver and gets the start, callback and sign-out

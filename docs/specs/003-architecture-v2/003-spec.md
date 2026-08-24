@@ -1,6 +1,8 @@
 # 003 — Architecture v2 and the first product extraction
 
-Status: approved (plan approved 2026-07-31; see 003-plan.md and 003-tasks.md)
+Status: done (all ten tasks ticked; shipped 2026-08-01, archived to
+`work/archive/2026-08-01-architecture-v2.md`. The status line was left at `approved` by the
+extraction itself and corrected 2026-08-24; see 003-plan.md and 003-tasks.md.)
 Created: 2026-07-31
 
 ## Problem
