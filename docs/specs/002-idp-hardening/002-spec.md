@@ -1,5 +1,8 @@
 # 002 — IdP hardening: security & conformance backlog close-out
-Status: implemented (H1–H7 merged to dev 2026-07-31; R7 amended at H4, R11 mechanism amended at H7 — see tasks)
+Status: done (H1–H7 all ticked, merged to dev 2026-07-31, archived to
+`work/archive/2026-07-31-idp-hardening.md`; R7 amended at H4, R11 mechanism amended at H7 — see
+tasks. The sign-off-gated production cutover replacing epass.io is downstream of this spec, not a
+task in it; it is tracked in `work/status/next.md`.)
 Created: 2026-07-31
 
 ## Problem

@@ -1,5 +1,7 @@
 # 004 — Progressive enhancement layer + formatted HTML output
-Status: draft
+Status: done (B1–B5 all ticked; shipped 2026-08-02, archived to
+`work/archive/2026-08-02-progressive-enhancement.md`. Never moved off `draft` when it shipped;
+corrected 2026-08-24.)
 Created: 2026-08-01
 
 ## Problem

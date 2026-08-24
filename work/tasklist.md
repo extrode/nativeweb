@@ -33,7 +33,22 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: (none — spec 005 shipped)
+## Current work: (none — spec 008 shipped)
+
+Every numbered spec in `docs/specs/` is now `done` except 008, which stays `draft` deliberately:
+its R12 is the justsmtp.com migration and that runs in justsmtp.com's own repo, from
+`~/.claude/handoffs/justsmtp.com/2026-08-19-epass-signin-migration.md`. All 19 of its tasks are
+ticked here.
+
+Spec 008 (the epass sign-in relying-party library, `libs/nativeweb.signin.epass`) shipped
+2026-08-19 — not archived, because the spec is not closed; task breakdown at
+`docs/specs/008-epass-signin-library/008-tasks.md`.
+
+Spec 007 (session tokens hashed at rest) shipped 2026-08-16 — task breakdown at
+`docs/specs/007-session-token-at-rest/007-tasks.md`.
+
+Spec 006 (cacheable public pages) shipped 2026-08-03 — task breakdown at
+`docs/specs/006-cacheable-public-pages/006-tasks.md`.
 
 Spec 005 (built-in UX defaults) shipped 2026-08-02 — archived to
 `archive/2026-08-02-ux-defaults.md`, task breakdown at
