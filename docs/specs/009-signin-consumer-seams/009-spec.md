@@ -1,5 +1,5 @@
 # 009 — Consumer seams for the sign-in library
-Status: draft
+Status: done (R9 belongs to justsmtp.com and is sequenced after this merge)
 Created: 2026-08-24
 
 ## Problem
@@ -116,6 +116,45 @@ way to make it. A seam named in a comment and absent from the API is not a seam.
 - **R9** — Given justsmtp.com on this version, When its suite runs, Then it passes with
   `DashboardExtensions`'s hand-copied attributes, `SessionTests`'s hand-built ticket and the
   absence of an address check all gone.
+
+## Measured outcome, 2026-08-25
+
+Branch `feat/009-signin-consumer-seams`. Every tier run from the worktree: **1,303 facts, 0
+failed, 0 skipped** across ten assemblies. The sign-in tiers moved 164 → 175 unit, 16 → 27
+integration, 2 → 3 e2e.
+
+| R | Verdict | How |
+| --- | --- | --- |
+| R1 | met | `SignOutAsync_MidRequest_EndsTheSession`, plus the e2e journey where Chromium's own jar drops the cookie |
+| R2 | met | `SignOutAsync_AndTheLogoutEndpoint_DeleteTheCookieIdentically` compares the two `Set-Cookie` headers, and asserts the result is a deletion rather than merely a matching pair |
+| R3 | met, **with one half unprovable** — see below | `AMintedTicket_AuthenticatesItsSubject` |
+| R4 | met | `AnExpiredMintedTicket_IsRefused`, `ATamperedMintedTicket_IsRefused`, and at unit tier the distinction those two cannot show |
+| R5 | met | `ARefusedAddress_NeverReachesTheProvider` asserts `StartCalls == 0` and no stored flow |
+| R6 | met | `TwoRefusedAddresses_AreAnsweredIdentically` compares status, location and header set |
+| R7 | met | The 16 pre-009 integration facts and 164 pre-009 unit facts pass unchanged; `WithNoPolicyRegistered_NothingIsResolvable` asserts no permissive default was installed |
+| R8 | met | Native publish, `-r win-x64`: exit 0, zero IL2026/IL3050, 16.8 MB exe, both seams in the closure |
+| R9 | **not met here, by design** | Separate repository, sequenced after this merge |
+| R10 | met | Unit and integration for all three; e2e for sign-out |
+
+**R3's second half — "no minting API is reachable from a test referencing only the production
+library" — is guaranteed by construction and cannot be demonstrated by a test.** `SessionCookie`
+is `internal` and the assembly grants `InternalsVisibleTo` to exactly two names, both test-only.
+Any test written to prove unreachability would have to live in an assembly holding the grant, and
+would therefore reach it. The guarantee is the compiler's; the acceptance criterion as written
+asks for evidence no test in this solution can produce.
+
+**R9 is deliberately unmet.** justsmtp.com adopting the seams and deleting its three workarounds
+is a branch in another repository, sequenced after this one merges — the plan says so and the task
+list has no task for it. Until it lands, these seams are compiled rather than used, and by the
+standard 008 set for itself (*"an extraction no consumer uses has not been tested, only
+compiled"*) that is the honest description.
+
+Two findings that were not in scope and are recorded rather than fixed:
+
+- **`NativeWeb.slnx` cannot be built from a worktree** — its JauntyQ paths are solution-relative
+  and correct only from the main checkout. The `Directory.Build.props` half was fixed here; the
+  solution half is on `work/todo.md` because it needs a decision. Per-project builds work.
+- **Spec 008 still says `Status: draft`** although its R12 landed on 2026-08-19. On `work/todo.md`.
 
 ## Open questions
 

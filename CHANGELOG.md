@@ -14,6 +14,31 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Three consumer seams for the sign-in library** (spec 009) — the gaps its first consumer found.
+  All three are optional; a consumer that adopts none behaves exactly as under 008.
+  - **Ending a session mid-request.** `SessionAuthenticationHandler` now implements
+    `IAuthenticationSignOutHandler`, so `http.SignOutAsync(SessionAuthenticationHandler.SchemeName)`
+    works from a filter or middleware. Under 008 the only sanctioned sign-out was a form post to
+    `LogoutPath`, which a filter cannot perform — so a consumer hand-copied the cookie attributes,
+    and a `__Host-` deletion missing `Secure` or `Path=/` is a no-op the browser never reports.
+    Both paths share one implementation and cannot drift.
+  - **`OnAddressSubmitted`** — refuse an address before a login link is attempted, so a customer
+    is not told a link is on its way to somewhere it cannot arrive. It returns a `bool` rather
+    than a failure code **on purpose**: a policy that could choose the code could choose a
+    different one for an address it recognises, which is an account-enumeration oracle built out
+    of a feature. Called after the 254-byte bound, so a consumer's regex is never handed a
+    multi-megabyte form value; a policy that throws is a refusal, not an acceptance.
+  - **`TestSession`** in `NativeWeb.SignIn.Epass.Testing` — `Mint`, `MintExpired`, `Tamper` and
+    `CookieName`, over the library's own `SessionCookie` via `InternalsVisibleTo`. Under 008 a
+    consumer's integration tests reimplemented the ticket format by hand, which keeps passing
+    when the format changes. **No minting API was added to the production surface**: a public
+    `Mint` is an authentication bypass callable with any subject.
+
+  Coverage is now 175 unit facts, 27 integration and 3 Playwright journeys — up from 164 / 16 / 2
+  at 008. Every new test was perturbed and proved red first; the one that earns its keep asserts a
+  tampered ticket fails as `BadSignature` rather than `Malformed`, a distinction invisible from a
+  host because both come back anonymous. The AOT probe exercises both new seams and publishes
+  native clean.
 - **Sign in with epass.io** (spec 008) — `libs/nativeweb.signin.epass`, the relying-party half of
   the handshake, extracted so an application can consume epass.io without depending on
   `nativeweb.auth`, which *is* an identity provider. A consumer supplies two things: an

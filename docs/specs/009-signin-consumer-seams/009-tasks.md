@@ -10,7 +10,7 @@ Plan: ./009-plan.md
 - [x] T7 Integration tests — files: `tests/nativeweb.signin.epass.tests.integration/` — covers: R1, R2, R5, R6, R7 — done when: sign-out mid-request works against a real host, the two sign-out headers are compared, the provider is proved uncalled on refusal, and two refused addresses are proved indistinguishable.
 - [x] T8 e2e sign-out — files: `tests/nativeweb.signin.epass.tests.e2e/` — covers: R10 — done when: a real browser is signed out by consumer code that never posts to the logout path.
 - [x] T9 AOT gate — files: `tests/nativeweb.signin.epass.tests.aot/Program.cs` — covers: R8 — done when: all three seams are exercised in the AOT test app and the publish is warning-free.
-- [ ] T10 Docs and visibility — files: `README.md`, `CHANGELOG.md`, `work/status/`, `docs/specs/009-*/` — covers: — done when: the three seams are documented for a consumer, and the status files carry the work.
+- [x] T10 Docs and visibility — files: `README.md`, `CHANGELOG.md`, `work/status/`, `docs/specs/009-*/` — covers: — done when: the three seams are documented for a consumer, and the status files carry the work.
 
 **Analyze.** Every requirement R1–R10 maps to at least one task; every task traces to a plan
 section. R9 (justsmtp adopts all three) is deliberately **not** a task here — it is a separate
