@@ -431,10 +431,16 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   the `text/javascript1.x` versioned spellings and the `x-` variants are hashed rather than
   silently blocked. `templates/csp/legacytypes.html` pins it, with a `text/template` control in
   the same fixture that must stay unhashed.
-- Skeleton templates are CRLF in the working tree although `.gitattributes:15` says
+- ~~Skeleton templates are CRLF in the working tree although `.gitattributes:15` says
   `*.html text eol=lf`; the blobs are LF, so the two disagree. `git add --renormalize` would fix
-  it but touches every template, so it is its own change. Harmless now that the hash generator
-  normalizes, but it is why the skeleton emitted browser-mismatched CSP hashes.
+  it but touches every template, so it is its own change.~~ **Stale — measured 2026-08-24, there
+  is nothing to fix.** `git ls-files --eol` reports `i/lf w/lf attr/text eol=lf` for every
+  skeleton `*.html`: index and worktree agree, and both agree with the attribute. The
+  `--renormalize` this entry proposed would have rewritten every template for no change. Whatever
+  produced the CRLF worktree copy was undone before the entry was written or by a later checkout.
+  Still true, and worth keeping: the CRLF/LF disagreement is why the skeleton once emitted
+  browser-mismatched CSP hashes, and the hash generator's normalization is what makes that
+  unable to recur.
 - The skeleton's integration and e2e suites have never been run: they only exist inside a stamped
   product, which needs its own database. That is why `SmokeTests` kept asserting a nonce in the
   home page CSP for the whole of spec 006 (fixed 2026-08-03 by inspection, still unexecuted).
@@ -596,3 +602,51 @@ same ordering flaw and is still unaddressed.
   ILCompiler locates MSVC itself via its bundled `findvcvarsall.bat`, so the step was redundant,
   and it was exporting `Platform=x64` into the publish path. Both workflows are now node24
   throughout and use no third-party action at all.
+
+## epass.io cutover readiness, probed 2026-08-24
+
+Probed before scheduling the cutover, on the reasoning that finding unfinished work afterwards is
+far more expensive than finding it now. The application side is ready; the deploy side was never
+started. Four blockers, none of them code in `apps/web`:
+
+- **Slice 10's deploy half does not exist.** The slice shipped its application work and its
+  deploy work never started: no host provisioning, no TLS/certificate story, no service unit or
+  process supervision, no backup or restore procedure for the production database. This is the
+  real blocker and it is not small.
+- **No OTLP collector endpoint.** Telemetry became opt-**out** on 2026-08-17
+  (`NativeWeb:Telemetry:Enabled` is compared case-insensitively against the literal `"false"`, so
+  unset means on — `docs/configuration.md:106`, `apps/web/Program.cs:272,303`). A production host
+  with no `OTEL_EXPORTER_OTLP_ENDPOINT` therefore stands up an exporter and retries against a
+  collector that is not there. Point it somewhere or set the flag; do not leave it unset.
+- **`wwwroot/sitemap.xml` and `robots.txt:12` already name `https://epass.io`.** Correct after
+  the cutover, wrong before it — they are live now on whatever host serves this. Not a blocker
+  for the cutover itself, but it means these two files are the wrong way round today.
+- **CI cannot restore in package mode.** Unchanged and still deferred: no reachable feed publishes
+  `JauntyQ.*`. Only `-p:JauntyQUsePackages=true` paths are affected and CI is green in checkout
+  mode, but a deploy pipeline that assumes package mode will not build.
+
+Not blockers, verified green the same day: web-unit 494/494, integration 298/298, web-e2e 64/64,
+CI run 2026-08-24T07:11Z green on both `aot-publish` and `test`.
+
+## Perf re-measurement, 2026-08-24
+
+The 2026-08-02 perf plan closed by asking for a re-measure before the epass.io cutover, on the
+grounds that the box was noisy (±30% between identical runs). Done. **Both budgets pass with
+room, and the k6 half of that plan is not this repo's to re-run.**
+
+| Measure | Baseline 2026-08-01 | Now | Budget | Headroom |
+| --- | --- | --- | --- | --- |
+| Binary size | 36,918,272 B | 37,038,080 B (35.3 MB) | 42,500,000 B | 13% under |
+| Time to `/healthz` | 881 ms | 537 / 544 / 550 / 593 ms | 5,000 ms | 89% under |
+
+Binary grew 119,808 B (+0.32%) across two shipped specs and telemetry becoming opt-out, which is
+noise rather than a trend. Startup roughly halved and, unlike the 2026-08-02 runs, was **stable**:
+four samples inside a 56 ms spread, so the earlier ±30% caveat does not apply to this measurement
+and no averaging is being hidden here.
+
+The throughput numbers in `docs/plans/2026-08-02-002-perf-tail-work.md` (k6, 32 VUs, the
+`pub_list`/`pub_tag` median-to-p95 gap) **cannot be re-taken here**: spec 003 extracted the
+bookmarking app to manzil.my and `apps/` holds `web` alone, so the DB-backed list pages those
+scenarios drove no longer exist in this repo. Same finding as the 2026-08-17 note at "Later" —
+carry it to manzil.my's backlog rather than re-opening it as NativeWeb work. What remains here is
+the publish-budget gate above, which `aot-publish` already runs on every CI build.
