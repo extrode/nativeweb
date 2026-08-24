@@ -596,7 +596,20 @@ same ordering flaw and is still unaddressed.
 - `ScaffoldLayout.Page` embeds its own stylesheet rather than going through `nativeweb.render`.
   Right for a self-contained demo, wrong once a consumer wants its own chrome — `Page` is the seam
   to make overridable.
-- No e2e (Playwright) tier for the scaffolding. Unit + integration only.
+- ~~No e2e (Playwright) tier for the scaffolding. Unit + integration only.~~ — **done 2026-08-24**,
+  `feat/scaffold-e2e-tier`. `tests/nativeweb.scaffold.tests.e2e` publishes `apps/sample` and drives
+  the real binary. It exists for one thing the tiers below cannot reach: the generated delete form
+  carries `onsubmit="return confirm('Delete this record?')"`, and an `HttpClient` has no JavaScript
+  engine, so the integration tier POSTs straight past that guard and would pass identically if the
+  attribute were deleted.
+- **The scaffolded delete confirm is an inline event handler, so a strict CSP silently removes it.**
+  Found while writing the e2e tier. `onsubmit="return confirm(…)"` needs `unsafe-inline` in
+  `script-src`, or a hash — `apps/sample` sets no CSP at all, so it works there and the new tier
+  passes, but a consumer with `apps/web`-grade headers gets a delete button that deletes on the
+  first click with no dialog and nothing in the console to say why. The scaffolding is a library,
+  so the consumer's CSP is not ours to choose: the fix is to stop emitting an inline handler.
+  Needs a decision on what replaces it (a submit listener from a hashed script the library ships,
+  or a confirm step as its own page).
 - ~~`ilammy/msvc-dev-cmd` is the last node20 action in either workflow, and there is nothing to
   bump to.~~ — **done 2026-08-20**, `chore/drop-msvc-dev-cmd`. Deleted rather than replaced: the
   ILCompiler locates MSVC itself via its bundled `findvcvarsall.bat`, so the step was redundant,
