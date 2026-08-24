@@ -46,7 +46,10 @@ worth seeing here rather than hiding, but it is the exception.
   the scaffold-e2e merge that is this branch's base.
   **The 64 web-e2e had not been run since spec 008 and is green.** It runs fine from a worktree,
   as does scaffold-e2e; the note that used to say otherwise was never tested.
-- Spec statuses: 001–007 `done`, 009 `done`. **008 says `draft` and should not** — see above.
+- Spec statuses: 001–007 `done`, 009 `done`. **008 says `draft` and, after the 2026-08-25 review,
+  should.** Twelve of its fifteen criteria are met and evidenced; R1, R11 and R12 each describe
+  something the shipped code deliberately does differently, so flipping the status is the user's
+  call rather than a correction. R-by-R table in `008-spec.md`, "Acceptance review".
 - The AOT publish gate for the sign-in library measures exit 0, zero IL2026/IL3050, **16,786,944 B**
   exe (16.6 MB before 009); re-run after the review fixes. Note it only compiles natively when given a RID: `PublishAot=true` with
   no `-r` gives the analyser pass and a managed publish, which is what the tests.aot project does
