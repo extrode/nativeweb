@@ -96,5 +96,10 @@ problem.
   `10.0.x` version with `rollForward: latestFeature`, and no workflow may reintroduce a
   `setup-dotnet` step — two places naming an SDK is a disagreement that only ever shows up as "it
   builds on my machine".
-- `aot-publish` now depends on `vswhere` finding the C++ tools on the hosted image. That is not
-  locally verifiable; it fails loudly on the first run if wrong, and reverting is one commit.
+- `aot-publish` now depends on `vswhere` finding the C++ tools on the hosted image. That was not
+  locally verifiable when this was written. **It is verified now:** the first run after the push,
+  2026-08-24T07:11Z on `dev`, went green on both jobs — `aot-publish` and `test` — on runner
+  2.336.0, image `windows-2025-vs2026` version 20260818.207.1 (Windows Server 2025, 10.0.26100).
+  So the ILCompiler locates MSVC on the hosted image exactly as it does locally, with no setup
+  step and on an image whose Visual Studio is a major version newer than the one the deleted
+  action targeted.

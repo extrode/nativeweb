@@ -18,10 +18,11 @@ The task completed most recently, kept for one rotation so the next one has cont
   step across both workflows, so **no code from any account but GitHub's runs with the workflow
   token**. `AtLeastOneThirdPartyActionIsPinned` could only survive by being weakened, so it was
   inverted into `NoThirdPartyActionsAreUsed`; the SHA theory beside it stays as a latent guard.
-  494/494 web-unit green, build 0 warnings / 0 errors. One thing local measurement cannot cover:
-  `aot-publish` now depends on `vswhere` finding the C++ tools on the hosted image — it fails by
-  name (`Platform linker not found`) rather than silently, and reverting is one commit. Reasoning
-  and every measurement: `docs/decisions/2026-08-20-001-node-runtime-in-ci.md`.
+  494/494 web-unit green, build 0 warnings / 0 errors. The one thing local measurement could not
+  cover — whether `vswhere` finds the C++ tools on the hosted image with no setup step — **went
+  green on the first run after the push**, 2026-08-24T07:11Z, both jobs, on image
+  `windows-2025-vs2026` 20260818.207.1. Reasoning and every measurement:
+  `docs/decisions/2026-08-20-001-node-runtime-in-ci.md`.
 
 - **epass sign-in library** (spec 008, `feat/008-signin-library`, merged 2026-08-19). T1–T19, the
   relying-party half of the epass handshake as `libs/nativeweb.signin.epass` — a consumer supplies
