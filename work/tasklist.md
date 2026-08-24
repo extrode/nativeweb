@@ -35,10 +35,21 @@ tick.
 
 ## Current work: (none — spec 008 shipped)
 
-Every numbered spec in `docs/specs/` is now `done` except 008, which stays `draft` deliberately:
-its R12 is the justsmtp.com migration and that runs in justsmtp.com's own repo, from
-`~/.claude/handoffs/justsmtp.com/2026-08-19-epass-signin-migration.md`. All 19 of its tasks are
-ticked here.
+Every numbered spec in `docs/specs/` is now `done` except 008, which stays `draft` deliberately —
+**though not for the reason this file used to give.** All 19 of its tasks are ticked, and R12's
+justsmtp.com half landed on 2026-08-19 (`eb06a3a` in that repo, merged into its `dev`), so the
+handoff that was blocking it is spent.
+
+The 2026-08-25 review found the real reason: three of the fifteen acceptance criteria describe
+something the shipped code deliberately does differently, so amending the criterion or the code is
+the user's call. R1's "under 10 lines" against a real 32-line wiring block, R11's "no
+library-supplied defaults" against `CookieName`, and R12's "no behavioural change" against a
+one-time forced re-login and a login page that no longer echoes the address. The R-by-R table and
+the evidence are in `docs/specs/008-epass-signin-library/008-spec.md`, "Acceptance review".
+
+Spec 009 (three consumer seams for the sign-in library) shipped 2026-08-25 and is `done`. Its own
+R9 — justsmtp adopting the seams and deleting its three workarounds — is deliberately unmet here,
+because it is a change to justsmtp.com.
 
 Spec 008 (the epass sign-in relying-party library, `libs/nativeweb.signin.epass`) shipped
 2026-08-19 — not archived, because the spec is not closed; task breakdown at
