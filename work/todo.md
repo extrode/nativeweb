@@ -441,10 +441,22 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   Still true, and worth keeping: the CRLF/LF disagreement is why the skeleton once emitted
   browser-mismatched CSP hashes, and the hash generator's normalization is what makes that
   unable to recur.
-- The skeleton's integration and e2e suites have never been run: they only exist inside a stamped
+- ~~The skeleton's integration and e2e suites have never been run: they only exist inside a stamped
   product, which needs its own database. That is why `SmokeTests` kept asserting a nonce in the
   home page CSP for the whole of spec 006 (fixed 2026-08-03 by inspection, still unexecuted).
-  Worth a CI job that stamps, creates a throwaway DB, and runs all three layers.
+  Worth a CI job that stamps, creates a throwaway DB, and runs all three layers.~~ **Done
+  2026-08-25**, `feat/ci-skeleton-and-scaffold`: the `skeleton-stamp` job stamps a `Ciprobe`
+  product with `tools/new-product.ps1`, provisions `ciprobe_dev`, migrates, and runs all three
+  layers (47 unit / 7 integration / 2 e2e locally). The whole path was verified end to end on
+  this machine before any YAML was written. Two findings came out of it:
+  - `tools/new-product.ps1` copies the skeleton's `bin/` and `obj/` into the stamped product, so
+    a product stamped from a built checkout starts life carrying the skeleton's build output.
+  - `PackageFeedConfigTests.Workflow_AuthenticatesTheSourceNameNuGetConfigActuallyDeclares` had
+    to widen to the union of `nuget.config` and `skeleton/nuget.config`: the stamp job
+    authenticates `framework-github`, which only the skeleton's config declares.
+- The same CI branch found that **CI was running none of the scaffolding tiers** — not the
+  generator's unit tests, not the integration tier, not the e2e tier — a second gap beyond the
+  skeleton one. All four now run in the `test` job, the e2e tier under `JauntyQUsePackages`.
 - `Directory.Build.targets` disables precompressed static-asset generation in Debug as a
   workaround for a framework defect: `StaticAssetDevelopmentRuntimeHandler` resolves compressed
   variants against `wwwroot` instead of the manifest content roots, so a gzip-accepting client got

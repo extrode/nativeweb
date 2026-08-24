@@ -17,9 +17,20 @@ namespace NativeWeb.Scaffold.Tests.Integration;
 /// </remarks>
 internal sealed class SampleFactory : WebApplicationFactory<NativeWeb.Sample.Program>
 {
-    protected override void ConfigureWebHost(IWebHostBuilder builder) =>
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
         // /signin is Development-only, and it is the only way in.
         builder.UseEnvironment("Development");
+
+        // Force the in-memory store, rather than relying on the key being absent.
+        // Configuration reads environment variables, and CI exports
+        // ConnectionStrings__Sample for the JauntyQ tiers in the same job -- without
+        // this, every test in this class would silently move onto PostgreSQL, where
+        // the seeded rows they assert on do not exist. UseSetting outranks the
+        // environment variable under CreateSlimBuilder, which is the same lever
+        // SampleJauntyFactory uses in the other direction.
+        builder.UseSetting("ConnectionStrings:Sample", string.Empty);
+    }
 
     internal HttpClient CreateFollowingNothing() =>
         CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
