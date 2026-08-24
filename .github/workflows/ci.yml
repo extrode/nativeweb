@@ -76,6 +76,19 @@ jobs:
           --health-retries 5
     env:
       ConnectionStrings__NativeWeb: "Host=localhost;Database=nativeweb_test;Username=nativeweb_app;Password=ci_test_password"
+      # The scaffolding demo's database, which is not the identity one: db/sample/
+      # is a separate schema for a separate reason (see its README). Both the
+      # scaffold integration and e2e tiers read this name.
+      #
+      # It is exported job-wide, which the in-memory halves of those tiers have to
+      # defend against rather than merely ignore: configuration reads environment
+      # variables, and the e2e fixture launches its child with
+      # UseShellExecute=false, which copies this whole environment. SampleFactory
+      # pins the key empty and SampleProcessFixture removes it from the child.
+      # Without those two lines this variable moves the in-memory tests onto
+      # PostgreSQL, where the rows they assert on do not exist -- measured, 8
+      # integration and 2 e2e failures.
+      ConnectionStrings__Sample: "Host=localhost;Database=nativeweb_sample_test;Username=nativeweb_app;Password=ci_test_password"
     steps:
       - uses: actions/checkout@v7
 
@@ -91,6 +104,17 @@ jobs:
             echo "Applying $f"
             PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_test -v ON_ERROR_STOP=1 -f "$f"
           done
+
+      # The scaffolding demo's own database. One table, one migration, and
+      # deliberately not part of db/migrations -- a demo articles table in the
+      # identity schema would ship to production and turn up in the generated data
+      # layer of every consumer of libs/nativeweb.data.
+      - name: Provision the scaffolding demo database
+        run: |
+          PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE nativeweb_sample_test;"
+          PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_sample_test -v ON_ERROR_STOP=1 \
+            -f db/sample/migrations/0001_articles.sql
 
       # No seed step. db/migrations alone is enough: 0055 creates the first-party
       # application row that RealmResolver.ResolveFirstPartyAsync requires, so a
@@ -184,6 +208,20 @@ jobs:
       - name: Integration tests
         run: dotnet test tests/nativeweb.web.tests.integration --no-build $DOTNET_BUILD_ARGS
 
+      # The scaffolding tiers, which this workflow did not run at all until
+      # 2026-08-25 -- three suites and 97 facts that only ever ran on someone's
+      # machine. Listed separately from the web tiers rather than globbed, so a
+      # suite that stops being discovered fails by name instead of vanishing
+      # quietly from the run.
+      - name: Scaffolding unit tests
+        run: dotnet test tests/nativeweb.scaffold.tests.unit --no-build $DOTNET_BUILD_ARGS
+
+      - name: Sample unit tests
+        run: dotnet test tests/nativeweb.sample.tests.unit --no-build $DOTNET_BUILD_ARGS
+
+      - name: Scaffolding integration tests
+        run: dotnet test tests/nativeweb.scaffold.tests.integration --no-build $DOTNET_BUILD_ARGS
+
       - name: Install NativeAOT link prerequisites
         # The e2e fixture's inner publish does a full NativeAOT link on this
         # Linux runner, which needs clang and zlib headers.
@@ -200,6 +238,15 @@ jobs:
         env:
           JauntyQUsePackages: "true"
         run: dotnet test tests/nativeweb.web.tests.e2e --no-build $DOTNET_BUILD_ARGS
+
+      - name: Scaffolding E2E tests
+        # Same child-process reasoning as the step above: SampleProcessFixture
+        # publishes apps/sample itself, and that inner publish inherits this
+        # variable rather than the outer command's -p: flag. apps/sample hosts the
+        # JauntyQ generator now, so it needs package mode exactly as apps/web does.
+        env:
+          JauntyQUsePackages: "true"
+        run: dotnet test tests/nativeweb.scaffold.tests.e2e --no-build $DOTNET_BUILD_ARGS
 
   aot-publish:
     # The NativeAOT gate: the native link needs MSVC's link.exe, which
@@ -254,3 +301,134 @@ jobs:
       # Budgets are null (record-only) until the close-out baseline is recorded.
       - name: Publish budgets (web)
         run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath publish/web/nativeweb.web.exe -Name nativeweb.web -Port 5998
+
+  # ---------------------------------------------------------------------------
+  # The skeleton, exercised the only way that proves anything: by stamping a
+  # product from it and running that product's own three tiers.
+  #
+  # skeleton/ ships a complete product including its own ci.yml, and until now
+  # none of it had ever run anywhere. The suites are not this repo's -- they are
+  # what every stamped product inherits on day one -- so a break in them is
+  # invisible here and lands on whoever stamps next. Verified locally first, on
+  # 2026-08-25: a stamp into a sibling directory builds clean in checkout mode and
+  # passes 47 unit, 7 integration and 2 e2e facts.
+  #
+  # This job does NOT run skeleton/.github/workflows/ci.yml. That file is the
+  # stamped product's own workflow, it clones both framework repositories with a
+  # token this repository does not have, and a workflow cannot invoke another
+  # repository's workflow file from a working directory anyway. What is checked
+  # here is the thing that file assumes: that the skeleton stamps into something
+  # that builds and passes.
+  # ---------------------------------------------------------------------------
+  skeleton-stamp:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # MIXED MODE, and deliberately so. NativeWeb resolves by CHECKOUT, because
+      # this repository is the thing under test and packages would test a
+      # published artifact instead of this commit. JauntyQ resolves by PACKAGES,
+      # because no jauntyq checkout exists on this runner and cloning it needs a
+      # cross-repository token the test job above already avoids needing.
+      # skeleton/Directory.Build.props makes the two independent, which is what
+      # allows the combination.
+      #
+      # Bare variables, not -p: flags, for the reason the skeleton's own workflow
+      # spells out: MSBuild reads them as properties, so they reach `dotnet
+      # restore`, `dotnet build`, `dotnet test`, and the NativeAOT publish that
+      # the e2e fixture spawns as a CHILD process. A -p: flag reaches only the
+      # command it is written on, and the inner publish is not that command.
+      NativeWebRoot: ${{ github.workspace }}/NativeWeb
+      JauntyQUsePackages: "true"
+      Ciprobe__Db__ConnectionString: "Host=localhost;Database=ciprobe_test;Username=ciprobe_app;Password=ci_test_password"
+    steps:
+      # Into NativeWeb/, not the workspace root. The stamped product must be a
+      # SIBLING of the framework checkout, not its parent: nested the other way,
+      # Directory.Packages.props discovery walks up out of the framework clone and
+      # finds the product's copy, which switches central package management on
+      # underneath it and kills the restore. The skeleton's own workflow carries
+      # the measurement (NU1008, 2026-08-17); the same trap applies here with the
+      # roles reversed.
+      - uses: actions/checkout@v7
+        with:
+          path: NativeWeb
+
+      - name: Provision the stamped product's database
+        run: |
+          PGPASSWORD=ci_test_password psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE ciprobe_app LOGIN PASSWORD 'ci_test_password';" \
+            -c "CREATE DATABASE ciprobe_test OWNER ciprobe_app;"
+
+      # -Execute, because a dry run exits 0 having written nothing and would make
+      # every step after this one a test of an empty directory.
+      - name: Stamp a product from the skeleton
+        working-directory: NativeWeb
+        run: >
+          pwsh tools/new-product.ps1
+          -Name Ciprobe -Slug ciprobe
+          -Destination ${{ github.workspace }}/ciprobe
+          -Execute
+
+      - name: Apply the stamped product's migrations
+        working-directory: ciprobe
+        # Through the shipped runner, so CI exercises the same migrate.sh a
+        # deployment uses rather than an inline loop that resembles it.
+        env:
+          PGHOST: localhost
+          PGDATABASE: ciprobe_test
+          APP_ROLE: ciprobe_app
+          SUPERUSER_ROLE: postgres
+          PGPASSWORD: ci_test_password
+        run: bash db/migrate.sh
+
+      # The stamped product's nuget.config names its framework feed
+      # "framework-github", not "jauntyq-github" -- it is a generic product
+      # config, not this repository's. Package source mapping sends JauntyQ.* and
+      # NativeWeb.* there and everything else to nuget.org, and the feed needs
+      # auth even to read.
+      - name: Authenticate to GitHub Packages
+        working-directory: ciprobe
+        run: >
+          dotnet nuget update source framework-github
+          --username ${{ github.actor }}
+          --password ${{ secrets.GITHUB_TOKEN }}
+          --store-password-in-clear-text
+
+      - name: Restore
+        working-directory: ciprobe
+        run: dotnet restore
+
+      - name: Build
+        working-directory: ciprobe
+        run: dotnet build --no-restore
+
+      - name: Install Playwright browsers
+        working-directory: ciprobe
+        run: pwsh tests/ciprobe.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Unit tests
+        working-directory: ciprobe
+        run: dotnet test tests/ciprobe.tests.unit --no-build
+
+      - name: Integration tests
+        working-directory: ciprobe
+        run: dotnet test tests/ciprobe.tests.integration --no-build
+
+      - name: Install NativeAOT link prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: E2E tests
+        working-directory: ciprobe
+        run: dotnet test tests/ciprobe.tests.e2e --no-build

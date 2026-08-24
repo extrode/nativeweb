@@ -14,6 +14,13 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **CI runs the two suites it never ran** — a `skeleton-stamp` job stamps a throwaway product from
+  `skeleton/`, provisions its database, migrates it and runs all three of its layers, closing a gap
+  that had let the skeleton's integration and e2e tests sit unexecuted since they were written. The
+  `test` job gained the four scaffolding tiers, which CI had likewise never run. Both fixtures were
+  hardened for a runner in the process: `SampleFactory` and `SampleProcessFixture` now force the
+  store selection rather than relying on `ConnectionStrings__Sample` being absent, since a job that
+  exports it for one tier hands it to every child process in the same job.
 - **A JauntyQ-backed store for the scaffolding demo** — `apps/sample` now proves both sides of the
   `IScaffoldStore<T>` seam. `JauntyArticleStore` satisfies the same six methods with JauntyQ
   queries over PostgreSQL, and `ConnectionStrings:Sample` chooses between it and the in-memory

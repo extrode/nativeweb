@@ -108,6 +108,16 @@ public abstract class SampleProcessFixture : IAsyncLifetime
         {
             startInfo.EnvironmentVariables["ConnectionStrings__Sample"] = _connectionString;
         }
+        else
+        {
+            // Cleared, not merely left unset. UseShellExecute=false copies the
+            // parent environment, so a runner that exports ConnectionStrings__Sample
+            // for the JauntyQ tiers would hand it to this process too -- and the
+            // in-memory fixture would quietly start talking to PostgreSQL, where the
+            // rows its tests assert on do not exist. "Unset here" has to mean unset
+            // in the child, not unset in this file.
+            startInfo.EnvironmentVariables.Remove("ConnectionStrings__Sample");
+        }
 
         _process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start apps/sample.");
 
