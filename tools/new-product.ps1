@@ -1,6 +1,7 @@
 # new-product.ps1 -- stamp a new product repo from skeleton/ (spec 003 R2).
 #
-# Copies the tokenized skeleton to a destination directory, renames every
+# Copies the tokenized skeleton -- every file under skeleton/ that git tracks or
+# does not ignore, so no build output -- to a destination directory, renames every
 # __product__ path segment, substitutes __PRODUCT__ / __product__ inside text
 # files, and (with -Execute) initialises git with an initial commit on `main`
 # and a `dev` branch, matching the mandatory branch model.
@@ -67,7 +68,28 @@ function Test-IsTextFile([System.IO.FileInfo]$file) {
            ($textNames -contains $file.Name)
 }
 
-$files = Get-ChildItem -Recurse -File -Force $skeleton
+# What the skeleton IS, is what git says it is. A plain -Recurse enumeration
+# copied everything on disk, so a product stamped from a built checkout started
+# life carrying the skeleton's own bin/ and obj/ -- 714 files instead of 168 on
+# 2026-08-25 -- and would have carried a .env, a *.pfx or a *.key just as
+# happily, since skeleton/.gitignore is the only thing that ever excluded them.
+# --cached --others --exclude-standard is tracked files plus untracked ones that
+# .gitignore does not exclude, so a skeleton file added but not yet committed is
+# still stamped, and the ignore list stays the single place this is declared.
+Push-Location $skeleton
+try {
+    $relatives = git ls-files --cached --others --exclude-standard
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "git ls-files failed in $skeleton (exit $LASTEXITCODE) -- run from a NativeWeb git checkout."
+    }
+}
+finally {
+    Pop-Location
+}
+$files = $relatives | Where-Object { $_ } | ForEach-Object { Get-Item -LiteralPath (Join-Path $skeleton $_) -Force }
+if (-not $files) {
+    Write-Error "git ls-files listed no files under $skeleton -- refusing to stamp an empty product."
+}
 Write-Host "-- 1. copy $($files.Count) files from skeleton/"
 
 $actions = @()

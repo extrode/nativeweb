@@ -171,6 +171,15 @@ Merged into `dev`, not yet tagged.
   question of invalidating live sessions rather than empty ones.
 
 ### Fixed
+- **Stamping a new product no longer copies the skeleton's build output — or its secrets.**
+  `tools/new-product.ps1` enumerated everything on disk under `skeleton/`, so a product stamped
+  from a built checkout was handed 714 files instead of 168, and `git add -A` committed the
+  skeleton's `bin/` and `obj/` on the new repo's very first commit. The same enumeration would
+  have carried a `.env`, a `*.pfx` or `secrets/` the same way, since `skeleton/.gitignore` was
+  the only thing that had ever excluded any of it. The file list now comes from
+  `git ls-files --cached --others --exclude-standard`, which is tracked files plus untracked ones
+  the ignore file does not exclude — so a skeleton file added but not yet committed is still
+  stamped, and the exclusions stay declared in exactly one place.
 - **Signing out no longer weakens a consumer's cache headers.** `SignOutAsync` and `POST /logout`
   *assigned* `Cache-Control: no-store`, so an app that had already set something stricter —
   justsmtp's dashboard gate sets `no-store, no-cache, must-revalidate, max-age=0` before the lookup

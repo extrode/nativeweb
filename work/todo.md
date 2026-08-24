@@ -487,8 +487,16 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   product with `tools/new-product.ps1`, provisions `ciprobe_dev`, migrates, and runs all three
   layers (47 unit / 7 integration / 2 e2e locally). The whole path was verified end to end on
   this machine before any YAML was written. Two findings came out of it:
-  - `tools/new-product.ps1` copies the skeleton's `bin/` and `obj/` into the stamped product, so
-    a product stamped from a built checkout starts life carrying the skeleton's build output.
+  - ~~`tools/new-product.ps1` copies the skeleton's `bin/` and `obj/` into the stamped product, so
+    a product stamped from a built checkout starts life carrying the skeleton's build output.~~
+    **Fixed 2026-08-25**, `fix/new-product-excludes-build-output`: the enumeration is now
+    `git ls-files --cached --others --exclude-standard`, so the stamped set is what git tracks
+    plus what `skeleton/.gitignore` does not exclude — 168 files, not 714. Worse than the size:
+    the old enumeration would have carried a `.env`, a `*.pfx` or `secrets/` into a new product's
+    *first commit*, since `git add -A` runs right after the copy and the ignore file was the only
+    thing that had ever excluded any of it. `NewProductStampTests` runs the script's own dry run
+    and asserts set equality against git in both directions, so a "no build output" regression
+    and a "silently stamps nothing" regression both fail.
   - `PackageFeedConfigTests.Workflow_AuthenticatesTheSourceNameNuGetConfigActuallyDeclares` had
     to widen to the union of `nuget.config` and `skeleton/nuget.config`: the stamp job
     authenticates `framework-github`, which only the skeleton's config declares.
