@@ -1,6 +1,6 @@
 # 001 — DevMarks: a bookmarking app for software engineers
 
-Status: draft
+Status: done (all tasks ticked 2026-08-24; the app shipped as Manzil in the manzil.my repo after the spec 003 extraction — acceptance is proven by that repo's three test tiers)
 Created: 2026-07-30
 
 ## Problem

@@ -8,9 +8,15 @@ merges back `--no-ff` when green. Requirement numbers refer to the spec.
       projects), solution entries, `db/devmarks/` migrations 0001–0005 + migrate.sh + schema
       snapshot, middleware/layout/CSS/vendored assets, demo bookmarks list, CI additions.
       Done when: all three test tiers green, AOT publish zero-warning, visible app delivered.
-- [ ] T2 Accounts — register / sign-in / sign-out / settings, DB-backed sessions, lockout
+- [x] T2 Accounts — register / sign-in / sign-out / settings, DB-backed sessions, lockout
       (reused `LockoutPolicy`), breach-checked passphrases; real no-JS forms (R1–R4, R24).
       Done when: full account lifecycle passes all three tiers, JS disabled included.
+      Done in `manzil.my` (DevMarks → Manzil extraction, spec 003): `apps/manzil/Auth/`
+      (`RegisterEndpoints`, `SignInEndpoints`, `SettingsEndpoints`, `SessionAuth`,
+      `SessionAuthenticationHandler`) over migrations `0002_users.sql` / `0003_sessions.sql`,
+      with unit (`AccountRulesTests`), integration (`AccountEndpointsTests`, real PostgreSQL),
+      and e2e (`AccountFlowTests`, incl. JS-off) coverage. This box was left unticked by the
+      extraction; ticked 2026-08-24 on verification of that work.
 - [x] T3 Bookmarks core — CRUD, canonical-URL dedup-on-save, list + pagination, demo data
       removed (R5, R8, R9, R13). Done when: CRUD flows pass all three tiers against Postgres.
 - [x] T4 Metadata fetch — SSRF-guarded fetcher, title/description/favicon, favicon endpoint
