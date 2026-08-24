@@ -689,3 +689,20 @@ bookmarking app to manzil.my and `apps/` holds `web` alone, so the DB-backed lis
 scenarios drove no longer exist in this repo. Same finding as the 2026-08-17 note at "Later" —
 carry it to manzil.my's backlog rather than re-opening it as NativeWeb work. What remains here is
 the publish-budget gate above, which `aot-publish` already runs on every CI build.
+- **The antiforgery-rejection guard exists twice and nothing enforces that they agree.**
+  `apps/web/Middleware/AntiforgeryValidationMiddleware.cs` and
+  `NativeWeb.Scaffold.UseAntiforgeryRejection` are the same ten lines. Reviewed 2026-08-25
+  (`fix/web-antiforgery-dedup`, Fable) and the duplicate was kept deliberately — apps/web does
+  not reference the scaffolding library and should not acquire that edge for one extension
+  method; `nativeweb.security` would drag libsodium into every stamped product, and a new
+  library buys a package id and a CI packaging lane for one method. Both files now cross-
+  reference each other. The residual risk is repo policy drift (a body, a log line,
+  problem-details), which a comment cannot catch. The cheap enforcement, if it ever earns its
+  keep: one test in `nativeweb.web.tests.unit` running both through the same three feature
+  states and asserting they agree — the *test* project takes the scaffold reference, so the
+  production dependency graph stays truthful. At a third copy, stop and give the guard one home
+  (shared-source `<Compile Include>` link, or a real library).
+- Both guards are a workaround for the RDG form binder not consulting
+  `IAntiforgeryValidationFeature` before reading the form. Worth finding or filing the
+  dotnet/aspnetcore issue and tagging both copies with its number, so they carry a deletion
+  trigger rather than living forever. No issue number verified yet — do not cite one unchecked.
