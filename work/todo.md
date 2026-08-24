@@ -27,10 +27,25 @@ Small, clear, and could be picked up without a design decision.
   The `Directory.Build.props` half of this **was** fixed in 009: `JauntyQRoot` now probes two
   depths, so a worktree resolves it with no `-p:` flag.
 
-- **`docs/specs/008-epass-signin-library/008-spec.md` still says `Status: draft`**, though the
-  library shipped, justsmtp.com migrated onto it (R12) and spec 009 has now extended it. Noticed
-  while drafting 009; not flipped there, because confirming every one of 008's fifteen acceptance
-  criteria is a review of 008 rather than a line of 009's work. Worth twenty minutes.
+- **`docs/specs/008-epass-signin-library/008-spec.md` still says `Status: draft`** — and after the
+  review, **it should**. Reviewed 2026-08-25, `docs/008-spec-status`; the R-by-R table and the
+  evidence are in the spec's new "Acceptance review" section. Twelve of fifteen are met and
+  evidenced. Three cannot be flipped by anyone but the user, because in each the shipped code took
+  a deliberate decision the criterion does not describe:
+  - **R1** "under 10 lines" vs justsmtp's real 32-line wiring block — 5 lines of library contract
+    plus 27 of hand-rolled `IConfiguration` reading, because `AddEpassSignIn` has no
+    `IConfigurationSection` parameter.
+  - **R11** "None acquires a library-supplied default" vs `CookieName`, which has one, and a good
+    one.
+  - **R12** "no behavioural change" vs two: the `v1`→`v2` ticket format signs every justsmtp user
+    out once at cutover, and the "check your email" page no longer shows the address.
+
+  R12's other half **is** closed: `eb06a3a` in justsmtp.com deleted eight of the nine `Auth/`
+  files, rewrote the ninth as its `ILoginFlowStore`, and is merged into that repo's `dev`.
+  Four T18 design calls from 2026-08-19 are also still unanswered in `~/.claude/away-questions.md`
+  — a public `BeginLoginAsync`, `OnSignedIn` → `WithResolver`, splitting `LoginPagePath` out of
+  `LoginPath`, and rejecting a non-loopback `http://` BaseUrl. None blocks the status flip; all
+  four are cheaper now than after a second consumer.
 
 - ~~`skeleton/.github/workflows/ci.yml` pins `ilammy/msvc-dev-cmd@v1`, a mutable tag.~~ **Done
   2026-08-17**, `chore/skeleton-action-pin`: pinned to

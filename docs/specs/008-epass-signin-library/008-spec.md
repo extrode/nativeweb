@@ -1,5 +1,6 @@
 # 008 — Sign-in library for epass.io relying parties
-Status: draft
+Status: draft — reviewed 2026-08-25, **three criteria need the user to amend them or the code**;
+see "Acceptance review" below. Everything else is met and evidenced.
 Created: 2026-08-19
 
 ## Problem
@@ -124,6 +125,65 @@ authentication is a template with ambitions.
 - **R12** — Given justsmtp.com on the library, When a user signs in, uses a stale link, signs out,
   and returns, Then every outcome matches today's behaviour, and the nine files are gone from the
   repository.
+
+## Acceptance review — 2026-08-25
+
+All nineteen tasks are `[x]` and R12's other half landed: justsmtp.com is on the library
+(`apps/web/justsmtp.web.csproj:79`), `eb06a3a` deleted eight of the nine `Auth/` files and rewrote
+the ninth, and it is merged into that repository's `dev`. So the review that this spec's own
+`Status` was waiting on can now happen — and it does **not** end in `done`.
+
+**Three criteria are not met as written.** None is a defect in the shipped code: each is a place
+where the code took a deliberate, documented decision that the criterion, written before the code
+existed, does not describe. Each therefore needs the user to amend the criterion or change the
+code, and none can be resolved by whoever reads this next.
+
+| R | Verdict | Evidence |
+|---|---|---|
+| R1 | **Amend or change** — see (a) | `AddEpassSignIn` + 3 builder calls + `MapEpassSignIn` is 5 lines; justsmtp's real block is **32 non-comment lines** (`apps/web/Program.cs:128-190, 223`) |
+| R2 | Met | `SignInEndpoints.cs`; `LoginPath`/`CallbackPath`/`LogoutPath`/`SignedOutPath` all consumer-set |
+| R3 | Met | `Take.sql` is one `UPDATE … WHERE used_at IS NULL AND expires_at > now() … RETURNING`; conformance fixture; 4 tests fail when either predicate is dropped |
+| R4 | Met | `ILoginFlowStore.cs` names no table and no query type; justsmtp owns `LoginFlowStore.cs` and its schema |
+| R5 | Met | `EpassResult<T>` Ok/Refused/Unavailable, reachable only through `Match` |
+| R6 | Met | unconfigured returns `Unavailable` from every `EpassClient` call rather than throwing |
+| R7 | Met | provider `error`/`error_description` are internal; integration tier asserts the rendered failure carries none |
+| R8 | Met | `ReturnPath.cs` + callback-side sanitising, not reachable as an opt-out helper |
+| R9 | Met | `v2` base64url fields, constant-time verify, `SessionReadResult` Valid/Malformed/BadSignature/Expired |
+| R10 | Met | `nativeweb.signin.epass.csproj:41` — one `ProjectReference`, to `nativeweb.security`; `nativeweb.auth` absent from the graph and from every source file |
+| R11 | **Amend or change** — see (b) | `CookieName` has a library-supplied default |
+| R12 | **Amend or change** — see (c) | migration landed; "no behavioural change" did not |
+| R13 | Met | AOT gate: exit 0, zero IL2026/IL3050, 16,786,944 B |
+| R14 | Met | named for the provider; README states no standards conformance |
+| R15 | Met | 184 unit (re-run 2026-08-25) / 32 integration against real PostgreSQL / 3 Playwright e2e |
+
+**(a) R1 says "under 10 lines" and the real wiring is 32.** Five of those lines are the library's
+contract; the other 27 are the consumer reading `IConfiguration` by hand and assigning fourteen
+options. That is a direct consequence of `AddEpassSignIn` having no `IConfigurationSection`
+parameter — deviation 2 in `~/.claude/away-questions.md`, assumed rather than asked on 2026-08-19
+and never answered, on the reasoning that R13 forbids `Bind()` so the section would be read
+property-by-property anyway. Either the criterion counts only the contract lines, or the library
+grows the section parameter it was planned with.
+
+**(b) R11 says "None acquires a library-supplied default" and `CookieName` has one.** Flagged by
+the T18 review at the time and left, because the default is good. One of the two is wrong.
+
+**(c) R12 says "no behavioural change to sign-in as experienced by a justsmtp user", and there are
+two, both deliberate.** First, the `v1` → `v2` ticket format signs every existing justsmtp user
+out **once** at cutover — the fix for a subject containing `.` being read as `Malformed`, which
+fails closed but is a lockout. Second, justsmtp's login POST used to re-render the form as a
+**400** with the typo echoed and then show a "check your email" page **displaying the address**;
+the library owns `POST {LoginPath}` and answers with a 302 to `?sent=1`, and justsmtp's
+replacement page renders it **without the address on purpose** — "the library preserves that by
+never looking. So does this" (`justsmtp.com/apps/web/Auth/LoginPage.cs:36`). The privacy change is
+an improvement; it is still a behavioural change, and R12 as written forbids it.
+
+**Also still unanswered from T18** (`~/.claude/away-questions.md`, 2026-08-19), none of them
+blocking this spec but all four cheaper now than after a second consumer: a composed public
+`BeginLoginAsync` so a consumer can own the POST and its rendering (which is what would let R12
+be met literally); renaming `OnSignedIn` to `WithResolver`, since the delegate *decides* the
+sign-in and vetoes by returning null rather than merely observing it; splitting `LoginPagePath`
+out of `LoginPath`, which the plan specified and the code merged; and rejecting a non-loopback
+`http://` BaseUrl, left open because it would break a deployment behind a TLS-terminating proxy.
 
 ## Open questions
 
