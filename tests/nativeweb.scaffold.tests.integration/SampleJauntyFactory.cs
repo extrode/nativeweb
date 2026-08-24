@@ -1,0 +1,139 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+
+using Npgsql;
+
+namespace NativeWeb.Scaffold.Tests.Integration;
+
+/// <summary>
+/// <c>apps/sample</c> with a connection string configured, so
+/// <c>IScaffoldStore&lt;Article&gt;</c> resolves to the JauntyQ store instead of
+/// the in-memory one.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The whole configuration difference is one key. That is the claim these tests
+/// exist to check: the generated endpoints, forms and routes are identical either
+/// way, and swapping the persistence out is a registration, not a regeneration.
+/// </para>
+/// <para>
+/// Tags are still in-memory in this configuration, which is why
+/// <see cref="ScaffoldedCrudTests"/>'s tag facts keep working unchanged.
+/// </para>
+/// </remarks>
+internal sealed class SampleJauntyFactory : WebApplicationFactory<NativeWeb.Sample.Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        // /signin is Development-only, and it is the only way in.
+        builder.UseEnvironment("Development");
+
+        // UseSetting, not ConfigureAppConfiguration. Program.cs reads the connection
+        // string off builder.Configuration before Build() runs, and under
+        // CreateSlimBuilder the factory's in-memory collection is not reliably there
+        // by then -- the same finding NativeWebFactory records at length, reached
+        // here by watching four tests pass against the in-memory store while
+        // claiming to test PostgreSQL. An environment variable would also work and
+        // is what CI uses, but it is process-wide: it would quietly move
+        // ScaffoldedCrudTests onto the database too, and those tests assert on
+        // seeded rows that only exist in memory.
+        builder.UseSetting("ConnectionStrings:Sample", SampleTestDatabase.ConnectionString);
+    }
+
+    internal HttpClient CreateFollowingNothing() =>
+        CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+    /// <summary>A client already carrying the admin session cookie.</summary>
+    internal async Task<HttpClient> CreateSignedInAsync()
+    {
+        HttpClient client = CreateFollowingNothing();
+        using HttpResponseMessage response = await client.GetAsync(new Uri("/signin", UriKind.Relative));
+        return client;
+    }
+}
+
+/// <summary>
+/// Side-channel access to the articles table, for asserting on what the endpoints
+/// actually wrote.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Raw Npgsql rather than the generated accessors, for the same reason the web
+/// tier's <c>TestDatabase</c> is: a test that reads through the same generated
+/// query the code under test writes through cannot tell a mapping bug from a
+/// symmetrical pair of them.
+/// </para>
+/// <para>
+/// <b>Nothing here truncates.</b> Every test mints a unique title and asserts only
+/// on rows it created, so runs accumulate rows in <c>nativeweb_sample_test</c> and
+/// that is fine -- it is a demo table in a database that exists for this suite. A
+/// shared TRUNCATE would be the thing that breaks the moment two runs overlap.
+/// </para>
+/// </remarks>
+internal static class SampleTestDatabase
+{
+    /// <summary>
+    /// CI's environment variable wins; the fallback is the local dev database
+    /// created from <c>db/sample/migrations/</c>. See db/sample/README.md.
+    /// </summary>
+    internal static readonly string ConnectionString =
+        Environment.GetEnvironmentVariable("ConnectionStrings__Sample")
+        ?? "Host=localhost;Database=nativeweb_sample_test;Username=nativeweb_app";
+
+    /// <summary>Reads one row's columns straight out of PostgreSQL, or null.</summary>
+    internal static async Task<(string Title, string? Author, bool Published, DateTime CreatedAt)?> FindByTitleAsync(
+        string title)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            "SELECT title, author, published, created_at FROM articles WHERE title = @t", connection);
+        command.Parameters.AddWithValue("t", title);
+
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+        {
+            return null;
+        }
+
+        return (
+            reader.GetString(0),
+            reader.IsDBNull(1) ? null : reader.GetString(1),
+            reader.GetBoolean(2),
+            reader.GetDateTime(3));
+    }
+
+    /// <summary>How many rows carry this exact title. Used to prove a delete landed.</summary>
+    internal static async Task<int> CountByTitleAsync(string title)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            "SELECT COUNT(*) FROM articles WHERE title = @t", connection);
+        command.Parameters.AddWithValue("t", title);
+
+        return (int)(long)(await command.ExecuteScalarAsync() ?? 0L);
+    }
+
+    /// <summary>Inserts a row directly, for arranging state the endpoints then read.</summary>
+    internal static async Task InsertAsync(string id, string title, string? author, string body)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO articles (id, title, author, body, published, view_count, created_at)
+            VALUES (@id, @title, @author, @body, TRUE, 0, NOW())
+            """,
+            connection);
+        command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("title", title);
+        command.Parameters.AddWithValue("author", (object?)author ?? DBNull.Value);
+        command.Parameters.AddWithValue("body", body);
+
+        await command.ExecuteNonQueryAsync();
+    }
+}

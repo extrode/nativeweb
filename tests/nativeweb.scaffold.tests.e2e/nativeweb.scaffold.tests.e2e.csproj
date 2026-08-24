@@ -14,6 +14,10 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.Playwright" />
+    <!-- The side channel only. These tests assert on what the browser caused
+         PostgreSQL to hold, and reading that back through the app would just be
+         the app agreeing with itself. -->
+    <PackageReference Include="Npgsql" />
   </ItemGroup>
 
   <!-- No ProjectReference to apps/sample on purpose. This tier drives the

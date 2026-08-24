@@ -585,9 +585,23 @@ same ordering flaw and is still unaddressed.
   touched: it is a different implementation with its own tests, and moving a live IdP onto a new
   middleware is a change that wants its own branch and its own review. Do that when
   `apps/web` next needs work in that area.
-- `apps/sample`'s `IScaffoldStore<T>` is in-memory, which contradicts the JauntyQ-for-all-data-access
-  rule. Deliberate for a demo that must run without Postgres, but the POC does not yet prove the
-  JauntyQ side of the seam. A JauntyQ-backed store for one model would.
+- ~~`apps/sample`'s `IScaffoldStore<T>` is in-memory, which contradicts the
+  JauntyQ-for-all-data-access rule.~~ — **done 2026-08-25**, `feat/scaffold-jauntyq-store`.
+  `JauntyArticleStore` satisfies the same six methods with JauntyQ queries over PostgreSQL, and
+  `ConnectionStrings:Sample` selects between the two: unset keeps the in-memory store, so the demo
+  and the whole suite still run with no database. `Tag` stays in-memory deliberately — two models
+  behind one seam with two entirely different implementations is the claim, and it is only visible
+  if they actually differ. Schema lives in `db/sample/`, apart from the identity schema; see that
+  README for why and for the local setup.
+  Three things the work turned up, all recorded where they happened:
+  - `CreateSlimBuilder` does not see `WebApplicationFactory`'s in-memory config (already known, in
+    `NativeWebFactory`) — but `UseSetting` does, and unlike an env var it is per-host, which is what
+    lets the in-memory tests keep running in the same process.
+  - `DisableParallelization` orders a collection's tests, not its fixtures. Two fixtures publishing
+    one project raced ILC; the publish is now shared via `Lazy<Task<string>>`.
+  - The read-only timestamp has *two* independent defences — the generator's
+    `Build(form, existing)` and `Update.sql`'s SET list — and each hides the other when only one is
+    broken. Both confirmed by breaking each in turn; written up in `Update.sql`.
 - Hand-written `BindAsync` is a foot-gun the generator avoids and a human would not: nothing warns
   when a `[FromForm]`-free handler loses its antiforgery metadata. An analyzer should flag an
   `IBindableFromHttpContext` type reached from a POST with no `IAntiforgeryMetadata`.

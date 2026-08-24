@@ -42,9 +42,17 @@ public sealed class BrowserFixture : IAsyncLifetime
 /// assert on it by name.</b> Never assert on a total count, and never assume a
 /// seeded row is still present — an earlier test may legitimately have deleted it.
 /// Parallelization is off so at least the ordering is stable enough to debug.
+///
+/// Note what DisableParallelization does not do: it orders the tests, not the
+/// fixtures. Both sample fixtures are initialized concurrently regardless, which is
+/// why the publish is shared rather than run per fixture -- see
+/// SampleProcessFixture.PublishedExe.
 /// </remarks>
 [CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class ScaffoldE2eFixture : ICollectionFixture<SampleProcessFixture>, ICollectionFixture<BrowserFixture>
+public sealed class ScaffoldE2eFixture
+    : ICollectionFixture<InMemorySampleFixture>,
+      ICollectionFixture<JauntySampleFixture>,
+      ICollectionFixture<BrowserFixture>
 {
     /// <summary>The collection name.</summary>
     public const string Name = "ScaffoldE2e";

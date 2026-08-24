@@ -21,4 +21,38 @@
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <!-- JauntyQ, hosted here rather than taken from libs/nativeweb.data. That
+       library generates against db/schema/jaunty.schema.json, which is epass.io's
+       identity schema; the demo's articles table has no business in it. Hosting
+       the generator locally against db/sample/ is also the more honest
+       demonstration, because it is what a consumer stamping this template does. -->
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(JauntyQUsePackages)' != 'true'">
+    <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Runtime\JauntyQ.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(JauntyQUsePackages)' == 'true'">
+    <PackageReference Include="JauntyQ.Generator" PrivateAssets="all" />
+    <PackageReference Include="JauntyQ.Runtime" />
+  </ItemGroup>
+
+  <!-- The store's pure helpers are internal because nothing outside this app has
+       any business calling them; the unit tier is the exception the attribute
+       exists for. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="nativeweb.sample.tests.unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="..\..\db\sample\queries\**\*.sql" />
+    <AdditionalFiles Include="..\..\db\sample\schema\*.schema.json" />
+  </ItemGroup>
+
 </Project>

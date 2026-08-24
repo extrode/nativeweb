@@ -23,6 +23,7 @@
     <Project Path="tests/nativeweb.scaffold.tests.unit/nativeweb.scaffold.tests.unit.csproj" />
     <Project Path="tests/nativeweb.scaffold.tests.integration/nativeweb.scaffold.tests.integration.csproj" />
     <Project Path="tests/nativeweb.scaffold.tests.e2e/nativeweb.scaffold.tests.e2e.csproj" />
+    <Project Path="tests/nativeweb.sample.tests.unit/nativeweb.sample.tests.unit.csproj" />
     <Project Path="tests/nativeweb.signin.epass.tests.unit/nativeweb.signin.epass.tests.unit.csproj" />
     <Project Path="tests/nativeweb.signin.epass.tests.integration/nativeweb.signin.epass.tests.integration.csproj" />
     <Project Path="tests/nativeweb.signin.epass.tests.aot/nativeweb.signin.epass.tests.aot.csproj" />
