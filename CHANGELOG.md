@@ -171,6 +171,13 @@ Merged into `dev`, not yet tagged.
   question of invalidating live sessions rather than empty ones.
 
 ### Fixed
+- **Signing out no longer weakens a consumer's cache headers.** `SignOutAsync` and `POST /logout`
+  *assigned* `Cache-Control: no-store`, so an app that had already set something stricter —
+  justsmtp's dashboard gate sets `no-store, no-cache, must-revalidate, max-age=0` before the lookup
+  that decides to end a session — got one directive of four back, with its `Pragma: no-cache` left
+  beside it. The directive is now added rather than written over: absent, it is appended; present,
+  the header is untouched. Found by the first consumer's review one day after 009 merged, and it
+  could not have been found here — the library's own tests had no consumer header to overwrite.
 - **Eleven findings from 009's own review**, all raised against code written on that branch and
   confirmed by a shell-equipped refuter before being fixed. The four that mattered: a policy whose
   own work timed out escaped as a **500 on an unauthenticated POST** because the
