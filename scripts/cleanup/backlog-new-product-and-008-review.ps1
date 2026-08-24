@@ -67,13 +67,25 @@ function Act($desc, [scriptblock]$action) {
 }
 
 Write-Host '-- 1. the dev worktree (needs -RemoveDevWorktree)'
-# .worktrees/dev was created by a concurrent session on 2026-08-25 and is what
-# pins `dev` out of the main checkout, so every merge since has had to go through
-# `git -C .worktrees/dev merge --no-ff` and the main tree has been left sitting on
-# whichever branch merged last. Removing it puts `git switch dev` back.
-# Verified clean before this was written -- `git -C .worktrees/dev status
-# --porcelain` was empty -- and re-checked below, because "clean when I looked" is
-# not "clean when you run it".
+# ALREADY DONE 2026-08-25, on the user's instruction ("remove only if you're not
+# losing anything and double triple check"). This section stays because it skips
+# cleanly when the tree is absent, and because the next agent to create a dev
+# worktree will want it. It should print "not present".
+#
+# .worktrees/dev was created by a concurrent session and was what pinned `dev` out
+# of the main checkout, so every merge had to go through
+# `git -C .worktrees/dev merge --no-ff` and the main tree was left sitting on
+# whichever branch merged last. Removing it put `git switch dev` back.
+#
+# What the check found before removing, in full: zero untracked files; no stash
+# entries; no in-progress rebase/merge/cherry-pick; HEAD exactly dev's tip; no
+# .env, *.pfx, *.key or *appsettings*.local.json anywhere in the tree; no dotnet,
+# msbuild or testhost process running. The only thing lost was 671 MB of bin/ and
+# obj/ build output, which a rebuild regenerates. `remove` was run WITHOUT
+# --force, so git's own dirty-tree refusal was left in place as a last net.
+#
+# The status re-read below is deliberate and stays: "clean when I looked" is not
+# "clean when you run it".
 $devTree = Join-Path $repo '.worktrees\dev'
 if (Test-Path $devTree) {
     $dirty = git -C $devTree status --porcelain
