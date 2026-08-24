@@ -108,7 +108,9 @@ the app claim health for minutes after its database has gone.
 Metrics and traces over OTLP, including Npgsql's built-in `ActivitySource` and `Meter`. The
 endpoint and protocol come from the standard `OTEL_EXPORTER_OTLP_*` environment variables, not from
 a `NativeWeb:` key. The default endpoint is `localhost:4317`; with no collector there, export
-failures are background warnings and never request failures.
+failures are background warnings and never request failures. This repo deliberately ships no
+collector — that is deployment infrastructure; see
+`docs/decisions/2026-08-24-002-otlp-collector-location.md`.
 
 **On by default since 2026-08-17.** It was opt-in until then, which is the shape that produces a
 flag first exercised in production. `"0"`, `"no"` and a padded `" false "` are *not* off — the

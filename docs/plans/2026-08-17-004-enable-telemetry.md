@@ -124,6 +124,7 @@ the default it is reached from moves.
 
 ## Still open
 
-Where the collector lives. Not blocking: with no `OTEL_EXPORTER_OTLP_ENDPOINT` set, the exporter
-defaults to `localhost:4317` and fails in the background, which is exactly the pre-change state
-minus the flag.
+Nothing. Where the collector lives was decided 2026-08-24 —
+`docs/decisions/2026-08-24-002-otlp-collector-location.md`: this repo ships no collector; it is
+deployment infrastructure, with a same-trust-boundary local collector recommended for the
+epass.io deployment.
