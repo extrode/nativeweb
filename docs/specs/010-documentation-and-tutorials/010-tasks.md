@@ -53,7 +53,7 @@ forbids.
   the feature, **each new test has been perturbed and proved red before being kept**, and the
   existing sample and scaffold tiers still pass. Counts before and after are recorded.
 
-- [ ] **T8 Write the tutorial** — files: `docs/tutorial-first-feature.md` — covers: R8, R9, R10,
+- [x] **T8 Write the tutorial** — files: `docs/tutorial-first-feature.md` — covers: R8, R9, R10,
   R14 — done when: one section per layer — endpoint, template, query, and a test at each tier —
   each saying why the code belongs there and linking to the governing reference document instead of
   restating it; the opening states that the finished result is already in the repo and tells the
@@ -64,7 +64,7 @@ forbids.
   that document answers, and the entries are grouped by what the reader is trying to do rather than
   by filename.
 
-- [ ] **T10 Verification blocks and the read-back** — files: all four documents — covers: R13,
+- [x] **T10 Verification blocks and the read-back** — files: all four documents — covers: R13,
   R14, R15 — done when: each new document carries a dated verification block naming the OS and
   toolchain it was verified on; the new prose has been read against `AGENTS.md`,
   `docs/constitution.md` and `docs/conventions.md` with any divergence recorded rather than
@@ -333,3 +333,65 @@ enough to suspect the host had not started. It had — the message was
 `/articles` → `/signin` → `/admin`. That is precisely the observation the integration tier cannot
 make, since it runs with `AllowAutoRedirect = false`, and it is why the e2e tier carries an
 anonymous-visit fact at all.
+
+### T8/T10 — the tutorial and the read-back, 2026-08-25
+
+`docs/tutorial-first-feature.md` covers nine sections and defers no layer: the read model and its
+seam, the query, the renderer, the endpoint, the wiring, one section per test tier, and a ninth on
+perturbation. Each links to the governing reference rather than restating it —
+`native-web-architecture.md` for the renderer's shape, `security-baseline.md` for the encoding,
+`progressive-enhancement.md` for the enhancement layer this page does not use,
+`libs/nativeweb.scaffold/README.md` for what scaffolding can express, `db/sample/README.md` and
+`libs/nativeweb.data/README.md` for the generator, `configuration.md` for the connection-string key.
+The opening names the finished files, tells the reader to run `/articles` first, and tells Path A
+readers to build the equivalent in their own product rather than editing this repo.
+
+Two claims in it were checked rather than written from memory: all four migrations cited as
+JNT8007 precedent (`0023`, `0033`, `0034`, `0048`) do name that diagnostic in their own comments,
+and every relative link on the page resolves.
+
+**Counts re-measured on 2026-08-25**, after the tutorial feature landed: sample-unit 16,
+scaffold-integration 31, scaffold-e2e 13, all green. `docs/getting-started.md`'s table and total
+(1,341 → 1,360) were corrected to match; the other eight projects' numbers are from the earlier
+full-suite verification run and this branch does not touch them.
+
+#### Verification blocks
+
+| Document | Block |
+|---|---|
+| `README.md` | already carried one under "Build and test" — date, OS, SDK, PostgreSQL, PowerShell |
+| `docs/getting-started.md` | added; the file's opening line promised one and there was none |
+| `docs/tutorial-first-feature.md` | added, with the three tier counts |
+| `docs/README.md` | added, recording the two divergences below |
+
+#### Read-back against AGENTS.md, constitution.md, conventions.md
+
+Three divergences found. All three are recorded where a reader meets them, not smoothed over:
+
+1. **`docs/constitution.md` is an unfilled template.** Placeholder bullets, `Last reviewed:
+   <date>`. `docs/README.md` lists it as binding, which is what it is *for*; the index now says
+   plainly that it does not currently bind anything. Filling it is a governance act and was
+   deliberately not done inside a documentation task.
+2. **Cleanup script naming.** `conventions.md` § Cleanup policy says
+   `scripts/cleanup/cleanup-<milestone>.ps1`; the global `~/.claude/AGENTS.md` says
+   `scripts/cleanup/<work>.ps1`, and the generated scripts follow the global form
+   (`010-documentation-and-tutorials.ps1`). The `--execute` interface both describe is followed
+   exactly — only the filename prefix differs. Noted in `docs/README.md`.
+3. **The tutorial's page carries no `data-nw-*` and does not load `boot.js`.**
+   `conventions.md` § Progressive enhancement makes the enhancement layer the rule for
+   browser-facing markup. `GET /articles` has no interaction at all, so there is nothing to
+   enhance and no attribute to normalize; the tutorial says so explicitly and states that the
+   moment the page gains an interaction `progressive-enhancement.md` becomes mandatory. Recorded
+   rather than quietly exempted.
+
+One correction made rather than recorded: `db/sample/README.md` § "The tests do not truncate" was
+made stale by T7's `DeleteByIdPrefixAsync`. It now names the public-feed tests as the one
+exception and says why they are not the shared TRUNCATE the section rules out.
+
+#### No duplicated passages
+
+Checked against the eight reference documents. The tutorial states *why a decision was made in
+this feature* and links out for the rule; the one place it comes closest is the JNT8007 discussion,
+which has no reference document in this repository at all — the `JNT` codes are JauntyQ's and
+documented upstream, and `template-diagnostics.md` covers the unrelated `NWT` family. The tutorial
+says exactly that rather than implying a local reference exists.

@@ -103,13 +103,13 @@ The full set, and what each returned on the verification run:
 | `tests/nativeweb.web.tests.e2e` | 64 |
 | `tests/nativeweb.render.tests.unit` | 157 |
 | `tests/nativeweb.scaffold.tests.unit` | 64 |
-| `tests/nativeweb.scaffold.tests.integration` | 24 |
-| `tests/nativeweb.scaffold.tests.e2e` | 9 |
-| `tests/nativeweb.sample.tests.unit` | 8 |
+| `tests/nativeweb.scaffold.tests.integration` | 31 |
+| `tests/nativeweb.scaffold.tests.e2e` | 13 |
+| `tests/nativeweb.sample.tests.unit` | 16 |
 | `tests/nativeweb.signin.epass.tests.unit` | 184 |
 | `tests/nativeweb.signin.epass.tests.integration` | 34 |
 | `tests/nativeweb.signin.epass.tests.e2e` | 3 |
-| **Total** | **1,341 — 0 failed, 0 skipped** |
+| **Total** | **1,360 — 0 failed, 0 skipped** |
 
 A count that has drifted from this table is not automatically a problem; a *failure* is.
 
@@ -235,3 +235,20 @@ Every other setting, what it defaults to, and which ones fail loudly versus sile
 
 [`docs/tutorial-first-feature.md`](tutorial-first-feature.md) walks one feature through every layer
 — endpoint, template, query, and a test at each of the three tiers.
+
+---
+
+**Verified.** Every command on this page was executed in the form written, from a clean clone, on
+**2026-08-25** — Windows 11 (10.0.26200.8457), .NET SDK 10.0.203, PostgreSQL 18.2, PowerShell
+7.6.4, Playwright's bundled Chromium.
+
+Both paths were walked end to end, not read: Path A by stamping a product into `../probe` with its
+own role and database and running its three tiers (47 unit, 7 integration, 2 e2e — 56 facts, 0
+failed), Path B against `nativeweb_dev`. The two Path A footnotes — the
+`<Product>__Db__ConnectionString` requirement and environment variables rather than `-p:` flags —
+are both findings from that run rather than inferences from the build files.
+
+The counts table was measured across all eleven projects on that date. The three tiers the
+tutorial's own feature touches (`nativeweb.sample.tests.unit`,
+`nativeweb.scaffold.tests.integration`, `nativeweb.scaffold.tests.e2e`) were re-run after it landed
+and the table carries the later numbers.

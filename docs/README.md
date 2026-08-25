@@ -98,3 +98,18 @@ cited: [`native-web-architecture-brainstorming.md`](native-web-architecture-brai
 the draft that `native-web-architecture.md` replaced, and
 [`design-prototypes/`](design-prototypes/) holds the epass v2 visual prototype rather than
 prose.
+
+---
+
+**Verified.** Every link on this page was followed and resolves, on **2026-08-25** — Windows 11
+(10.0.26200.8457). Two entries carry a caveat rather than a clean bill:
+
+- [`constitution.md`](constitution.md) is **still the unfilled template** — placeholder bullets and
+  `Last reviewed: <date>`. It is listed above as binding because that is what it is for, not
+  because it currently binds anything. Filling it is a governance act, deliberately not done as
+  part of a documentation task.
+- [`conventions.md`](conventions.md) § Cleanup policy names
+  `scripts/cleanup/cleanup-<milestone>.ps1`, while the generated scripts in
+  [`../scripts/cleanup/`](../scripts/cleanup/) are named `<NNN>-<slug>.ps1` after the global rule
+  in `~/.claude/AGENTS.md`. The fixed `--execute` interface both describe is followed exactly; only
+  the filename prefix differs.
