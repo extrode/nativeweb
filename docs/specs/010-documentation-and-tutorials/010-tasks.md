@@ -39,7 +39,7 @@ forbids.
   tests run green — and the steps written down are the ones that did that. A step performed but not
   written is a failure of this task.
 
-- [ ] **T6 Build the tutorial's feature in the sample app** — files:
+- [x] **T6 Build the tutorial's feature in the sample app** — files:
   `apps/sample/nativeweb.sample.csproj`, one new endpoint and template under `apps/sample/`, one
   new `.sql` under `db/sample/queries/` — covers: R8, R9 — done when: a read-only public page
   listing recent articles serves real rows through a JauntyQ-generated query and the render layer,
@@ -47,7 +47,7 @@ forbids.
   re-pull was needed. If the query needs a column `0001_articles.sql` does not have, the feature
   changes to fit the table.
 
-- [ ] **T7 Cover the feature at all three tiers, and re-run everything it could have broken** —
+- [x] **T7 Cover the feature at all three tiers, and re-run everything it could have broken** —
   files: `tests/nativeweb.sample.tests.unit/`, `tests/nativeweb.scaffold.tests.integration/`,
   `tests/nativeweb.scaffold.tests.e2e/` — covers: R8, R12 — done when: one test per tier asserts
   the feature, **each new test has been perturbed and proved red before being kept**, and the
@@ -267,3 +267,69 @@ T7's unit tier is written (`tests/nativeweb.sample.tests.unit/PublicArticlesTest
 four on `MemoryPublishedArticles` ordering/filtering/truncation, four on `ArticlesPage` rendering
 and encoding). **It has never been executed, so it is not ticked and the perturbation proof is
 not done.** Both remain owed. The integration and e2e tiers are not yet written.
+
+### T6/T7 — unblocked and done, 2026-08-25
+
+JauntyQ shipped `-- @allow-sort <reason>` (`bf37907`), mirroring `@allow-unindexed`: mandatory
+reason, bare form rejected with JNT3008, and the same self-expiring JNT8012 gate. The sibling
+checkout is clean and the generator builds.
+
+**The query carries the directive rather than a new index.** On a growing table the index is the
+right answer and `db/migrations/0023, 0033, 0034, 0048` are that; `articles` is three seeded rows
+in a demo, where PostgreSQL would ignore an index at that size. That also keeps the plan's promise
+that T6 needs no migration and no schema re-pull.
+
+Self-expiry verified rather than assumed: putting `-- @allow-sort` on `List.sql`, which sorts on
+the primary key, produced
+
+```
+CSC : error JNT8012: -- @allow-sort is declared but no ORDER BY column on this query is
+      unindexed, so it suppresses nothing. The index it was waiting for probably exists now:
+      remove the directive. (Stated reason: probe: ...)
+```
+
+Reverted afterwards.
+
+#### Counts
+
+| Tier | Before | After |
+|---|---|---|
+| `nativeweb.sample.tests.unit` | 8 | **16** |
+| `nativeweb.scaffold.tests.integration` | 24 | **31** |
+| `nativeweb.scaffold.tests.e2e` | 9 | **13** |
+| `nativeweb.scaffold.tests.unit` | 64 | 64 (untouched) |
+
+0 failed, 0 skipped throughout.
+
+#### Perturbation record
+
+Every one of the 19 new facts was green on its first run, so every one was perturbed. Each
+perturbation below failed **exactly** its intended test unless noted.
+
+| Perturbation | Tier | Test proved |
+|---|---|---|
+| `.Where(a => a.Published)` → `.Where(a => true)` | unit, integration | omits-unpublished (both) |
+| `OrderByDescending` → `OrderBy` | unit, integration | orders-newest-first (both) |
+| `ThenBy` → `ThenByDescending` | unit | tiebreak-by-id |
+| `.Take(take)` moved above the sort | unit | takes-the-newest |
+| empty state → empty `<ul>` | unit | says-so-rather-than-empty-list |
+| `encoder.Encode(article.Title)` → raw | unit, integration, e2e | encoding, at all three |
+| author span always rendered | unit | omits-the-author-element |
+| `yyyy-MM-dd` → `dd-MM-yyyy` | unit | shows-title-author-and-date |
+| `WHERE published` → `WHERE TRUE` | integration, e2e | hides-drafts over PostgreSQL |
+| `ORDER BY … DESC` → `ASC` | integration, e2e | orders-newest-first over PostgreSQL |
+| `row.Author` → `row.Author ?? "null"` | integration | renders-a-row-with-no-author |
+| `.RequireAuthorization()` on the endpoint | integration, e2e | reachable-without-signing-in |
+
+One method note. Perturbing `WHERE` and `ORDER BY` **together** failed four integration tests
+rather than two: `ORDER BY ASC` pushed the future-dated rows off the twenty-row page, so two tests
+failed for a reason unrelated to what they assert. That is a false positive for the perturbation
+method, not for the tests — a perturbation that fails a test through an unintended route proves
+nothing about it. Re-run one at a time, each failed alone.
+
+And one claim checked rather than trusted: the `.RequireAuthorization()` run failed in 96 ms, fast
+enough to suspect the host had not started. It had — the message was
+`Assert.EndsWith() Failure … String: "http://localhost:5348/admin"`, the browser having followed
+`/articles` → `/signin` → `/admin`. That is precisely the observation the integration tier cannot
+make, since it runs with `AllowAutoRedirect = false`, and it is why the e2e tier carries an
+anonymous-visit fact at all.
