@@ -27,7 +27,10 @@ cd NativeWeb
 ```
 
 Put it beside your `jauntyq` checkout, as the README's diagram shows. The solution build requires
-that adjacency; a per-project build tolerates one more level of nesting.
+that adjacency and nothing else. A per-project build probes two deeper locations as well, but
+**both probes hard-code a parent directory named `extrode-legacy-org.com`** — see the README's prerequisite
+note. If your source root is called something else, the solution build is the forgiving one and a
+per-project build needs `-p:JauntyQRoot=<path>`.
 
 ## 2. Build
 
@@ -200,7 +203,7 @@ repository only to pick up framework changes.
 real schema, so the database is no longer optional once you go past `/healthz`.
 
 **1. Create the role and database.** Details, including the migration runner's advisory-lock
-behaviour, are in [`db/README.md`](../../db/README.md).
+behaviour, are in [`db/README.md`](../db/README.md).
 
 ```sql
 CREATE ROLE nativeweb_app LOGIN PASSWORD '...';

@@ -14,6 +14,38 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **An onboarding path** (spec 010) — the repo had 2,227 lines of reference documentation and no
+  way in; `README.md` still carried four unfilled template placeholders. Four documents now form an
+  ordered path, and **every command in them was executed in the form written before it was written
+  down.**
+  - `README.md` filled: what this is, the prerequisites table, run/build/test. The JauntyQ
+    prerequisite is stated as what measurement showed it to be — the solution build needs `jauntyq`
+    as a *literal sibling*, and `-p:JauntyQUsePackages=true` does not rescue it, because
+    `NativeWeb.slnx` lists JauntyQ's two projects as solution members unconditionally.
+  - `docs/getting-started.md`: clone to a green suite, forking once and explicitly into Path A
+    (stamp a product from `skeleton/`) and Path B (work on `apps/web`). Both were walked rather
+    than described; the two Path A footnotes — the integration tier needing
+    `<Product>__Db__ConnectionString`, and roots passed as environment variables rather than `-p:`
+    flags because command-line properties do not cross into the e2e fixture's child `dotnet
+    publish` — are findings from that walk.
+  - `docs/tutorial-first-feature.md`: one feature through every layer, backed by a feature actually
+    built for it rather than an illustration. Nine sections, no layer deferred.
+  - `docs/README.md`: an index over every human-facing document, grouped by what the reader is
+    trying to do. It records two divergences rather than smoothing them: `docs/constitution.md` is
+    still the unfilled template, and `conventions.md`'s cleanup-script filename rule differs from
+    the global one the scripts follow.
+- **A public article feed in `apps/sample`** — `GET /articles`, the tutorial's worked example and
+  the demo's first hand-written page, standing against the generated admin UI over the same table.
+  A narrowed `PublishedArticle` read model behind an `IPublishedArticles` seam, with both
+  implementations the store choice already implies; a `ListPublished.sql` the generator turns into
+  a typed method; a hand-written renderer that calls `HtmlEncoder` explicitly; and an anonymous,
+  constant-page-size endpoint. The query is the repo's first use of JauntyQ's `-- @allow-sort
+  <reason>` directive: `ORDER BY created_at` on a table indexed only by primary key raises
+  `JNT8007`, which `TreatWarningsAsErrors` makes fatal, and on a three-row demo table the honest
+  answer is to accept the sort and record why rather than add an index PostgreSQL would ignore. The
+  reason is mandatory and the directive self-expires — add a covering index and `JNT8012` fires on
+  that line. 19 new facts across the three tiers (sample-unit 8 → 16, scaffold-integration 24 → 31,
+  scaffold-e2e 9 → 13), every one perturbed and proved red before being kept.
 - **CI runs the two suites it never ran** — a `skeleton-stamp` job stamps a throwaway product from
   `skeleton/`, provisions its database, migrates it and runs all three of its layers, closing a gap
   that had let the skeleton's integration and e2e tests sit unexecuted since they were written. The

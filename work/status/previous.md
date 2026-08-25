@@ -2,6 +2,47 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Documentation and tutorials** (spec 010, `docs/010-documentation-and-tutorials`, merged
+  2026-08-25, unpushed). T1–T10, all ticked. Four documents — a filled `README.md`,
+  `docs/getting-started.md`, `docs/tutorial-first-feature.md`, `docs/README.md` — plus the feature
+  the tutorial is built on, `GET /articles` in `apps/sample`.
+  - **R12 was the expensive requirement and the one that paid.** Every command executed before it
+    was written down, which is how the README's JauntyQ note came to say what it says: a clean
+    clone cannot build `NativeWeb.slnx` unless `jauntyq` is a literal sibling, and
+    `-p:JauntyQUsePackages=true` does *not* rescue it, because the solution lists JauntyQ's two
+    projects as members unconditionally. Path A was walked by stamping a real product into
+    `../probe` (47 unit / 7 integration / 2 e2e, 0 failed); its two footnotes —
+    `<Product>__Db__ConnectionString` in the environment, and roots as environment variables rather
+    than `-p:` flags, because command-line properties do not cross into the e2e fixture's child
+    `dotnet publish` — are findings from that run, not inferences.
+  - **The tutorial's feature is real, and it needed JauntyQ to ship something.** `ORDER BY
+    created_at` on a table indexed only by primary key raises `JNT8007`, fatal here under
+    `TreatWarningsAsErrors`. JauntyQ added `-- @allow-sort <reason>` (`bf37907` in that checkout),
+    mirroring `@allow-unindexed`: mandatory reason, bare form rejected `JNT3008`, and a
+    self-expiring `JNT8012` when the directive suppresses nothing. Verified rather than assumed by
+    putting it on `List.sql`, which sorts on the primary key, and watching `JNT8012` quote the
+    reason back. Chosen over an index migration because the table is three seeded rows in a demo,
+    where PostgreSQL would ignore the index; the four precedent migrations that *did* take the
+    index (`0023`, `0033`, `0034`, `0048`) are named in the query's own comment.
+  - **19 new facts, every one perturbed** — sample-unit 8 → 16, scaffold-integration 24 → 31,
+    scaffold-e2e 9 → 13, 0 failed, 0 skipped. Twelve distinct perturbations. Two method findings
+    are recorded in `010-tasks.md` and repeated in the tutorial's ninth section because they
+    generalise: perturbing `WHERE` and `ORDER BY` together failed four integration tests rather
+    than two, `ORDER BY ASC` having pushed the future-dated rows off the twenty-row page, so two of
+    them failed for a reason unrelated to what they assert; and the `.RequireAuthorization()`
+    perturbation failed in 96 ms, fast enough to suspect the host had never started — it had, and
+    the message proved it.
+  - **T10's read-back found three divergences, all recorded rather than smoothed.**
+    `docs/constitution.md` is still the unfilled template while `docs/README.md` lists it as
+    binding; `conventions.md` names cleanup scripts `cleanup-<milestone>.ps1` where the global rule
+    and the actual files use `<NNN>-<slug>.ps1`; and the tutorial's page carries no `data-nw-*` and
+    loads no `boot.js`, which is correct for a page with no interaction and is stated as such.
+    One thing was corrected instead: `db/sample/README.md`'s "the tests do not truncate" section,
+    made stale by this branch's own `DeleteByIdPrefixAsync`.
+  - `scripts/cleanup/010-documentation-and-tutorials.ps1` was written and run by the user: 26
+    scratch databases and the role `probe_app` dropped, leaving `nativeweb_dev`,
+    `nativeweb_sample_dev` and `nativeweb_sample_test`.
+
 - **CI Node-runtime cutover** (three branches, merged 2026-08-20; pushed 2026-08-24). GitHub is
   withdrawing the node20 action runtime, and the useful question turned out not to be "what do we
   bump" but "what is running Node at all". Two of the three actions were **deleted** rather than

@@ -395,3 +395,37 @@ this feature* and links out for the rule; the one place it comes closest is the 
 which has no reference document in this repository at all — the `JNT` codes are JauntyQ's and
 documented upstream, and `template-diagnostics.md` covers the unrelated `NWT` family. The tutorial
 says exactly that rather than implying a local reference exists.
+
+### Fable's read-back, 2026-08-25
+
+`review-deep` was pointed at the four documents with one instruction: check every factual claim
+against the repository. It confirmed the quoted snippets, all 19 test names, the arithmetic, the
+ports (5399, 5348), `ConnectionStrings:Sample`, the `MSB3202`/`EnsureJauntyQRoot` text, `global.json`,
+the `NWT001`–`NWT016` range, the 430/247 line counts, the constitution placeholder and the four
+JNT8007 migrations — and found **three real defects, all fixed rather than noted**:
+
+1. **A broken link in a document whose footer claims every reference was checked.**
+   `docs/getting-started.md` linked `db/README.md` as `../../db/README.md`, which from `docs/`
+   resolves above the repository root. Now `../db/README.md`. The one broken link in the four
+   documents, and the most embarrassing possible place for it.
+2. **The per-project build claim was wrong outside this machine.** `README.md` said
+   `Directory.Build.props` "probes two depths … so `dotnet build apps/web` works from a nested
+   location where the solution build will not." Both probes hard-code an ancestor named
+   `extrode-legacy-org.com` (`Directory.Build.props:47-48`), while `NativeWeb.slnx` uses the name-agnostic
+   `../jauntyq/...`. For any reader whose source root is called something else the relationship
+   **inverts**: the solution build works and the per-project build stops at `EnsureJauntyQRoot`.
+   Both `README.md` and `docs/getting-started.md` now state the constraint. The build-file fix is
+   on `work/todo.md`, deliberately not taken on a documentation branch.
+3. **The cleanup-naming caveat was itself inaccurate.** `docs/README.md` said the generated
+   scripts follow `<NNN>-<slug>.ps1`; five of thirty do and twenty-five are plain `<slug>.ps1`.
+   Corrected to say the directory is not internally consistent, and that the `--execute` interface
+   is the part all thirty do follow.
+
+Finding 2 is the one that justifies the exercise. It is not a typo — it is a claim that was true
+every time it was tested, because it was only ever tested on the machine whose parent directory
+makes it true.
+
+**One test result needed re-measuring, not fixing.** The first `nativeweb.scaffold.tests.e2e` run
+failed all 13 facts at exactly `00:15:00` — the fixture's NativeAOT publish budget — while the
+review worker was saturating the CPU. Re-run alone on the same commit: **13/13 green in 2 s**. The
+tier is not flaky; it has no headroom under load. Noted on `work/todo.md`.

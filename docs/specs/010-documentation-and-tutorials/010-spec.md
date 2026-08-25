@@ -1,6 +1,6 @@
 # 010 — Documentation and tutorials
 
-Status: draft
+Status: done
 Created: 2026-08-25
 
 ## Problem

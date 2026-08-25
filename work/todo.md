@@ -805,3 +805,20 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   `IAntiforgeryValidationFeature` before reading the form. Worth finding or filing the
   dotnet/aspnetcore issue and tagging both copies with its number, so they carry a deletion
   trigger rather than living forever. No issue number verified yet — do not cite one unchecked.
+
+- **`Directory.Build.props`'s JauntyQ probes hard-code `extrode-legacy-org.com`.** Both fallbacks are
+  `..\..\extrode-legacy-org.com\jauntyq` and `..\..\..\..\extrode-legacy-org.com\jauntyq` (lines 47-48), so the
+  "more forgiving per-project build" is only more forgiving on a machine whose source root has
+  that name; everywhere else the probes never match and `EnsureJauntyQRoot` names a path the
+  reader has never had. `NativeWeb.slnx` by contrast uses the name-agnostic `../jauntyq/...`.
+  Found by Fable's read-back on spec 010; the documentation was corrected to state the constraint
+  rather than paper over it (`README.md` prerequisites, `docs/getting-started.md` step 1). The
+  fix in the build file — probe `..\..\jauntyq` and `..\..\..\..\jauntyq` too, before the named
+  ones — was left out of a documentation branch deliberately.
+- **`AppProcessFixture`'s 15-minute publish budget assumes an idle machine.** All 13
+  `nativeweb.scaffold.tests.e2e` facts failed at exactly `00:15:00` on 2026-08-25 with a NativeAOT
+  publish that had not finished, while a `review-deep` worker was saturating the CPU. Re-run alone
+  on the same commit: 13/13 green in 2 s. So the tier is not flaky in itself — it has no headroom
+  under load, and a CI runner sharing a host would look exactly like this. Either raise the budget
+  or make the timeout message say "publish exceeded its budget" rather than surfacing as thirteen
+  assertion failures.

@@ -109,7 +109,9 @@ prose.
   because it currently binds anything. Filling it is a governance act, deliberately not done as
   part of a documentation task.
 - [`conventions.md`](conventions.md) § Cleanup policy names
-  `scripts/cleanup/cleanup-<milestone>.ps1`, while the generated scripts in
-  [`../scripts/cleanup/`](../scripts/cleanup/) are named `<NNN>-<slug>.ps1` after the global rule
-  in `~/.claude/AGENTS.md`. The fixed `--execute` interface both describe is followed exactly; only
-  the filename prefix differs.
+  `scripts/cleanup/cleanup-<milestone>.ps1`. **Nothing in
+  [`../scripts/cleanup/`](../scripts/cleanup/) is named that way**, and the directory is not
+  internally consistent either: five of its thirty scripts carry the `<NNN>-<slug>.ps1` form the
+  global rule in `~/.claude/AGENTS.md` asks for, and the other twenty-five are plain `<slug>.ps1`
+  from before it. The fixed `--execute` interface both documents describe *is* followed by all of
+  them; only the filename is unsettled.

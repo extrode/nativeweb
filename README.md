@@ -27,9 +27,14 @@ be redistributed (`AGENTS.md`). Three things follow, each verified rather than a
   projects as solution members unconditionally, so anywhere else fails with `error MSB3202`. Note
   that `-p:JauntyQUsePackages=true` does **not** rescue it: that flag governs project references,
   not solution membership.
-- **A per-project build is more forgiving.** `Directory.Build.props` probes two depths for the
-  checkout, so `dotnet build apps/web` works from a nested location where the solution build will
-  not. Pass `-p:JauntyQRoot=<path>` if your checkout lives elsewhere again.
+- **A per-project build probes, but the probe is not generic.** `Directory.Build.props` tries two
+  depths, and **both hard-code an ancestor directory literally named `extrode-legacy-org.com`** — they are
+  `..\..\extrode-legacy-org.com\jauntyq` and `..\..\..\..\extrode-legacy-org.com\jauntyq`. So on the machine this was
+  developed on, `dotnet build apps/web` works from a nesting depth the solution build cannot
+  tolerate; anywhere else, the relationship inverts, because `NativeWeb.slnx` names
+  `../jauntyq/...` and is not fussy about what the parent is called. **If your source root is not
+  named `extrode-legacy-org.com`, pass `-p:JauntyQRoot=<path>`** — neither probe will match and the build
+  stops at `EnsureJauntyQRoot` naming a path you have never had.
 - **With no checkout anywhere, the build stops with a clear message** rather than a wall of
   `CS0246`: *"JauntyQ checkout not found at '…'. Pass `-p:JauntyQRoot=<path>` or build with
   `-p:JauntyQUsePackages=true`."*
