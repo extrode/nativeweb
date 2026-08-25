@@ -9,6 +9,21 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **`SdkPinTests.NoWorkflowInstallsAnSdk` scans gitignored scratch.** Found 2026-08-25 while
+  verifying spec 010. It walks the whole repository for `.github/workflows/*.yml`, so a checkout
+  placed under `tmp/` — exactly where AGENTS.md says scratch belongs — turns the suite red with
+  "setup-dotnet is back in: tmp/<whatever>/.github/workflows/ci.yml". The message names a real rule
+  and a file nobody committed, which is the worst kind of false positive. It should skip anything
+  git ignores, the same way `NewProductStampTests` already asks git what the skeleton is.
+- **The stamped product's README omits the two things its test tiers need.** Found 2026-08-25 by
+  stamping one and running them. (a) The integration tier reads `<Product>__Db__ConnectionString`
+  from the environment; without it `/readyz` reports `ServiceUnavailable` and one fact fails.
+  (b) When the product is not beside NativeWeb, `NativeWebRoot`/`JauntyQRoot` must be **environment
+  variables** — `-p:` flags satisfy `dotnet build` and then fail the e2e tier, because its fixture
+  shells out to its own `dotnet publish` and command-line properties do not cross process
+  boundaries. Both are now in `docs/getting-started.md` Path A; `skeleton/README.md` should say them
+  too.
+
 - **`apps/web`'s only launch profile is HTTP, and the app is HTTPS-only in practice.** Found while
   verifying spec 010's getting-started commands, 2026-08-25. `dotnet run --project apps/web` serves
   `/healthz` 200 and every page carrying a form 500, with

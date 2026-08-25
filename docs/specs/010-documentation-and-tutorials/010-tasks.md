@@ -27,13 +27,13 @@ forbids.
   build/test/run commands are the ones actually run in T2. Links onward to
   `docs/getting-started.md` and `docs/README.md`.
 
-- [ ] **T4 Write the shared half of getting-started** — files: `docs/getting-started.md` —
+- [x] **T4 Write the shared half of getting-started** — files: `docs/getting-started.md` —
   covers: R4, R5, R6 — done when: prerequisites, clone, build, run-with-no-database, and the three
   test tiers are written, each command having been executed in the form written; the in-memory
   degrade path is presented as the first checkpoint rather than a supported mode; and the fork into
   the two audiences appears under its own heading with the divergence stated in the text.
 
-- [ ] **T5 Write Path A and prove it by stamping a product** — files: `docs/getting-started.md` —
+- [x] **T5 Write Path A and prove it by stamping a product** — files: `docs/getting-started.md` —
   covers: R7, R12 — done when: a product has actually been stamped into `tmp/` with
   `tools/new-product.ps1`, its database created, its migrations applied, the app started and its
   tests run green — and the steps written down are the ones that did that. A step performed but not
@@ -168,6 +168,59 @@ Three facts that only running the commands could have produced. All from the cle
   That was wrong and was caught by measuring it: it needs a JauntyQ checkout like everything else,
   just one findable by the two-depth probe rather than at the exact sibling path. Corrected before
   the task was ticked.
+
+### T4 — the full suite, 2026-08-25
+
+Every tier run on this branch before any of the tutorial's code existed, so this is the baseline
+T7 is compared against.
+
+| Project | Facts |
+|---|---|
+| `web.tests.unit` | 496 |
+| `web.tests.integration` | 298 |
+| `web.tests.e2e` | 64 |
+| `render.tests.unit` | 157 |
+| `scaffold.tests.unit` | 64 |
+| `scaffold.tests.integration` | 24 |
+| `scaffold.tests.e2e` | 9 |
+| `sample.tests.unit` | 8 |
+| `signin.epass.tests.unit` | 184 |
+| `signin.epass.tests.integration` | 34 |
+| `signin.epass.tests.e2e` | 3 |
+| **Total** | **1,341 — 0 failed, 0 skipped** |
+
+Three counts have drifted upward from `work/status/current.md`'s 2026-08-25 figures without this
+branch touching them: `scaffold.tests.integration` 17 → 24, `signin.epass.tests.unit` 177 → 184,
+`signin.epass.tests.integration` 32 → 34. Recorded, not chased — nothing here changed them.
+
+**One failure, and it was mine.** `SdkPinTests.NoWorkflowInstallsAnSdk` went red at 495/496 because
+it scans for workflow files across the whole repository and found `tmp/jauntyq/.github/workflows/ci.yml`
+— the scratch clone T2 created. **The test scans gitignored scratch**, which means any checkout
+placed under `tmp/` turns the suite red with a message about `setup-dotnet` that has nothing to do
+with the real cause. Noted in `work/todo.md`; removing the scratch restored 496/496.
+
+### T5 — stamping a product, 2026-08-25
+
+Stamped `Probe`/`probe` into `tmp/probe` with `tools/new-product.ps1 -Execute` (168 files, git init,
+`main` + `dev`), created `probe_app` and `probe_dev`, applied `db/migrate.sh`, built and ran all
+three tiers. **It did not come out green, and both failures were real.**
+
+| Attempt | unit | integration | e2e |
+|---|---|---|---|
+| As documented by the stamped README | 47 | **1 failed** of 7 | **2 failed** of 2 |
+| With the two environment variables below | 47 | 7 | 2 |
+
+- **`Readyz_ReportsReady` expected `OK`, got `ServiceUnavailable`.** The integration tier reads
+  `Probe__Db__ConnectionString` from the environment (`ProbeFactory.cs:52`, `TestDatabase.cs:19`)
+  and nothing in the stamped README says so.
+- **The e2e tier failed at `dotnet publish … exited with 1`,** reporting *"Skipping project
+  …\NativeWeb\libs\nativeweb.security\… because it was not found"*. Cause: the fixture shells out to
+  its own `dotnet publish`, and the `-p:NativeWebRoot=` / `-p:JauntyQRoot=` passed on the outer
+  command line **do not cross into a child process**. Exporting them as environment variables works,
+  because MSBuild reads bare environment variables as properties.
+
+Both are now written into Path A. Neither is a defect this spec fixes — the stamped README could
+say both, and that is a note for `work/todo.md` rather than a change inside 010's scope.
 
 One caveat on the method, recorded so a later reader can reproduce it. `tmp/jauntyq` sits *inside*
 this repository's tree, so MSBuild's Central Package Management discovery walked up into
