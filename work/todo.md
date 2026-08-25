@@ -9,6 +9,30 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **`SdkPinTests.NoWorkflowInstallsAnSdk` scans gitignored scratch.** Found 2026-08-25 while
+  verifying spec 010. It walks the whole repository for `.github/workflows/*.yml`, so a checkout
+  placed under `tmp/` — exactly where AGENTS.md says scratch belongs — turns the suite red with
+  "setup-dotnet is back in: tmp/<whatever>/.github/workflows/ci.yml". The message names a real rule
+  and a file nobody committed, which is the worst kind of false positive. It should skip anything
+  git ignores, the same way `NewProductStampTests` already asks git what the skeleton is.
+- **The stamped product's README omits the two things its test tiers need.** Found 2026-08-25 by
+  stamping one and running them. (a) The integration tier reads `<Product>__Db__ConnectionString`
+  from the environment; without it `/readyz` reports `ServiceUnavailable` and one fact fails.
+  (b) When the product is not beside NativeWeb, `NativeWebRoot`/`JauntyQRoot` must be **environment
+  variables** — `-p:` flags satisfy `dotnet build` and then fail the e2e tier, because its fixture
+  shells out to its own `dotnet publish` and command-line properties do not cross process
+  boundaries. Both are now in `docs/getting-started.md` Path A; `skeleton/README.md` should say them
+  too.
+
+- **`apps/web`'s only launch profile is HTTP, and the app is HTTPS-only in practice.** Found while
+  verifying spec 010's getting-started commands, 2026-08-25. `dotnet run --project apps/web` serves
+  `/healthz` 200 and every page carrying a form 500, with
+  `InvalidOperationException: AntiforgeryOptions.Cookie.SecurePolicy = Always, but the current
+  request is not an SSL request`. The 200 on `/healthz` makes it read as one broken page rather
+  than a wrong scheme. `--urls https://localhost:5444` fixes it and the README now says so, but the
+  profile in `apps/web/Properties/launchSettings.json` should probably just be HTTPS. One-line fix,
+  deliberately not taken inside spec 010's scope.
+
 Small, clear, and could be picked up without a design decision.
 
 - **`NativeWeb.slnx` cannot be built from a `.worktrees/<branch>` checkout.** Lines 31–32 carry
@@ -781,3 +805,20 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   `IAntiforgeryValidationFeature` before reading the form. Worth finding or filing the
   dotnet/aspnetcore issue and tagging both copies with its number, so they carry a deletion
   trigger rather than living forever. No issue number verified yet — do not cite one unchecked.
+
+- **`Directory.Build.props`'s JauntyQ probes hard-code `extrode-legacy-org.com`.** Both fallbacks are
+  `..\..\extrode-legacy-org.com\jauntyq` and `..\..\..\..\extrode-legacy-org.com\jauntyq` (lines 47-48), so the
+  "more forgiving per-project build" is only more forgiving on a machine whose source root has
+  that name; everywhere else the probes never match and `EnsureJauntyQRoot` names a path the
+  reader has never had. `NativeWeb.slnx` by contrast uses the name-agnostic `../jauntyq/...`.
+  Found by Fable's read-back on spec 010; the documentation was corrected to state the constraint
+  rather than paper over it (`README.md` prerequisites, `docs/getting-started.md` step 1). The
+  fix in the build file — probe `..\..\jauntyq` and `..\..\..\..\jauntyq` too, before the named
+  ones — was left out of a documentation branch deliberately.
+- **`AppProcessFixture`'s 15-minute publish budget assumes an idle machine.** All 13
+  `nativeweb.scaffold.tests.e2e` facts failed at exactly `00:15:00` on 2026-08-25 with a NativeAOT
+  publish that had not finished, while a `review-deep` worker was saturating the CPU. Re-run alone
+  on the same commit: 13/13 green in 2 s. So the tier is not flaky in itself — it has no headroom
+  under load, and a CI runner sharing a host would look exactly like this. Either raise the budget
+  or make the timeout message say "publish exceeded its budget" rather than surfacing as thirteen
+  assertion failures.

@@ -1,20 +1,82 @@
 # NativeWeb
 
-<One sentence: what this is and who it is for. If you cannot write it in one sentence, the
-project does not know what it is yet.>
+NativeWeb is a reference implementation and reusable template for the **Lean Native Web**
+architecture — ASP.NET Core Minimal APIs serving server-rendered HTML enhanced with HTMX and
+Alpine.js, compiled to a single self-contained NativeAOT binary, with all data access flowing
+through the JauntyQ source-generated layer over PostgreSQL — for developers who want a small,
+fast, dependency-light web application without a SPA build pipeline.
+
+**New here?** [`docs/getting-started.md`](docs/getting-started.md) is the ordered path from a
+clean clone to a running application and a green suite. [`docs/README.md`](docs/README.md) indexes
+everything else.
+
+## Prerequisites
+
+| | Required | Verified against |
+|---|---|---|
+| .NET SDK | `10.0.100` or later feature band (`global.json`) | 10.0.203 |
+| PostgreSQL | any recent server; **optional to start**, see below | psql 18.2 |
+| PowerShell | 7+, for `tools/` and `scripts/` | 7.6.4 |
+| A JauntyQ checkout | **beside this one**, see the note | — |
+
+**The JauntyQ prerequisite is load-bearing.** All data access goes through JauntyQ's source
+generator, so nothing here builds without it, and it is used from a local checkout only and may not
+be redistributed (`AGENTS.md`). Three things follow, each verified rather than assumed:
+
+- **The solution build needs `jauntyq` as a literal sibling.** `NativeWeb.slnx` lists JauntyQ's two
+  projects as solution members unconditionally, so anywhere else fails with `error MSB3202`. Note
+  that `-p:JauntyQUsePackages=true` does **not** rescue it: that flag governs project references,
+  not solution membership.
+- **A per-project build probes, but the probe is not generic.** `Directory.Build.props` tries two
+  depths, and **both hard-code an ancestor directory literally named `extrode-legacy-org.com`** — they are
+  `..\..\extrode-legacy-org.com\jauntyq` and `..\..\..\..\extrode-legacy-org.com\jauntyq`. So on the machine this was
+  developed on, `dotnet build apps/web` works from a nesting depth the solution build cannot
+  tolerate; anywhere else, the relationship inverts, because `NativeWeb.slnx` names
+  `../jauntyq/...` and is not fussy about what the parent is called. **If your source root is not
+  named `extrode-legacy-org.com`, pass `-p:JauntyQRoot=<path>`** — neither probe will match and the build
+  stops at `EnsureJauntyQRoot` naming a path you have never had.
+- **With no checkout anywhere, the build stops with a clear message** rather than a wall of
+  `CS0246`: *"JauntyQ checkout not found at '…'. Pass `-p:JauntyQRoot=<path>` or build with
+  `-p:JauntyQUsePackages=true`."*
+
+```
+your-source-root/
+  jauntyq/      <- the sibling the solution expects
+  NativeWeb/    <- this repository
+```
+
+Package mode (`-p:JauntyQUsePackages=true`) is what CI uses, and it needs the `jauntyq-github`
+source in `nuget.config` to be credentialed — see the comments in that file for the one-time
+`gh auth token` setup. It appears to work with no credentials on a machine whose NuGet cache is
+already populated from a previous `dotnet pack`, which is a trap worth knowing about: the cache is
+standing in for the feed, and the same command fails on a clean machine.
 
 ## Run it
 
+Neither application needs a database to start: a missing connection string selects an in-memory
+store rather than failing, which makes this the fastest way to see the thing work.
+
 ```
-<the single command that gets it running from a clean clone>
+dotnet run --project apps/sample                                  # http://localhost:5399
+dotnet run --project apps/web --urls https://localhost:5444       # https, see below
 ```
+
+`apps/web` must be served over **HTTPS**. Its session and antiforgery cookies are `Secure`-always,
+so over plain HTTP every page carrying a form returns 500 (`/healthz` still answers 200, which
+makes the failure easy to misread). The one launch profile in
+`apps/web/Properties/launchSettings.json` is HTTP, so pass `--urls` as above. Run
+`dotnet dev-certs https --trust` once if your browser objects to the certificate.
 
 ## Build and test
 
 ```
-<build command>
-<test command>
+dotnet build                                    # solution; needs the sibling jauntyq checkout
+dotnet build apps/web                           # one project; two-depth probe, no sibling needed
+dotnet test tests/nativeweb.web.tests.unit      # one tier; the full list is in getting-started
 ```
+
+Every command on this page was executed in the form written, from a fresh clone, on
+2026-08-25 — Windows 11 (10.0.26200.8457), .NET SDK 10.0.203, PostgreSQL 18.2, PowerShell 7.6.4.
 
 ## Layout
 

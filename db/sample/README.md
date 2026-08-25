@@ -54,6 +54,12 @@ visible consequence: a newly created row is not on page one of the scaffolded
 list, so browser tests filter before they click. Drop and recreate the database
 if it ever gets large enough to slow the suite.
 
+**The public feed's tests are the one exception, and not a shared TRUNCATE.**
+`GET /articles` shows the newest twenty, so those tests date their rows into the
+future to be certain they are on the page — and a future-dated row left behind
+would displace the *next* run's. Each one deletes exactly the ids it minted, by
+prefix, in a `finally`. Two overlapping runs still cannot collide.
+
 ## Selecting the store
 
 `apps/sample` reads `ConnectionStrings:Sample`. Unset selects the in-memory

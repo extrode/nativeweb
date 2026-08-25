@@ -6,6 +6,15 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Nothing in flight.** Spec 010 — documentation and tutorials — merged into `dev` on 2026-08-25
+  and rolled to `previous.md`; all ten of its tasks are ticked and `010-spec.md` is `done`. Every
+  numbered spec in `docs/specs/` is now `done` except 008, which stays `draft` for the reason
+  below.
+  - **What comes next is a decision, not a task.** `next.md` holds the epass.io production
+    cutover, and it is gated on the whole-versus-partial scope question in
+    `docs/architecture/002-epass-cutover-capability-gap.md`. Nothing under it can be scheduled
+    until that is answered.
+
 - **Spec 009 — three consumer seams for the sign-in library.**
   `feat/009-signin-consumer-seams`, merged to `dev` 2026-08-25, unpushed. The three gaps
   justsmtp.com found while migrating onto the library under 008 R12: no way to end a session
