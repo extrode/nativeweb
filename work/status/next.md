@@ -4,7 +4,12 @@ Exactly **one** task, the next one to start, pulled from `../tasklist.md` when t
 advances. The full task list for this body of work is `../tasklist.md`; the unscheduled backlog is
 `../todo.md`; where the project is going is `../milestones.md`.
 
-- **The epass.io production cutover.** Sign-off gated. Telemetry is no longer part of this: it is
+- **The epass.io production cutover.** Sign-off gated, and as of 2026-08-25 gated on something
+  larger: `docs/architecture/002-epass-cutover-capability-gap.md` measured NativeWeb against the
+  repo it replaces for the first time and found `apps/web` is not a drop-in replacement. Whether
+  NativeWeb replaces all of epass.io or only its browser surface is undecided, and nothing below
+  can be scheduled until it is.
+  Telemetry is no longer part of this: it is
   on by default as of 2026-08-17, so there is no flag left to flip during the switch. What is
   left is pointing `OTEL_EXPORTER_OTLP_ENDPOINT` at a collector, which needs a collector to
   exist — an operator decision, not work.
