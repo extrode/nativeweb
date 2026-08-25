@@ -54,6 +54,10 @@ public sealed class Program
             var articles = new ArticleStore();
             builder.Services.AddSingleton<IScaffoldStore<Article>>(articles);
             Seed.Fill(articles, tags);
+
+            // The public feed reads through the same seam. In-memory it has to
+            // filter and sort itself; see MemoryPublishedArticles.
+            builder.Services.AddSingleton<IPublishedArticles>(new MemoryPublishedArticles(articles));
         }
         else
         {
@@ -63,6 +67,10 @@ public sealed class Program
             // Singleton, not scoped: the store holds no per-request state and takes a
             // connection from the pool per call. See JauntyArticleStore's remarks.
             builder.Services.AddSingleton<IScaffoldStore<Article>>(new JauntyArticleStore(dataSource));
+
+            // Same seam, but the filter and the ordering move into SQL. This is the
+            // pair the tutorial in docs/tutorial-first-feature.md compares.
+            builder.Services.AddSingleton<IPublishedArticles>(new JauntyPublishedArticles(dataSource));
 
             // Tags are still in-memory, deliberately. Two models behind one seam with
             // two entirely different implementations is the claim this demo is making,
@@ -81,6 +89,10 @@ public sealed class Program
         // Every route under /admin, for every [Scaffold] model in this assembly. This
         // one call is the whole of the admin UI's wiring.
         app.MapScaffolding();
+
+        // The hand-written counterpart, for contrast: one GET, written out in
+        // PublicArticleEndpoints.cs rather than generated from an attribute.
+        app.MapPublicArticles();
 
         app.MapGet("/", () => Results.Redirect("/admin"));
 
