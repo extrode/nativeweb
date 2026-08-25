@@ -59,7 +59,7 @@ forbids.
   restating it; the opening states that the finished result is already in the repo and tells the
   reader to follow along in their own product; and no layer is deferred.
 
-- [ ] **T9 Write the docs index** — files: `docs/README.md` — covers: R11 — done when: every
+- [x] **T9 Write the docs index** — files: `docs/README.md` — covers: R11 — done when: every
   human-facing Markdown document under `docs/` is reachable from it, each entry says what question
   that document answers, and the entries are grouped by what the reader is trying to do rather than
   by filename.
@@ -229,3 +229,41 @@ artefact of putting the scratch sibling under `tmp/`, not a real defect: in the 
 are siblings under `extrode-legacy-org.com/`, which holds no props file. A stopper
 `tmp/Directory.Packages.props` setting `ManagePackageVersionsCentrally=false` reproduces the real
 arrangement, and build 4 above is with that stopper in place.
+
+### T6/T7 — blocked on the sibling JauntyQ checkout, 2026-08-25
+
+T6's query sorts `ORDER BY created_at DESC, id`, and `articles` has one index, the `id` primary
+key. The generator reports:
+
+```
+CSC : error JNT8007: ORDER BY articles.created_at has no supporting index:
+      this query sorts at runtime. Add an index whose leading column is
+      created_at, or accept the sort.
+```
+
+Three facts established before raising it:
+
+| Question | Answer | Evidence |
+| --- | --- | --- |
+| Is JNT8007 an error in JauntyQ? | No — `DiagnosticSeverity.Warning`. It is fatal here only because `TreatWarningsAsErrors` is repo-wide. | `JauntyDiagnostics.cs:654-660` |
+| Why does `List.sql` pass? | It sorts on `id`, and the check short-circuits on the primary key. | `QueryValidator.Part2.cs:162-195` |
+| Does `-- @allow-unindexed` suppress it? | No. It covers filter columns (JNT8004) only. Adding it produced JNT8007 **still**, plus `JNT8012: "declared but no filter column on this query is unindexed, so it suppresses nothing"`. | run 2026-08-25; directive reverted |
+
+Raised with the user, who took it upstream. **The sibling checkout is now mid-edit on exactly
+that** — `git -C ../jauntyq status` shows `Directives/DirectiveModel.cs`,
+`Directives/DirectiveParser.cs` and `JauntyQGenerator.Part2.cs` dirty, with a `suppressedSort`
+local in Part2 — and it does not currently compile (`CS0103: suppressedAnything`,
+`CS0219: suppressedFilter`, `CS0219: suppressedSort`). So **nothing in `apps/sample` can be built
+or tested until that lands**, including tiers unrelated to this feature.
+
+Confirmed as the only blocker, not as cover for a second one: with the query's diagnostic
+suppressed the sample built clean — `Build succeeded. 0 Warning(s) 0 Error(s)`. That was done with
+`-p:NoWarn=JNT8007` first, which is **wrong** and is recorded so it is not repeated: a
+command-line `NoWarn` replaces every project's own `NoWarn`, including the generator project's,
+which then fails with 26 × `RS2008`. Scoping it to `apps/sample/nativeweb.sample.csproj` is the
+form that works. Reverted; nothing in the working tree carries it.
+
+T7's unit tier is written (`tests/nativeweb.sample.tests.unit/PublicArticlesTests.cs`, 8 facts:
+four on `MemoryPublishedArticles` ordering/filtering/truncation, four on `ArticlesPage` rendering
+and encoding). **It has never been executed, so it is not ticked and the perturbation proof is
+not done.** Both remain owed. The integration and e2e tiers are not yet written.
