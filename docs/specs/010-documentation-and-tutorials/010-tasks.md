@@ -21,7 +21,7 @@ forbids.
   task resolves that contradiction with a command, and the losing mode is documented as
   unavailable rather than omitted.
 
-- [ ] **T3 Fill the README's four placeholders** — files: `README.md` — covers: R1, R2, R3 —
+- [x] **T3 Fill the README's four placeholders** — files: `README.md` — covers: R1, R2, R3 —
   done when: lines 3, 9, 15 and 16 carry real content, no `<...>` placeholder remains, the
   prerequisites section states the versions T1 measured and the JauntyQ fact T2 settled, and the
   build/test/run commands are the ones actually run in T2. Links onward to
@@ -142,6 +142,32 @@ repository. Four builds:
 **Consequence for the documentation:** the front page cannot say the build command is
 `dotnet build`. The verified newcomer path is a sibling `jauntyq` checkout, and the licence in
 `AGENTS.md` restricts who can have one — so that restriction is stated rather than glossed.
+
+### T3 — what writing the front page turned up, 2026-08-25
+
+Three facts that only running the commands could have produced. All from the clean clone.
+
+| Command | Result |
+|---|---|
+| `dotnet run --project apps/sample` | starts with **no database**; `/signin`, `/admin/articles` answer (302) on `http://localhost:5399` |
+| `dotnet run --project apps/web` (default HTTP profile) | `/healthz` **200**, `/` **500** |
+| `dotnet run --project apps/web --urls https://localhost:5444` | `/` **200**, `/healthz` **200** |
+| `dotnet build apps/web -p:JauntyQRoot=C:\nope` | fails with the friendly `Directory.Build.props:81` message, not `CS0246` |
+| `dotnet build apps/web -p:JauntyQUsePackages=true` | **succeeded** — but from the local NuGet cache |
+
+- **`apps/web` is HTTPS-only in practice and its only launch profile is HTTP.** The 500 is
+  `InvalidOperationException: AntiforgeryOptions.Cookie.SecurePolicy = Always, but the current
+  request is not an SSL request`. `/healthz` answering 200 makes this easy to misdiagnose as a
+  working app with one broken page. Noted in `work/todo.md` as a defect; the README documents the
+  `--urls` workaround.
+- **Package mode's apparent success is a trap.** `~/.nuget/packages` already holds
+  `jauntyq.generator` and `jauntyq.runtime` at 0.1.0, 0.2.0 and 0.3.0, so the cache stood in for the
+  feed — exactly the failure mode `nuget.config`'s own comment warns about. The README says so
+  rather than claiming package mode works unauthenticated.
+- **A first draft of the README claimed `dotnet build apps/web` "needs neither sibling nor flag".**
+  That was wrong and was caught by measuring it: it needs a JauntyQ checkout like everything else,
+  just one findable by the two-depth probe rather than at the exact sibling path. Corrected before
+  the task was ticked.
 
 One caveat on the method, recorded so a later reader can reproduce it. `tmp/jauntyq` sits *inside*
 this repository's tree, so MSBuild's Central Package Management discovery walked up into

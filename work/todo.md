@@ -9,6 +9,15 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **`apps/web`'s only launch profile is HTTP, and the app is HTTPS-only in practice.** Found while
+  verifying spec 010's getting-started commands, 2026-08-25. `dotnet run --project apps/web` serves
+  `/healthz` 200 and every page carrying a form 500, with
+  `InvalidOperationException: AntiforgeryOptions.Cookie.SecurePolicy = Always, but the current
+  request is not an SSL request`. The 200 on `/healthz` makes it read as one broken page rather
+  than a wrong scheme. `--urls https://localhost:5444` fixes it and the README now says so, but the
+  profile in `apps/web/Properties/launchSettings.json` should probably just be HTTPS. One-line fix,
+  deliberately not taken inside spec 010's scope.
+
 Small, clear, and could be picked up without a design decision.
 
 - **`NativeWeb.slnx` cannot be built from a `.worktrees/<branch>` checkout.** Lines 31–32 carry
