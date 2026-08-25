@@ -58,17 +58,28 @@ foreach ($a in $Rest) {
 $repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
 $failed = $false
 
-# Gates about the CURRENT state, which do not become false by this script
-# succeeding: nothing unmerged or uncommitted may be destroyed.
+# Context, reported and NOT refused on -- deliberately, and changed from the
+# refusing form on 2026-08-25 after it blocked a legitimate run.
+#
+# A blanket "clean tree, merged into dev" gate is right for a script that deletes
+# code. This one no longer does: the stamped product came out of it, so what is
+# left is one `git branch -d` and some scratch databases. `git branch -d` already
+# refuses an unmerged branch, and it does so by comparing commits rather than by
+# the script comparing strings -- it is a better version of the gate than
+# anything written here. Databases hold no unmerged work at all.
+#
+# So the blanket gate protected nothing and cost something real: this script was
+# written ON the 010 branch, so an --execute run could not succeed until 010
+# merged, which is to say the script refused every run of its own working life.
+# That is the failure mode scripts/cleanup/README.md warns about -- a gate that
+# turns the expected case into a refusal.
 $branch = git -C $repo branch --show-current
 if (git -C $repo status --porcelain) {
-    if ($Execute) { Write-Error "$repo has uncommitted changes; refusing." }
-    else { Write-Host "NOTE: $repo has uncommitted changes (execute would refuse)." }
+    Write-Host "note: $repo has uncommitted changes. Nothing below touches the working tree."
 }
 git -C $repo merge-base --is-ancestor HEAD dev
 if ($LASTEXITCODE -ne 0) {
-    if ($Execute) { Write-Error "$repo is on '$branch', which is not merged into dev; refusing." }
-    else { Write-Host "NOTE: $repo is on '$branch', not merged into dev (execute would refuse)." }
+    Write-Host "note: $repo is on '$branch', not merged into dev. branch -d below will refuse it."
 }
 
 function Act($desc, [scriptblock]$action) {
