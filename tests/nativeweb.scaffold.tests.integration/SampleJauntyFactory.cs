@@ -136,4 +136,64 @@ internal static class SampleTestDatabase
 
         await command.ExecuteNonQueryAsync();
     }
+
+    /// <summary>
+    /// Inserts a row with <c>published</c> and <c>created_at</c> chosen by the
+    /// caller, for arranging a feed the public page then has to order and filter.
+    /// </summary>
+    /// <remarks>
+    /// The overload above fixes both — <c>TRUE</c> and <c>NOW()</c> — which is
+    /// right for the admin CRUD facts and useless for a page whose entire job is
+    /// deciding which rows those two columns admit.
+    /// </remarks>
+    internal static async Task InsertAsync(
+        string id, string title, string? author, string body, bool published, DateTime createdAt)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO articles (id, title, author, body, published, view_count, created_at)
+            VALUES (@id, @title, @author, @body, @published, 0, @created_at)
+            """,
+            connection);
+        command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("title", title);
+        command.Parameters.AddWithValue("author", (object?)author ?? DBNull.Value);
+        command.Parameters.AddWithValue("body", body);
+        command.Parameters.AddWithValue("published", published);
+        command.Parameters.AddWithValue("created_at", createdAt);
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>Removes exactly the rows one test created, by id prefix.</summary>
+    /// <remarks>
+    /// <para>
+    /// The one place in this suite that deletes, and it is not the TRUNCATE the
+    /// class remarks rule out — it names the ids the caller minted and touches
+    /// nothing else, so two overlapping runs cannot collide.
+    /// </para>
+    /// <para>
+    /// The public feed is why it has to exist at all. Every other test here
+    /// asserts on a row it can find by unique title, at any position, so
+    /// accumulated rows are harmless. <c>GET /articles</c> shows the newest
+    /// twenty, so a feed test has to date its rows into the future to be sure
+    /// they appear — and future-dated rows left behind would push the *next*
+    /// run's rows out of the page. Left alone, this suite would break itself
+    /// after ten runs.
+    /// </para>
+    /// </remarks>
+    internal static async Task DeleteByIdPrefixAsync(string idPrefix)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            "DELETE FROM articles WHERE id LIKE @p || '%'", connection);
+        command.Parameters.AddWithValue("p", idPrefix);
+
+        await command.ExecuteNonQueryAsync();
+    }
 }

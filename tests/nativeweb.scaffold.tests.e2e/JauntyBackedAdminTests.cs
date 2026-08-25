@@ -254,4 +254,51 @@ internal static class SampleE2eDatabase
 
         return (int)(long)(await command.ExecuteScalarAsync() ?? 0L);
     }
+
+    /// <summary>
+    /// Inserts a row with <c>published</c> and <c>created_at</c> chosen by the
+    /// caller, for arranging a public feed the browser then has to see.
+    /// </summary>
+    /// <remarks>
+    /// The admin tests above never need this: they create rows through the form,
+    /// which is the thing under test. <see cref="PublicFeedTests"/> is asserting
+    /// on a read-only page, so its rows have to arrive some other way.
+    /// </remarks>
+    internal static async Task InsertAsync(string id, string title, bool published, DateTime createdAt)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO articles (id, title, author, body, published, view_count, created_at)
+            VALUES (@id, @title, 'playwright', 'body', @published, 0, @created_at)
+            """,
+            connection);
+        command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("title", title);
+        command.Parameters.AddWithValue("published", published);
+        command.Parameters.AddWithValue("created_at", createdAt);
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>Removes exactly the rows one test created, by id prefix.</summary>
+    /// <remarks>
+    /// The exception to "nothing here truncates", and for the same reason the
+    /// integration tier has one: the public feed shows the newest twenty, so its
+    /// tests date rows into the future to be certain they are on the page, and a
+    /// future-dated row left behind would displace the next run's.
+    /// </remarks>
+    internal static async Task DeleteByIdPrefixAsync(string idPrefix)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            "DELETE FROM articles WHERE id LIKE @p || '%'", connection);
+        command.Parameters.AddWithValue("p", idPrefix);
+
+        await command.ExecuteNonQueryAsync();
+    }
 }
