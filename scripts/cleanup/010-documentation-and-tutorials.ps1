@@ -102,7 +102,12 @@ foreach ($b in @('docs/010-documentation-and-tutorials')) {
     Act "git branch -d $b" {
         git -C $repo branch -d $b
         if ($LASTEXITCODE -ne 0) {
-            Write-Host '  refused: not merged. Left alone.'
+            # Deliberately not naming a cause. `branch -d` refuses for at least
+            # two reasons -- unmerged commits, and the branch being checked out
+            # in some worktree -- and it prints which on the line above this one.
+            # An earlier version asserted "not merged" and was wrong on the first
+            # real run: the branch was simply the one standing in the main tree.
+            Write-Host '  refused (git said why, above). Left alone.'
             $script:failed = $true
         }
     }
