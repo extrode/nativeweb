@@ -2,14 +2,19 @@
 # and tutorial documentation work. Written 2026-08-25 from the NativeWeb
 # docs/010-documentation-and-tutorials branch.
 #
-# Most of what this work produced was scratch under the repo's own tmp/, which is
-# not listed here: per AGENTS.md that is mine to delete and it already has been
-# (60 MB clean-clone probe, 658 MB tmp/jauntyq sibling probe). What is left is
-# outside tmp/ and therefore needs your hand on it.
+# Everything this work produced under the repo's own tmp/ is absent from this
+# script by design: per AGENTS.md that is scratch I created and mine to delete,
+# and it has been -- 60 MB clean-clone probe, 658 MB tmp/jauntyq sibling probe,
+# 714 MB tmp/probe stamped product. Only the tmp/probe removal is worth naming,
+# because an earlier draft of this script listed it and offered a
+# -RemoveStampedProduct flag for it. That was wrong twice over: the flag asked
+# permission for something already granted, and putting a stamped product under
+# tmp/ in the first place is what made it look like it needed one.
+#
+# What is left is outside tmp/ and therefore needs your hand on it.
 #
 # Dry run is the default and always exits 0. --execute / -e is the only way to
-# act. Two things past that are irreversible and each needs its own second flag:
-#   -RemoveStampedProduct   deletes the tmp/probe stamped product, if it survived
+# act. One thing past that is irreversible and needs its own second flag:
 #   -DropDatabases          drops probe_dev, the probe_app role, and the 25
 #                           nativeweb_mig* / nativeweb_race* / nativeweb_rec
 #                           scratch databases left by earlier migration work
@@ -29,7 +34,6 @@
 
 param(
     [Alias('e')][switch]$Execute,
-    [switch]$RemoveStampedProduct,
     [switch]$DropDatabases,
     [Parameter(ValueFromRemainingArguments = $true)][string[]]$Rest
 )
@@ -52,7 +56,6 @@ foreach ($a in $Rest) {
 }
 
 $repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
-$stamped = Join-Path $repo 'tmp\probe'
 $failed = $false
 
 # Gates about the CURRENT state, which do not become false by this script
@@ -94,27 +97,12 @@ foreach ($b in @('docs/010-documentation-and-tutorials')) {
     }
 }
 
-Write-Host '-- 3. the stamped verification product (needs -RemoveStampedProduct)'
-# tools/new-product.ps1 stamped this to verify docs/getting-started.md Path A end
-# to end -- the stamp, the migration and all three of its test tiers. It should
-# already be gone; this is here in case a run was interrupted. Untracked and
-# unrecoverable, and one new-product.ps1 invocation away from existing again.
-if (Test-Path $stamped) {
-    $size = '{0:N0} MB' -f ((Get-ChildItem $stamped -Recurse -File -ErrorAction SilentlyContinue |
-                Measure-Object Length -Sum).Sum / 1MB)
-    if ($RemoveStampedProduct) {
-        Act "remove $stamped ($size)" { Remove-Item $stamped -Recurse -Force }
-    }
-    else {
-        Write-Host "  skip $stamped ($size) -- pass -RemoveStampedProduct as well"
-    }
-}
-else {
-    Write-Host "  skip $stamped (not present)"
-}
-
-Write-Host '-- 4. scratch databases and roles (needs -DropDatabases)'
-# probe_dev / probe_app back the stamped product above.
+Write-Host '-- 3. scratch databases and roles (needs -DropDatabases)'
+# probe_dev / probe_app backed the tmp/probe stamped product, which verified
+# docs/getting-started.md Path A end to end -- the stamp, the migration, and all
+# three of its test tiers. The checkout is gone; these outlived it, and a database
+# and a role are not scratch under tmp/, so they are yours to drop rather than
+# mine.
 #
 # The nativeweb_mig* / nativeweb_race* / nativeweb_rec set is older residue, from
 # the migration-runner work that produced docs/migration-lock-review.md: one
@@ -156,7 +144,6 @@ Write-Host '-- remaining state'
 Write-Host "branch:      $(git -C $repo branch --show-current)"
 Write-Host "worktrees:   $((git -C $repo worktree list) -join '; ')"
 Write-Host "merged refs: $((git -C $repo branch --merged dev | Where-Object { $_ -notmatch '^\*|dev$|main$' }).Count) still present"
-Write-Host "stamped:     $(if (Test-Path $stamped) { 'present' } else { 'gone' })"
 Write-Host "databases:   $(psql -U postgres -h 127.0.0.1 -Atc ""select string_agg(datname, ', ' order by datname) from pg_database where datname like 'nativeweb%' or datname like 'probe%'"")"
 
 if ($Execute -and $failed) { exit 1 }
