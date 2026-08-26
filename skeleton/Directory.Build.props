@@ -60,10 +60,21 @@
   <!-- Local checkout of NativeWeb (the framework libs: security, auth, render
        + render generator), referenced by project until the NativeWeb.* packages
        publish. Single-depth probe: a stamped product repo sits beside its
-       framework, so ..\NativeWeb resolves to the sibling checkout. Override
-       with -p:NativeWebRoot=... if your checkout lives elsewhere. -->
+       framework, so the sibling resolves one level up. Override with
+       -p:NativeWebRoot=... if your checkout lives elsewhere.
+
+       BOTH CASINGS ARE PROBED, and that is not belt-and-braces. The framework
+       repository is `nativeweb` on disk, but docs/getting-started.md tells you
+       to `git clone <repo> NativeWeb` and the README's layout diagram draws it
+       that way -- so both spellings are in the wild, and a stamped product
+       inherits whichever its author happened to use. On Windows either probe
+       matches either directory and the bug is invisible; on Linux, where the
+       skeleton's own CI runs, exactly one of them resolves. Lowercase is tried
+       first because that is what the repository actually is. -->
   <PropertyGroup>
-    <NativeWebRoot Condition="'$(NativeWebRoot)' == ''">$(MSBuildThisFileDirectory)..\NativeWeb</NativeWebRoot>
+    <NativeWebRoot Condition="'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\nativeweb')">$(MSBuildThisFileDirectory)..\nativeweb</NativeWebRoot>
+    <NativeWebRoot Condition="'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\NativeWeb')">$(MSBuildThisFileDirectory)..\NativeWeb</NativeWebRoot>
+    <NativeWebRoot Condition="'$(NativeWebRoot)' == ''">$(MSBuildThisFileDirectory)..\nativeweb</NativeWebRoot>
   </PropertyGroup>
 
   <!-- Dual-mode NativeWeb resolution, same split as JauntyQ above:

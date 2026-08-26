@@ -203,6 +203,16 @@ Merged into `dev`, not yet tagged.
   question of invalidating live sessions rather than empty ones.
 
 ### Fixed
+- **The skeleton probes both spellings of the framework checkout.** `NativeWebRoot` looked only
+  for `..\NativeWeb`, while the repository on disk is `nativeweb`. On Windows the two are the same
+  directory and the bug cannot be seen at all; on Linux — where the skeleton's own CI runs —
+  exactly one resolves, so a stamped product built on a case-sensitive filesystem failed at
+  `EnsureNativeWebRoot` depending on how its author had spelled the clone. Both spellings are now
+  probed, lowercase first, with the fallback naming the same path. The docs are the reason both
+  exist: `getting-started.md` says to clone as `NativeWeb` and the README draws it that way.
+  Pinned by three tests — including one that asserts on the probe *expressions* rather than on
+  filesystem resolution, because a resolution test cannot fail on Windows and would have shipped
+  green against a single-casing probe.
 - **The JauntyQ checkout is probed relatively, so a renamed source root no longer breaks every
   local build.** Both probes in `Directory.Build.props`, the fallback, and the skeleton's single
   probe named an ancestor directory literally called `extrode-legacy-org.com`. When that directory was

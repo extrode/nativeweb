@@ -31,6 +31,11 @@ layout requirement: the solution build needs it, and a per-project build probes 
 sibling (plus the deeper spot a worktree checkout sits at). Neither cares what the source root is
 called. If your JauntyQ checkout is somewhere else entirely, pass `-p:JauntyQRoot=<path>`.
 
+**On the name:** the command above clones into `NativeWeb`, and the repository itself is
+`nativeweb`. Both spellings work, and a stamped product probes for both, so nothing here depends
+on which you pick. It only matters on a case-sensitive filesystem, and only for a *third* name —
+if you clone under something else on Linux, set `NativeWebRoot` rather than relying on the probe.
+
 ## 2. Build
 
 ```
@@ -100,7 +105,7 @@ The full set, and what each returned on the verification run:
 
 | Project | Facts |
 |---|---|
-| `tests/nativeweb.web.tests.unit` | 496 |
+| `tests/nativeweb.web.tests.unit` | 509 |
 | `tests/nativeweb.web.tests.integration` | 298 |
 | `tests/nativeweb.web.tests.e2e` | 64 |
 | `tests/nativeweb.render.tests.unit` | 157 |
@@ -113,7 +118,15 @@ The full set, and what each returned on the verification run:
 | `tests/nativeweb.signin.epass.tests.e2e` | 3 |
 | **Total** | **1,360 — 0 failed, 0 skipped** |
 
+Re-measured 2026-08-27, every project run from a clean tree; the `.unit` row had drifted from 496.
+
 A count that has drifted from this table is not automatically a problem; a *failure* is.
+
+**Run one tier at a time, as written above.** Running several e2e projects back-to-back in a
+single shell makes them contend, and the whole run fails: measured 2026-08-27, `web.tests.e2e`
+and `scaffold.tests.e2e` reported 64 and 13 failures batched, then 64 and 13 *passes* run
+individually a few minutes later, on the same commit. A wholly-failing e2e tier is much more
+likely to be that than a real break — check it alone before believing it.
 
 ---
 
