@@ -4,8 +4,10 @@ The task completed most recently, kept for one rotation so the next one has cont
 
 - **Documentation and tutorials** (spec 010, `docs/010-documentation-and-tutorials`, merged
   2026-08-25, unpushed). T1–T10, all ticked. Four documents — a filled `README.md`,
-  `docs/getting-started.md`, `docs/tutorial-first-feature.md`, `docs/README.md` — plus the feature
-  the tutorial is built on, `GET /articles` in `apps/sample`.
+  `docs/00-quick-start/getting-started.md`, `docs/00-quick-start/tutorial-first-feature.md` and
+  `docs/README.md` — plus the feature the tutorial is built on, `GET /articles` in `apps/sample`.
+  (Both quick-start paths were flat `docs/*.md` when 010 shipped; `feat/docs-site` moved them on
+  2026-08-27.)
   - **R12 was the expensive requirement and the one that paid.** Every command executed before it
     was written down, which is how the README's JauntyQ note came to say what it says: a clean
     clone cannot build `NativeWeb.slnx` unless `jauntyq` is a literal sibling, and
@@ -94,7 +96,8 @@ The task completed most recently, kept for one rotation so the next one has cont
   `dotnet publish` exercises. `.editorconfig` gained field/local/parameter naming rules -- and the
   find behind them: IDE1006 was off, so every naming rule in that file, including one written at
   `severity = warning` on day one, had never run. The solution measured at a single violation.
-  `docs/migration-lock-review.md` records which migrations would hurt against a live database.
+  `docs/02-reference/migration-lock-review.md` records which migrations would hurt against a live
+  database.
 
 - **Bounded backlog run** (four branches, merged 2026-08-17). Taken simplest-first while the user
   was away, on the scope they set on the way out. `fix/migrate-record-in-transaction` made

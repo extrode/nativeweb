@@ -14,6 +14,12 @@ worth seeing here rather than hiding, but it is the exception.
     cutover, and it is gated on the whole-versus-partial scope question in
     `docs/architecture/002-epass-cutover-capability-gap.md`. Nothing under it can be scheduled
     until that is answered.
+  - **Four unscheduled merges landed after 010 and are on `dev` at `1004220`**, none of them a
+    tasklist entry, all of them pushed to `origin/dev` on 2026-08-27: `chore/move-to-extrode`
+    (cleanup script for the source-root rename), `fix/jauntyq-root-name-agnostic`,
+    `feat/docs-site` (the `docs/` restructure below), and `fix/skeleton-probe-case`. `dev` and
+    `origin/dev` are level; there is no `main` branch yet, local or remote, because nothing has
+    been released.
 
 - **Spec 009 — three consumer seams for the sign-in library.**
   `feat/009-signin-consumer-seams`, merged to `dev` 2026-08-25, unpushed. The three gaps
@@ -40,21 +46,20 @@ worth seeing here rather than hiding, but it is the exception.
     R-by-R table in `009-spec.md` now reads R6 as met for the failure code and NOT for the
     response shape; that half is documentary and pinned by a test. Detail: `009-spec.md`,
     "What review found".
-- Suite counts, **every tier measured on this branch 2026-08-25 — 1,303 facts, 0 failed,
-  0 skipped**: 494 web-unit / 298 web-integration / 64 web-e2e / 157 render / 64 scaffold-unit /
-  17 scaffold-integration / 4 scaffold-e2e / 175 signin-unit / 27 signin-integration /
-  3 signin-e2e.
-  The three sign-in tiers then moved again fixing the review findings and stand at **177 / 32 / 3**
-  — so the branch total is **1,308**. The other seven tiers were **not re-run after the fixes and
-  did not need to be**: the only projects referencing `nativeweb.signin.epass*` are its own five,
-  checked rather than assumed.
-  Every new fact across both rounds was perturbed and proved red before being kept — six
-  perturbations in the fix round, six failures, one per fix.
-  Two counts here were **stale, not changed by 009**: web-integration read 296 and render read
-  154. 009 touched only `libs/nativeweb.signin.epass*`, so the drift predates it — most likely
-  the scaffold-e2e merge that is this branch's base.
-  **The 64 web-e2e had not been run since spec 008 and is green.** It runs fine from a worktree,
-  as does scaffold-e2e; the note that used to say otherwise was never tested.
+- Suite counts, **all eleven tiers re-measured on `dev` at `1004220` on 2026-08-27 — 1,373 facts,
+  0 failed, 0 skipped**: 509 web-unit / 298 web-integration / 64 web-e2e / 157 render /
+  16 sample-unit / 64 scaffold-unit / 31 scaffold-integration / 13 scaffold-e2e / 184 signin-unit /
+  34 signin-integration / 3 signin-e2e. Solution build is 0 warnings, 0 errors.
+  **A twelfth project, `nativeweb.signin.epass.tests.aot`, holds no tests and `dotnet test` skips
+  it silently** — `IsTestProject=false`, by design. Its assertion is
+  `dotnet publish tests/nativeweb.signin.epass.tests.aot -c Release`, which exits 0 with no IL2026
+  and no IL3050. Run it separately or it is not run at all.
+  This supersedes the 1,308 measured on `feat/009-signin-consumer-seams` on 2026-08-25. The +65 is
+  work merged after that branch, **not drift**: scaffold-integration 17→31 and scaffold-e2e 4→13
+  from the scaffolding follow-ups, web-unit 494→509 and signin-unit 177→184 from the JauntyQ-root
+  and skeleton-probe fixes, and 16 sample-unit that the 2026-08-25 breakdown omitted entirely.
+  **These counts were measured, not perturbed** — the tiers were re-run as a state check, and no
+  new fact was written on this pass.
 - Spec statuses: 001–007 `done`, 009 `done`. **008 says `draft` and, after the 2026-08-25 review,
   should.** Twelve of its fifteen criteria are met and evidenced; R1, R11 and R12 each describe
   something the shipped code deliberately does differently, so flipping the status is the user's

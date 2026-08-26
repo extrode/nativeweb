@@ -9,6 +9,18 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **The sign-in library's AOT publish gate is in the solution but runs nowhere automatic.** Found
+  2026-08-27 while re-measuring the suite. `tests/nativeweb.signin.epass.tests.aot` sets
+  `IsTestProject=false` and holds no tests, so `dotnet test` collects nothing from it and exits 0
+  in silence — a per-project run prints not one line. CI does not cover it either: the
+  `aot-publish` job publishes `apps/web/nativeweb.web.csproj` only, and `apps/web` has **no
+  ProjectReference to `nativeweb.signin.epass`**, so the library's IL never reaches that link.
+  Its assertion is `dotnet publish tests/nativeweb.signin.epass.tests.aot -c Release`, which is
+  exactly what spec 008 T14 built it for: catching a `Map*` call the Request Delegate Generator
+  did not see inside the library, before a consumer's publish finds it six months later. Run by
+  hand on 2026-08-27 and green — 0 warnings, no IL2026, no IL3050 — but a gate whose only trigger
+  is someone remembering it is not a gate. Either add it to the `aot-publish` job or say in
+  `README.md` that the suite does not include it.
 - **`SdkPinTests.NoWorkflowInstallsAnSdk` scans gitignored scratch.** Found 2026-08-25 while
   verifying spec 010. It walks the whole repository for `.github/workflows/*.yml`, so a checkout
   placed under `tmp/` — exactly where AGENTS.md says scratch belongs — turns the suite red with
@@ -21,8 +33,8 @@ wish list; the value is in recording the ones nobody has got to yet.
   (b) When the product is not beside NativeWeb, `NativeWebRoot`/`JauntyQRoot` must be **environment
   variables** — `-p:` flags satisfy `dotnet build` and then fail the e2e tier, because its fixture
   shells out to its own `dotnet publish` and command-line properties do not cross process
-  boundaries. Both are now in `docs/getting-started.md` Path A; `skeleton/README.md` should say them
-  too.
+  boundaries. Both are now in `docs/00-quick-start/getting-started.md` Path A;
+  `skeleton/README.md` should say them too.
 
 - **`apps/web`'s only launch profile is HTTP, and the app is HTTPS-only in practice.** Found while
   verifying spec 010's getting-started commands, 2026-08-25. `dotnet run --project apps/web` serves
@@ -93,7 +105,8 @@ Small, clear, and could be picked up without a design decision.
   strip the CR.
 
 - ~~**Migrations now hold locks for a whole file — check the long ones before the cutover.**~~ —
-  **reviewed 2026-08-18**, `docs/migration-lock-review.md`. Nothing to change today; the review
+  **reviewed 2026-08-18**, `docs/02-reference/migration-lock-review.md`. Nothing to change today;
+  the review
   is the deliverable. `0021_realm_scoping` is the one that would hurt: for six tables it does
   ADD COLUMN → whole-table UPDATE → SET NOT NULL → ADD FK → CREATE INDEX, so wrapped it holds
   ACCESS EXCLUSIVE on every table a sign-in touches at once. `0013_cascades_and_fk_indexes` is
@@ -150,7 +163,7 @@ Small, clear, and could be picked up without a design decision.
   rather than two `ReadToEndAsync` calls, so a timeout can report the last 200 lines instead of
   nothing. `ProcessRunTests` covers all three exits.
 - ~~No configuration reference exists~~ — **already done; entry was stale, checked 2026-08-17.**
-  `docs/configuration.md` (201 lines) documents all 32 `NativeWeb:` keys plus
+  `docs/02-reference/configuration.md` (201 lines) documents all 32 `NativeWeb:` keys plus
   `ConnectionStrings:NativeWeb`, and gives `ForwardedHeaders:KnownProxies` its own section
   precisely because its default collapses rate limiting into one shared partition. It is
   self-guarding: `tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs` asserts in *both*
@@ -741,7 +754,8 @@ still real and still unstarted:
   real blocker and it is not small.
 - **No OTLP collector endpoint.** Telemetry became opt-**out** on 2026-08-17
   (`NativeWeb:Telemetry:Enabled` is compared case-insensitively against the literal `"false"`, so
-  unset means on — `docs/configuration.md:106`, `apps/web/Program.cs:272,303`). A production host
+  unset means on — `docs/02-reference/configuration.md:106`, `apps/web/Program.cs:272,303`). A
+  production host
   with no `OTEL_EXPORTER_OTLP_ENDPOINT` therefore stands up an exporter and retries against a
   collector that is not there. Point it somewhere or set the flag; do not leave it unset.
 - **`wwwroot/sitemap.xml` and `robots.txt:12` already name `https://epass.io`.** Correct after
@@ -812,7 +826,8 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   that name; everywhere else the probes never match and `EnsureJauntyQRoot` names a path the
   reader has never had. `NativeWeb.slnx` by contrast uses the name-agnostic `../jauntyq/...`.
   Found by Fable's read-back on spec 010; the documentation was corrected to state the constraint
-  rather than paper over it (`README.md` prerequisites, `docs/getting-started.md` step 1). The
+  rather than paper over it (`README.md` prerequisites, `docs/00-quick-start/getting-started.md`
+  step 1). The
   fix in the build file — probe `..\..\jauntyq` and `..\..\..\..\jauntyq` too, before the named
   ones — was left out of a documentation branch deliberately.
 - **`AppProcessFixture`'s 15-minute publish budget assumes an idle machine.** All 13

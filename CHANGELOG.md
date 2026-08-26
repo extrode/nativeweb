@@ -14,6 +14,19 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **`docs/` is a buildable site, not a flat pile of markdown.** The shared Docs generator discovers
+  sections `TopDirectoryOnly`, so a flat `docs/` published the 12 root files and nothing else. The
+  reader-facing documents are now grouped into `00-quick-start`, `01-architecture` and
+  `02-reference` with a landing `docs/00-quick-start/README.md` that `index.html` prefers, and
+  `scripts/build-docs.sh` renders the tree to `dist/docs-site` (gitignored, overwritten each
+  build). The superseded brainstorm and the admin handoff moved into subdirectories so they stay in
+  the repo without shipping. Site builds to 11 pages; the 9 dropped links are all paths outside
+  `docs/`, which a flat site cannot serve, and the generator lists them — a free audit.
+  - **Two test suites read doc files as fixtures by hard-coded path** — the configuration and
+    template-diagnostics references — so their paths and assertion messages moved with the files.
+    Proved to reach the fixtures by hiding both: 3 tests fail in each suite.
+  - `skeleton/README.md` still points at `docs/security-baseline.md`, and should: the skeleton
+    ships its own flat copy, which did not move.
 - **An onboarding path** (spec 010) — the repo had 2,227 lines of reference documentation and no
   way in; `README.md` still carried four unfilled template placeholders. Four documents now form an
   ordered path, and **every command in them was executed in the form written before it was written
@@ -22,14 +35,14 @@ Merged into `dev`, not yet tagged.
     prerequisite is stated as what measurement showed it to be — the solution build needs `jauntyq`
     as a *literal sibling*, and `-p:JauntyQUsePackages=true` does not rescue it, because
     `NativeWeb.slnx` lists JauntyQ's two projects as solution members unconditionally.
-  - `docs/getting-started.md`: clone to a green suite, forking once and explicitly into Path A
-    (stamp a product from `skeleton/`) and Path B (work on `apps/web`). Both were walked rather
-    than described; the two Path A footnotes — the integration tier needing
+  - `docs/00-quick-start/getting-started.md`: clone to a green suite, forking once and explicitly
+    into Path A (stamp a product from `skeleton/`) and Path B (work on `apps/web`). Both were
+    walked rather than described; the two Path A footnotes — the integration tier needing
     `<Product>__Db__ConnectionString`, and roots passed as environment variables rather than `-p:`
     flags because command-line properties do not cross into the e2e fixture's child `dotnet
     publish` — are findings from that walk.
-  - `docs/tutorial-first-feature.md`: one feature through every layer, backed by a feature actually
-    built for it rather than an illustration. Nine sections, no layer deferred.
+  - `docs/00-quick-start/tutorial-first-feature.md`: one feature through every layer, backed by a
+    feature actually built for it rather than an illustration. Nine sections, no layer deferred.
   - `docs/README.md`: an index over every human-facing document, grouped by what the reader is
     trying to do. It records two divergences rather than smoothing them: `docs/constitution.md` is
     still the unfilled template, and `conventions.md`'s cleanup-script filename rule differs from
