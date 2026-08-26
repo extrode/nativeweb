@@ -12,33 +12,33 @@ when you need a specific answer.**
 | Read | When |
 | --- | --- |
 | [`../README.md`](../README.md) | First. What this is, what you need installed, how to run it. |
-| [`getting-started.md`](getting-started.md) | Clone to a green suite. Splits into two paths at "The fork" — pick yours below. |
-| [`tutorial-first-feature.md`](tutorial-first-feature.md) | Then. Endpoint, renderer, JauntyQ query and all three test tiers, built for real in `apps/sample`. |
+| [`00-quick-start/getting-started.md`](00-quick-start/getting-started.md) | Clone to a green suite. Splits into two paths at "The fork" — pick yours below. |
+| [`00-quick-start/tutorial-first-feature.md`](00-quick-start/tutorial-first-feature.md) | Then. Endpoint, renderer, JauntyQ query and all three test tiers, built for real in `apps/sample`. |
 
 ## Which path is yours
 
 The two audiences share the clone and the build and diverge after it. Everything before "The
-fork" in `getting-started.md` applies to both.
+fork" in `00-quick-start/getting-started.md` applies to both.
 
 **Stamping a new product** from `skeleton/` — your goal is your own application, and `apps/web`
 is a worked example you read rather than code you maintain.
 
-- [`getting-started.md` § Path A](getting-started.md) — `tools/new-product.ps1`, your own role and
+- [`00-quick-start/getting-started.md` § Path A](00-quick-start/getting-started.md) — `tools/new-product.ps1`, your own role and
   database, and the two environment variables the stamped product's own suite needs.
 - [`../libs/nativeweb.scaffold/README.md`](../libs/nativeweb.scaffold/README.md) — decorate a
   model, get an admin UI. The fastest route from a table to a working screen.
 - [`../libs/nativeweb.signin.epass/README.md`](../libs/nativeweb.signin.epass/README.md) — add
   "sign in with epass.io" rather than building authentication.
-- [`configuration.md`](configuration.md) — written against `apps/web`, but the settings your
+- [`02-reference/configuration.md`](02-reference/configuration.md) — written against `apps/web`, but the settings your
   stamped product reads are the same ones.
 
 **Maintaining `apps/web`**, the epass.io IdP — your goal is the identity provider itself.
 
-- [`getting-started.md` § Path B](getting-started.md) — the real database, `db/migrate.sh`, and
+- [`00-quick-start/getting-started.md` § Path B](00-quick-start/getting-started.md) — the real database, `db/migrate.sh`, and
   the reading order for the rest of this list.
-- [`configuration.md`](configuration.md) — every setting `apps/web` reads, its default, and what
+- [`02-reference/configuration.md`](02-reference/configuration.md) — every setting `apps/web` reads, its default, and what
   a wrong or absent value costs.
-- [`security-baseline.md`](security-baseline.md) — the ASVS-derived checklist the IdP is held to.
+- [`02-reference/security-baseline.md`](02-reference/security-baseline.md) — the ASVS-derived checklist the IdP is held to.
 - [`architecture/002-epass-cutover-capability-gap.md`](architecture/002-epass-cutover-capability-gap.md)
   — what `apps/web` does not yet do that the live epass.io does.
 
@@ -48,13 +48,13 @@ Answers to specific questions. Not written to be read in order.
 
 | Document | Answers |
 | --- | --- |
-| [`native-web-architecture.md`](native-web-architecture.md) | Why the stack is what it is: Minimal APIs, NativeAOT, server-rendered HTML, JauntyQ. The 430-line spec everything else assumes. |
-| [`configuration.md`](configuration.md) | Every setting, default, and failure mode. |
-| [`progressive-enhancement.md`](progressive-enhancement.md) | HTMX and Alpine conventions. Mandatory for every browser-facing page. |
-| [`template-diagnostics.md`](template-diagnostics.md) | `NWT001`–`NWT016`: what each template build error means and how to fix it. |
-| [`security-baseline.md`](security-baseline.md) | The security checklist and what has been verified against it. |
-| [`migration-lock-review.md`](migration-lock-review.md) | How long `db/migrate.sh` holds its locks. Read before pointing it at a live database. |
-| [`admin-cms-handoff.md`](admin-cms-handoff.md) | The admin panel and CMS module design. |
+| [`01-architecture/native-web-architecture.md`](01-architecture/native-web-architecture.md) | Why the stack is what it is: Minimal APIs, NativeAOT, server-rendered HTML, JauntyQ. The 430-line spec everything else assumes. |
+| [`02-reference/configuration.md`](02-reference/configuration.md) | Every setting, default, and failure mode. |
+| [`01-architecture/progressive-enhancement.md`](01-architecture/progressive-enhancement.md) | HTMX and Alpine conventions. Mandatory for every browser-facing page. |
+| [`02-reference/template-diagnostics.md`](02-reference/template-diagnostics.md) | `NWT001`–`NWT016`: what each template build error means and how to fix it. |
+| [`02-reference/security-baseline.md`](02-reference/security-baseline.md) | The security checklist and what has been verified against it. |
+| [`02-reference/migration-lock-review.md`](02-reference/migration-lock-review.md) | How long `db/migrate.sh` holds its locks. Read before pointing it at a live database. |
+| [`handovers/admin-cms-handoff.md`](handovers/admin-cms-handoff.md) | The admin panel and CMS module design. |
 
 ### Library READMEs
 
@@ -94,8 +94,8 @@ Read these when you want to know **why**, not **what**.
   The only part of this list that changes daily.
 
 Two files here are superseded rather than current, kept because the reasoning in them is still
-cited: [`native-web-architecture-brainstorming.md`](native-web-architecture-brainstorming.md) is
-the draft that `native-web-architecture.md` replaced, and
+cited: [`brainstorms/002-native-web-architecture.md`](brainstorms/002-native-web-architecture.md) is
+the draft that `01-architecture/native-web-architecture.md` replaced, and
 [`design-prototypes/`](design-prototypes/) holds the epass v2 visual prototype rather than
 prose.
 

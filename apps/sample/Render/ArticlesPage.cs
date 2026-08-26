@@ -13,7 +13,7 @@ namespace NativeWeb.Sample.Render;
 /// engine here and no template file: a page is a static method that returns a
 /// string, and the type system is what tells you a field is missing. That is the
 /// same trade the whole architecture makes — see
-/// <c>docs/native-web-architecture.md</c>.
+/// <c>docs/01-architecture/native-web-architecture.md</c>.
 /// </para>
 /// <para>
 /// **Every value goes through <see cref="HtmlEncoder"/>.** The encoder is called

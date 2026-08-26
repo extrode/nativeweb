@@ -7,7 +7,7 @@ each app asserts the copy matches the canonical file, so drift fails the suite i
 shipping.
 
 What belongs here: framework-owned JS/CSS that every app must serve identically (`boot.js`, the
-`data-nw-*` enhancement layer — see `docs/progressive-enhancement.md`). What does not:
+`data-nw-*` enhancement layer — see `docs/01-architecture/progressive-enhancement.md`). What does not:
 third-party vendored libraries (each app vendors its own htmx/Alpine/fonts), app-specific
 assets, and anything generated.
 

@@ -6,7 +6,7 @@ Alpine.js, compiled to a single self-contained NativeAOT binary, with all data a
 through the JauntyQ source-generated layer over PostgreSQL — for developers who want a small,
 fast, dependency-light web application without a SPA build pipeline.
 
-**New here?** [`docs/getting-started.md`](docs/getting-started.md) is the ordered path from a
+**New here?** [`docs/00-quick-start/getting-started.md`](docs/00-quick-start/getting-started.md) is the ordered path from a
 clean clone to a running application and a green suite. [`docs/README.md`](docs/README.md) indexes
 everything else.
 
@@ -86,7 +86,7 @@ Every command on this page was executed in the form written, from a fresh clone,
 | `libs/` | Shared libraries: render, auth, data, mail, security, assets |
 | `tests/` | Three tiers per app: `*.tests.unit`, `*.tests.integration`, `*.tests.e2e` |
 | `work/` | Current work: tasklist, status window, backlog, milestones |
-| `docs/` | Specs, plans, architecture, decisions, conventions, lessons, and [`configuration.md`](docs/configuration.md) |
+| `docs/` | Specs, plans, architecture, decisions, conventions, lessons, and [`configuration.md`](docs/02-reference/configuration.md) |
 | `scripts/` | Operational scripts. `scripts/cleanup/` is written but never run |
 
 Agent instructions are in `AGENTS.md`. `CLAUDE.md` is a one-line shim that imports it.

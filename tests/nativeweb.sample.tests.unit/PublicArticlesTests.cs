@@ -10,7 +10,7 @@ namespace NativeWeb.Sample.Tests.Unit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is the tier the tutorial in <c>docs/tutorial-first-feature.md</c> writes
+/// This is the tier the tutorial in <c>docs/00-quick-start/tutorial-first-feature.md</c> writes
 /// first, and it is deliberately the one that carries the most facts. The
 /// integration tier can only say the page came back 200 with the right words on
 /// it; only here can the ordering rule and the encoding rule be stated one at a
