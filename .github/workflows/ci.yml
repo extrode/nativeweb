@@ -371,6 +371,19 @@ jobs:
             -c "CREATE ROLE ciprobe_app LOGIN PASSWORD 'ci_test_password';" \
             -c "CREATE DATABASE ciprobe_test OWNER ciprobe_app;"
 
+      # new-product.ps1 ends by making the stamped product's first commit, and a
+      # GitHub runner has no git identity at all: the commit stops with "empty
+      # ident name" and the whole job fails before a single test runs. Set it
+      # here rather than in the script, which refuses on purpose -- its
+      # Invoke-Git names "no user.email" as a failure it must not print success
+      # over, and inventing an author for someone's new product repository would
+      # write this runner's name into that repository's first commit forever.
+      # The identity is the runner's own, and nothing here is ever pushed.
+      - name: Give the runner a git identity for the stamp commit
+        run: |
+          git config --global user.name  'nativeweb-ci'
+          git config --global user.email 'nativeweb-ci@users.noreply.github.com'
+
       # -Execute, because a dry run exits 0 having written nothing and would make
       # every step after this one a test of an empty directory.
       - name: Stamp a product from the skeleton
