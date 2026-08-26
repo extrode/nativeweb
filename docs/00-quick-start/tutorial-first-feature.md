@@ -46,7 +46,7 @@ that is a property of the table. **A real product is mostly the hand-written kin
 is there so the CRUD costs you nothing, not so the product does.
 
 What scaffolding can and cannot express is in
-[`libs/nativeweb.scaffold/README.md`](../libs/nativeweb.scaffold/README.md).
+[`libs/nativeweb.scaffold/README.md`](../../libs/nativeweb.scaffold/README.md).
 
 ## 1. The read model and its seam
 
@@ -106,8 +106,8 @@ step where you write the C# for it. Drop the file in `db/sample/queries/Articles
 `db.Articles.ListPublishedAsync` exists.
 
 The generator, the schema snapshot it reads, and why `apps/sample` hosts it directly instead of
-referencing `libs/nativeweb.data`, are in [`db/sample/README.md`](../db/sample/README.md) and
-[`libs/nativeweb.data/README.md`](../libs/nativeweb.data/README.md). Read the first one now if you
+referencing `libs/nativeweb.data`, are in [`db/sample/README.md`](../../db/sample/README.md) and
+[`libs/nativeweb.data/README.md`](../../libs/nativeweb.data/README.md). Read the first one now if you
 have not: it also has the two `CREATE DATABASE` lines this feature's tests need.
 
 ```sql
@@ -148,7 +148,7 @@ the thing that justified it — which is what makes accepting the sort a decisio
 suppression.
 
 The `JNT` diagnostics are JauntyQ's own and are documented upstream, not in this repository. The
-`NWT` codes in [`template-diagnostics.md`](template-diagnostics.md) are a different family
+`NWT` codes in [`template-diagnostics.md`](../02-reference/template-diagnostics.md) are a different family
 belonging to the template engine, and do not apply here.
 
 **Every column, though the page shows three.** A whole-table projection makes the generated row type
@@ -173,7 +173,7 @@ internal static class ArticlesPage
 ```
 
 Why the architecture makes that trade — server-rendered HTML, no SPA build pipeline, everything
-compiled into one NativeAOT binary — is [`native-web-architecture.md`](native-web-architecture.md),
+compiled into one NativeAOT binary — is [`native-web-architecture.md`](../01-architecture/native-web-architecture.md),
 which is the document the rest of this repository assumes. The immediate consequence for you is
 smaller and more useful: **the type system is what tells you a field is missing.** A renderer that
 does not compile is a page that cannot be half-written.
@@ -191,7 +191,7 @@ Not because a template engine's automatic encoding would be worse, but because t
 that changes where the risk lives: with no default, the one place raw markup could enter is
 visible by grep. Nothing on this page is trusted — the title and the author come out of a database
 that an admin form writes to, which makes them attacker-influenced input on a public page. The
-standard this is held to is [`security-baseline.md`](security-baseline.md).
+standard this is held to is [`security-baseline.md`](../02-reference/security-baseline.md).
 
 **The empty case says something.**
 
@@ -208,7 +208,7 @@ rather than rendered as an empty `<span>`, so an author-less article has no stra
 
 **This page carries no JavaScript at all**, which is why HTMX and Alpine do not appear above. That
 is a property of this feature, not permission to skip the rules: the moment a page gains an
-interaction, [`progressive-enhancement.md`](progressive-enhancement.md) is mandatory, and it
+interaction, [`progressive-enhancement.md`](../01-architecture/progressive-enhancement.md) is mandatory, and it
 requires the page work without JavaScript first — which this one does by construction.
 
 ## 4. The endpoint
@@ -269,7 +269,7 @@ builder.Services.AddSingleton<IPublishedArticles>(new JauntyPublishedArticles(da
 The choice is made in the application, not in a library, and it is made from
 `ConnectionStrings:Sample`. That key — and the environment-variable spelling
 `ConnectionStrings__Sample` the test tiers and CI use — is in
-[`configuration.md`](configuration.md).
+[`configuration.md`](../02-reference/configuration.md).
 
 ## 6. The unit tier
 
@@ -392,7 +392,7 @@ dotnet test tests/nativeweb.scaffold.tests.integration
 dotnet test tests/nativeweb.scaffold.tests.e2e
 ```
 
-The integration and e2e tiers need `nativeweb_sample_test` — [`db/sample/README.md`](../db/sample/README.md)
+The integration and e2e tiers need `nativeweb_sample_test` — [`db/sample/README.md`](../../db/sample/README.md)
 has the two lines that create it, and the Playwright browser install is in
 [getting-started § 4](getting-started.md).
 
@@ -409,7 +409,7 @@ has the two lines that create it, and the Playwright browser install is in
 - **Perturb it.** One change at a time, and read the message.
 
 Reference material, once you need a specific answer rather than a path, is indexed in
-[`docs/README.md`](README.md).
+[`docs/README.md`](../README.md).
 
 ---
 

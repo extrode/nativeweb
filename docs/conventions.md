@@ -168,4 +168,4 @@ element's own `method`/`action`/`href`, and an authored `hx-*` attribute always 
 of that sit the spec 005 UX defaults: boot.js busy states and focus-after-swap, cookie flash
 messages, access keys, native-constraint mirroring with field-level server errors, `/version`,
 and the any-content-type rule. Full conventions:
-[progressive-enhancement.md](progressive-enhancement.md).
+[progressive-enhancement.md](01-architecture/progressive-enhancement.md).

@@ -5,7 +5,7 @@ using Xunit;
 namespace NativeWeb.Render.Tests.Unit;
 
 /// <summary>
-/// docs/template-diagnostics.md is the only place an NWT id is explained rather
+/// docs/02-reference/template-diagnostics.md is the only place an NWT id is explained rather
 /// than merely emitted, so it is worth nothing the moment it drifts from the
 /// descriptors — and a reference page drifts silently, because nobody reads it
 /// on the build that added the seventeenth diagnostic.
@@ -56,7 +56,7 @@ public sealed partial class DiagnosticsReferenceTests
     [Fact]
     public void EveryDescriptorHasARowInTheReference()
     {
-        string reference = Read("docs", "template-diagnostics.md");
+        string reference = Read("docs", "02-reference", "template-diagnostics.md");
         Dictionary<string, string> descriptors = Descriptors();
 
         // Guards the guard: a regex that matched nothing would make every
@@ -67,13 +67,13 @@ public sealed partial class DiagnosticsReferenceTests
             .Where(id => !reference.Contains($"| {id} | ", StringComparison.Ordinal))
             .ToList();
 
-        Assert.True(missing.Count == 0, $"docs/template-diagnostics.md has no at-a-glance row for: {string.Join(", ", missing)}");
+        Assert.True(missing.Count == 0, $"docs/02-reference/template-diagnostics.md has no at-a-glance row for: {string.Join(", ", missing)}");
     }
 
     [Fact]
     public void EveryReferenceRowUsesTheDescriptorsOwnTitle()
     {
-        string reference = Read("docs", "template-diagnostics.md");
+        string reference = Read("docs", "02-reference", "template-diagnostics.md");
 
         List<string> wrong = [];
         foreach (KeyValuePair<string, string> descriptor in Descriptors())
@@ -84,13 +84,13 @@ public sealed partial class DiagnosticsReferenceTests
             }
         }
 
-        Assert.True(wrong.Count == 0, $"docs/template-diagnostics.md rows disagree with the descriptor titles: {string.Join("; ", wrong)}");
+        Assert.True(wrong.Count == 0, $"docs/02-reference/template-diagnostics.md rows disagree with the descriptor titles: {string.Join("; ", wrong)}");
     }
 
     [Fact]
     public void TheReferenceInventsNoDiagnosticThatDoesNotExist()
     {
-        string reference = Read("docs", "template-diagnostics.md");
+        string reference = Read("docs", "02-reference", "template-diagnostics.md");
         Dictionary<string, string> descriptors = Descriptors();
 
         var invented = AnyIdPattern().Matches(reference)
@@ -99,6 +99,6 @@ public sealed partial class DiagnosticsReferenceTests
             .Where(id => !descriptors.ContainsKey(id))
             .ToList();
 
-        Assert.True(invented.Count == 0, $"docs/template-diagnostics.md documents ids with no descriptor: {string.Join(", ", invented)}");
+        Assert.True(invented.Count == 0, $"docs/02-reference/template-diagnostics.md documents ids with no descriptor: {string.Join(", ", invented)}");
     }
 }

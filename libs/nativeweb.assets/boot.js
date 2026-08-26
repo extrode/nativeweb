@@ -7,7 +7,7 @@
  * data-nw-* attribute get the matching hx-* attributes so htmx can enhance
  * them. Load with `defer` BEFORE htmx so initial-load normalization runs
  * before htmx processes the document. Convention doc:
- * docs/progressive-enhancement.md in the NativeWeb repo.
+ * docs/01-architecture/progressive-enhancement.md in the NativeWeb repo.
  *
  * Rules (binding):
  *  - Opt-in only: elements without a data-nw-* attribute are never touched.

@@ -16,7 +16,7 @@ If you do not know which, read Path A first: most people arriving here want the 
 ## Before you start
 
 Prerequisites, including the JauntyQ checkout the build cannot do without, are in the
-[README](../README.md#prerequisites). Read that table now — the JauntyQ one is not optional and
+[README](../../README.md#prerequisites). Read that table now — the JauntyQ one is not optional and
 not obvious, and it is the only thing here that can stop you before you begin.
 
 ## 1. Clone
@@ -73,7 +73,7 @@ broken page rather than a wrong scheme. The single profile in
 ## 4. Run the tests
 
 Three tiers per app, and the project requires all three for every feature — see
-[`AGENTS.md`](../AGENTS.md#testing-required-before-merge). What each is for:
+[`AGENTS.md`](../../AGENTS.md#testing-required-before-merge). What each is for:
 
 | Tier | What it proves | Needs |
 |---|---|---|
@@ -202,7 +202,7 @@ repository only to pick up framework changes.
 real schema, so the database is no longer optional once you go past `/healthz`.
 
 **1. Create the role and database.** Details, including the migration runner's advisory-lock
-behaviour, are in [`db/README.md`](../db/README.md).
+behaviour, are in [`db/README.md`](../../db/README.md).
 
 ```sql
 CREATE ROLE nativeweb_app LOGIN PASSWORD '...';
@@ -222,20 +222,20 @@ dotnet user-secrets --project apps/web set "ConnectionStrings:NativeWeb" "Host=1
 ```
 
 Every other setting, what it defaults to, and which ones fail loudly versus silently, is in
-[`docs/configuration.md`](configuration.md). Note the environment-variable spelling there:
+[`docs/02-reference/configuration.md`](../02-reference/configuration.md). Note the environment-variable spelling there:
 `ConnectionStrings__NativeWeb`, double underscores, which is what the integration tier reads in CI.
 
 **4. Run and test** as in steps 3 and 4 above, remembering the HTTPS flag.
 
 **Then read these, in this order**, rather than discovering them by directory listing:
-[the architecture](native-web-architecture.md) for why any of this is shaped as it is,
-[the security baseline](security-baseline.md) before touching auth or headers, and
-[progressive enhancement](progressive-enhancement.md) before touching a template. The full index is
-[`docs/README.md`](README.md).
+[the architecture](../01-architecture/native-web-architecture.md) for why any of this is shaped as it is,
+[the security baseline](../02-reference/security-baseline.md) before touching auth or headers, and
+[progressive enhancement](../01-architecture/progressive-enhancement.md) before touching a template. The full index is
+[`docs/README.md`](../README.md).
 
 ## Next
 
-[`docs/tutorial-first-feature.md`](tutorial-first-feature.md) walks one feature through every layer
+[`docs/00-quick-start/tutorial-first-feature.md`](tutorial-first-feature.md) walks one feature through every layer
 — endpoint, template, query, and a test at each of the three tiers.
 
 ---

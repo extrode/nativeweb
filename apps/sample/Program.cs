@@ -69,7 +69,7 @@ public sealed class Program
             builder.Services.AddSingleton<IScaffoldStore<Article>>(new JauntyArticleStore(dataSource));
 
             // Same seam, but the filter and the ordering move into SQL. This is the
-            // pair the tutorial in docs/tutorial-first-feature.md compares.
+            // pair the tutorial in docs/00-quick-start/tutorial-first-feature.md compares.
             builder.Services.AddSingleton<IPublishedArticles>(new JauntyPublishedArticles(dataSource));
 
             // Tags are still in-memory, deliberately. Two models behind one seam with
