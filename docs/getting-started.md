@@ -26,11 +26,10 @@ git clone <this repository> NativeWeb
 cd NativeWeb
 ```
 
-Put it beside your `jauntyq` checkout, as the README's diagram shows. The solution build requires
-that adjacency and nothing else. A per-project build probes two deeper locations as well, but
-**both probes hard-code a parent directory named `extrode-legacy-org.com`** — see the README's prerequisite
-note. If your source root is called something else, the solution build is the forgiving one and a
-per-project build needs `-p:JauntyQRoot=<path>`.
+Put it beside your `jauntyq` checkout, as the README's diagram shows. That adjacency is the only
+layout requirement: the solution build needs it, and a per-project build probes for the same
+sibling (plus the deeper spot a worktree checkout sits at). Neither cares what the source root is
+called. If your JauntyQ checkout is somewhere else entirely, pass `-p:JauntyQRoot=<path>`.
 
 ## 2. Build
 

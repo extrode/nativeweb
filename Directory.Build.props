@@ -30,12 +30,20 @@
 
   <!-- Local checkout of JauntyQ (data-access source generator), referenced by
        project until JauntyQ ships on NuGet — same wiring as epass.io / reader.
-       Two probes, not one. The first is the ordinary checkout, one level under
-       the org directory. The second is two levels deeper, which is where a
-       .worktrees/<branch> checkout sits — and without it EVERY worktree build in
+       Two probes, not one. The first is the ordinary checkout: jauntyq as a
+       SIBLING of this repository. The second is two levels deeper, which is where
+       a .worktrees/<branch> checkout sits — and without it EVERY worktree build in
        this repository fails at restore, before a line of the branch's own code is
        compiled. Found on the 009 branch; justsmtp's NativeWebRoot probe has
        carried the same two-depth pair, for the same reason, since it was written.
+
+       Both probes are relative to this repository and NAME NO PARENT DIRECTORY.
+       They used to hard-code an ancestor literally called `extrode-legacy-org.com`, which
+       broke twice in one move on 2026-08-26: the org directory was renamed to
+       `extrode.com` AND jauntyq moved with it, so both probes pointed at a path
+       that no longer existed and every local-checkout build needed
+       -p:JauntyQRoot to work at all. A relative probe survives the next rename.
+       JauntyQRootProbeTests pins it.
 
        Each probe is guarded by Exists() so the property is only assigned when the
        path is real: a bare assignment would set JauntyQRoot to a directory that
@@ -44,13 +52,13 @@
 
        Override with -p:JauntyQRoot=... if your checkout lives elsewhere. -->
   <PropertyGroup>
-    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\extrode-legacy-org.com\jauntyq')">$(MSBuildThisFileDirectory)..\..\extrode-legacy-org.com\jauntyq</JauntyQRoot>
-    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\..\..\extrode-legacy-org.com\jauntyq')">$(MSBuildThisFileDirectory)..\..\..\..\extrode-legacy-org.com\jauntyq</JauntyQRoot>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\jauntyq')">$(MSBuildThisFileDirectory)..\jauntyq</JauntyQRoot>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\..\jauntyq')">$(MSBuildThisFileDirectory)..\..\..\jauntyq</JauntyQRoot>
 
     <!-- Neither probe matched. Assign the single-depth path anyway so
          EnsureJauntyQRoot reports a concrete path rather than an empty string —
          "not found at ''" tells a reader nothing about where it looked. -->
-    <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\..\extrode-legacy-org.com\jauntyq</JauntyQRoot>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\jauntyq</JauntyQRoot>
   </PropertyGroup>
 
   <!-- Dual-mode JauntyQ resolution (mirrors justsmtp.com):

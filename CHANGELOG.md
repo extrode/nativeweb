@@ -203,6 +203,16 @@ Merged into `dev`, not yet tagged.
   question of invalidating live sessions rather than empty ones.
 
 ### Fixed
+- **The JauntyQ checkout is probed relatively, so a renamed source root no longer breaks every
+  local build.** Both probes in `Directory.Build.props`, the fallback, and the skeleton's single
+  probe named an ancestor directory literally called `extrode-legacy-org.com`. When that directory was
+  renamed to `extrode.com` on 2026-08-26 and jauntyq moved with it, the paths broke twice over and
+  every per-project build needed `-p:JauntyQRoot` — while the solution build kept working, because
+  `NativeWeb.slnx` had always named `../jauntyq/...` relatively. The probes are now `..\jauntyq`
+  and `..\..\..\jauntyq` (the worktree depth), which is what the solution file already meant.
+  Eight tests in `JauntyQRootProbeTests` resolve the probe expressions against a synthetic tree
+  rather than pattern-matching the strings, and refuse any probe naming an org directory —
+  `extrode.com` included, since writing that in would be the same mistake with a fresher name.
 - **Stamping a new product no longer copies the skeleton's build output — or its secrets.**
   `tools/new-product.ps1` enumerated everything on disk under `skeleton/`, so a product stamped
   from a built checkout was handed 714 files instead of 168, and `git add -A` committed the

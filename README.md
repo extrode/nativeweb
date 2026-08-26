@@ -27,14 +27,14 @@ be redistributed (`AGENTS.md`). Three things follow, each verified rather than a
   projects as solution members unconditionally, so anywhere else fails with `error MSB3202`. Note
   that `-p:JauntyQUsePackages=true` does **not** rescue it: that flag governs project references,
   not solution membership.
-- **A per-project build probes, but the probe is not generic.** `Directory.Build.props` tries two
-  depths, and **both hard-code an ancestor directory literally named `extrode-legacy-org.com`** — they are
-  `..\..\extrode-legacy-org.com\jauntyq` and `..\..\..\..\extrode-legacy-org.com\jauntyq`. So on the machine this was
-  developed on, `dotnet build apps/web` works from a nesting depth the solution build cannot
-  tolerate; anywhere else, the relationship inverts, because `NativeWeb.slnx` names
-  `../jauntyq/...` and is not fussy about what the parent is called. **If your source root is not
-  named `extrode-legacy-org.com`, pass `-p:JauntyQRoot=<path>`** — neither probe will match and the build
-  stops at `EnsureJauntyQRoot` naming a path you have never had.
+- **A per-project build probes for the same sibling, and no longer cares what the parent is
+  called.** `Directory.Build.props` tries `..\jauntyq` and `..\..\..\jauntyq`, the second being the
+  depth a `.worktrees/<branch>` or `.claude/worktrees/<name>` checkout sits at. Both probes now
+  agree with `NativeWeb.slnx`, which has always named `../jauntyq/...` relatively. Until
+  2026-08-26 they instead hard-coded an ancestor literally named `extrode-legacy-org.com`, so a renamed
+  source root broke every per-project build while the solution build kept working — the fix, and
+  the tests that pin it, are in `tests/nativeweb.web.tests.unit/JauntyQRootProbeTests.cs`.
+  `-p:JauntyQRoot=<path>` remains the override for a checkout that is not a sibling.
 - **With no checkout anywhere, the build stops with a clear message** rather than a wall of
   `CS0246`: *"JauntyQ checkout not found at '…'. Pass `-p:JauntyQRoot=<path>` or build with
   `-p:JauntyQUsePackages=true`."*
