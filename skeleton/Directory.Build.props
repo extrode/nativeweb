@@ -30,11 +30,14 @@
 
   <!-- Local checkout of JauntyQ (data-access source generator), referenced by
        project until JauntyQ ships on NuGet — same wiring as epass.io / reader.
-       Single-depth probe: NativeWeb sits one level under extrode.com, so
-       ..\..\extrode-legacy-org.com\jauntyq resolves to C:\home\code\extrode-legacy-org.com\jauntyq.
+       Probed as a SIBLING of the stamped product, exactly like NativeWebRoot
+       below, and naming no parent directory. It used to hard-code an ancestor
+       called `extrode-legacy-org.com`; that broke on 2026-08-26 when the org directory was
+       renamed and jauntyq moved with it, and a stamped product would have
+       inherited the same break. Relative probes survive the next rename.
        Override with -p:JauntyQRoot=... if your checkout lives elsewhere. -->
   <PropertyGroup>
-    <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\..\extrode-legacy-org.com\jauntyq</JauntyQRoot>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\jauntyq</JauntyQRoot>
   </PropertyGroup>
 
   <!-- Dual-mode JauntyQ resolution (mirrors justsmtp.com):
