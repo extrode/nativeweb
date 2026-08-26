@@ -44,11 +44,13 @@ env:
   # against each project's own directory, not the repo root.
   #
   # Strictly, only JauntyQRoot is load-bearing on a runner: the sibling layout
-  # happens to be exactly what Directory.Build.props's NativeWebRoot fallback
-  # probe (..\NativeWeb, one level up from the product) already resolves to, while
-  # its JauntyQRoot probe points somewhere else entirely. NativeWebRoot is set
-  # anyway, because resolution that works by coincidence of layout is the kind
-  # that breaks silently when the layout is next edited.
+  # happens to be exactly what Directory.Build.props's NativeWebRoot probes
+  # (..\nativeweb then ..\NativeWeb, one level up from the product) already
+  # resolve to. NativeWebRoot is set anyway, because resolution that works by
+  # coincidence of layout is the kind that breaks silently when the layout is
+  # next edited -- and on this runner it would break by CASE, which no Windows
+  # machine can reproduce. Both spellings are probed for that reason; setting
+  # the root explicitly here means CI does not depend on which one is right.
   #
   # If either checkout is wrong or missing the build FAILS LOUDLY -- Ensure*Root
   # in Directory.Build.props probes for a sentinel csproj, so an empty or stale

@@ -31,6 +31,11 @@ layout requirement: the solution build needs it, and a per-project build probes 
 sibling (plus the deeper spot a worktree checkout sits at). Neither cares what the source root is
 called. If your JauntyQ checkout is somewhere else entirely, pass `-p:JauntyQRoot=<path>`.
 
+**On the name:** the command above clones into `NativeWeb`, and the repository itself is
+`nativeweb`. Both spellings work, and a stamped product probes for both, so nothing here depends
+on which you pick. It only matters on a case-sensitive filesystem, and only for a *third* name —
+if you clone under something else on Linux, set `NativeWebRoot` rather than relying on the probe.
+
 ## 2. Build
 
 ```
