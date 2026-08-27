@@ -33,9 +33,18 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: (none — spec 008 shipped)
+## Current work: (none — spec 011 built, T15 outstanding)
 
-Every numbered spec in `docs/specs/` is now `done` except 008, which stays `draft` deliberately —
+Spec 011 (production deployment of `apps/web`) shipped 2026-08-27 and is **not** `done`: T1-T14
+and T16 are ticked, T15 is executed by a person on a real host. Task breakdown at
+`docs/specs/011-production-deployment/011-tasks.md`; the runbook it produced is
+`docs/02-reference/deployment.md`.
+
+Spec 010 (documentation and tutorials) shipped 2026-08-25 and is `done` — task breakdown at
+`docs/specs/010-documentation-and-tutorials/010-tasks.md`.
+
+Every numbered spec in `docs/specs/` is now `done` except 011 (above) and 008, which stays
+`draft` deliberately —
 **though not for the reason this file used to give.** All 19 of its tasks are ticked, and R12's
 justsmtp.com half landed on 2026-08-19 (`eb06a3a` in that repo, merged into its `dev`), so the
 handoff that was blocking it is spent.

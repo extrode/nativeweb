@@ -131,7 +131,7 @@ for itself.
   **This task is the user's to run; it cannot be completed from this session and the spec does not
   reach `done` without it.**
 
-- [ ] **T16 Records** — files: `work/status/`, `work/tasklist.md`, `work/todo.md`, `CHANGELOG.md`,
+- [x] **T16 Records** — files: `work/status/`, `work/tasklist.md`, `work/todo.md`, `CHANGELOG.md`,
   `011-spec.md` — covers: none directly — done when: the status rotation reflects this work, the
   four cutover deploy blockers in `work/todo.md` are updated to say which this spec closed and which
   it did not, the `epass.io`-hostname entry is struck, and `011-spec.md` carries an acceptance review

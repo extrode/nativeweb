@@ -2,6 +2,43 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Production deployment infrastructure** (spec 011, `feat/011-production-deployment`, merged
+  2026-08-27, unpushed). T1-T14 and T16 ticked; **T15 is outstanding and is a person's to run**,
+  so `011-spec.md` stays `draft`. The deploy half Slice 10 never started: `scripts/deploy/`
+  provisions a bare Debian host, releases blue/green behind Caddy, rolls back, and takes nightly
+  `age`-encrypted dumps to S3-compatible storage, with `docs/02-reference/deployment.md` as the
+  runbook. Blue/green over symlink-flip because R10 says the previous release keeps serving
+  *throughout*, which a restart gap cannot satisfy.
+  - **The two-lens review found fifteen real defects in this branch's own work, and both lenses
+    independently put the same one first.** `deploy.sh` invoked `db/migrate.sh` with no
+    environment, so it inherited the development database and role -- `nativeweb_dev` and
+    `nativeweb_app`, neither of which `provision.sh` creates. Every first deploy on a provisioned
+    host would have aborted at the migration step. The nightly backup would have failed on the
+    first timer run of every host for the same class of reason: it runs as root and no PostgreSQL
+    role called root exists. Both preflight guards checked the two keys `provision.sh` seeds
+    *populated*, so neither could ever fire while the blank ones went unchecked;
+    `StartLimitIntervalSec` sat in `[Service]`, where systemd ignores it; and `live_colour` read
+    the first port-shaped string in the upstream file, which was a comment. Full list in
+    `011-spec.md`, "Acceptance review".
+  - **T14 was measured rather than reasoned.** `MemoryDenyWriteExecute=yes` -- the one hardening
+    line that can stop the service booting -- was verified against a real `linux-x64` NativeAOT
+    publish on Debian 12 under WSL2: it started, answered `/healthz` 200 and `/readyz` 503 (the
+    no-database state), indistinguishable from the same binary with the filter off. The lazy
+    `dlopen` of `libsodium.so` behind Argon2id does not run at startup, so it was probed
+    separately under the same filter: `dlopen` succeeded, `sodium_init()` returned 0. Caveat on
+    record: a `--user` unit on the WSL2 kernel, not a `--system` unit on the target host.
+  - **Running `build.sh` for real found two defects a reading would not have.** A Debian WSL image
+    with no `zstd` compiled the whole NativeAOT publish (34,632,768 B) and then died on the tar,
+    leaving 4,096 bytes of a 34 MB artifact at the exact path `deploy.sh` is told to ship. Tool
+    preflight added, ordered after the Windows-shell refusal because git-bash has no zstd either;
+    the EXIT trap now covers the artifact and is narrowed again once tar returns 0.
+  - **Three requirements are unmet and none can be met from a session.** R1 (provisioning
+    walkthrough), R16 (restore drill) and R17 (disaster recovery) all need a real host. R15 is
+    conditional as well: `BACKUP_HEARTBEAT_URL` is unset, so a backup that silently stops running
+    is not noticed, and `backup.sh` says so in its own output on every run.
+  - Suite: 611 web-unit / 307 web-integration / 67 web-e2e, 0 failed. Four mutations confirmed
+    the new facts are not vacuous.
+
 - **Documentation and tutorials** (spec 010, `docs/010-documentation-and-tutorials`, merged
   2026-08-25, unpushed). T1–T10, all ticked. Four documents — a filled `README.md`,
   `docs/00-quick-start/getting-started.md`, `docs/00-quick-start/tutorial-first-feature.md` and

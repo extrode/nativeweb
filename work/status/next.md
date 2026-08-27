@@ -4,6 +4,15 @@ Exactly **one** task, the next one to start, pulled from `../tasklist.md` when t
 advances. The full task list for this body of work is `../tasklist.md`; the unscheduled backlog is
 `../todo.md`; where the project is going is `../milestones.md`.
 
+- **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
+  not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has
+  never been run, and every elapsed time in `docs/02-reference/deployment.md` reads
+  `NOT YET MEASURED`. Until an operator walks a bare Debian host through provision → release →
+  rollback → restore and writes the times back, three of spec 011's requirements (R1, R16, R17)
+  are unmet and the scripts are untested against anything but `bash -n` and the unit tier.
+  R15 is conditional too: `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is not
+  noticed. This is a person's task, not a session's.
+
 - **The epass.io production cutover.** Sign-off gated, and as of 2026-08-25 gated on something
   larger: `docs/architecture/002-epass-cutover-capability-gap.md` measured NativeWeb against the
   repo it replaces for the first time and found `apps/web` is not a drop-in replacement. Whether
