@@ -37,21 +37,21 @@ for itself.
 
 ## Build and unit definitions
 
-- [ ] **T5 `build.sh` — publish `linux-x64` from WSL** — files: `scripts/deploy/build.sh`,
+- [x] **T5 `build.sh` — publish `linux-x64` from WSL** — files: `scripts/deploy/build.sh`,
   `tests/nativeweb.web.tests.unit/` — covers: R12, R22 — done when: publishing produces
   `dist/nativeweb-<sha>.tar.zst` and a `RELEASE` file carrying the commit SHA and build time;
   building from a dirty tree is refused unless forced; the script names checkout mode explicitly
   rather than inheriting it by accident; unit facts cover the dirty-tree refusal and the RELEASE
   contents.
 
-- [ ] **T6 Hardened systemd template unit** — files: `scripts/deploy/systemd/nativeweb@.service` —
+- [x] **T6 Hardened systemd template unit** — files: `scripts/deploy/systemd/nativeweb@.service` —
   covers: R2, R3, R18 — done when: instance name selects the loopback port (blue 5011, green
   5012); the unit sets `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp`,
   an empty `CapabilityBoundingSet`, `RestrictAddressFamilies`, and `ReadWritePaths` limited to
   `/var/lib/nativeweb`; `Restart=on-failure` with a start limit that stops a persistent failure
   looping; secrets arrive by `EnvironmentFile` so they do not appear in `systemctl show`.
 
-- [ ] **T7 Caddy and firewall configuration** — files: `scripts/deploy/caddy/Caddyfile`,
+- [x] **T7 Caddy and firewall configuration** — files: `scripts/deploy/caddy/Caddyfile`,
   `scripts/deploy/caddy/upstream.caddy.example`, `scripts/deploy/nftables/nativeweb.nft` —
   covers: R4, R5, R6 — done when: Caddy serves the canonical hostname with automatic HTTPS,
   redirects plaintext HTTP, proxies to the imported upstream snippet, and rolls its access log with
@@ -59,7 +59,7 @@ for itself.
 
 ## Provisioning and release
 
-- [ ] **T8 `provision.sh` — bare OS to serving host** — files: `scripts/deploy/provision.sh`,
+- [x] **T8 `provision.sh` — bare OS to serving host** — files: `scripts/deploy/provision.sh`,
   `tests/nativeweb.web.tests.unit/` — covers: R1, R2, R5, R6, R7 — done when: the script creates
   the `nativeweb` system account with no interactive shell, installs and configures Caddy,
   PostgreSQL (`listen_addresses = 'localhost'`), nftables and `unattended-upgrades`, lays out
@@ -68,7 +68,7 @@ for itself.
   on every run; running it twice changes nothing the second time; unit facts cover the idempotence
   and the permission assertion.
 
-- [ ] **T9 `deploy.sh` — stage, migrate, verify, promote** — files: `scripts/deploy/deploy.sh`,
+- [x] **T9 `deploy.sh` — stage, migrate, verify, promote** — files: `scripts/deploy/deploy.sh`,
   `tests/nativeweb.web.tests.unit/` — covers: R8, R9, R10, R12, R21 — done when: the script
   selects the idle colour, unpacks the release, runs `db/migrate.sh` and aborts on failure with the
   live colour untouched, starts the idle colour, polls its `/readyz` and abandons the deploy on
@@ -78,7 +78,7 @@ for itself.
   same SHA is a no-op; unit facts cover idle-colour selection, the migration abort, the readiness
   timeout, both config refusals, and the idempotent re-run.
 
-- [ ] **T10 `rollback.sh`** — files: `scripts/deploy/rollback.sh`,
+- [x] **T10 `rollback.sh`** — files: `scripts/deploy/rollback.sh`,
   `tests/nativeweb.web.tests.unit/` — covers: R11 — done when: the script points the upstream
   snippet back at the still-running previous colour and reloads, with no database action; it
   refuses, naming the migration, when the release being rolled back applied one; unit facts cover
@@ -86,7 +86,7 @@ for itself.
 
 ## Data durability
 
-- [ ] **T11 `backup.sh` and its timer** — files: `scripts/deploy/backup.sh`,
+- [x] **T11 `backup.sh` and its timer** — files: `scripts/deploy/backup.sh`,
   `scripts/deploy/systemd/nativeweb-backup.service`, `.timer`, an `OnFailure=` alert unit,
   `tests/nativeweb.web.tests.unit/` — covers: R13, R14, R15 — done when: a nightly
   `pg_dump -Fc` is encrypted with `age` and uploaded to the configured S3-compatible endpoint as
@@ -96,7 +96,7 @@ for itself.
   failure triggers the alert unit; unit facts cover the retention boundary, the dry-run default and
   the unset-heartbeat warning.
 
-- [ ] **T12 `restore.sh`** — files: `scripts/deploy/restore.sh`,
+- [x] **T12 `restore.sh`** — files: `scripts/deploy/restore.sh`,
   `tests/nativeweb.web.tests.unit/` — covers: R16, R17 — done when: the script fetches a named or
   latest backup, decrypts it and restores into an explicitly named target; it refuses to target the
   production database without a second flag named for what it does; unit facts cover the

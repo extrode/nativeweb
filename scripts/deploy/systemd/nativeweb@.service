@@ -1,0 +1,113 @@
+# NativeWeb apps/web — one instance per release colour. Spec 011 T6 (R2, R3, R18).
+#
+# Two instances run at once, "blue" and "green", on two loopback ports. A deploy
+# stages the new release into whichever colour is idle, starts it, waits for its
+# own /readyz, and only then points Caddy at it. The previous colour keeps
+# running until the next deploy claims it, which is what makes rollback a Caddy
+# reload rather than a redeploy.
+#
+#   systemctl enable --now nativeweb@blue
+#   systemctl status nativeweb@green
+#
+# The port is NOT derived from %i here: systemd does no arithmetic and no string
+# mapping, so a colour's port lives in its own environment file. That keeps the
+# mapping in exactly one place instead of being half in this file and half in
+# the deploy script.
+
+[Unit]
+Description=NativeWeb apps/web (%i)
+Documentation=file:///opt/nativeweb/current/README
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+# A database that is not up yet must NOT stop this unit: apps/web starts without
+# a reachable database on purpose and reports it through /readyz, which is a far
+# better signal than a dead process. See Program.cs and the Indeterminate arm of
+# StartupConfigGuards.FirstPartyCheck.
+
+[Service]
+Type=exec
+User=nativeweb
+Group=nativeweb
+WorkingDirectory=/opt/nativeweb/%i
+
+# Shared non-secret settings, then secrets, then this colour's port. Later files
+# win, so a colour file can override anything above it.
+#
+# EnvironmentFile rather than Environment= deliberately: values set with
+# Environment= are readable by any local user through `systemctl show`, and three
+# of the four required keys here are encryption keys. R18.
+EnvironmentFile=/etc/nativeweb/app.env
+EnvironmentFile=/etc/nativeweb/secrets.env
+EnvironmentFile=/etc/nativeweb/%i.env
+
+ExecStart=/opt/nativeweb/%i/nativeweb.web
+
+# Crash restarts, but not forever. Without the start limit a binary that dies on
+# a bad connection string restarts several times a second until someone notices
+# the log, which is the failure mode where systemd hides the failure it is
+# reporting. Five attempts in five minutes, then the unit stays failed and says so.
+Restart=on-failure
+RestartSec=2s
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# A refused start is not a crash. StartupConfigGuards exits 78 (sysexits EX_CONFIG)
+# for a misconfigured deployment, and restarting that is pointless: the config will
+# not have changed by the time it comes back. Listed so the unit stops immediately
+# rather than burning its five attempts on a certainty.
+RestartPreventExitStatus=78
+
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+
+# stdout/stderr to the journal; retention is set in journald.conf by provision.sh (R6).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nativeweb-%i
+
+# --- Hardening (R2) ---------------------------------------------------------
+# The service account owns its data directory and nothing else. Everything below
+# is enforced by the kernel rather than by the application behaving itself.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RemoveIPC=yes
+
+# The only writable path. Data-protection keys live here and must survive a
+# release swap, which is why they are NOT under /opt/nativeweb/%i --
+# NativeWeb:DataProtection:KeyDirectory defaults to the app directory, and a
+# blue/green swap would move it out from under every issued antiforgery token.
+ReadWritePaths=/var/lib/nativeweb
+
+# Binds a loopback port and talks to Postgres over TCP and to SMTP outbound.
+# AF_UNIX stays for the journal socket.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# No capability is needed: the ports are above 1024 and Caddy owns 80/443.
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# W^X. NativeAOT has no JIT, so nothing here maps a page both writable and
+# executable -- but that is a claim, and T14 verifies it against a booting
+# instance rather than shipping it on reasoning alone.
+MemoryDenyWriteExecute=yes
+
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,45 @@
+# NativeWeb reverse proxy. Spec 011 T7 (R4, R6).
+#
+# Caddy terminates TLS and proxies to whichever release colour is live. It gets
+# and renews certificates itself over ACME, so R4's "no operator action" is a
+# property of this file rather than a calendar reminder -- there is no certbot,
+# no cron entry and no renewal step in the runbook.
+#
+# {$NATIVEWEB_HOST} comes from /etc/default/caddy, written by provision.sh. Kept
+# out of this file so the same tracked config serves a staging host and the
+# production one, which is the same reason NativeWeb:CanonicalBaseUrl exists.
+
+{
+	# Where Let's Encrypt sends expiry warnings if renewal ever stops working.
+	# Also set in /etc/default/caddy rather than here.
+	email {$NATIVEWEB_ACME_EMAIL}
+
+	# Access logs are bounded on disk (R6). The application's own logs go to the
+	# journal, whose retention provision.sh sets separately -- two log sources,
+	# two retention settings, neither able to fill the disk.
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10MiB
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format json
+	}
+}
+
+# Plaintext HTTP exists only to be redirected. Caddy does this automatically for
+# any site with a hostname, so it is stated here rather than configured -- and
+# the ACME HTTP-01 challenge path is served from under it without a hole being
+# punched by hand.
+{$NATIVEWEB_HOST} {
+	# HSTS. Note apps/web sets its own Strict-Transport-Security through
+	# SecurityHeadersMiddleware; this is the hop that actually terminates TLS,
+	# so the header it emits is the one a browser sees on a redirect that never
+	# reaches the app.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	# The live colour. One line: `reverse_proxy 127.0.0.1:5011` or :5012.
+	# deploy.sh rewrites it and reloads; rollback.sh rewrites it back. Nothing
+	# else in this file changes between releases.
+	import /etc/caddy/upstream.caddy
+}

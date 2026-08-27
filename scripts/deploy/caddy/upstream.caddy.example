@@ -1,0 +1,21 @@
+# The live release colour, imported by the Caddyfile. Spec 011 T7.
+#
+# This is the ONLY file that changes when a release is promoted or rolled back.
+# deploy.sh writes it and runs `caddy reload`, which is graceful: in-flight
+# requests finish against the old colour and new ones land on the new one, so
+# R10's "served by the previous version throughout" holds with no gap.
+#
+# Installed at /etc/caddy/upstream.caddy. This .example copy is what the repo
+# tracks; the live file is generated, because its whole content is which colour
+# is serving right now and that is host state, not source.
+#
+#   blue  -> 127.0.0.1:5011
+#   green -> 127.0.0.1:5012
+#
+# Caddy sets X-Forwarded-For, X-Forwarded-Proto and X-Forwarded-Host on
+# reverse_proxy by default. apps/web only believes them when
+# NativeWeb:ForwardedHeaders:KnownProxies names this hop -- unset, every client
+# in the world collapses into one rate-limit partition and nothing logs it.
+# deploy.sh refuses to promote when that key is missing, for that reason.
+
+reverse_proxy 127.0.0.1:5011
