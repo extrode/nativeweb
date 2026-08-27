@@ -230,6 +230,31 @@ Four caveats that survive the ticks:
   the path `deploy.sh` is told to ship. Both are fixed (tool preflight ordered after the
   Windows-shell refusal; the EXIT trap widened over the artifact and narrowed again after tar
   returns 0) and both are pinned by tests.
+- **The two-lens review found fifteen real defects in this branch's own work, and
+  they were the reason for running it.** Both lenses independently put the same one
+  first: `deploy.sh` invoked `db/migrate.sh` with no environment, so it inherited the
+  *development* database and role — `nativeweb_dev` and `nativeweb_app`, neither of
+  which `provision.sh` creates. **Every first deploy on a provisioned host would have
+  aborted at the migration step.** Four more of that kind: the nightly backup ran as
+  root with no PostgreSQL role called root, so it would have failed on the first
+  timer run of every host; both preflight guards checked the two keys `provision.sh`
+  seeds *populated* and so could never fire, while the keys it seeds blank went
+  unchecked; `StartLimitIntervalSec` and `StartLimitBurst` sat in `[Service]`, where
+  systemd ignores them, leaving the crash-loop ceiling the comment describes
+  non-existent; and `live_colour` read the first port-shaped string in the upstream
+  file, which was a comment, so it would have called the live colour idle and
+  deployed over the release that was serving. Also fixed: `rm -rf` on the release
+  directory a live colour is running out of, no deploy lock, root executing a
+  predictably-named script out of world-writable `/tmp`, a masked schema-count probe
+  that recorded a migrating release as non-migrating (defeating R11's whole guard), a
+  global SSH rate limit that an attacker can exhaust to lock the operator out,
+  `provision.sh` flushing the host's entire nftables ruleset on a re-run, three
+  guards made unreachable by `pipefail`, `restore.sh` comparing against a hardcoded
+  production name and stripping the grants the app needs, a prune failure reported as
+  a successful backup, and `CanonicalBaseUrl` returning the raw string so
+  `https://user:pass@host` would have been published in the sitemap. Two vacuous test
+  assertions were fixed as well — `IndexOf` returns -1 and `-1 < n` is true, so an
+  ordering check alone passed when the thing it ordered was gone.
 - **R19 needed no work.** `StartupConfigGuards` already exits 78 naming the missing value; this
   spec added `NativeWeb:CanonicalBaseUrl` to the same guard and `RestartPreventExitStatus=78` to
   the unit, so a config error is not restarted into a loop.

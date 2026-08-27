@@ -9,6 +9,14 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **22 cleanup scripts hardcode `C:\home\code\extrode-legacy-org.com\NativeWeb`**, which has not been this
+  repo's path since the extrode move. Every one of them would `git -C` a directory that does not
+  exist. Noticed 2026-08-27 while writing `scripts/cleanup/011-production-deployment.ps1`, which
+  uses the current path; out of that work's scope, and a mechanical sweep rather than a decision.
+- **`apps/web/SecurityTxtEndpoint.cs` hardcodes `security@epass.io`.** Spec 011 retired the
+  `epass.io` hardcodes in `robots.txt` and `sitemap.xml` by rendering them from
+  `NativeWeb:CanonicalBaseUrl`; this one was out of its scope and remains literal. Correct only
+  after the cutover, and wrong on any other host today. Noted 2026-08-27.
 - **The sign-in library's AOT publish gate is in the solution but runs nowhere automatic.** Found
   2026-08-27 while re-measuring the suite. `tests/nativeweb.signin.epass.tests.aot` sets
   `IsTestProject=false` and holds no tests, so `dotnet test` collects nothing from it and exits 0

@@ -28,21 +28,34 @@ TARGET=""
 OBJECT=""
 EXECUTE=0
 OVERWRITE_PRODUCTION=0
-PRODUCTION_DB="${PRODUCTION_DB:-nativeweb}"
+# Set AFTER the config is sourced, below: the guard has to name the database this
+# host actually backs up. Hardcoding `nativeweb` here meant a host whose
+# backup.env said PGDATABASE=nativeweb_prod could be restored over -- with
+# pg_restore --clean -- without ever passing --overwrite-production.
+PRODUCTION_DB=""
 
 die() {
 	echo "restore.sh: $*" >&2
 	exit 1
 }
 
+# `shift 2` with one argument left returns 1, and under `set -e` that exits with
+# no message -- so `restore.sh --target` died silently and the "is required" line
+# below was unreachable for the operator who most needed it.
+need_value() {
+	[[ $# -ge 2 && -n "$2" ]] || die "$1 needs a value"
+}
+
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--target)
-		TARGET="${2:-}"
+		need_value "$@"
+		TARGET="$2"
 		shift 2
 		;;
 	--object)
-		OBJECT="${2:-}"
+		need_value "$@"
+		OBJECT="$2"
 		shift 2
 		;;
 	--execute | -e)
@@ -69,6 +82,15 @@ set -a && . "$CONFIG" && set +a
 : "${BACKUP_S3_BUCKET:?set BACKUP_S3_BUCKET in $CONFIG}"
 : "${BACKUP_S3_ENDPOINT:?set BACKUP_S3_ENDPOINT in $CONFIG}"
 AGE_IDENTITY="${BACKUP_AGE_IDENTITY:-/etc/nativeweb/backup-age.key}"
+# The database this host backs up IS this host's production database. Read from
+# the same file backup.sh reads, so the two cannot disagree about what to protect.
+PRODUCTION_DB="${PRODUCTION_DB:-${PGDATABASE:-nativeweb}}"
+
+# Over the unix socket, as root, through the pg_ident map provision.sh installs.
+# Nothing here needs a password, and nothing here puts one in a config file.
+export PGHOST="${PGHOST:-/var/run/postgresql}"
+APP_ROLE="${APP_ROLE:-nativeweb}"
+SUPERUSER_ROLE="${SUPERUSER_ROLE:-postgres}"
 
 s3() { aws --endpoint-url "$BACKUP_S3_ENDPOINT" "$@"; }
 
@@ -94,8 +116,14 @@ fi
 if [[ -z "$OBJECT" ]]; then
 	# The naming scheme is date-sortable UTC precisely so "latest" is a sort and
 	# not a metadata call: no API differences between providers to depend on.
-	OBJECT="$(s3 s3 ls "$PREFIX/" | awk '{print $4}' | grep -E '\.dump\.age$' | sort | tail -1)"
-	[[ -n "$OBJECT" ]] || die "no backups found under $PREFIX/"
+	# `|| true`: under pipefail an empty listing makes grep exit 1, which exits the
+	# script through `set -e` before the message below -- so the first R16 drill,
+	# run against a prefix with no backups in it yet, used to fail with nothing
+	# printed at all.
+	OBJECT="$(s3 s3 ls "$PREFIX/" | awk '{print $4}' | grep -E '\.dump\.age$' | sort | tail -1 || true)"
+	[[ -n "$OBJECT" ]] || die "no backups found under $PREFIX/.
+       If this host was renamed, the chain before the rename is under the old prefix and this
+       will not find it -- backup.sh derives the prefix from hostname at run time."
 fi
 
 echo "restore.sh: object    $PREFIX/$OBJECT"
@@ -130,8 +158,16 @@ echo "restore.sh: recreating $TARGET"
 # --clean --if-exists over dropping the database: the target may be in use by a
 # drill app, and pg_restore's own object-level clean is more precise than
 # dropdb/createdb, which fails outright on an open connection.
-createdb "$TARGET" 2>/dev/null || true
-pg_restore --dbname="$TARGET" --clean --if-exists --no-owner --no-privileges "$WORK/dump"
+PGUSER="$SUPERUSER_ROLE" createdb -O "$APP_ROLE" "$TARGET" 2>/dev/null || true
+
+# Restored AS the application role, not as the superuser with ownership stripped.
+# `--no-owner --no-privileges` run by an admin account leaves every table owned by
+# that account with all grants dropped -- pg_restore exits 0 and the service then
+# cannot read its own database. Connecting as the app role makes it the owner of
+# what it restores, which is the state the migrations produce in the first place
+# (nothing in db/migrations issues a GRANT; objects belong to whoever created
+# them).
+PGUSER="$APP_ROLE" pg_restore --dbname="$TARGET" --clean --if-exists --no-owner "$WORK/dump"
 
 ELAPSED=$(($(date +%s) - START))
 

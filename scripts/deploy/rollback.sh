@@ -40,7 +40,11 @@ done
 [[ "$(id -u)" -eq 0 ]] || die "must run as root (writes $UPSTREAM_FILE and reloads caddy)"
 [[ -f "$DEPLOY_LOG" ]] || die "no deployment log at $DEPLOY_LOG -- nothing has been promoted on this host"
 
-LAST="$(grep -P '\tpromote\t' "$DEPLOY_LOG" | tail -1)"
+# `|| true` is required, not decorative: under `pipefail` a non-matching grep
+# makes the whole substitution non-zero, `set -e` exits on the assignment, and
+# the friendly message below is unreachable -- an empty-but-present log used to
+# produce a bare exit 1.
+LAST="$(grep -P '\tpromote\t' "$DEPLOY_LOG" | tail -1 || true)"
 [[ -n "$LAST" ]] || die "no promotion recorded -- nothing to roll back to"
 
 CURRENT_COLOUR="$(cut -f3 <<<"$LAST")"
@@ -49,6 +53,26 @@ SCHEMA_CHANGED="$(cut -f5 <<<"$LAST" | cut -d= -f2)"
 PREVIOUS_SHA="$(cut -f6 <<<"$LAST" | cut -d= -f2)"
 PREVIOUS_COLOUR="$([[ "$CURRENT_COLOUR" == blue ]] && echo green || echo blue)"
 PREVIOUS_PORT="$([[ "$PREVIOUS_COLOUR" == blue ]] && echo "$BLUE_PORT" || echo "$GREEN_PORT")"
+
+# What is ACTUALLY serving, from the file Caddy imports -- not from the last
+# promote line. The log's last promotion is not the current state after a
+# rollback (this script appends a `rollback` line the grep above skips) or after
+# any hand edit of the upstream file, and rolling back from a state you have
+# misread is how one bad release becomes two.
+SERVING_PORT="$(grep -E '^\s*reverse_proxy\s' "$UPSTREAM_FILE" 2>/dev/null |
+	grep -oE '127\.0\.0\.1:[0-9]+' | head -1 | cut -d: -f2 || true)"
+case "$SERVING_PORT" in
+"$BLUE_PORT") SERVING_COLOUR=blue ;;
+"$GREEN_PORT") SERVING_COLOUR=green ;;
+*) SERVING_COLOUR="" ;;
+esac
+
+if [[ -n "$SERVING_COLOUR" && "$SERVING_COLOUR" != "$CURRENT_COLOUR" ]]; then
+	die "the deployment log says $CURRENT_COLOUR is live, but $UPSTREAM_FILE points at $SERVING_COLOUR.
+       Something other than deploy.sh changed what is serving -- a previous rollback, or a hand
+       edit. Refusing to guess which is right: reconcile them first, because rolling back from a
+       misread state promotes a release nobody chose."
+fi
 
 # --- The refusal that matters -----------------------------------------------
 #

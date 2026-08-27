@@ -58,7 +58,11 @@ git clone <this repo> && cd nativeweb
 sudo scripts/deploy/provision.sh
 ```
 
-Idempotent — safe to re-run after editing a unit file. It installs packages,
+Idempotent — safe to re-run after editing a unit file. Two things it deliberately
+will **not** do on a re-run: overwrite an `/etc/nftables.conf` it did not write
+(the ruleset opens with `flush ruleset`, which would drop every other table on
+the host — it prints what to merge by hand instead), and restart PostgreSQL when
+`listen_addresses` is already local by any spelling. It installs packages,
 creates the `nativeweb` system account with no interactive shell, lays out the
 directories, confines PostgreSQL to localhost, installs the units, the nftables
 ruleset and the Caddy config, bounds journal retention, and enables the backup
@@ -75,6 +79,11 @@ Then, in order:
 2. **Fill in the blanks in `/etc/nativeweb/app.env`.** Checklist below.
 3. **Set `NATIVEWEB_HOST` and `NATIVEWEB_ACME_EMAIL`** in `/etc/default/caddy`,
    then `systemctl restart caddy`.
+   `deploy.sh` refuses to promote while any of them is blank. An `EnvironmentFile`
+   line with nothing after the `=` sets the variable to the **empty string**, not
+   to absent, so the code's `?? "localhost"` fallbacks do not fire — WebAuthn
+   would come up with an empty relying-party domain, `/readyz` would still say
+   ready, and every credential would fail at verification.
 4. **Generate the backup key.**
    ```sh
    sudo age-keygen -o /etc/nativeweb/backup-age.key
@@ -89,6 +98,13 @@ Then, in order:
 
    Put the public half in `BACKUP_AGE_RECIPIENT` in `/etc/nativeweb/backup.env`,
    along with the bucket, endpoint and access keys.
+   `provision.sh` also adds a `pg_ident` map so that root — and only root, plus
+   each account for its own role — can reach the `nativeweb` database over the
+   unix socket as either `nativeweb` or `postgres`. That is how `deploy.sh`,
+   `backup.sh` and `restore.sh` authenticate with **no password in any file**.
+   Migrations need both: they create objects (and whoever creates them owns them
+   — nothing in `db/migrations` issues a `GRANT`), and migration `0002` needs a
+   superuser for the citext extension.
 5. **Apply migrations** — the first deploy does this, but a fresh database needs
    the citext extension created by a superuser (migration `0002`). See
    `db/migrate.sh`.
@@ -102,7 +118,7 @@ deployment. `deploy.sh` enforces the first two; the rest are on you.
 |---|---|
 | `NativeWeb__ForwardedHeaders__KnownProxies` | **Enforced by `deploy.sh`.** Unset behind Caddy means `RemoteIpAddress` is the proxy and every client in the world shares one rate-limit partition — across sign-in, register and OAuth. Nothing errors and nothing logs it |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` **or** `NativeWeb__Telemetry__Enabled=false` | **Enforced by `deploy.sh`.** Telemetry is opt-out; unset means an exporter retrying forever against a collector that is not there |
-| `ConnectionStrings__NativeWeb` | A missing one is not fatal: the app serves and `/readyz` reports not-ready |
+| `ConnectionStrings__NativeWeb` | A missing one is not fatal: the app serves and `/readyz` reports not-ready. **Enforced by `deploy.sh`** along with every other key `provision.sh` seeds blank |
 | `NativeWeb__ContactKey`, `StoreEncryptionKey`, `PairwiseSalt` | Absent, each degrades security silently. Startup refuses outside Development |
 | `NativeWeb__Smtp__Host`, `FromAddress` | Startup refuses without the host; the dev senders write login links to the log |
 | `NativeWeb__DataProtection__KeyDirectory` | Must be `/var/lib/nativeweb/keys`. The default is under the app directory, which a blue/green swap moves |

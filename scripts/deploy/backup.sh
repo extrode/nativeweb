@@ -61,6 +61,14 @@ set -a && . "$CONFIG" && set +a
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
 PGDATABASE="${PGDATABASE:-nativeweb}"
 
+# The unit runs as root, and no PostgreSQL role called root exists. Left to the
+# defaults, pg_dump used the local socket and peer-authenticated as `root`, so
+# the nightly backup failed on the first run of every host ever provisioned --
+# the timer would have gone red from day one. Named here, over the socket,
+# through the pg_ident map provision.sh installs for exactly this.
+export PGHOST="${PGHOST:-/var/run/postgresql}"
+export PGUSER="${PGUSER:-nativeweb}"
+
 # Short host name without `hostname -s`: that flag is GNU-only and the unit tier
 # drives this script under git-bash, where it is a hard error rather than a
 # fallback. Same result, no dependency on which hostname(1) is installed.
@@ -132,11 +140,24 @@ s3 s3 cp "$WORK/dump.age" "$OBJECT"
 # --- Prune -------------------------------------------------------------------
 CUTOFF="$(date -u -d "$RETENTION_DAYS days ago" +%Y-%m-%d)"
 echo "backup.sh: pruning objects older than $CUTOFF"
+
+# Listed into a variable first, NOT straight into `done < <(...)`. A process
+# substitution's exit status is invisible to both `set -e` and `pipefail`, so a
+# failed listing -- expired credentials, wrong endpoint, network -- produced an
+# empty loop, a success heartbeat and "done.", while retention quietly stopped
+# being enforced. That is the same silence-reads-as-success failure R15 exists to
+# close, one layer down.
+if ! LISTING="$(s3 s3 ls "$BACKUP_S3_BUCKET/$HOST_LABEL/")"; then
+	die "the backup uploaded, but listing $BACKUP_S3_BUCKET/$HOST_LABEL/ for pruning failed.
+       Not treating that as success: retention is not being enforced, and a prune that fails
+       silently every night grows the bucket without bound. The dump itself is safe."
+fi
+
 while read -r key; do
 	[[ -z "$key" ]] && continue
 	echo "backup.sh: deleting $key"
 	s3 s3 rm "$BACKUP_S3_BUCKET/$HOST_LABEL/$key"
-done < <(s3 s3 ls "$BACKUP_S3_BUCKET/$HOST_LABEL/" | awk -v cutoff="$CUTOFF" '$1 < cutoff { print $4 }')
+done < <(awk -v cutoff="$CUTOFF" '$1 < cutoff { print $4 }' <<<"$LISTING")
 
 heartbeat
 echo "backup.sh: done."

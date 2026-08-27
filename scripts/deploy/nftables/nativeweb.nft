@@ -8,7 +8,11 @@
 # address fail in different ways and R5 is about the database not being exposed
 # rather than about any one mechanism working.
 #
-# Installed at /etc/nftables.conf and loaded by nftables.service.
+# Installed at /etc/nftables.conf and loaded by nftables.service. provision.sh
+# will not overwrite an /etc/nftables.conf that does not carry the marker below,
+# because the `flush ruleset` on the next line drops every table on the host.
+#
+# NativeWeb spec 011 ruleset
 
 flush ruleset
 
@@ -29,7 +33,15 @@ table inet filter {
 
 		# SSH. Rate limited rather than opened flat: this is the one port whose
 		# exposure is an operator convenience rather than a service requirement.
-		tcp dport 22 ct state new limit rate 10/minute burst 5 packets accept
+		#
+		# Keyed PER SOURCE ADDRESS with a meter. A single global `limit rate` was
+		# a lockout waiting to happen: one SYN stream to port 22 empties the
+		# shared budget and every subsequent connection falls through to `policy
+		# drop`, denying the only administrative access to a host with no console
+		# failover -- during precisely the incident when rollback.sh needs
+		# running. Per-source, that attack costs the attacker their own quota.
+		tcp dport 22 ct state new meter ssh4 { ip saddr limit rate 10/minute burst 5 packets } accept
+		tcp dport 22 ct state new meter ssh6 { ip6 saddr limit rate 10/minute burst 5 packets } accept
 
 		# The public surface. 80 exists to redirect and to answer the ACME
 		# HTTP-01 challenge; closing it would break certificate renewal.

@@ -172,7 +172,12 @@ BACKUP_RETENTION_DAYS=30
 BACKUP_HEARTBEAT_URL=
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
-PGDATABASE=nativeweb'
+
+# The unit runs as root, and there is no PostgreSQL role called root. Over the
+# socket as the app role, through the pg_ident map above -- no password anywhere.
+PGDATABASE=nativeweb
+PGHOST=/var/run/postgresql
+PGUSER=nativeweb'
 
 # The mode assertion R18 asks for, run every time rather than only at creation.
 actual_mode="$(stat -c '%a %U:%G' "$CONFIG_ROOT/secrets.env")"
@@ -182,10 +187,22 @@ actual_mode="$(stat -c '%a %U:%G' "$CONFIG_ROOT/secrets.env")"
 # --- PostgreSQL (R5) ---------------------------------------------------------
 step "confining PostgreSQL to localhost"
 PG_CONF="$(sudo -u postgres psql -tAc 'SHOW config_file')"
-if ! grep -qE "^listen_addresses\s*=\s*'localhost'" "$PG_CONF"; then
+# Ask PostgreSQL what it is bound to rather than pattern-matching the file. The
+# grep-then-restart form matched only one spelling, so `listen_addresses =
+# 'localhost' # set by us` or `"localhost"` or an equivalent `'127.0.0.1'` all
+# looked wrong on every re-run -- and this script restarts PostgreSQL, which on
+# a live host drops every connection both colours are holding, mid-request.
+CURRENT_LISTEN="$(sudo -u postgres psql -tAc 'SHOW listen_addresses')"
+case "$CURRENT_LISTEN" in
+localhost | 127.0.0.1 | '127.0.0.1,::1' | '::1,127.0.0.1' | 'localhost,::1')
+	step "PostgreSQL already listens on '$CURRENT_LISTEN' only -- not restarting it"
+	;;
+*)
 	sed -i "s/^#\?listen_addresses.*/listen_addresses = 'localhost'/" "$PG_CONF"
+	step "PostgreSQL was listening on '$CURRENT_LISTEN'; restarting it bound to localhost"
 	systemctl restart postgresql
-fi
+	;;
+esac
 # Belt and braces with the firewall: a bind address and a packet filter fail in
 # different ways, and R5 is about the database being unreachable rather than
 # about either mechanism working.
@@ -200,6 +217,50 @@ if ! sudo -u postgres psql -tAc "select 1 from pg_database where datname='native
 fi
 # 0002 creates the citext extension and the app role cannot; db/migrate.sh
 # expects a superuser role for that one file only.
+
+# --- How the deploy authenticates to PostgreSQL ------------------------------
+#
+# deploy.sh, backup.sh and restore.sh all run as root and all need to be BOTH
+# the app role (migrations create objects, and whoever creates them owns them --
+# nothing in db/migrations issues a GRANT) and the superuser (migration 0002
+# creates the citext extension). Over TCP that would mean a password in a file
+# for each role. Over the socket with an identity map it means neither: root
+# already owns this host, so mapping it to those two roles for this one database
+# grants it nothing it could not take anyway.
+#
+# The service account itself is mapped only to its own role, and nothing maps
+# any other account to postgres.
+PG_IDENT="$(dirname "$PG_CONF")/pg_ident.conf"
+PG_HBA="$(dirname "$PG_CONF")/pg_hba.conf"
+MARKER='# nativeweb (spec 011)'
+
+if ! grep -qF "$MARKER" "$PG_IDENT"; then
+	step "mapping root and $SERVICE_USER for local migration and backup access"
+	cat >>"$PG_IDENT" <<EOF
+
+$MARKER -- see scripts/deploy/provision.sh
+nativeweb       root                    $SERVICE_USER
+nativeweb       root                    postgres
+nativeweb       $SERVICE_USER           $SERVICE_USER
+nativeweb       postgres                postgres
+EOF
+fi
+
+if ! grep -qF "$MARKER" "$PG_HBA"; then
+	# Prepended, because pg_hba is first-match-wins and Debian's default
+	# `local all all peer` would otherwise answer first and refuse root.
+	step "allowing local mapped access to the nativeweb database"
+	tmp_hba="$(mktemp)"
+	cat >"$tmp_hba" <<EOF
+$MARKER -- see scripts/deploy/provision.sh
+local   nativeweb       $SERVICE_USER,postgres          peer map=nativeweb
+
+EOF
+	cat "$PG_HBA" >>"$tmp_hba"
+	install -o postgres -g postgres -m 0640 "$tmp_hba" "$PG_HBA"
+	rm -f "$tmp_hba"
+	systemctl reload postgresql
+fi
 
 # --- systemd units -----------------------------------------------------------
 step "installing systemd units"
@@ -235,9 +296,22 @@ fi
 
 # --- Firewall (R5) -----------------------------------------------------------
 step "installing the nftables ruleset"
-install -o root -g root -m 0644 "$REPO_ROOT/scripts/deploy/nftables/nativeweb.nft" /etc/nftables.conf
-systemctl enable --now nftables
-nft -f /etc/nftables.conf
+# NOT unconditional. nativeweb.nft opens with `flush ruleset`, which drops every
+# table in every family -- so overwriting /etc/nftables.conf on a re-run silently
+# destroys anything added since provisioning: another table, a fail2ban chain, a
+# hand-added allow. The header claims running this twice changes nothing, and
+# this was the line that made that false.
+NFT_MARKER='# NativeWeb spec 011 ruleset'
+if [[ ! -f /etc/nftables.conf ]] || grep -qF "$NFT_MARKER" /etc/nftables.conf; then
+	install -o root -g root -m 0644 "$REPO_ROOT/scripts/deploy/nftables/nativeweb.nft" /etc/nftables.conf
+	systemctl enable --now nftables
+	nft -f /etc/nftables.conf
+else
+	step "SKIPPED: /etc/nftables.conf exists and is not ours -- not overwriting it"
+	echo "       This ruleset starts with 'flush ruleset', so installing it would drop every"
+	echo "       table on this host. Merge scripts/deploy/nftables/nativeweb.nft by hand, or"
+	echo "       move the existing file aside and re-run. R5 is NOT met until you do."
+fi
 
 # --- Log retention (R6) ------------------------------------------------------
 step "bounding journal retention at $JOURNAL_MAX_USE / $JOURNAL_MAX_AGE"
