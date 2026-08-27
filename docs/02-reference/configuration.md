@@ -38,6 +38,18 @@ healthy while being materially less safe than it appears.
 In Development all four are optional, so a fresh checkout runs before any secrets exist. The
 affected endpoints return 503 instead.
 
+## Site identity
+
+| Key | Default | Notes |
+|---|---|---|
+| `NativeWeb:CanonicalBaseUrl` | unset (**the request's own scheme and host**) | This deployment's public origin, emitted by `/robots.txt` and `/sitemap.xml`. Must be an absolute `http`/`https` origin with **no path, query or fragment** — one trailing slash is trimmed, several are rejected. A supplied-but-unusable value exits `78` at startup naming the key; blank is valid and selects the fallback |
+
+The fallback reads scheme and host after `UseForwardedHeaders`, so behind a correctly configured
+proxy it is already the public origin. It is still only as trustworthy as the `Host` header, and a
+`Sitemap:` line pointing at a different origin than the one a crawler fetched is **discarded
+silently** — no error, no log line, nothing observable from the serving side. Production sets the
+key rather than relying on the fallback.
+
 ## Database
 
 `ConnectionStrings:NativeWeb` is the connection string. **A missing one is not fatal**, even

@@ -6,7 +6,18 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing in flight.** Spec 010 — documentation and tutorials — merged into `dev` on 2026-08-25
+- **Spec 011 — production deployment of `apps/web`.** In flight on
+  `feat/011-production-deployment` since 2026-08-27. Builds the deploy half Slice 10 never
+  started: provisioning, TLS, blue/green release with systemd + Caddy, encrypted offsite backups,
+  and the `epass.io` hostname hardcodes. **Deliberately does not touch the cutover scope
+  decision** — `docs/architecture/002-epass-cutover-capability-gap.md` stays open, and everything
+  here is true under either answer. Spec, plan and tasks in
+  `docs/specs/011-production-deployment/`.
+  - **T15 cannot be completed from a session.** The provisioning walkthrough, the restore drill
+    and the disaster-recovery run are executed by a person on a real host, and 011 does not reach
+    `done` until their measured times are in the runbook.
+
+- Spec 010 — documentation and tutorials — merged into `dev` on 2026-08-25
   and rolled to `previous.md`; all ten of its tasks are ticked and `010-spec.md` is `done`. Every
   numbered spec in `docs/specs/` is now `done` except 008, which stays `draft` for the reason
   below.

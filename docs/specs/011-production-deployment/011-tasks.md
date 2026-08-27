@@ -9,14 +9,14 @@ for itself.
 
 ## Application change (R20)
 
-- [ ] **T1 `NativeWeb:CanonicalBaseUrl` option and validation** — files: `apps/web/Program.cs`,
+- [x] **T1 `NativeWeb:CanonicalBaseUrl` option and validation** — files: `apps/web/Program.cs`,
   new `apps/web/CanonicalBaseUrl.cs`, `tests/nativeweb.web.tests.unit/` — covers: R20 —
   done when: an absolute `http`/`https` value binds; a malformed value fails startup naming the
   key, in the same posture as the other validated keys; unset falls back to the request's own
   scheme and host so a dev checkout is unaffected; unit facts cover all three and the malformed
   case fails when the validation is removed.
 
-- [ ] **T2 Serve `robots.txt` and `sitemap.xml` from the configured base URL** — files:
+- [x] **T2 Serve `robots.txt` and `sitemap.xml` from the configured base URL** — files:
   `apps/web/Program.cs` (or a new endpoints file beside the existing ones), delete
   `apps/web/wwwroot/robots.txt` and `apps/web/wwwroot/sitemap.xml`,
   `tests/nativeweb.web.tests.unit/` — covers: R20 — done when: both paths emit their current
@@ -30,7 +30,7 @@ for itself.
   configuration and the cache headers hold; a Playwright fact fetches both from a running app
   configured with a non-epass.io base URL and asserts no `epass.io` literal survives.
 
-- [ ] **T4 Document the key** — files: `docs/02-reference/configuration.md` — covers: R20 —
+- [x] **T4 Document the key** — files: `docs/02-reference/configuration.md` — covers: R20 —
   done when: `NativeWeb:CanonicalBaseUrl` appears with its default and validation posture, and the
   file's stated invariant — every `NativeWeb:` key the source reads, and no key it does not — still
   holds.
