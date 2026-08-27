@@ -104,7 +104,7 @@ for itself.
 
 ## What a machine cannot assert
 
-- [ ] **T13 `docs/02-reference/deployment.md` — the runbook** — files:
+- [x] **T13 `docs/02-reference/deployment.md` — the runbook** — files:
   `docs/02-reference/deployment.md`, `docs/README.md` — covers: R1, R7, R14, R17, R21 — done when:
   one document carries the provisioning walkthrough, the required-configuration checklist from the
   plan, the deploy and rollback commands, the backup and restore procedures, and the

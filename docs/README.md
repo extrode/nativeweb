@@ -39,6 +39,8 @@ is a worked example you read rather than code you maintain.
 - [`02-reference/configuration.md`](02-reference/configuration.md) — every setting `apps/web` reads, its default, and what
   a wrong or absent value costs.
 - [`02-reference/security-baseline.md`](02-reference/security-baseline.md) — the ASVS-derived checklist the IdP is held to.
+- [`02-reference/deployment.md`](02-reference/deployment.md) — how it gets to a host and back off one. Read
+  before touching production; two of its procedures have never been run.
 - [`architecture/002-epass-cutover-capability-gap.md`](architecture/002-epass-cutover-capability-gap.md)
   — what `apps/web` does not yet do that the live epass.io does.
 
@@ -54,6 +56,7 @@ Answers to specific questions. Not written to be read in order.
 | [`02-reference/template-diagnostics.md`](02-reference/template-diagnostics.md) | `NWT001`–`NWT016`: what each template build error means and how to fix it. |
 | [`02-reference/security-baseline.md`](02-reference/security-baseline.md) | The security checklist and what has been verified against it. |
 | [`02-reference/migration-lock-review.md`](02-reference/migration-lock-review.md) | How long `db/migrate.sh` holds its locks. Read before pointing it at a live database. |
+| [`02-reference/deployment.md`](02-reference/deployment.md) | The production runbook: provisioning, blue/green release, rollback, backups, restore, disaster recovery. Carries its own list of what has never been executed. |
 | [`handovers/admin-cms-handoff.md`](handovers/admin-cms-handoff.md) | The admin panel and CMS module design. |
 
 ### Library READMEs
