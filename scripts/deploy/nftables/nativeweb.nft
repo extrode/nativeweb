@@ -1,0 +1,61 @@
+#!/usr/sbin/nft -f
+#
+# NativeWeb host firewall. Spec 011 T7 (R5).
+#
+# Inbound: SSH, HTTP, HTTPS. Nothing else. PostgreSQL is not on this list and
+# also binds to localhost only (provision.sh sets listen_addresses) -- two
+# independent reasons it is unreachable, because a firewall rule and a bind
+# address fail in different ways and R5 is about the database not being exposed
+# rather than about any one mechanism working.
+#
+# Installed at /etc/nftables.conf and loaded by nftables.service. provision.sh
+# will not overwrite an /etc/nftables.conf that does not carry the marker below,
+# because the `flush ruleset` on the next line drops every table on the host.
+#
+# NativeWeb spec 011 ruleset
+
+flush ruleset
+
+table inet filter {
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		# Established traffic and loopback first, or the box locks itself out of
+		# its own outbound replies.
+		ct state established,related accept
+		ct state invalid drop
+		iif lo accept
+
+		# ICMP: needed for path MTU discovery. Dropping it entirely is a classic
+		# way to make large responses hang rather than fail.
+		ip protocol icmp icmp type { echo-request, destination-unreachable, time-exceeded, parameter-problem } accept
+		ip6 nexthdr icmpv6 icmpv6 type { echo-request, destination-unreachable, packet-too-big, time-exceeded, parameter-problem, nd-neighbor-solicit, nd-neighbor-advert, nd-router-advert } accept
+
+		# SSH. Rate limited rather than opened flat: this is the one port whose
+		# exposure is an operator convenience rather than a service requirement.
+		#
+		# Keyed PER SOURCE ADDRESS with a meter. A single global `limit rate` was
+		# a lockout waiting to happen: one SYN stream to port 22 empties the
+		# shared budget and every subsequent connection falls through to `policy
+		# drop`, denying the only administrative access to a host with no console
+		# failover -- during precisely the incident when rollback.sh needs
+		# running. Per-source, that attack costs the attacker their own quota.
+		tcp dport 22 ct state new meter ssh4 { ip saddr limit rate 10/minute burst 5 packets } accept
+		tcp dport 22 ct state new meter ssh6 { ip6 saddr limit rate 10/minute burst 5 packets } accept
+
+		# The public surface. 80 exists to redirect and to answer the ACME
+		# HTTP-01 challenge; closing it would break certificate renewal.
+		tcp dport { 80, 443 } accept
+
+		# Everything else, including 5432 and the two release-colour ports on
+		# 5011/5012, falls through to the drop policy above.
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+	}
+
+	chain output {
+		type filter hook output priority filter; policy accept;
+	}
+}

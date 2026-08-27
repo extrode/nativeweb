@@ -1,0 +1,17 @@
+# Fires when nativeweb-backup.service fails. Spec 011 T11 (R15).
+#
+# Deliberately dumb: it pings the same heartbeat URL with a /fail suffix, which
+# is the convention every dead-man's-switch service uses, and writes the failure
+# to the journal with the backup's own last lines attached. No mail, no SMTP --
+# the mail path shares credentials and a failure mode with the application, and
+# an alert that dies with the thing it is alerting about is not an alert.
+[Unit]
+Description=Report a failed NativeWeb backup
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/etc/nativeweb/backup.env
+ExecStart=/bin/sh -c 'journalctl -u nativeweb-backup.service -n 40 --no-pager | systemd-cat -t nativeweb-backup-failed -p err; \
+  if [ -n "$BACKUP_HEARTBEAT_URL" ]; then curl -fsS --max-time 10 "$BACKUP_HEARTBEAT_URL/fail" >/dev/null || true; \
+  else echo "nativeweb-backup-failed: BACKUP_HEARTBEAT_URL unset, this failure is journal-only" | systemd-cat -t nativeweb-backup-failed -p err; fi'

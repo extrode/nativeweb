@@ -1,0 +1,409 @@
+#!/usr/bin/env bash
+#
+# Promotes a built artifact to production. Spec 011 T9 (R8, R9, R10, R12, R21).
+#
+#   scripts/deploy/deploy.sh --artifact dist/nativeweb-abc1234.tar.zst --host id.example.test
+#
+# Blue/green. The live colour keeps serving through every step below; the new
+# release is staged into the idle colour, migrated, started and proved ready
+# before Caddy is pointed at it. Any failure before the last step leaves
+# production exactly as it was, which is R10 -- not "briefly down", not "down
+# only if the binary is broken", but untouched.
+#
+# Two modes:
+#   --host <name>   run from a workstation: copies the artifact and this script
+#                   to <name> and re-executes there under sudo. The normal way.
+#   --local         already on the host. What --host invokes remotely.
+#
+# Re-running with an artifact that is already live is a no-op and exits 0 (R8).
+#
+# Env (host side):
+#   READY_TIMEOUT   seconds to wait for /readyz, default 60
+#   RELEASES_KEEP   release directories to leave on disk, default 5
+
+set -euo pipefail
+
+BLUE_PORT=5011
+GREEN_PORT=5012
+RELEASES_DIR=/opt/nativeweb/releases
+UPSTREAM_FILE=/etc/caddy/upstream.caddy
+DEPLOY_LOG=/var/lib/nativeweb/deployments.log
+READY_TIMEOUT="${READY_TIMEOUT:-60}"
+RELEASES_KEEP="${RELEASES_KEEP:-5}"
+
+ARTIFACT=""
+HOST=""
+LOCAL=0
+
+die() {
+	echo "deploy.sh: $*" >&2
+	exit 1
+}
+
+# `shift 2` with one argument left returns 1, which under `set -e` exits with no
+# message at all -- so `deploy.sh --artifact` used to die silently and the
+# friendly "--artifact is required" below was unreachable. Take the operand only
+# when there is one.
+need_value() {
+	[[ $# -ge 2 && -n "$2" ]] || die "$1 needs a value"
+}
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--artifact)
+		need_value "$@"
+		ARTIFACT="$2"
+		shift 2
+		;;
+	--host)
+		need_value "$@"
+		HOST="$2"
+		shift 2
+		;;
+	--local)
+		LOCAL=1
+		shift
+		;;
+	-h | --help)
+		sed -n '2,24p' "${BASH_SOURCE[0]}"
+		exit 0
+		;;
+	*) die "unknown argument '$1'" ;;
+	esac
+done
+
+[[ -n "$ARTIFACT" ]] || die "--artifact is required"
+
+# ---------------------------------------------------------------------------
+# Workstation half: ship and re-execute.
+# ---------------------------------------------------------------------------
+if [[ "$LOCAL" -ne 1 ]]; then
+	[[ -n "$HOST" ]] || die "pass --host <name> to deploy remotely, or --local if already on the host"
+	[[ -f "$ARTIFACT" ]] || die "artifact not found: $ARTIFACT"
+
+	# A private staging directory, not /tmp directly. Root fetches and executes
+	# this script on the far side, and a predictable path in a world-writable
+	# directory is an arbitrary-root-execution window for any local user who wins
+	# the race between the scp and the sudo -- or who pre-creates the name as a
+	# symlink and redirects the write. mktemp -d is 0700 and unguessable.
+	remote_dir="$(ssh "$HOST" 'mktemp -d /tmp/nativeweb-deploy.XXXXXXXX')"
+	[[ -n "$remote_dir" ]] || die "could not create a staging directory on $HOST"
+	remote_artifact="$remote_dir/$(basename "$ARTIFACT")"
+
+	echo "deploy.sh: copying $(basename "$ARTIFACT") to $HOST:$remote_dir"
+	scp -q "$ARTIFACT" "$HOST:$remote_artifact"
+	scp -q "${BASH_SOURCE[0]}" "$HOST:$remote_dir/deploy.sh"
+
+	# The script ships with the artifact rather than living on the host, so the
+	# deploy procedure and the release it deploys are always the same version.
+	# A host-resident copy drifts from the repo silently.
+	#
+	# Quoted on the remote side as well: an artifact path containing a space used
+	# to split into two arguments there, and the staging directory is generated
+	# rather than chosen. The directory is removed afterwards -- each deploy used
+	# to leave a full artifact in /tmp for ever.
+	exec ssh -t "$HOST" \
+		"sudo READY_TIMEOUT=$(printf %q "$READY_TIMEOUT") RELEASES_KEEP=$(printf %q "$RELEASES_KEEP") \
+		 bash $(printf %q "$remote_dir/deploy.sh") --local --artifact $(printf %q "$remote_artifact"); \
+		 status=\$?; rm -rf $(printf %q "$remote_dir"); exit \$status"
+fi
+
+# ---------------------------------------------------------------------------
+# Host half.
+# ---------------------------------------------------------------------------
+[[ "$(id -u)" -eq 0 ]] || die "the host half must run as root (it writes /opt, /etc and restarts units)"
+[[ -f "$ARTIFACT" ]] || die "artifact not found: $ARTIFACT"
+
+# --- Preflight: the two settings whose absence is silent ---------------------
+#
+# Both of these produce a deployment that looks healthy and is not. Checked here
+# rather than documented, because a documented check is one an operator can skip
+# and this one has no symptom to notice later. R21, and the KnownProxies risk row
+# in 011-plan.md.
+preflight_config() {
+	local combined
+	combined="$(cat /etc/nativeweb/app.env /etc/nativeweb/secrets.env 2>/dev/null || true)"
+
+	# The keys provision.sh seeds EMPTY, which is the case these two guards used
+	# to miss entirely: they checked the two keys provision.sh seeds populated, so
+	# they were pre-satisfied on every provisioned host and could never fire, while
+	# the blank ones sailed through. An EnvironmentFile line with nothing after the
+	# `=` sets the variable to the empty string rather than leaving it unset, so
+	# `?? "localhost"` in Program.cs does NOT rescue it -- WebAuthn ends up with an
+	# empty relying-party domain and every credential fails at verification time,
+	# with /readyz still saying ready.
+	local key
+	for key in NativeWeb__CanonicalBaseUrl \
+		NativeWeb__WebAuthn__ServerDomain \
+		NativeWeb__WebAuthn__Origins \
+		NativeWeb__DeviceGrant__VerificationUri \
+		ConnectionStrings__NativeWeb \
+		NativeWeb__ContactKey \
+		NativeWeb__StoreEncryptionKey \
+		NativeWeb__PairwiseSalt \
+		NativeWeb__Smtp__Host \
+		NativeWeb__Smtp__FromAddress; do
+		if ! grep -qE "^\s*${key}\s*=\s*\S" <<<"$combined"; then
+			die "$key is empty or absent in /etc/nativeweb/.
+       provision.sh seeds it blank on purpose so that a host cannot inherit a development
+       default, and an empty EnvironmentFile value is an empty string, not an absent one --
+       so the code's fallback does not fire and the failure is silent. Fill it in and
+       deploy again."
+		fi
+	done
+
+	if ! grep -qE '^\s*NativeWeb__ForwardedHeaders__KnownProxies\s*=\s*\S' <<<"$combined"; then
+		die "NativeWeb__ForwardedHeaders__KnownProxies is not set in /etc/nativeweb/.
+       Behind Caddy, unset means ASP.NET Core trusts loopback only, RemoteIpAddress is the
+       proxy hop, and every client in the world shares one rate-limit partition -- across
+       sign-in, register and the OAuth endpoints. Nothing errors and nothing logs it.
+       Set it to the proxy's address (127.0.0.1, ::1) and deploy again."
+	fi
+
+	if ! grep -qE '^\s*OTEL_EXPORTER_OTLP_ENDPOINT\s*=\s*\S' <<<"$combined" &&
+		! grep -qiE '^\s*NativeWeb__Telemetry__Enabled\s*=\s*false\s*$' <<<"$combined"; then
+		die "Telemetry has no destination and is not disabled.
+       Telemetry is opt-OUT as of 2026-08-17: unset means ON, so this host would stand up an
+       OTLP exporter and retry forever against a collector that does not exist.
+       Set OTEL_EXPORTER_OTLP_ENDPOINT, or set NativeWeb__Telemetry__Enabled=false.
+       Leaving it to the default is the one thing R21 does not allow."
+	fi
+}
+
+# --- Which colour is live ----------------------------------------------------
+live_colour() {
+	local port
+	# The reverse_proxy DIRECTIVE, not the first port-shaped string in the file.
+	# upstream.caddy.example documents both colours in its comment header, and
+	# provision.sh installs that file verbatim, so the old `grep -oE '127...'`
+	# read line 12's comment instead of the directive. It happened to agree on a
+	# fresh host and would have disagreed the moment the live colour was green:
+	# deploy.sh would have called green idle and deployed over the release that
+	# was serving.
+	port="$(grep -E '^\s*reverse_proxy\s' "$UPSTREAM_FILE" 2>/dev/null |
+		grep -oE '127\.0\.0\.1:[0-9]+' | head -1 | cut -d: -f2 || true)"
+	case "$port" in
+	"$BLUE_PORT") echo blue ;;
+	"$GREEN_PORT") echo green ;;
+	# No upstream file yet: first deploy onto a freshly provisioned host. Treat
+	# green as notionally live so the first release lands on blue, which makes
+	# a fresh host and a long-running one read the same way in the log.
+	*) echo green ;;
+	esac
+}
+
+port_for() {
+	case "$1" in
+	blue) echo "$BLUE_PORT" ;;
+	green) echo "$GREEN_PORT" ;;
+	*) die "unknown colour '$1'" ;;
+	esac
+}
+
+other_colour() {
+	[[ "$1" == blue ]] && echo green || echo blue
+}
+
+release_sha_of() {
+	# The colour's currently deployed commit, or empty if it has never served.
+	sed -n 's/^short_sha=//p' "/opt/nativeweb/$1/RELEASE" 2>/dev/null || true
+}
+
+# --- One deploy at a time ----------------------------------------------------
+#
+# Two concurrent runs both read the same live colour, both stage into the same
+# idle one, both restart it and both rewrite the upstream file -- and the log
+# that rollback.sh trusts ends up in an order that matches neither. db/migrate.sh
+# takes an advisory lock, but that serialises the SQL only; it does nothing about
+# two releases being unpacked into one directory. Non-blocking on purpose: a
+# second deploy should say so and stop, not queue behind the first and then run
+# against a host that has changed underneath it.
+exec 9>/var/lib/nativeweb/deploy.lock
+flock -n 9 || die "another deploy is already running on this host (/var/lib/nativeweb/deploy.lock).
+       Wait for it to finish; do not force it. Two deploys at once stage into the same colour."
+
+preflight_config
+
+LIVE="$(live_colour)"
+IDLE="$(other_colour "$LIVE")"
+IDLE_PORT="$(port_for "$IDLE")"
+
+# --- Read the artifact's stamp before unpacking anything ---------------------
+STAGE="$(mktemp -d)"
+cleanup() { rm -rf "$STAGE"; }
+trap cleanup EXIT
+
+tar --zstd -xf "$ARTIFACT" -C "$STAGE"
+[[ -f "$STAGE/RELEASE" ]] || die "artifact has no RELEASE file -- was it built by scripts/deploy/build.sh?"
+NEW_SHA="$(sed -n 's/^short_sha=//p' "$STAGE/RELEASE")"
+[[ -n "$NEW_SHA" ]] || die "artifact RELEASE file has no short_sha"
+
+# --- Idempotence (R8) --------------------------------------------------------
+if [[ "$(release_sha_of "$LIVE")" == "$NEW_SHA" ]]; then
+	echo "deploy.sh: $NEW_SHA is already live on $LIVE. Nothing to do."
+	exit 0
+fi
+
+echo "deploy.sh: live=$LIVE  idle=$IDLE  deploying $NEW_SHA to $IDLE (port $IDLE_PORT)"
+
+# --- Stage -------------------------------------------------------------------
+RELEASE_DIR="$RELEASES_DIR/$NEW_SHA"
+
+# Release directories are keyed by SHA, colours are not -- so redeploying an
+# older SHA that is still LIVE on the other colour used to `rm -rf` the tree that
+# colour is serving from, taking its WorkingDirectory and its rollback target
+# with it. The idempotence check above only compares the live colour's SHA
+# against the artifact, which is a different question.
+if [[ "$(readlink -f "/opt/nativeweb/$LIVE" 2>/dev/null || true)" == "$(readlink -f "$RELEASE_DIR" 2>/dev/null || true)" ]] &&
+	[[ -d "$RELEASE_DIR" ]]; then
+	die "$NEW_SHA is the release $LIVE is serving from right now.
+       Staging it into $IDLE would delete and recreate the directory the live process is
+       running out of. If you meant to roll back to it, use rollback.sh; if you meant to
+       redeploy it, promote something else first."
+fi
+
+rm -rf "$RELEASE_DIR"
+mkdir -p "$RELEASE_DIR"
+cp -a "$STAGE/." "$RELEASE_DIR/"
+chown -R root:nativeweb "$RELEASE_DIR"
+chmod -R g-w,o-rwx "$RELEASE_DIR"
+chmod 0755 "$RELEASE_DIR/nativeweb.web"
+
+ln -sfn "$RELEASE_DIR" "/opt/nativeweb/$IDLE"
+
+# --- Migrate (R9) ------------------------------------------------------------
+#
+# Runs while the LIVE release is still serving, which is the constraint that
+# makes expand/contract mandatory: a migration that drops or renames something
+# the running version reads takes production down between here and the reload.
+# The runbook states the rule; this comment states why the script cannot enforce
+# it. db/migrate.sh also holds locks for a whole file, so a long migration
+# against a live database blocks readers and writers for its duration -- split
+# it rather than assuming the transaction is free.
+# db/migrate.sh defaults to the DEVELOPMENT database and role -- nativeweb_dev
+# and nativeweb_app, over TCP, needing a password. provision.sh creates neither:
+# the host has the role `nativeweb` and the database `nativeweb`. Invoked bare,
+# as it was, the migration step could only ever fail on a provisioned host -- or,
+# worse, migrate a stray nativeweb_dev if one existed. Every value it reads is
+# named here rather than inherited.
+#
+# Over the unix socket, so nothing needs a password: provision.sh maps the root
+# account to both roles for this database in pg_ident, and root is already the
+# account running this script.
+migrate_env=(
+	PGHOST=/var/run/postgresql
+	PGPORT=5432
+	PGDATABASE=nativeweb
+	APP_ROLE=nativeweb
+	SUPERUSER_ROLE=postgres
+)
+
+# The same connection the migration runner uses, so the two cannot disagree about
+# which database was counted. No `|| echo 0`: a probe that fails must not read as
+# "no migrations", because that is what rollback.sh's refusal is keyed on -- a
+# release that DID migrate would be recorded as one that did not, and rolled back
+# onto a schema the old binary has never seen. R11.
+count_migrations() {
+	PGHOST=/var/run/postgresql PGPORT=5432 \
+		psql -U nativeweb -d nativeweb -tAc 'select count(*) from schema_migrations'
+}
+
+# Absent on a database that has never been migrated, which is a legitimate state
+# and the only one allowed to answer zero.
+if ! MIGRATIONS_BEFORE="$(count_migrations 2>/dev/null)"; then
+	MIGRATIONS_BEFORE=0
+	FIRST_MIGRATION_RUN=1
+else
+	FIRST_MIGRATION_RUN=0
+fi
+
+echo "deploy.sh: applying migrations"
+if ! (cd "$RELEASE_DIR" && env "${migrate_env[@]}" ./db/migrate.sh); then
+	die "migrations failed. $LIVE is still serving and nothing was promoted.
+       The database may be partially migrated -- db/migrate.sh applies each file with its
+       schema_migrations row in one transaction, so a failure leaves the failed file
+       unapplied and unrecorded, but files before it in the run are committed."
+fi
+
+if ! MIGRATIONS_AFTER="$(count_migrations)"; then
+	die "migrations reported success but schema_migrations could not be counted afterwards.
+       Refusing to record whether this release changed the schema: rollback.sh reads that field
+       as its only gate, and a wrong 'no' there lets a rollback point the old binary at a new
+       schema. $LIVE is still serving and Caddy was never touched."
+fi
+
+SCHEMA_CHANGED=0
+[[ "$MIGRATIONS_AFTER" != "$MIGRATIONS_BEFORE" ]] && SCHEMA_CHANGED=1
+# A first migration run has no "before" to compare against, and every rollback
+# target predates the schema by definition.
+[[ "$FIRST_MIGRATION_RUN" -eq 1 ]] && SCHEMA_CHANGED=1
+
+# --- Start the idle colour and prove it is ready (R10) -----------------------
+echo "deploy.sh: starting nativeweb@$IDLE"
+# Unguarded, a non-zero restart (masked unit, missing colour env file, missing
+# binary) exits the script through `set -e` right here -- skipping the journal
+# dump, the stop, and the "$LIVE is still serving" message below, and leaving the
+# operator a bare exit code for the one failure that most needs explaining.
+if ! systemctl restart "nativeweb@$IDLE"; then
+	journalctl -u "nativeweb@$IDLE" --no-pager -n 40 || true
+	systemctl stop "nativeweb@$IDLE" || true
+	die "nativeweb@$IDLE would not start at all -- see the journal above.
+       $LIVE is still serving $(release_sha_of "$LIVE") and Caddy was never touched."
+fi
+
+ready=0
+for ((i = 0; i < READY_TIMEOUT; i++)); do
+	if [[ "$(curl -fsS --max-time 2 "http://127.0.0.1:$IDLE_PORT/readyz" 2>/dev/null || true)" == "ready" ]]; then
+		ready=1
+		break
+	fi
+	# A unit that has given up restarting will never become ready; waiting the
+	# full timeout on it just delays the failure.
+	if [[ "$(systemctl is-failed "nativeweb@$IDLE" || true)" == "failed" ]]; then
+		break
+	fi
+	sleep 1
+done
+
+if [[ "$ready" -ne 1 ]]; then
+	echo "deploy.sh: $IDLE did not become ready within ${READY_TIMEOUT}s. Last 40 log lines:" >&2
+	journalctl -u "nativeweb@$IDLE" -n 40 --no-pager >&2 || true
+	systemctl stop "nativeweb@$IDLE" || true
+	die "deployment abandoned. $LIVE is still serving $(release_sha_of "$LIVE") and Caddy was never touched.
+       Exit code 78 in the log above means a configuration error, not a crash -- see
+       docs/02-reference/configuration.md."
+fi
+
+# --- Promote (the only step that changes what the public sees) ---------------
+echo "deploy.sh: promoting $IDLE"
+cat >"$UPSTREAM_FILE" <<EOF
+# Generated by deploy.sh -- do not edit. Live colour: $IDLE ($NEW_SHA)
+reverse_proxy 127.0.0.1:$IDLE_PORT
+EOF
+
+# Graceful: in-flight requests finish on $LIVE, new ones land on $IDLE.
+systemctl reload caddy
+
+printf '%s\tpromote\t%s\t%s\tschema_changed=%s\tprevious=%s\n' \
+	"$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$IDLE" "$NEW_SHA" "$SCHEMA_CHANGED" "$(release_sha_of "$LIVE")" \
+	>>"$DEPLOY_LOG"
+
+echo "deploy.sh: $NEW_SHA is live on $IDLE."
+if [[ "$SCHEMA_CHANGED" -eq 1 ]]; then
+	echo "deploy.sh: this release applied migrations, so rollback.sh will refuse it (R11)."
+else
+	echo "deploy.sh: no migrations applied -- rollback.sh can return to $LIVE with a Caddy reload."
+fi
+
+# --- Prune old release directories ------------------------------------------
+# The two live symlinks are never pruned regardless of age, because "keep 5" must
+# not be able to delete the thing currently serving.
+mapfile -t old < <(find "$RELEASES_DIR" -maxdepth 1 -mindepth 1 -type d -printf '%T@ %p\n' |
+	sort -rn | tail -n "+$((RELEASES_KEEP + 1))" | cut -d' ' -f2-)
+for dir in "${old[@]:-}"; do
+	[[ -z "$dir" ]] && continue
+	[[ "$dir" == "$(readlink -f /opt/nativeweb/blue)" ]] && continue
+	[[ "$dir" == "$(readlink -f /opt/nativeweb/green)" ]] && continue
+	echo "deploy.sh: pruning old release $(basename "$dir")"
+	rm -rf "$dir"
+done

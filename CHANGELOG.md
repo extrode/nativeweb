@@ -14,6 +14,29 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **A way to put `apps/web` on a host, and to get it back after losing one** (spec 011) — the deploy
+  half Slice 10 shipped without. `scripts/deploy/` provisions a bare Debian host, releases
+  blue/green behind Caddy, rolls back, and takes nightly `age`-encrypted dumps to S3-compatible
+  storage; `docs/02-reference/deployment.md` is the runbook.
+  - **Blue/green rather than restart-in-place**, because the requirement says the previous release
+    keeps serving *throughout*. Two systemd instances on loopback ports; a deploy stages into the
+    idle colour, migrates, proves `/readyz`, then rewrites one Caddy import and reloads. Every step
+    before the last leaves production untouched, so a failed release never reaches the public.
+  - **`deploy.sh` refuses to promote on two settings** rather than documenting them, because
+    neither has a symptom anyone would notice: `KnownProxies` unset behind a proxy puts every
+    client in the world into one rate-limit partition, and telemetry with no endpoint retries
+    forever against a collector that is not there.
+  - **`rollback.sh` refuses a release that applied migrations.** Nothing records whether they
+    expanded or contracted, and this script must not guess.
+  - **`robots.txt` and `sitemap.xml` are rendered, not static** — from `NativeWeb:CanonicalBaseUrl`,
+    which startup rejects unless it is an origin with no path, query or fragment. This retires the
+    hardcoded `https://epass.io` that staging hosts had been advertising. The sitemap keeps
+    `text/xml`, matching the file it replaces.
+  - **Three of the four epass.io cutover deploy blockers are addressed; none of them by execution.**
+    No host has been provisioned from this document, no backup restored, and
+    `MemoryDenyWriteExecute=yes` is unverified — T14 and T15, both outstanding, both stated in the
+    runbook's own "Known gaps" table. `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops
+    running is still invisible, and `backup.sh` says so on every run.
 - **`docs/` is a buildable site, not a flat pile of markdown.** The shared Docs generator discovers
   sections `TopDirectoryOnly`, so a flat `docs/` published the 12 root files and nothing else. The
   reader-facing documents are now grouped into `00-quick-start`, `01-architecture` and
