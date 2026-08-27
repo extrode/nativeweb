@@ -1,0 +1,208 @@
+# 011 — Production deployment of `apps/web`
+
+Status: draft
+Created: 2026-08-27
+
+## Problem
+
+NativeWeb's application work is finished and green — every numbered spec is `done` or
+deliberately held, 1,373 tests pass, the solution builds with zero warnings — and **none of it
+can be run by anyone.** Slice 10 shipped its application half and its deploy half never started:
+there is no host, no certificate story, no process supervision, no backup, no restore, and no
+documented way to put a build in front of a user. The repo contains no deployment artifact of any
+kind.
+
+Two people hurt. The **operator** has nothing to run and no procedure to follow, so putting
+NativeWeb in front of real traffic is an improvised, unrepeatable act whose failure modes are
+discovered live. The **user whose credentials this holds** is exposed to the consequence: an
+identity provider with no exercised restore procedure is one disk failure away from losing every
+account it serves, and no amount of passing tests changes that.
+
+This is separate from — and blocks nothing on — the open question of whether NativeWeb replaces
+all of epass.io or only its browser surface. A host that runs the app, terminates TLS, survives a
+reboot, and can be restored from a backup is required under either answer. That decision is
+deliberately parked; this spec is the work that is true regardless.
+
+## Goals
+
+- An operator with shell access and this repo can bring a production host from bare OS to serving
+  traffic by following one document, with no undocumented steps and no improvisation.
+- Deploying a new build is one command, and a failed deploy leaves the previous version serving.
+- The database can be restored from backup onto a clean host, and the time that takes has been
+  measured rather than estimated.
+- Nothing in production is retrying against infrastructure that does not exist, and nothing is
+  serving a value hardcoded for a different deployment.
+- Every secret the running service needs is delivered to it without being committed to the repo
+  or left readable by other accounts on the host.
+
+## Non-goals
+
+- **The epass.io cutover scope decision.** Whole replacement versus browser surface only stays
+  open (`docs/architecture/002-epass-cutover-capability-gap.md`). Nothing here presumes an answer.
+- **Closing the capability gap.** No SMS OTP, no Telegram/WhatsApp, no `/oauth/userinfo`, no
+  authenticator devices, no push approvals, no hosted background services. Those are the cutover's
+  work, not the deployment's.
+- **DNS cutover of the `epass.io` name itself.** Pointing production traffic at the new host is a
+  user-gated act that happens after this spec and after the scope decision.
+- **High availability.** One host. No clustering, no failover, no load balancing, no read
+  replicas. A host loss is a restore, not a failover, and the spec states how long that takes
+  rather than pretending it does not happen.
+- **Point-in-time recovery.** Nightly granularity is the accepted recovery point; continuous WAL
+  archiving is out of scope and recorded as a known limit, not an oversight.
+- **CI-driven deployment.** No production credentials in CI, no runner reaching the host.
+- **A permanent staging environment.** Restore drills need a throwaway target, not a standing
+  second deployment.
+- **Container orchestration.** Out of scope by the runtime decision below.
+
+## Constraints (decided before this spec, not open)
+
+- Single Linux host. The application runs under the host's own service manager (systemd) as a
+  supervised unit; TLS terminates at Caddy in front of it. PostgreSQL runs on the same host.
+- Deployment is initiated manually by an operator. Nothing deploys itself.
+- Backups are nightly logical dumps, copied to storage on a different machine or provider, with a
+  written and exercised restore procedure.
+- The deployed artifact is the self-contained NativeAOT binary this repo already builds.
+
+## User stories
+
+- As an **operator**, I want to provision a production host by following one document, so that the
+  result is the same every time and does not depend on what I remembered.
+- As an **operator**, I want to deploy a new build with one command, so that releasing is not a
+  sequence of steps I can get partway through.
+- As an **operator**, I want a failed deploy to leave the site up, so that shipping is not a bet.
+- As an **operator**, I want to know a backup failed on the morning it failed, so that I do not
+  discover it during a restore.
+- As an **operator**, I want to have already performed a restore before I need one, so that the
+  first time is not during an outage.
+- As a **user of the identity provider**, I want my account to survive the loss of a machine, so
+  that a hardware failure is not an account deletion.
+- As a **user**, I want every request to be encrypted in transit without the operator remembering
+  to renew anything, so that security does not depend on a calendar reminder.
+- As a **reviewer**, I want the production configuration to be readable in the repo, so that what
+  is running is knowable without logging in.
+
+## Requirements
+
+Provisioning and runtime
+
+- **R1** Host provisioning is reproducible from a bare OS install by following a single document,
+  and every step in it is either a command to run or a decision with a stated default. No step
+  reads "configure X appropriately".
+- **R2** The application runs under a dedicated unprivileged account that owns no more than the
+  files it needs, cannot log in interactively, and is not the account used to deploy.
+- **R3** The service starts automatically on boot, restarts automatically after a crash, and stops
+  attempting restarts when the failure is persistent rather than looping indefinitely.
+- **R4** All public traffic is encrypted. Certificates are issued and renewed without operator
+  action, and plaintext HTTP requests are redirected rather than served.
+- **R5** Only the ports required to serve traffic and administer the host are reachable from the
+  public internet. The database is not among them.
+- **R6** Logs are bounded. No log source can fill the disk, and the retention period is stated.
+- **R7** The host applies security updates on a documented cadence, and whether that is automatic
+  is a recorded decision rather than an omission.
+
+Deploying and rolling back
+
+- **R8** A new build is deployed by one documented command. The command is safe to re-run: running
+  it twice in a row leaves the same state as running it once.
+- **R9** Deployment applies any pending database migrations before the new binary serves traffic,
+  and refuses to proceed if a migration fails.
+- **R10** A deployment whose new process does not become ready leaves the previous version
+  serving. Readiness is determined by the application's own readiness signal, not by elapsed time.
+- **R11** The previous release can be restored by one documented command, without a database
+  restore, for any release that did not change the schema. Releases that did change the schema
+  state that they cannot be rolled back this way.
+- **R12** The artifact an operator deploys is built from a known commit, and which commit is
+  running is discoverable on the host without guessing.
+
+Data durability
+
+- **R13** A full logical backup of the production database is taken nightly without operator
+  action.
+- **R14** Backups are copied to storage on a different machine or provider from the one being
+  backed up, are encrypted at rest there, and their retention period is stated.
+- **R15** A backup that does not happen, or happens and fails, produces a signal the operator
+  receives. Absence of a signal never indicates success.
+- **R16** The restore procedure is documented and has been executed end to end against a
+  non-production target, and the time it took is recorded as a measured number.
+- **R17** Rebuilding a working production host from this repo plus a backup is documented as a
+  single procedure, and the total time that takes is stated.
+
+Configuration and secrets
+
+- **R18** No secret the running service needs is committed to this repository, and no secret is
+  readable by accounts on the host other than the service account and the operator.
+- **R19** Starting with a missing or malformed required configuration value fails immediately and
+  says which value, rather than starting and failing on first use.
+- **R20** The deployment's canonical public hostname is configuration. Any content that names the
+  site derives from it, and no host-specific value is compiled into the application.
+- **R21** Telemetry export is either pointed at a collector that exists or explicitly disabled. No
+  deployment is left with export enabled and no destination.
+- **R22** The production build is produced by a dependency-resolution mode that is known to work,
+  and if that differs from the mode CI uses, the difference is documented rather than discovered
+  at deploy time.
+
+## Acceptance criteria
+
+- **R1** — Given a bare OS install and the provisioning document, when a person who did not write
+  it follows it start to finish, then the host serves the application over HTTPS with no step
+  requiring a judgement call the document did not anticipate.
+- **R2** — Given a running production host, when the service account is inspected, then it has no
+  interactive shell, and attempting to write outside its own data and log paths is denied.
+- **R3** — Given a running service, when the host is rebooted, then the service is serving without
+  operator action. When the process is killed, then it is serving again without operator action.
+  When it fails to start repeatedly, then restart attempts stop and the failure is visible.
+- **R4** — Given a fresh host and a DNS name pointing at it, when the site is first requested over
+  HTTPS, then a valid certificate is served with no operator having run a certificate command.
+  Given a plaintext HTTP request, then it is redirected to HTTPS.
+- **R5** — Given the production host, when its listening ports are probed from off-host, then only
+  the documented public ports respond and the database port does not.
+- **R6** — Given the retention period has elapsed, when the log directory is measured, then it is
+  bounded and older entries have been removed.
+- **R8** — Given a host serving version A, when the deploy command is run twice with version B,
+  then the host serves version B and the second run changes nothing.
+- **R9** — Given a pending migration that fails, when a deploy is attempted, then the deploy stops
+  and the previous version is still serving.
+- **R10** — Given a build that starts but never becomes ready, when it is deployed, then the
+  deployment is abandoned and requests continue to be served by the previous version throughout.
+- **R11** — Given a deployed release with no schema change, when the rollback command is run, then
+  the previous version serves and no database action was required.
+- **R12** — Given a running production host, when an operator asks which commit is deployed, then
+  a documented command answers with a commit identifier that exists in this repository.
+- **R13**, **R14** — Given a night passes with no operator present, when the offsite storage is
+  inspected the next morning, then a backup from that night is present, is encrypted, and older
+  backups beyond the retention period are gone.
+- **R15** — Given the backup job fails or does not run, when the next check occurs, then the
+  operator receives a signal saying so. Given the monitoring itself stops, then that is also
+  visible.
+- **R16** — Given a backup file and a clean database, when the documented restore procedure is
+  followed, then the application starts against the restored data and serves an authenticated
+  session for an account that existed at backup time. The elapsed time is written into the
+  procedure as a measured value.
+- **R17** — Given only this repository and offsite backups, when the disaster recovery procedure
+  is followed, then a serving host exists, and the document states how long that took.
+- **R18** — Given the repository at any commit, when it is searched for production secret values,
+  then none are found. Given a non-privileged account on the host, when it attempts to read the
+  secret material, then it is denied.
+- **R19** — Given a required configuration value is missing, when the service is started, then it
+  exits with a message naming that value, and does not begin serving.
+- **R20** — Given the canonical hostname is changed in configuration, when the site is requested,
+  then content naming the site reflects the new value with no code change and no rebuild.
+- **R21** — Given a deployed host, when telemetry configuration is inspected, then either an
+  endpoint is set and reachable, or export is disabled. Neither is left to the default.
+- **R22** — Given the documented build procedure, when it is run on a machine with no prior state,
+  then it produces a deployable artifact, or it fails with a documented reason and a documented
+  alternative.
+
+## Known limits, accepted
+
+- **Up to 24 hours of data can be lost.** Nightly backups are the decided recovery point; there is
+  no continuous archiving. Stated here so it is a decision on record rather than a surprise.
+- **A host loss is an outage, not a failover.** Single host by decision. R17 bounds how long the
+  outage lasts; nothing shortens it to zero.
+- **The application and the database share a failure domain.** Same host by decision.
+
+## Open questions
+
+None. The scope decision this work deliberately excludes is tracked in
+`docs/architecture/002-epass-cutover-capability-gap.md` and is not a question this spec needs
+answered.
