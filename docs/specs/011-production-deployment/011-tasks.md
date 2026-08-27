@@ -24,7 +24,7 @@ for itself.
   unchanged; both remain cacheable per spec 006's posture; no `epass.io` literal remains anywhere
   under `apps/web`.
 
-- [ ] **T3 Integration and e2e coverage for both endpoints** — files:
+- [x] **T3 Integration and e2e coverage for both endpoints** — files:
   `tests/nativeweb.web.tests.integration/`, `tests/nativeweb.web.tests.e2e/` — covers: R20 —
   done when: `WebApplicationFactory` against real PostgreSQL asserts the emitted URLs follow
   configuration and the cache headers hold; a Playwright fact fetches both from a running app
