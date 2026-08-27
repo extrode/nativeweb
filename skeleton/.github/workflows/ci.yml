@@ -126,7 +126,7 @@ jobs:
       - name: Check out the framework (NativeWeb)
         uses: actions/checkout@v7
         with:
-          repository: extrode-legacy-org/NativeWeb
+          repository: extrode/nativeweb
           ref: dev
           path: NativeWeb
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
@@ -135,7 +135,7 @@ jobs:
       - name: Check out the framework (JauntyQ)
         uses: actions/checkout@v7
         with:
-          repository: extrode-legacy-org/jauntyq
+          repository: extrode/jauntyq
           ref: dev
           path: jauntyq
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
@@ -240,7 +240,7 @@ jobs:
       - name: Check out the framework (NativeWeb)
         uses: actions/checkout@v7
         with:
-          repository: extrode-legacy-org/NativeWeb
+          repository: extrode/nativeweb
           ref: dev
           path: NativeWeb
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
@@ -249,7 +249,7 @@ jobs:
       - name: Check out the framework (JauntyQ)
         uses: actions/checkout@v7
         with:
-          repository: extrode-legacy-org/jauntyq
+          repository: extrode/jauntyq
           ref: dev
           path: jauntyq
           token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
