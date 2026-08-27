@@ -52,6 +52,22 @@ if [[ "$(uname -s)" == MINGW* || "$(uname -s)" == MSYS* || "$(uname -s)" == CYGW
 	exit 1
 fi
 
+# Checked before the publish, not discovered after it. Found on the first real
+# run: a Debian WSL image with no zstd installed compiled for four minutes and
+# then failed on the last line, leaving a truncated artifact behind -- and
+# `tar --zstd` wants the zstd BINARY, not a library, so nothing earlier notices.
+# Ordered after the Windows-shell check on purpose: git-bash has no zstd either,
+# and "missing zstd" is the wrong answer to "you are on the wrong OS".
+MISSING=()
+for tool in dotnet git tar zstd; do
+	command -v "$tool" >/dev/null 2>&1 || MISSING+=("$tool")
+done
+if [[ "${#MISSING[@]}" -gt 0 ]]; then
+	echo "build.sh: missing required tool(s): ${MISSING[*]}" >&2
+	echo "          on Debian/Ubuntu:  sudo apt-get install -y ${MISSING[*]}" >&2
+	exit 1
+fi
+
 # A dirty tree produces an artifact whose commit SHA describes something other
 # than what is inside it. That is not a style objection: deploy.sh records the
 # SHA as the answer to "what is running in production", and a stamp that is
@@ -115,7 +131,14 @@ cp -r db "$PUBLISH_DIR/db"
 
 mkdir -p "$OUTPUT_DIR"
 ARTIFACT="$OUTPUT_DIR/nativeweb-$SHORT_SHA.tar.zst"
+
+# A tar that dies partway leaves a truncated file sitting at the exact path
+# deploy.sh is told to ship, named for a real commit. Observed: 4096 bytes of a
+# 40 MB artifact, and nothing downstream would have looked twice. Widen the trap
+# to remove it, and narrow it again once the tar has returned 0.
+trap 'rm -rf "$PUBLISH_DIR"; rm -f "$ARTIFACT"' EXIT
 tar --zstd -cf "$ARTIFACT" -C "$PUBLISH_DIR" .
+trap 'rm -rf "$PUBLISH_DIR"' EXIT
 
 echo "build.sh: wrote $ARTIFACT ($(du -h "$ARTIFACT" | cut -f1))"
 echo "build.sh: deploy it with  scripts/deploy/deploy.sh --artifact $ARTIFACT --host <host>"

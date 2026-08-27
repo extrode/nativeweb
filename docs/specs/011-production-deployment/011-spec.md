@@ -1,6 +1,6 @@
 # 011 — Production deployment of `apps/web`
 
-Status: draft
+Status: draft — built and merged; acceptance blocked on T15, which is executed by a person
 Created: 2026-08-27
 
 ## Problem
@@ -200,6 +200,39 @@ Configuration and secrets
 - **A host loss is an outage, not a failover.** Single host by decision. R17 bounds how long the
   outage lasts; nothing shortens it to zero.
 - **The application and the database share a failure domain.** Same host by decision.
+
+## Acceptance review — 2026-08-27
+
+**Status stays `draft`. Nineteen of twenty-two requirements are met; three are not, and none of
+the three can be met from a session.** The gap is not code — every script, unit and document
+exists and is tested — it is that **no host has been provisioned, no backup restored, and no
+disaster recovery exercised**. T15 is the user's to run, and 011 does not reach `done` until the
+three measured times are in the runbook.
+
+| Met | Not met |
+| --- | --- |
+| R2–R6, R8–R15, R18–R22 | **R1** provisioning walkthrough — written, never executed (T15) |
+| R3 measured, not reasoned — see T14 | **R16** restore drill — the script is driven by unit tests; no real backup has been restored (T15) |
+| R7, R12, R17 documented; R17's *execution* is below | **R17** disaster recovery — the procedure is written; nobody has rebuilt a host from repo plus backup (T15) |
+
+Four caveats that survive the ticks:
+
+- **R15 is conditional and currently unmet on any real host.** The dead-man's-switch is
+  implemented and the failure unit is installed, but `BACKUP_HEARTBEAT_URL` is unset until an
+  operator points it at an external check. `backup.sh` says so in its own output on every run
+  rather than letting the gap pass quietly. A backup that silently stops running is invisible
+  until it is needed.
+- **R3 was verified on the wrong kernel.** `MemoryDenyWriteExecute=yes` was measured under WSL2,
+  not on the target host. Same seccomp filter, different kernel; detail in T14 and the unit file.
+- **R22 was exercised, and it found two defects.** The first real `build.sh` run compiled a
+  34,632,768 B `linux-x64` binary and then died on `tar --zstd` with no `zstd` installed —
+  four minutes spent before a preventable failure, and a truncated 4,096-byte artifact left at
+  the path `deploy.sh` is told to ship. Both are fixed (tool preflight ordered after the
+  Windows-shell refusal; the EXIT trap widened over the artifact and narrowed again after tar
+  returns 0) and both are pinned by tests.
+- **R19 needed no work.** `StartupConfigGuards` already exits 78 naming the missing value; this
+  spec added `NativeWeb:CanonicalBaseUrl` to the same guard and `RestartPreventExitStatus=78` to
+  the unit, so a config error is not restarted into a loop.
 
 ## Open questions
 

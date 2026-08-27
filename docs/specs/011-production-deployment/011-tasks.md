@@ -112,10 +112,16 @@ for itself.
   callout; the distribution/version and the reboot decision are recorded with stated defaults; the
   measured times from T15 have named placeholders waiting for them.
 
-- [ ] **T14 Verify `MemoryDenyWriteExecute` against a booting instance** — files:
+- [x] **T14 Verify `MemoryDenyWriteExecute` against a booting instance** — files:
   `scripts/deploy/systemd/nativeweb@.service`, `docs/02-reference/deployment.md` — covers: R3 —
   done when: an instance boots and reaches `/readyz` with the setting on, or the setting is removed
   with the observed failure recorded. Not shipped untested in either direction.
+  **Done 2026-08-27, Debian 12 under WSL2.** A `linux-x64` publish booted under the filter and
+  answered `/healthz` 200 and `/readyz` 503 (no database), indistinguishable from the same binary
+  with it off. The lazy `dlopen` of `libsodium.so` behind Argon2id does not run at startup, so it
+  was probed separately under the same filter: `dlopen` succeeded, `sodium_init()` returned 0.
+  **Caveat:** a `--user` unit on the WSL2 kernel, not a `--system` unit on the target host. Same
+  seccomp filter, different kernel — recorded in the unit file and the runbook.
 
 - [ ] **T15 Operator-executed: provisioning walkthrough, restore drill, disaster recovery**
   — files: `docs/02-reference/deployment.md` — covers: R1, R16, R17 — done when: a person has

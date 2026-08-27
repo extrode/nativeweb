@@ -8,8 +8,8 @@ recovering a NativeWeb production host. Everything here is a command to run or a
 decision with a stated default.
 
 > **Two things in this document have never been executed.** The provisioning
-> walkthrough and the restore drill are written and untested — spec 011 T14 and
-> T15. Every elapsed time below reads `NOT YET MEASURED`, and that is literal:
+> walkthrough and the restore drill are written and untested — spec 011 T15.
+> Every elapsed time below reads `NOT YET MEASURED`, and that is literal:
 > nobody has provisioned a host from this document or restored a backup taken by
 > `backup.sh`. Until they have, R1, R16 and R17 are unmet and this runbook is a
 > plan rather than a procedure.
@@ -260,7 +260,17 @@ whole way back, from nothing but this repository and the backup bucket:
 | Provisioning has never been run on a real host | T15, outstanding — R1 unmet |
 | The restore drill has never been run | T15, outstanding — R16 unmet |
 | Disaster recovery has never been exercised | T15, outstanding — R17 unmet |
-| `MemoryDenyWriteExecute=yes` is unverified against a booting NativeAOT instance | T14, outstanding |
+| `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
 | `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it |
 | CI cannot restore in package mode | Deferred; `build.sh` pins checkout mode and says why |
 | The epass.io cutover scope decision | Out of scope here — `../architecture/002-epass-cutover-capability-gap.md` |
+
+**On `MemoryDenyWriteExecute`.** Measured 2026-08-27, Debian 12 under WSL2: the
+`linux-x64` publish started, logged "Now listening", and answered `/healthz` 200
+and `/readyz` 503 — the no-database state — with the filter on, indistinguishable
+from the same binary with it off. The lazy `dlopen` of `libsodium.so` behind
+Argon2id never runs at startup, so it was probed separately under the same
+filter: `dlopen` succeeded and `sodium_init()` returned 0. What is **not** proven
+is the target host — that was a `--user` unit on the WSL2 kernel, not a
+`--system` unit on Debian bare metal. If a first boot there dies without ever
+logging, this line is the first thing to comment out.

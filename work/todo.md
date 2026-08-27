@@ -419,12 +419,16 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   invalidates outstanding antiforgery tokens; mirror web's PersistKeysToFileSystem block.
 - (V6 review, fable) devmarks loads user-secrets unconditionally rather than
   Development-only (web gates it); align.
-- (V8 review, opus) robots.txt/sitemap.xml hardcode the production hosts (epass.io,
+- ~~(V8 review, opus) robots.txt/sitemap.xml hardcode the production hosts (epass.io,
   manzil.my) and are served verbatim in every environment, so staging advertises a
-  production Sitemap URL; acceptable-if-intentional but unrecorded — decide at cutover.
-- (V8 review, opus) apps/web sitemap.xml advertises https://epass.io/ while `/` still
-  serves the temporary "Phase 0 foundation is up" landing; ship the real landing before
-  submitting the sitemap anywhere.
+  production Sitemap URL~~ — **closed 2026-08-27, spec 011 T1/T2.** Both static files are
+  deleted; `apps/web/SiteMetadataEndpoints.cs` renders them from
+  `NativeWeb:CanonicalBaseUrl`, and unset falls back to the request's own scheme and host, so
+  staging advertises staging. The skeleton's copies were never a hardcode — they carry the
+  `__product__.example` placeholder the stamper rewrites.
+- (V8 review, opus) apps/web `/` still serves the temporary "Phase 0 foundation is up"
+  landing; ship the real landing before submitting the sitemap anywhere. (The epass.io half of
+  this entry is closed — see above; only the landing page remains.)
 - (V8) The plan's "`/` → landing where the product wants it" was deliberately deferred:
   both apps keep a dynamic session-aware `/`; manzil.my decides its own static landing
   during the V10 extraction.
@@ -745,25 +749,43 @@ same ordering flaw and is still unaddressed.
 Probed before scheduling the cutover, on the reasoning that finding unfinished work afterwards is
 far more expensive than finding it now. ~~The application side is ready; the deploy side was never
 started. Four blockers, none of them code in `apps/web`:~~ **"The application side is ready" was
-wrong, and badly — see the capability gap below, added 2026-08-25.** The four deploy blockers are
-still real and still unstarted:
+wrong, and badly — see the capability gap below, added 2026-08-25.** ~~The four deploy blockers are
+still real and still unstarted:~~ **Three of the four are addressed by spec 011
+(`docs/specs/011-production-deployment/`), merged 2026-08-27 — but "addressed" means written,
+not executed. Read each note below for which half survives.**
 
-- **Slice 10's deploy half does not exist.** The slice shipped its application work and its
-  deploy work never started: no host provisioning, no TLS/certificate story, no service unit or
-  process supervision, no backup or restore procedure for the production database. This is the
-  real blocker and it is not small.
-- **No OTLP collector endpoint.** Telemetry became opt-**out** on 2026-08-17
+- ~~**Slice 10's deploy half does not exist.**~~ **Written, never run.** Spec 011 ships
+  `scripts/deploy/` — `provision.sh`, blue/green `deploy.sh`, `rollback.sh`, encrypted offsite
+  `backup.sh`/`restore.sh`, the systemd units, the Caddyfile and the nftables ruleset — plus the
+  runbook at `docs/02-reference/deployment.md`. **No host has ever been provisioned from it and
+  no backup has ever been restored** (011 T15, the operator's to run), so the cutover still
+  cannot be scheduled against it. `MemoryDenyWriteExecute=yes` in the unit is likewise unverified
+  (011 T14). Two further gaps are open by decision: `BACKUP_HEARTBEAT_URL` is unset, so R15 is
+  unmet and a backup that stops running is invisible; and one host with nightly dumps accepts up
+  to 24 hours of data loss and no failover.
+- ~~**No OTLP collector endpoint.**~~ **Enforced rather than closed.** `deploy.sh` refuses to
+  promote a release when neither `OTEL_EXPORTER_OTLP_ENDPOINT` nor
+  `NativeWeb__Telemetry__Enabled=false` is set, so the silent-retry state can no longer reach
+  production by omission — **but nobody has stood up a collector**, and choosing which of the two
+  to set is still a decision. Original note kept for the mechanism: telemetry became opt-**out**
+  on 2026-08-17
   (`NativeWeb:Telemetry:Enabled` is compared case-insensitively against the literal `"false"`, so
   unset means on — `docs/02-reference/configuration.md:106`, `apps/web/Program.cs:272,303`). A
   production host
   with no `OTEL_EXPORTER_OTLP_ENDPOINT` therefore stands up an exporter and retries against a
   collector that is not there. Point it somewhere or set the flag; do not leave it unset.
-- **`wwwroot/sitemap.xml` and `robots.txt:12` already name `https://epass.io`.** Correct after
-  the cutover, wrong before it — they are live now on whatever host serves this. Not a blocker
-  for the cutover itself, but it means these two files are the wrong way round today.
+- ~~**`wwwroot/sitemap.xml` and `robots.txt:12` already name `https://epass.io`.**~~ **Closed
+  2026-08-27, spec 011 T1/T2.** Both files are gone; the two routes render from
+  `NativeWeb:CanonicalBaseUrl`, which startup rejects unless it is an absolute http/https origin
+  with no path, query or fragment. Unset means each response names the requesting host, so a
+  staging host can no longer advertise production. Note the neighbouring hardcode this did **not**
+  touch: `apps/web/SecurityTxtEndpoint.cs` still emits `security@epass.io` literally — out of
+  011's scope, and correct only after the cutover.
 - **CI cannot restore in package mode.** Unchanged and still deferred: no reachable feed publishes
   `JauntyQ.*`. Only `-p:JauntyQUsePackages=true` paths are affected and CI is green in checkout
-  mode, but a deploy pipeline that assumes package mode will not build.
+  mode, but a deploy pipeline that assumes package mode will not build. **011 sidesteps rather
+  than closes it**: `build.sh` pins `-p:JauntyQUsePackages=false` and builds from the local
+  checkout, which is why the release build is a workstation task and not a CI one.
 
 Not blockers, verified green the same day: web-unit 494/494, integration 298/298, web-e2e 64/64,
 CI run 2026-08-24T07:11Z green on both `aot-publish` and `test`.
