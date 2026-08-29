@@ -1024,3 +1024,38 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   Not fixed on the 012 harness branch: pinning an output path also changes what `--skip-publish`
   reuses and what `findPublishedExe` scans, and the committed baseline was recorded against the
   current layout. Found by the consequence-lens review of `feat/012-bench-harness`.
+
+## ISL family 1.1 and ISL-CLA 1.1 — notice from the family maintainer (2026-08-30)
+
+From `ikhbat.org/islamiclicense.org`, `CHANGELOG.md` under `## [Unreleased]`, pushed as `ad5291a`.
+The re-syncs are yours; none of this is urgent. Ordered by what it costs to leave alone.
+
+- **1.1 retires the `NOTICE.md` "Who the Licensor is" workaround.** ISL-NETC 1.1 §1.2 reads
+  `[LICENSOR]`, and its *Notice on Reproducing This License* now says in terms that filling the
+  bracketed fields "is not a modification of this text for the purposes of this notice. A copy so
+  completed remains an unmodified reproduction of this License." So §1.2 can carry "Extrode LLC"
+  in `LICENSE.md` itself, and the section that currently reconciles a Foundation-named §1.2 with a
+  third-party licensor stops being needed. Optional — a verbatim 1.0 copy with that documented
+  workaround stays internally coherent — but this is the whole reason 1.1 exists.
+
+- **`NOTICE.md:13` cites a drifting URL.** `https://islamiclicense.org/isl-netc/` always serves the
+  latest text: it served the 1.0 you ship when the line was written and serves 1.1 now, so the
+  notice and `LICENSE.md` no longer name the same document. Every version has a permanent URL as of
+  spec 003 — `https://islamiclicense.org/isl-netc/1.0/LICENSE.md` for what you ship today,
+  `/isl-netc/1.1/LICENSE.md` if you re-sync. `work/todo.md:62` above records that the pinned form
+  404s; it does not. The frozen 1.0 texts are published and `dev` is pushed.
+
+- **The fourteen frozen 1.0 texts each gained one blank line** in commit `5b9351b`, restoring the
+  blank line above a `### 4.11` heading. Whitespace only: no word, clause, section number or
+  obligation differs. A byte comparison of your `LICENSE.md` against the published 1.0 fails on
+  that alone, and that is the entire delta.
+
+- **ISL-CLA 1.0 is frozen at four adoption items; 1.1 requires five.** `CONTRIBUTING.md:14` already
+  adopts 1.1 by reference at `https://islamiclicense.org/isl-cla/1.1/CLA.md`, which is live. Both
+  versions remain **DRAFT — not yet in force** pending counsel review; adoption by reference is
+  sound today, but nothing is in force until that banner comes off.
+
+- **ISL-CLA Section 2 does not reach ISL-EULA** — no action here, recorded because the same notice
+  went to four repos. §2 supplies the prior written consent only where the licence grants no right
+  to modify or adapt: ISL-R, ISL-CW-ND and ISL-CW-NC-ND. ISL-NETC permits modification, so §2 never
+  applied to NativeWeb and your `CONTRIBUTING.md` does not rely on it.
