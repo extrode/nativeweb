@@ -114,6 +114,27 @@ the packages — **private feed only**; the JauntyQ license limits generated out
 self-hosted use, and no feed exists yet (known gap, see the stamped README), so checkout
 mode is the working path today.
 
+## License
+
+**Islamic Software License - Network Copyleft (ISL-NETC), Version 1.0** —
+SPDX `LicenseRef-ISL-NETC-1.0`. Copyright (c) 2026 Extrode LLC.
+
+| file | what it is |
+|---|---|
+| [`LICENSE.md`](LICENSE.md) | the ISL-NETC 1.0 text, verbatim |
+| [`NOTICE.md`](NOTICE.md) | who the Licensor is, the two copyrights, and what binds an operator — **required to be retained by §3.1(c)** |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | ISL-CLA 1.0 adoption, including the **no-AI-contributions** rule |
+
+Two consequences that reach further than a permissive license: **§3.6** obliges anyone running a
+*modified* version as a network service to offer its users the corresponding source of that exact
+version, at no charge, under the same license — never distributing a copy does not avoid it; and
+**§§4 and 5** carry ethical use restrictions that bind every recipient and every user downstream
+and cannot be relicensed away. This is a source-available license, not an open-source one, and it
+is not OSI-approved. Read `LICENSE.md` before depending on this.
+
+**Contributions are not accepted yet**, and AI-generated ones will not be at all — bug reports,
+reproduction steps and written design proposals are the route. See `CONTRIBUTING.md`.
+
 ## Status
 
 See `work/status/current.md` for what is being worked on right now, and `CHANGELOG.md` for
