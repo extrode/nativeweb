@@ -952,16 +952,28 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   publish rather than surfacing as 13 assertion failures — was **not** done: the raise removes the
   trigger this machine has, and a message change would be a second, unmeasured guess at what the
   failure looks like when it does recur.
-- **A busy control can stick if the swap detaches the element that issued the request.** htmx 4
-  dispatches `htmx:finally:request` on `ctx.sourceElement` and does not re-target a detached node
-  (`#normalizeElement` returns elements unchanged), so a detached source means the event never
-  reaches `document` and `restoreBusy` never runs. Harmless today: every submit control in
-  `apps/web` lives inside its own swap target, so it is removed along with the form rather than
-  left disabled. It bites the first time a control sits outside the region it swaps — a sticky
-  toolbar submit, or a button using `form="..."`. The fix is to bind the restore listener to the
-  element when the busy state is applied (`{once: true}`) instead of relying on bubbling. Found by
-  the 012 review; not a regression (htmx 2 restored a detached node, which was equally a no-op),
-  so it was left out of 012's scope.
+- ~~**A busy control can stick if the swap detaches the element that issued the request.**~~ —
+  **done 2026-08-30**, `fix/busy-control-detached-source`. The symptom was real and now has a test.
+  **The diagnosis in this entry was wrong in both halves**, and the proposed fix would have made it
+  worse, so the correction is the part worth keeping.
+  - It said htmx "does not re-target a detached node". It does: `trigger` ends
+    `isConnected ? element : document`, so a detached source has its completion event re-dispatched
+    on `document`, where the delegated listener hears it. `#normalizeElement` is a string-to-element
+    lookup and has nothing to do with dispatch.
+  - It said the fix was to bind the restore listener to the element with `{once: true}` instead of
+    relying on bubbling. That **fails** the regression test rather than passing it — an at-target
+    listener on the element htmx has routed around never fires. Tried, measured, reverted.
+  - What breaks is that **htmx reassigns `ctx.sourceElement` to the swap target while swapping**.
+    Instrumented on one submission: `before:request` gives `FORM#detached-source-form`,
+    `finally:request` gives `DIV.auth-board`. `restoreBusy` read its reference back off that
+    property, so it looked at an element that had never been given one. The reference now rides on
+    the per-request `ctx` object, which htmx does not reassign.
+  - Test: `BusyState_RestoredWhenTheSwapDetachesTheElementThatIssuedTheRequest`,
+    in `ProgressiveEnhancementTests`, which builds the shape `apps/web` does not have — a submit attached from outside the swapped
+    board with `form="..."`. **72 web e2e pass** (+1), 652 unit unchanged.
+  - The general lesson, since it cost most of the time here: a backlog entry's *symptom* was
+    evidence, its *mechanism* was a guess, and the guess read plausible enough to implement without
+    checking. Instrumenting the page took one run and contradicted both readings.
 - **Back-navigation now re-issues GETs.** htmx 4 removed the `localStorage` page-history cache, so
   going back re-fetches instead of restoring a snapshot. Good for the reason recorded in the
   security baseline, but it means a back-button press re-requests one-time-ish flows — the OAuth
