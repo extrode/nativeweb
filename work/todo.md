@@ -9,6 +9,15 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **Five packable `libs/nativeweb.*` csproj files still say `<Authors>extrode-legacy-org</Authors>`** — the
+  company renamed to Extrode LLC on 2026-08-26 and the nuspec now carries
+  `<copyright>Copyright (c) 2026 Extrode LLC</copyright>` beside an author who no longer exists.
+  `OrgReferenceTests` does not catch it: that test bans the old org in things that *resolve* (a
+  checkout `repository:`, a feed host), by design, and package metadata resolves nothing. Noticed
+  while adding license metadata 2026-08-29 and left alone as out of scope for that branch.
+- **The ISL-CLA draft banner in `CONTRIBUTING.md` comes out when the agreement is marked final.**
+  Watch `http://127.0.0.1:8932/isl-cla/` (islamiclicense.org, `feat/001-isl-cla`). Nothing else in
+  the file changes; `LicenseFilesTests` already pins the parts that must survive.
 - ~~**22 cleanup scripts hardcode `C:\home\code\extrode-legacy-org.com\NativeWeb`**~~ — **done 2026-08-29**,
   `chore/backlog-sweep`. 20 rewritten to `C:\home\code\extrode.com\nativeweb`. Two left alone:
   `move-to-extrode.ps1` and `relocate-nativeweb-to-extrode-legacy-org.ps1` are records of completed
