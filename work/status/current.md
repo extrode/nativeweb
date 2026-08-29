@@ -51,13 +51,30 @@ worth seeing here rather than hiding, but it is the exception.
   - Operator guide: `docs/02-reference/continuous-audit.md`. Spec/plan/tasks at
     `docs/specs/013-continuous-audit/`.
 
-- Spec 012 -- the htmx 2.0.10 → 4.0.0 upgrade -- merged into `dev` on
-  2026-08-29, unpushed; its summary is in `previous.md`. All fourteen tasks are ticked, but
-  **`012-spec.md` is not `done`**: R16 asked for the §14 benchmark re-run and no harness in this
-  repo reproduces it, so the requirement is recorded unmet rather than answered.
-  - Post-012 web suite: **611 unit / 307 integration / 71 e2e, 0 failed**, build 0 warnings
-    0 errors. The +4 e2e are 012's own; the other eight tiers were untouched and their counts
-    below stand.
+- **R16 load harness** — `feat/012-bench-harness`, merged to `dev` 2026-08-29, unpushed.
+  `tools/bench/` publishes `apps/web`, drives the published binary over https and averages three
+  ten-second passes per scenario against a committed `baseline.json`. **60 facts, 0 failed**
+  (`cd tools/bench && deno task test`), four of them mutation-checked.
+  - **First baseline (bench-host, 16 cpu, win-x64, 2026-08-29):** `/healthz` 18,067.2 req/s, 0.83 ms p50,
+    74.4 MB peak RSS; `home` — the full page render — 6,998.0 req/s, 2.11 ms p50, 60.9 MB. Zero
+    errors in both.
+  - **It has to serve https, and that was measured rather than assumed.** The first real run
+    recorded a baseline in which every `GET /` answered 500: the antiforgery cookie is
+    `CookieSecurePolicy.Always` and `Layout.Page` mints a token on every page, so over http the
+    render throws. 245,106 errors, 0 req/s, and `--baseline` wrote the file without complaint. It
+    now refuses a measurement with failed requests, zero throughput or no RSS reading, and
+    `tools/bench/cert.ts` mints a throwaway CA and leaf with openssl — a CA *and* a leaf because
+    Deno rejects a trust anchor offered as an end entity.
+  - **Tolerances are 20% down on throughput and 25% up on RSS, not the 5% the plan proposed.**
+    Eleven `home` passes across five sessions on one unchanged binary spread 16.3%, peak RSS 29%. A 5% band would fail
+    on noise more often than on a regression — which is also why this is not a CI job.
+  - **`012-spec.md` is `done`.** R16 is closed as *within tolerance of `baseline.json`* rather
+    than as the §14 re-run it originally asked for, which is impossible: those figures came from
+    two apps that are not in this repo and a sandbox that is gone. §14 now says the old table is
+    frozen and points at `tools/bench/` for regression work. Plan:
+    `docs/plans/2026-08-29-005-r16-load-harness.md`.
+  - Post-012 web suite is unchanged by this branch: **641 unit / 310 integration / 71 e2e, 0
+    failed**. The harness is Deno and adds no xUnit facts.
 
 - **Spec 011 still has not reached `done`, and that is unchanged by 012.** T15 -- the provisioning
   walkthrough, the restore drill and the disaster-recovery run -- is executed by a person on a real

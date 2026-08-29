@@ -13,6 +13,19 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Added
+- **`tools/bench/` — a load harness for `apps/web`, with a committed baseline.** Publishes the
+  Release binary, drives it over https with a throwaway certificate, and averages three ten-second
+  passes per scenario against `tools/bench/baseline.json`: `/healthz` as the no-render floor and
+  `GET /` as the full page render. `--check` exits non-zero on a regression; a run on another
+  machine, or with different settings, records its numbers and says there is nothing to compare
+  against. This closes spec 012's R16, which had asked for a benchmark re-run that was impossible
+  — §14's figures came from apps that are not in this repo and a sandbox that no longer exists —
+  and turns it into something re-runnable for every future upgrade. **Spec 012 is now `done`.**
+  First baseline (bench-host, 16 cpu, win-x64): `/healthz` 18,067.2 req/s / 74.4 MB peak RSS, `home`
+  6,998.0 req/s / 60.9 MB, zero errors. Not comparable to §14, and not a CI job: the measured
+  run-to-run spread is 16.3%, so the tolerances are 20% and 25% rather than 5%.
+
 ### Fixed
 - **The skeleton produced products that could not build.** `skeleton/Directory.Build.props` carried
   `--` inside an XML comment, which XML forbids, so MSBuild refused to load the file (`MSB4024`)
