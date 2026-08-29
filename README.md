@@ -58,13 +58,12 @@ store rather than failing, which makes this the fastest way to see the thing wor
 
 ```
 dotnet run --project apps/sample                                  # http://localhost:5399
-dotnet run --project apps/web --urls https://localhost:5444       # https, see below
+dotnet run --project apps/web                                     # https://localhost:5444
 ```
 
 `apps/web` must be served over **HTTPS**. Its session and antiforgery cookies are `Secure`-always,
 so over plain HTTP every page carrying a form returns 500 (`/healthz` still answers 200, which
-makes the failure easy to misread). The one launch profile in
-`apps/web/Properties/launchSettings.json` is HTTP, so pass `--urls` as above. Run
+makes the failure easy to misread). Its launch profile is HTTPS, so no flag is needed; run
 `dotnet dev-certs https --trust` once if your browser objects to the certificate.
 
 ## Build and test

@@ -63,17 +63,18 @@ statement, not a supported deployment mode; the moment you configure `Connection
 the same code paths run against PostgreSQL through JauntyQ instead. `apps/sample/Program.cs`
 carries the comment explaining why the choice is made in the application rather than in a library.
 
-For `apps/web`, pass `--urls`:
+And `apps/web`:
 
 ```
-dotnet run --project apps/web --urls https://localhost:5444
+dotnet run --project apps/web
 ```
 
-**It must be HTTPS.** The session and antiforgery cookies are `Secure`-always, so over plain HTTP
-every page carrying a form returns 500 while `/healthz` still returns 200 — which reads like one
-broken page rather than a wrong scheme. The single profile in
-`apps/web/Properties/launchSettings.json` is HTTP, hence the flag. Run `dotnet dev-certs https
---trust` once if the browser objects to the certificate.
+It comes up on `https://localhost:5444`. **It must be HTTPS.** The session and antiforgery cookies
+are `Secure`-always, so over plain HTTP every page carrying a form returns 500 while `/healthz`
+still returns 200 — which reads like one broken page rather than a wrong scheme. That is why the
+single profile in `apps/web/Properties/launchSettings.json` is HTTPS, and why there is no HTTP one
+beside it to pick by mistake. Run `dotnet dev-certs https --trust` once if the browser objects to
+the certificate.
 
 ## 4. Run the tests
 
