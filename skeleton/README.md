@@ -33,6 +33,7 @@ dotnet run --project apps/__product__ -p:NativeWebRoot=<path> -p:JauntyQRoot=<pa
 ## Build and test
 
 ```
+export __PRODUCT____Db__ConnectionString="Host=127.0.0.1;Database=__product___dev;Username=__product___app;Password=..."
 dotnet build
 dotnet test tests/__product__.tests.unit
 dotnet test tests/__product__.tests.integration
@@ -41,6 +42,24 @@ dotnet test tests/__product__.tests.e2e
 
 Integration tests need a real PostgreSQL instance; e2e publishes the app and drives it with
 Playwright. All three tiers pass before anything merges.
+
+Two things about the last two tiers are not obvious, and both were found by stamping a product and
+running them rather than by reading anything:
+
+- **The integration tier reads `__PRODUCT____Db__ConnectionString` from the environment.** Without
+  it the tier still runs, but `/readyz` reports `ServiceUnavailable` and one fact fails. The
+  double-underscore spelling is the environment form of `__PRODUCT__:Db:ConnectionString`.
+- **If this product is not beside NativeWeb, set the roots as environment variables, not `-p:`
+  flags.** `-p:NativeWebRoot=... -p:JauntyQRoot=...` satisfies `dotnet build` and then fails the
+  e2e tier, because that tier's fixture shells out to its own `dotnet publish` and command-line
+  properties do not cross into a child process. Environment variables do:
+
+  ```
+  export NativeWebRoot=/path/to/nativeweb JauntyQRoot=/path/to/jauntyq
+  ```
+
+  The symptom is a publish failure inside the e2e fixture reading *"Skipping project … because it
+  was not found"*, which names NativeWeb's libraries and looks nothing like a path problem.
 
 ## Publish
 
@@ -109,7 +128,10 @@ outside those terms is not permitted.
 The stamp leaves deliberate placeholders. Replace every one before the product faces traffic:
 
 - `wwwroot/robots.txt` and `wwwroot/sitemap.xml` — `__product__.example` host.
-- `SecurityTxtEndpoint.cs` — the `security@__product__.example` contact.
+- **`__PRODUCT__:SecurityContact`** — where a vulnerability report should go. Unset, no
+  `security.txt` is served at all, which is deliberate: a file naming a mailbox this product does
+  not own sends the report nowhere and tells the reporter they are finished. Nothing warns when it
+  is unset, so this is the item on the list with no symptom.
 - `wwwroot/img/logo.svg` — the placeholder logo.
 - `deploy/__product__.service` / `install-windows-service.ps1` — connection string and URLs.
 - `docs/security-baseline.md` — tick the checklist, honestly.

@@ -314,7 +314,22 @@ public sealed class Program
         }).RequireRateLimiting("general").AsPublicPage(homeCsp);
 
         app.MapCspReportEndpoint();
-        app.MapSecurityTxtEndpoint();
+
+        // Where a vulnerability report should go. Blank is valid and serves no
+        // security.txt, which is the honest answer when nobody has named a
+        // mailbox; a supplied-but-unusable value stops the app here rather than
+        // shipping a file nobody can act on.
+        if (!SecurityTxtEndpoint.TryNormalize(
+                builder.Configuration[SecurityTxtEndpoint.ConfigurationKey],
+                out string? securityContact))
+        {
+            throw new InvalidOperationException(
+                $"{SecurityTxtEndpoint.ConfigurationKey} must be a bare email address or a mailto:, "
+                + "https: or tel: URI on a single line -- for example security@example.com. Leave it "
+                + "unset to serve no security.txt.");
+        }
+
+        app.MapSecurityTxtEndpoint(securityContact);
 
         // Liveness: process is up. Readiness: the database answers.
         app.MapGet("/healthz", () => Results.Text("ok"));
