@@ -21,6 +21,12 @@ $candidates = @(
     @{ Path = Join-Path $repo 'tmp\baseline-real.json'; What = 'baseline copy kept while the regression path was verified' }
     @{ Path = Join-Path $repo 'tmp\bench-probe.log'; What = 'probe output' }
     @{ Path = Join-Path $repo 'tmp\012-bench-branch.diff'; What = 'branch diff handed to the code review' }
+    @{ Path = Join-Path $repo 'tmp\012-bench-fable.diff'; What = 'branch diff handed to the third (Fable) review pass' }
+    @{ Path = Join-Path $repo 'tmp\bench-shortrun.log'; What = 'the --duration 5 run that proved the exit-2 path' }
+    @{ Path = Join-Path $repo 'tmp\bench-fullrun.log'; What = 'the matching full run that proved exit 0' }
+    @{ Path = Join-Path $repo 'tmp\pack-check'; What = 'nupkg built to verify the license file packs' }
+    @{ Path = Join-Path $repo 'tmp\isl-cla.md'; What = 'ISL-CLA draft fetched from the local licence site' }
+    @{ Path = Join-Path $repo 'tmp\isl-netc.md'; What = 'ISL-NETC text fetched before it became LICENSE.md' }
 )
 
 # The test suite's scratch directories, one per run, named by tools/bench/scratch.ts. Globbed
