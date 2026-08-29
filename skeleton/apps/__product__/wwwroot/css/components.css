@@ -367,9 +367,10 @@ main:focus-visible {
   }
 }
 
-/* htmx request indicators. htmx normally injects these as an inline <style>,
-   which the nonce'd style-src blocks; includeIndicatorStyles is off in the
-   htmx-config meta and the rules live here instead. */
+/* htmx request indicators. htmx normally supplies these itself -- an inline
+   <style> in htmx 2, a constructed sheet on adoptedStyleSheets in htmx 4;
+   includeIndicatorCSS is off in the htmx-config meta and the rules live here
+   instead, covered by the nonce'd style-src like any other stylesheet. */
 .htmx-indicator {
   opacity: 0;
   transition: opacity 200ms ease-in;

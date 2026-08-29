@@ -13,6 +13,18 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Changed
+- **htmx 2.0.10 → 4.0.0** (spec 012), vendored into `apps/web` and the skeleton. htmx 4 is a
+  rewrite onto `fetch()`: lifecycle events are renamed to `htmx:phase:action` and carry their
+  payload as `detail.ctx`. Because no `hx-*` attribute is authored anywhere in this repo — all of
+  them are derived at runtime from `data-nw-*` — the change is confined to `boot.js`, the
+  antiforgery glue and the `htmx-config` meta. Behaviour is held constant, with one deliberate
+  addition: `noSwap: [204, 304, "4xx", "5xx"]`, so a guard rejection body is not swapped into an
+  authenticated page, which 4.0 would otherwise do by default. The minified library is 28.3%
+  smaller, 51,238 B → 36,716 B, and htmx 4 no longer caches page HTML in `localStorage`.
+  Morph swaps and `hx-alpine-compat` were evaluated and declined; the 2.0.10 build is retained at
+  `libs/nativeweb.assets/rollback/`.
+
 ### Added
 - **A way to put `apps/web` on a host, and to get it back after losing one** (spec 011) — the deploy
   half Slice 10 shipped without. `scripts/deploy/` provisions a bare Debian host, releases

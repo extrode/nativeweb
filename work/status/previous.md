@@ -2,6 +2,44 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **htmx 4.0.0 upgrade** (spec 012, `feat/012-htmx-4-upgrade`, merged 2026-08-29, unpushed).
+  All fourteen tasks ticked; **`012-spec.md` is not `done` — R16 is unmet.** htmx 4 is a rewrite
+  from `XMLHttpRequest` onto `fetch()`: every lifecycle event was renamed to `htmx:phase:action`
+  and every payload now arrives as `detail.ctx` and nothing else. The migration surface turned out
+  to be small because no `hx-*` attribute is authored anywhere in this repo — all of them are
+  derived at runtime from `data-nw-*` by `boot.js`, so the upgrade was three files of glue plus the
+  vendored library, not a sweep of the render tree.
+  - **Three changes would have failed silently under a mechanical rename**, which is why the
+    translation was done by hand. Restoring the busy state on `after:request` leaves a permanently
+    disabled button after any network failure, because 4.0 does not fire that event when the
+    request never completes — it moved to `finally:request`. `after:swap` now dispatches on
+    `ctx.sourceElement`, so the old `event.target` fallback would focus the wrong node with no
+    error. And 4.0 **swaps 4xx/5xx bodies into the target by default**, which would have rendered
+    guard rejections inside authenticated pages; `noSwap: [204, 304, "4xx", "5xx"]` in the
+    `htmx-config` meta closes that, and it had to land in the same commit as the library.
+  - **A pre-existing test blind spot was exposed by mutation, not by review.** Reverting the
+    antiforgery listener to its 2.x event name left 67/67 green: the hidden
+    `__RequestVerificationToken` field covers every form post regardless of whether the header is
+    sent. `AntiforgeryToken_IsSentAsAHeaderOnHtmxRequests` now pins the header itself. All four new
+    e2e tests were mutation-checked; two of the four rounds initially produced bogus results from
+    stale build-server state, so each mutation run is preceded by
+    `dotnet build-server shutdown` plus a full build.
+  - **Two features were evaluated and declined on evidence.** Morph swaps: zero eligible targets,
+    because all five swap-target shapes contain their own forms and their own error banner, and
+    `#settings-sessions` — the one pure-list candidate — holds antiforgery and bot-trap hidden
+    inputs inside the swap region that morph's input preservation would leave stale
+    (`docs/decisions/2026-08-29-003-morph-swaps-not-adopted.md`). `hx-alpine-compat`: `git grep`
+    finds zero tracked Alpine directives in `apps/web` or `skeleton`, so it resolves a conflict
+    that cannot occur here.
+  - **What was measured:** the minified library, 51,238 B → 36,716 B, **28.3% smaller**. What was
+    not: §14's throughput and RSS figures, whose harness is two purpose-built minimal apps in a
+    sandbox that no longer exists — and which measure the server, where a browser-side library does
+    not appear. R16 is recorded unmet in §14 and in `012-tasks.md` T11 rather than filled with a
+    number nobody produced.
+  - The 2.0.10 build is retained at `libs/nativeweb.assets/rollback/htmx-2.0.10.min.js`, outside
+    every `wwwroot` so it is kept without being reachable or served. The `rollback/` carve-out is
+    documented in that library's `README.md`, which otherwise bars third-party files.
+
 - **Production deployment infrastructure** (spec 011, `feat/011-production-deployment`, merged
   2026-08-27, unpushed). T1-T14 and T16 ticked; **T15 is outstanding and is a person's to run**,
   so `011-spec.md` stays `draft`. The deploy half Slice 10 never started: `scripts/deploy/`

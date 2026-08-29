@@ -6,14 +6,19 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing is in flight.** Spec 011 merged into `dev` on 2026-08-27 and its summary has rolled to
-  `previous.md`. **It did not reach `done`**: T15 -- the provisioning walkthrough, the restore
-  drill and the disaster-recovery run -- is executed by a person on a real host, and
-  `011-spec.md` stays `draft` until its measured times are in
-  `docs/02-reference/deployment.md`. That is now the first thing standing between this repo and a
+- **Nothing is in flight.** Spec 012 -- the htmx 2.0.10 → 4.0.0 upgrade -- merged into `dev` on
+  2026-08-29, unpushed; its summary is in `previous.md`. All fourteen tasks are ticked, but
+  **`012-spec.md` is not `done`**: R16 asked for the §14 benchmark re-run and no harness in this
+  repo reproduces it, so the requirement is recorded unmet rather than answered.
+  - Post-012 web suite: **611 unit / 307 integration / 71 e2e, 0 failed**, build 0 warnings
+    0 errors. The +4 e2e are 012's own; the other eight tiers were untouched and their counts
+    below stand.
+
+- **Spec 011 still has not reached `done`, and that is unchanged by 012.** T15 -- the provisioning
+  walkthrough, the restore drill and the disaster-recovery run -- is executed by a person on a real
+  host, and `011-spec.md` stays `draft` until its measured times are in
+  `docs/02-reference/deployment.md`. That remains the first thing standing between this repo and a
   production host, ahead of the cutover decision in `next.md`.
-  - Post-011 suite on the branch: **611 web-unit / 307 web-integration / 67 web-e2e, 0 failed**.
-    The other eight tiers were untouched by 011 and their counts below still stand.
 
 - Spec 010 — documentation and tutorials — merged into `dev` on 2026-08-25
   and rolled to `previous.md`; all ten of its tasks are ticked and `010-spec.md` is `done`. Every

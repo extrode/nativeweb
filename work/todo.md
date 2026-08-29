@@ -867,3 +867,18 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   under load, and a CI runner sharing a host would look exactly like this. Either raise the budget
   or make the timeout message say "publish exceeded its budget" rather than surfacing as thirteen
   assertion failures.
+- **A busy control can stick if the swap detaches the element that issued the request.** htmx 4
+  dispatches `htmx:finally:request` on `ctx.sourceElement` and does not re-target a detached node
+  (`#normalizeElement` returns elements unchanged), so a detached source means the event never
+  reaches `document` and `restoreBusy` never runs. Harmless today: every submit control in
+  `apps/web` lives inside its own swap target, so it is removed along with the form rather than
+  left disabled. It bites the first time a control sits outside the region it swaps — a sticky
+  toolbar submit, or a button using `form="..."`. The fix is to bind the restore listener to the
+  element when the busy state is applied (`{once: true}`) instead of relying on bubbling. Found by
+  the 012 review; not a regression (htmx 2 restored a detached node, which was equally a no-op),
+  so it was left out of 012's scope.
+- **Back-navigation now re-issues GETs.** htmx 4 removed the `localStorage` page-history cache, so
+  going back re-fetches instead of restoring a snapshot. Good for the reason recorded in the
+  security baseline, but it means a back-button press re-requests one-time-ish flows — the OAuth
+  authorize page and anything carrying a signed time canary. Nothing is known to break; nobody has
+  walked the back button through the OAuth flow under 4.0 to check.

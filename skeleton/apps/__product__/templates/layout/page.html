@@ -14,7 +14,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 {{if AntiforgeryToken.Length != 0}}<meta name="request-verification-token" content="{{AntiforgeryToken}}">{{/if}}
-<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+<meta name="htmx-config" content='{"includeIndicatorCSS":false,"noSwap":[204,304,"4xx","5xx"]}'>
 <title>{{Title}}</title>
 <script{{if Nonce.Length != 0}} nonce="{{Nonce}}"{{/if}}>
       (function(){
@@ -37,10 +37,10 @@
 <script src="{{Assets.Resolve("/vendor/htmx/htmx.min.js")}}" defer></script>
 <script src="{{Assets.Resolve("/vendor/alpinejs/alpine.min.js")}}" defer></script>
 <script{{if Nonce.Length != 0}} nonce="{{Nonce}}"{{/if}}>
-      document.addEventListener('htmx:configRequest', function (event) {
+      document.addEventListener('htmx:config:request', function (event) {
         var meta = document.querySelector('meta[name="request-verification-token"]');
         if (meta) {
-          event.detail.headers['RequestVerificationToken'] = meta.content;
+          event.detail.ctx.request.headers['RequestVerificationToken'] = meta.content;
         }
       });
     </script>
