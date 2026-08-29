@@ -42,9 +42,12 @@ and R15 (the audit host holds no production credential) are properties of audit-
 Task breakdown at `docs/specs/013-continuous-audit/013-tasks.md`; the operator guide it produced
 is `docs/02-reference/continuous-audit.md`.
 
-Spec 012 (htmx 2.0.10 → 4.0.0 upgrade) shipped 2026-08-29 and is **not** `done`: all fourteen
-tasks are ticked, but R16 — re-run the §14 benchmark — has no runnable harness in this repo and is
-recorded unmet. Task breakdown at `docs/specs/012-htmx-4-upgrade/012-tasks.md`; the two features
+Spec 012 (htmx 2.0.10 → 4.0.0 upgrade) shipped 2026-08-29 and is **`done`** — this section read
+"not done, R16 has no runnable harness" until 2026-08-30, which outlived the fix by a day. R16 was
+closed by building one: `tools/bench/` with a committed `baseline.json`, restated as "throughput
+and RSS within tolerance of the baseline". The figure is machine-bound and the harness is
+record-only on a machine whose fingerprint does not match. Task breakdown at
+`docs/specs/012-htmx-4-upgrade/012-tasks.md`; the two features
 evaluated and declined are in `012-plan.md` and
 `docs/decisions/2026-08-29-003-morph-swaps-not-adopted.md`.
 
