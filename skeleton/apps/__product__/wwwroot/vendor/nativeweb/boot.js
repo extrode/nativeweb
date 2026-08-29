@@ -101,10 +101,23 @@
    * htmx:before:request fires AFTER form serialization, so disabling here can
    * never drop the submitter's name/value from the payload. Disabling the
    * form's default button also suppresses implicit (Enter-key) resubmission
-   * while in flight. The busy control rides on the issuing element, because
-   * every completion event is dispatched on that same element. If the response
-   * swapped the control out, restore touches a detached node, which is a
-   * harmless no-op.
+   * while in flight. The busy control rides on the request's own ctx object,
+   * which is the same object at before:request and at finally:request. It does
+   * NOT ride on ctx.sourceElement, and that is a fix rather than a preference:
+   * htmx reassigns ctx.sourceElement to the swap target while swapping, so the
+   * property names a different element by the time the request finishes.
+   * Measured on the signin form, whose data-nw-target is `closest .auth-board`:
+   * sourceElement is FORM.auth-card at before:request and DIV.auth-board at
+   * finally:request. Reading the busy reference back off it therefore looked at
+   * an element that had never been given one, and a submit control outside the
+   * swapped region stayed disabled forever. Everything inside the region is
+   * replaced by the response anyway, which is why this hid for so long.
+   *
+   * Delegated from document on purpose. htmx's own trigger ends
+   * `isConnected ? element : document`, so a source the swap detached has its
+   * completion event re-dispatched on document — an at-target listener bound to
+   * that element would never hear it. Delegation is what makes the detached
+   * case work, not what misses it.
    *
    * htmx 4 puts the submitter on ctx.request.submitter before the request
    * lifecycle starts, which replaces htmx 2's reach through
@@ -129,10 +142,10 @@
    * it" from "focus was on body all along". */
   var busyFocusControl = null;
 
-  function restoreBusy(elt) {
-    var control = elt && elt.nwBusyControl;
+  function restoreBusy(ctx) {
+    var control = ctx && ctx.nwBusyControl;
     if (!control) { return; }
-    delete elt.nwBusyControl;
+    delete ctx.nwBusyControl;
     control.disabled = false;
     control.removeAttribute('aria-busy');
     control.classList.remove('nw-busy');
@@ -152,7 +165,7 @@
     control.disabled = true;
     control.setAttribute('aria-busy', 'true');
     control.classList.add('nw-busy');
-    event.detail.ctx.sourceElement.nwBusyControl = control;
+    event.detail.ctx.nwBusyControl = control;
   });
 
   /* Restore on htmx:finally:request, NOT htmx:after:request. In htmx 4 the
@@ -164,7 +177,7 @@
    * dropped connection. (htmx 2's afterRequest did cover every path, which is
    * why this is a behaviour change and not a rename.) */
   document.addEventListener('htmx:finally:request', function (event) {
-    restoreBusy(event.detail.ctx.sourceElement);
+    restoreBusy(event.detail.ctx);
   });
 
   /* Focus recovery (spec 005 R6): when a swap removes the focused element the
