@@ -39,7 +39,10 @@ export const RULES: readonly Rule[] = [
   { kind: "bearer-token", group: 1, pattern: /\b[Bb]earer\s+([A-Za-z0-9._~+/-]{20,}=*)/g },
   { kind: "basic-auth-in-url", group: 1, pattern: /\b[a-z][a-z0-9+.-]*:\/\/[^\s:/@]+:([^\s@]+)@/g },
   { kind: "connection-string-password", group: 1, pattern: /\b(?:Password|Pwd|User Id|UserId)\s*=\s*([^;\s"']+)/gi },
-  { kind: "assigned-secret", group: 2, pattern: /\b([A-Za-z_][A-Za-z0-9_]*(?:SECRET|PASSWORD|PASSWD|APIKEY|API_KEY|TOKEN|PRIVATE_KEY|CLIENT_SECRET|ACCESS_KEY)[A-Za-z0-9_]*)\s*[:=]\s*["']?([^\s"',;)]{8,})["']?/gi },
+  // The prefix is `*`, not `[A-Za-z_][A-Za-z0-9_]*`. With a required leading character the
+  // greedy prefix swallowed the keyword's own first letter and the bare forms — `password = …`,
+  // `api_key = …`, the two most common spellings there are — never matched at all.
+  { kind: "assigned-secret", group: 2, pattern: /\b([A-Za-z0-9_]*(?:SECRET|PASSWORD|PASSWD|APIKEY|API_KEY|TOKEN|PRIVATE_KEY|CLIENT_SECRET|ACCESS_KEY)[A-Za-z0-9_]*)\s*[:=]\s*["']?([^\s"',;)]{8,})["']?/gi },
 ];
 
 export interface Match {
@@ -51,10 +54,26 @@ export interface Match {
 }
 
 /** Names of things that look like secrets but are placeholders, so a doc example stays readable. */
-const PLACEHOLDERS = /^(?:x{3,}|\.{3,}|<[^>]*>|\[[^\]]*\]|\$\{[^}]*\}|%[A-Za-z_]+%|changeme|placeholder|example|redacted|your[-_]?\w*|dummy|fake|test|sample|null|none|todo)$/i;
+const PLACEHOLDERS = /^(?:x{3,}|\.{3,}|<[^>]*>|\[[^\]]*\]|\$\{[^}]*\}|%[A-Za-z_]+%|changeme|placeholder|example|redacted|your[-_]?[\w-]*|dummy|fake|test|sample|null|none|todo)$/i;
 
 function isPlaceholder(value: string): boolean {
   return PLACEHOLDERS.test(value.trim()) || /^\[redacted:/.test(value.trim());
+}
+
+/**
+ * Where a capture group actually sits in the text.
+ *
+ * `RegExpExecArray.indices` (the `d` flag) gives this directly. Without it, the fallback searches
+ * from the end of the match backwards, which is right for the rules here — the secret is the last
+ * group, and a prefix that repeats it (`user:user@`) is the case `indexOf` got wrong.
+ */
+function groupOffset(m: RegExpExecArray, group: number): number {
+  const indices = (m as RegExpExecArray & { indices?: Array<[number, number] | undefined> }).indices;
+  const span = indices?.[group];
+  if (span !== undefined) return span[0];
+  const value = m[group];
+  const at = m[0].lastIndexOf(value);
+  return m.index + (at === -1 ? 0 : at);
 }
 
 /** Every secret-looking span in `text`, as locations. Deliberately returns no values. */
@@ -62,7 +81,8 @@ export function scanText(text: string): Match[] {
   const matches: Match[] = [];
   const claimed: Array<[number, number]> = [];
   for (const rule of RULES) {
-    const re = new RegExp(rule.pattern.source, rule.pattern.flags);
+    // `d` for match indices, so a group's position is read rather than searched for.
+    const re = new RegExp(rule.pattern.source, `${rule.pattern.flags.replace("d", "")}d`);
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
       if (m[0].length === 0) {
@@ -71,7 +91,10 @@ export function scanText(text: string): Match[] {
       }
       const value = rule.group === 0 ? m[0] : m[rule.group];
       if (value === undefined || isPlaceholder(value)) continue;
-      const offset = rule.group === 0 ? m.index : m.index + m[0].indexOf(value);
+      // The group's own position, not the first place its text happens to appear in the match.
+      // `indexOf` gets this wrong whenever the captured value also occurs earlier: on
+      // `https://user:user@host` it redacted the username and left the password standing.
+      const offset = rule.group === 0 ? m.index : groupOffset(m, rule.group);
       // First rule to claim a span wins, so a JWT is not also reported as an assigned secret.
       if (claimed.some(([s, e]) => offset < e && offset + value.length > s)) continue;
       claimed.push([offset, offset + value.length]);

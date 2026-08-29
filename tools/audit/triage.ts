@@ -23,6 +23,7 @@ import {
   transition,
   TransitionError,
 } from "./ledger.ts";
+import { shellQuote } from "./digest.ts";
 
 export const DECIDABLE: readonly State[] = ["accepted", "rejected", "fixed"];
 
@@ -90,9 +91,11 @@ export function validateDecision(decision: Decision): string | null {
 /**
  * Build the records for a batch of decisions against the current ledger.
  *
- * Nothing is written here. A batch is all-or-nothing on validation — one bad decision refuses
- * only itself, but the caller sees every refusal before a byte reaches the ledger, so a
- * half-applied triage is not a state anyone has to reason about afterwards.
+ * Nothing is written here, and a refused decision refuses only itself: the valid decisions in a
+ * batch are applied and the invalid ones are reported, so a batch that exits non-zero has still
+ * changed the ledger. That is the right trade for an append-only ledger — re-running the batch
+ * re-applies what already landed as a no-op — but it does mean "refused" is not "nothing
+ * happened". `triage` returns both lists and the CLI prints both.
  */
 export function applyDecisions(
   ledger: readonly Entry[],
@@ -169,16 +172,24 @@ export function localStore(path: string): LedgerStore {
 export function sshStore(host: string, path: string): LedgerStore {
   return {
     async read() {
-      const { code, stdout } = await new Deno.Command("ssh", {
-        args: ["-o", "BatchMode=yes", host, "cat", "--", path],
+      const { code, stdout, stderr } = await new Deno.Command("ssh", {
+        args: ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, "cat", "--", shellQuote(path)],
         stdout: "piped",
-        stderr: "null",
+        stderr: "piped",
       }).output();
+      // 255 is ssh's own failure, not the remote command's. Treating it as an empty ledger would
+      // turn an unreachable host into "no finding matches that id" — and the user would go
+      // looking for the id rather than for the network.
+      if (code === 255) {
+        throw new TriageError(
+          `cannot reach ${host}: ${new TextDecoder().decode(stderr).trim().split("\n")[0] ?? ""}`,
+        );
+      }
       return code === 0 ? new TextDecoder().decode(stdout) : "";
     },
     async append(text) {
       const child = new Deno.Command("ssh", {
-        args: ["-o", "BatchMode=yes", host, "cat", ">>", path],
+        args: ["-o", "BatchMode=yes", host, "cat", ">>", shellQuote(path)],
         stdin: "piped",
         stdout: "null",
         stderr: "piped",

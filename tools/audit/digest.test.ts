@@ -1,13 +1,15 @@
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import {
   buildDigest,
   costTrend,
   datesBetween,
   type Digest,
+  DigestUnreachable,
   health,
   loadDigest,
   rank,
   render,
+  shellQuote,
   type Source,
 } from "./digest.ts";
 import type { Entry, State, Verification } from "./ledger.ts";
@@ -132,6 +134,54 @@ Deno.test("consecutive daily runs leave no gap", () => {
 
 Deno.test("a single run cannot imply a gap", () => {
   assertEquals(health([record()]).gaps, []);
+});
+
+Deno.test("silence since the last run is a gap, measured against today", () => {
+  // The direction that matters. A scheduler that died produces no run *after* the last one, so
+  // there is nothing between first and last to be missing: measuring only that window renders a
+  // month of silence as a healthy history.
+  const h = health(
+    [record({ startedAt: "2026-08-20T02:00:00.000Z" })],
+    new Date("2026-08-24T09:00:00.000Z"),
+  );
+  assertEquals(h.gaps, ["2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24"]);
+});
+
+Deno.test("a run earlier today is not a gap", () => {
+  const h = health(
+    [record({ startedAt: "2026-08-24T02:00:00.000Z" })],
+    new Date("2026-08-24T23:00:00.000Z"),
+  );
+  assertEquals(h.gaps, []);
+});
+
+Deno.test("a dead scheduler is rendered as needing attention, not as a clean repository", () => {
+  const digest = buildDigest(
+    [],
+    [],
+    [record({ startedAt: "2026-07-20T02:00:00.000Z" })],
+    new Date("2026-08-24T09:00:00.000Z"),
+  );
+  assert(digest.health.gaps.length > 30);
+  const text = render(digest);
+  assertStringIncludes(text, "needs attention");
+  assertStringIncludes(text, "Absence of findings on those days means absence of looking");
+});
+
+Deno.test("a history whose only anomaly is a bounded run still renders a warning", () => {
+  // `now` is the run's own day on purpose: with any later date the staleness gap would enter the
+  // warning block by itself and the assertion would pass without the bounded case being read.
+  const digest = buildDigest(
+    [],
+    [],
+    [record({ startedAt: "2026-08-20T02:00:00.000Z", outcome: "bounded" })],
+    new Date("2026-08-20T09:00:00.000Z"),
+  );
+  assertEquals(digest.health.gaps, [], "the fixture must have no gap, or this proves nothing");
+  assertEquals(digest.health.failed.length, 0);
+  const text = render(digest);
+  assertStringIncludes(text, "needs attention");
+  assertStringIncludes(text, "not fully read");
 });
 
 Deno.test("gap detection crosses a month boundary", () => {
@@ -330,6 +380,34 @@ Deno.test("a corrupt coverage file leaves coverage empty rather than throwing", 
   const source = fakeSource({ "/s/ledger/nativeweb-coverage.json": "[[[" });
   const digest = await loadDigest(source, "/s", "nativeweb", new Date());
   assertEquals(digest.coverage.total, 0);
+});
+
+Deno.test("an unreachable store refuses to produce a digest rather than an empty one", async () => {
+  // The failure this prevents: ssh fails, every read returns null, and the report says
+  // "No run has ever completed. There are no findings because nothing has looked" — a claim
+  // about the audit's history made on the strength of a network error.
+  const source: Source = {
+    ...fakeSource({}),
+    unreachable: () => Promise.resolve("ssh audit-host.local failed (255): Host is down"),
+  };
+  const thrown = await assertRejects(
+    () => loadDigest(source, "/s", "nativeweb", new Date()),
+    DigestUnreachable,
+  );
+  assertStringIncludes(thrown.message, "Host is down");
+  assertStringIncludes(thrown.message, "nothing was looked at");
+});
+
+Deno.test("a reachable store produces a digest as usual", async () => {
+  const source: Source = { ...fakeSource({}), unreachable: () => Promise.resolve(null) };
+  const digest = await loadDigest(source, "/s", "nativeweb", new Date());
+  assertEquals(digest.health.runs, 0);
+});
+
+Deno.test("a remote path is quoted, so a space reads the intended file", () => {
+  assertEquals(shellQuote("/home/user/audit store/ledger.jsonl"), "'/home/user/audit store/ledger.jsonl'");
+  assertEquals(shellQuote("a'b"), `'a'\\''b'`);
+  assertEquals(shellQuote("x; rm -rf ~"), "'x; rm -rf ~'");
 });
 
 Deno.test("the digest is JSON-serialisable, so a report can be archived as data", () => {

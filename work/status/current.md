@@ -6,13 +6,30 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 013 — continuous read-only audit** is being built on `feat/013-continuous-audit`. A daily
+- **Spec 013 — continuous read-only audit** is built on `feat/013-continuous-audit`, all fourteen
+  tasks ticked, **231 tests pass / 0 fail** (`cd tools/audit && deno test -A -q`). A daily
   unattended read of one slice of this repository on audit-host.local, producing a deduplicated defect
   ledger that an interactive session triages with the user. Read-only by topology, not by
   instruction: audit-host audits a throwaway clone of a pushed mirror and holds no credential that
-  reaches `origin`. Scope is `nativeweb` only. **R2 and R15 are met by the operator, not by an
-  agent** — they are properties of audit-host after the user runs `scripts/audit/provision-audit-host.sh`.
-  Spec/plan/tasks at `docs/specs/013-continuous-audit/`.
+  reaches `origin`. Scope is `nativeweb` only.
+  - **`013-spec.md` is `built`, not `done`, and R2 and R15 are why.** They are properties of
+    audit-host after the user runs `scripts/audit/provision-audit-host.sh --execute` on it — the same shape of
+    outstanding as spec 011's T15. The R-by-R table is in `013-spec.md`, "Acceptance review".
+  - **R14 is met in two clauses of three, and the spec says so.** Nothing in the audit path opens
+    a branch or writes to the repository, structurally, because the audit only writes to its own
+    store. That `accepted` needs the user's agreement is a **record, not an enforcement
+    boundary**: `--approved-by` is a flag anything with a shell can type. What holds is that the
+    audit never calls `triage.ts`.
+  - **A mutation test pushed a full mirror of this repository to audit-host.local**, unasked, on
+    2026-08-29 at 14:49: the mutation removed the sync script's dry-run `exit 0` and the script
+    went on to push for real. Nothing reached `origin`. The test now stubs `ssh` and asserts it
+    was never invoked. The mirror is gated behind `-DropRemoteMirror` in
+    `scripts/cleanup/013-continuous-audit.ps1` — keep it if the audit host is going ahead.
+  - The audit's own first real run found **one genuine defect in this repo** and it is on
+    `work/todo.md`, not fixed: `docs/01-architecture/native-web-architecture.md:133` points at
+    `docs/99-design/design-decisions.md`, which no tracked file matches.
+  - Operator guide: `docs/02-reference/continuous-audit.md`. Spec/plan/tasks at
+    `docs/specs/013-continuous-audit/`.
 
 - Spec 012 -- the htmx 2.0.10 → 4.0.0 upgrade -- merged into `dev` on
   2026-08-29, unpushed; its summary is in `previous.md`. All fourteen tasks are ticked, but

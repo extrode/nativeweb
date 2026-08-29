@@ -89,8 +89,19 @@ Deno.test("a bare sync invocation is a dry run that reaches no host at all", asy
 });
 
 Deno.test("a bare provision invocation reaches no host either", async () => {
-  const result = await bashWithoutSsh([PROVISION]);
-  assertEquals(result.sshAttempts, []);
+  // On Windows this would pass vacuously — the script exits 2 at the Darwin guard long before
+  // the reachability probe — so the guard is patched out and a fabricated HOME supplied, the
+  // same way the credential tests do it. Otherwise the assertion proves nothing on the machine
+  // it runs on and nothing about the machine it is written for.
+  const home = await fakeHome(false);
+  try {
+    const result = await provisionWithHome(home, [], { recordSsh: true });
+    assertEquals(result.code, 0);
+    assertEquals(result.sshAttempts, []);
+    assertStringIncludes(result.out, "a dry run makes no outbound connection");
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
 });
 
 Deno.test("the dry run names the mirror it would push to, and it is not origin", async () => {
@@ -157,7 +168,8 @@ Deno.test("the provisioner reports a found credential rather than deleting it", 
 async function provisionWithHome(
   home: string,
   extraArgs: string[] = [],
-): Promise<{ code: number; out: string }> {
+  opts: { recordSsh?: boolean } = {},
+): Promise<{ code: number; out: string; sshAttempts: string[] }> {
   const dir = await Deno.makeTempDir({ dir: join(REPO, "tmp"), prefix: "provision-" });
   try {
     const patched = (await read(PROVISION)).replace(
@@ -166,8 +178,12 @@ async function provisionWithHome(
     );
     const script = join(dir, "provision.sh");
     await Deno.writeTextFile(script, patched);
+    const marker = join(dir, "attempts.log");
     const shim = join(dir, "ssh");
-    await Deno.writeTextFile(shim, "#!/usr/bin/env bash\nexit 97\n");
+    await Deno.writeTextFile(
+      shim,
+      `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> ${JSON.stringify(marker)}\nexit 97\n`,
+    );
     await Deno.chmod(shim, 0o755).catch(() => {});
 
     const { code, stdout, stderr } = await new Deno.Command("bash", {
@@ -183,7 +199,15 @@ async function provisionWithHome(
       stderr: "piped",
     }).output();
     const dec = new TextDecoder();
-    return { code, out: dec.decode(stdout) + dec.decode(stderr) };
+    let sshAttempts: string[] = [];
+    if (opts.recordSsh === true) {
+      try {
+        sshAttempts = (await Deno.readTextFile(marker)).split("\n").filter((l) => l.length > 0);
+      } catch {
+        // No marker: the shim was never invoked, which is what the caller is asserting.
+      }
+    }
+    return { code, out: dec.decode(stdout) + dec.decode(stderr), sshAttempts };
   } finally {
     await Deno.remove(dir, { recursive: true });
   }

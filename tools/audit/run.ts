@@ -10,7 +10,7 @@
 
 import { parseArgs } from "jsr:@std/cli@^1.0.0/parse-args";
 import { admit, appendLedger, type Candidate, collapse, readLedger } from "./ledger.ts";
-import { redactCandidate, scanCorpus } from "./redact.ts";
+import { redactCandidate, redactText, scanCorpus } from "./redact.ts";
 import {
   enumerateSlices,
   mergeCoverage,
@@ -66,6 +66,12 @@ export interface RunRecord {
   costUsd: number | null;
   durationMs: number;
   modelUsed: boolean;
+  /**
+   * The model stopped at `max_tokens` rather than finishing, so its list of findings is a partial
+   * answer. Recorded because a partial read reported as a complete one is the failure `bounded`
+   * exists to prevent; the slice is not stamped as audited when this is true.
+   */
+  truncated: boolean;
 }
 
 export interface RunPaths {
@@ -99,7 +105,11 @@ export async function withThrowawayClone<T>(
 ): Promise<T> {
   const dir = await Deno.makeTempDir({ prefix: "nw-audit-clone-" });
   try {
-    await git(["clone", "--quiet", "--no-hardlinks", "--depth", "50", source, dir]);
+    // No --depth. git ignores it for a local clone anyway (which is what the audit host
+    // does, from ~/audit/mirror), and if the source ever became a URL a shallow clone would
+    // attribute every pre-boundary line to the boundary commit — silently killing the
+    // stale-todo rule, which decides staleness from blame author-time.
+    await git(["clone", "--quiet", "--no-hardlinks", source, dir]);
     return await fn(dir);
   } finally {
     // Best effort: a clone left behind is a disk-space problem, not a correctness one, and it
@@ -177,6 +187,18 @@ export async function auditCorpusLeaks(paths: RunPaths): Promise<number> {
   return scanCorpus(files).length;
 }
 
+/**
+ * May this run claim the slice was read?
+ *
+ * Stamping sends the slice to the back of the staleness queue, so it is a claim, not a note. Two
+ * cases where the run knows its own answer is incomplete and stamping would mean the slice is not
+ * picked again while coverage says it was covered. A `--no-model` run does stamp: the checks it
+ * was asked to run completed over the slice.
+ */
+export function shouldStampCoverage(bounded: boolean, truncated: boolean): boolean {
+  return !bounded && !truncated;
+}
+
 export interface RunOptions {
   /** What to clone. A bare mirror on the audit host; the working repository in a local check. */
   source: string;
@@ -206,6 +228,7 @@ export async function runOnce(options: RunOptions): Promise<RunRecord> {
     unevaluated: 0,
     discarded: 0,
     malformed: 0,
+    truncated: false,
     corpusLeaks: 0,
     admitted: 0,
     moved: 0,
@@ -229,7 +252,13 @@ export async function runOnce(options: RunOptions): Promise<RunRecord> {
         : selectSlice(coverage);
 
       if (chosen === null) {
-        record.outcome = "ok";
+        // Not `ok`. A run that audited nothing is a run that did not look, and the digest counts
+        // an `ok` run as a day covered — which is the "absence reported as no findings" that R12
+        // exists to prevent. Reached by a typo'd --slice, or by an empty repository.
+        record.outcome = "failed";
+        record.error = options.forceSlice !== undefined
+          ? `no slice named '${options.forceSlice}' exists in this repository`
+          : "no slice to audit: the repository has no directory containing source";
         return;
       }
       record.slice = chosen.slice;
@@ -283,6 +312,7 @@ export async function runOnce(options: RunOptions): Promise<RunRecord> {
         record.tokensIn = pass.usage.inputTokens;
         record.tokensOut = pass.usage.outputTokens;
         record.modelUsed = true;
+        record.truncated = pass.truncated;
         bounded = pass.bounded;
       }
 
@@ -305,15 +335,32 @@ export async function runOnce(options: RunOptions): Promise<RunRecord> {
       }
 
       await appendLedger(paths.ledger, [...result.admitted, ...result.moved]);
-      await writeCoverage(
-        paths.coverage,
-        recordAudited(coverage, chosen.slice, options.now, result.admitted.length),
-      );
-      record.outcome = bounded ? "bounded" : "ok";
+
+      // Stamping the slice audited sends it to the back of the staleness queue, so it is a claim
+      // that the slice was read. Two cases where the run knows its own answer is incomplete, and
+      // where stamping would mean the slice is not picked again while coverage says it was read:
+      //   - `bounded`: the slice was over the byte limit, so the reading pass skipped it entirely
+      //   - `truncated`: the model stopped at max_tokens, so its findings are a partial list
+      // A --no-model run does stamp: the checks it was asked to run completed over the slice.
+      if (shouldStampCoverage(bounded, record.truncated)) {
+        await writeCoverage(
+          paths.coverage,
+          recordAudited(coverage, chosen.slice, options.now, result.admitted.length),
+        );
+      } else {
+        // Still write the merged table, so a directory added today is on record as never audited.
+        await writeCoverage(paths.coverage, coverage);
+      }
+      record.outcome = bounded || record.truncated ? "bounded" : "ok";
     });
   } catch (cause) {
     record.outcome = "failed";
-    record.error = cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
+    // Redacted, and not optionally. A ModelError's message carries the response body verbatim,
+    // and an upstream that echoes the request has just put the API key into the run record. The
+    // corpus scan below would find it, but only after it had been written and read.
+    record.error = redactText(
+      cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause),
+    );
   }
 
   // R13's corpus assertion. Not a write-time check: a pattern added in November has to catch

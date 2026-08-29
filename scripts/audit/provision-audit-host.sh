@@ -113,7 +113,12 @@ fi
 # The audit host must not be able to reach origin. If it can, the throwaway-clone argument for R1
 # stops being structural and becomes a promise.
 say "2. Reachability (R1)"
-if ssh -o BatchMode=yes -o ConnectTimeout=5 -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+if [ "$EXECUTE" -eq 0 ]; then
+  # A dry run is documented as changing nothing, and an outbound authenticated connection to
+  # github.com is not nothing. Named, not made.
+  say "  skipped : a dry run makes no outbound connection. Under --execute this probes whether"
+  say "            this host can authenticate to github.com."
+elif ssh -o BatchMode=yes -o ConnectTimeout=5 -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
   say "  REACHES : this host authenticates to github.com. R1's structural guarantee is weakened —"
   say "            the audit cannot write to the repository, but this host could. Remove the key."
 else

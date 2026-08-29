@@ -29,6 +29,12 @@ const ASSERTION = [
 
 const CSHARP_ATTRIBUTE = /^\s*\[\s*(Fact|Theory)\b/;
 const CSHARP_SIGNATURE = /\b(?:public|internal|private)\s+(?:async\s+)?[\w<>,\[\]\s.?]+\s+(\w+)\s*\(/;
+
+/**
+ * How far past a `[Fact]` to look for the method it decorates. Enough for a stack of attributes
+ * and a signature broken over several lines; not enough to reach the next test.
+ */
+const SIGNATURE_WINDOW_LINES = 12;
 const DENO_TEST = /Deno\.test\s*\(/;
 
 function hasAssertion(body: string): boolean {
@@ -153,9 +159,14 @@ export const assertionlessTest: Check = {
           const lineStart = offset;
           offset += lines[i].length + 1;
           if (!CSHARP_ATTRIBUTE.test(lines[i])) continue;
-          // Find the method signature after the attribute block, then its body.
+          // Find the method signature after the attribute block, then its body. Bounded to the
+          // next few lines: an unbounded search over the rest of the file binds to some later,
+          // unrelated method whenever the attributed one's signature does not match the regex
+          // (a generic method, an unusual return type), and then names that method at this
+          // attribute's line. A confidently wrong finding is worse than a missed one.
+          const window = lines.slice(i, i + SIGNATURE_WINDOW_LINES).join("\n");
           const rest = stripped.slice(lineStart);
-          const sig = CSHARP_SIGNATURE.exec(rest);
+          const sig = CSHARP_SIGNATURE.exec(window);
           if (sig === null) continue;
           const block = braceBody(rest, sig.index);
           // An expression-bodied or abstract test has no block to inspect; leave it alone.

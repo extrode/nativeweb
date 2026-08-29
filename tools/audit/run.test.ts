@@ -1,5 +1,13 @@
 import { assert, assertEquals } from "@std/assert";
-import { auditCorpusLeaks, CHECKS, makeBlame, runOnce, storePaths, withThrowawayClone } from "./run.ts";
+import {
+  auditCorpusLeaks,
+  CHECKS,
+  makeBlame,
+  runOnce,
+  shouldStampCoverage,
+  storePaths,
+  withThrowawayClone,
+} from "./run.ts";
 import { readLedger } from "./ledger.ts";
 import { readCoverage } from "./slices.ts";
 
@@ -338,4 +346,103 @@ Deno.test("every registered rule has a distinct id and a description", () => {
   const ids = CHECKS.map((c) => c.ruleId);
   assertEquals(new Set(ids).size, ids.length, `duplicate rule id in ${ids}`);
   for (const check of CHECKS) assert(check.describe.trim().length > 0, `${check.ruleId} has no describe`);
+});
+
+// --- what the pre-merge review found -----------------------------------------------------------
+
+Deno.test({
+  name: "a --slice that names nothing is a failed run, not a healthy empty one",
+  permissions: { read: true, write: true, run: ["git"], env: true, net: false },
+  async fn() {
+    const f = await fixture();
+    try {
+      const record = await runOnce({
+        ...BASE,
+        source: f.repo,
+        store: f.store,
+        runId: "r-typo",
+        forceSlice: "src-typo",
+      });
+      // `ok` here would be counted by the digest as a day covered, with zero findings: absence
+      // of looking presented as absence of findings.
+      assertEquals(record.outcome, "failed");
+      assertEquals(record.slice, null);
+      assert((record.error ?? "").includes("src-typo"));
+    } finally {
+      await f.dispose();
+    }
+  },
+});
+
+Deno.test({
+  name: "a mechanical-only run stamps the slice, so the rotation advances",
+  permissions: { read: true, write: true, run: ["git"], env: true, net: false },
+  async fn() {
+    const f = await fixture();
+    try {
+      await runOnce({ ...BASE, source: f.repo, store: f.store, runId: "r1", forceSlice: "src" });
+      const coverage = await readCoverage(storePaths(f.store).coverage);
+      const row = coverage.find((r) => r.slice === "src");
+      assert(row !== undefined && row.lastAuditedAt !== null);
+    } finally {
+      await f.dispose();
+    }
+  },
+});
+
+Deno.test("a run that knows its answer is partial does not claim the slice was read", () => {
+  // Stamping sends the slice to the back of the staleness queue. Over-bound (the reading pass
+  // skipped it entirely) and truncated (the model stopped at max_tokens) are both cases where
+  // the run knows it did not read the slice through.
+  assertEquals(shouldStampCoverage(false, false), true, "a complete run stamps");
+  assertEquals(shouldStampCoverage(true, false), false, "an over-bound slice does not");
+  assertEquals(shouldStampCoverage(false, true), false, "a truncated answer does not");
+  assertEquals(shouldStampCoverage(true, true), false);
+});
+
+Deno.test({
+  name: "the error on a failed run is redacted before it reaches the run record",
+  permissions: { read: true, write: true, run: ["git"], env: true, net: false },
+  async fn() {
+    // A ModelError's message carries the upstream response body verbatim. An upstream that
+    // echoes the request has just put the API key into a file the corpus scan only sees after
+    // it has been written.
+    const root = await Deno.makeTempDir({ prefix: "nw-audit-err-" });
+    try {
+      const store = `${root}/store`;
+      await Deno.mkdir(store, { recursive: true });
+      const record = await runOnce({
+        ...BASE,
+        source: `${root}/no-such-repo-Bearer abcdefghijklmnopqrstuvwxyz012345`,
+        store,
+        runId: "r-fail",
+      });
+      assertEquals(record.outcome, "failed");
+      assert(!(record.error ?? "").includes("abcdefghijklmnopqrstuvwxyz012345"));
+      assert((record.error ?? "").includes("[redacted:"));
+    } finally {
+      await Deno.remove(root, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: "the clone is not shallow, so blame can see history older than the run",
+  permissions: { read: true, write: true, run: ["git"], env: true, net: false },
+  async fn() {
+    // stale-todo decides staleness from blame author-time. A shallow clone attributes every
+    // pre-boundary line to the boundary commit with a recent time, so the rule would silently
+    // never fire on the audit host.
+    const f = await fixture();
+    try {
+      await withThrowawayClone(f.repo, async (dir) => {
+        const shallow = await Deno.stat(`${dir}/.git/shallow`).then(() => true).catch(() => false);
+        assertEquals(shallow, false);
+        const blame = await makeBlame(dir)("src/Service.cs", 1);
+        assert(blame !== null);
+      });
+    } finally {
+      await f.dispose();
+    }
+  },
 });

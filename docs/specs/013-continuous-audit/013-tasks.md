@@ -17,7 +17,7 @@ the only task a person other than an agent must run.
 - [x] T11 Sync script: mirror push to audit-host — files: `scripts/audit/sync-to-audit-host.sh` — covers: R1 — done when: bare invocation reports what it would push and touches nothing; `--execute` pushes to the audit-host mirror and never to `origin`; running it twice is a no-op the second time.
 - [x] T12 Provisioning script for audit-host — files: `scripts/audit/provision-audit-host.sh` — covers: R2, R15 — done when: bare invocation prints every step and changes nothing; `--execute` installs Deno, creates the directory layout, loads the launchd agent, and fails loudly if any credential beyond the GLM key is present. **Run by the user on audit-host, not by an agent.**
 - [x] T13 Operator documentation — files: `docs/02-reference/continuous-audit.md`, `README.md` (one pointer) — covers: all — done when: a reader who has never seen this can provision, read a digest, triage, and stop the schedule, without opening a `.ts` file.
-- [ ] T14 Acceptance review and records — files: `013-spec.md`, `work/status/*`, `work/tasklist.md`, `CHANGELOG.md`, `scripts/cleanup/013-continuous-audit.ps1` — covers: gate — done when: every R is walked against what was built, R2 and R15 are marked pending the operator run of T12, and `Status` reflects the truth rather than the intent.
+- [x] T14 Acceptance review and records — files: `013-spec.md`, `work/status/*`, `work/tasklist.md`, `CHANGELOG.md`, `scripts/cleanup/013-continuous-audit.ps1` — covers: gate — done when: every R is walked against what was built, R2 and R15 are marked pending the operator run of T12, and `Status` reflects the truth rather than the intent.
 
 ## Analyze — requirement to task
 

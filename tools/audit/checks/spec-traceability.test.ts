@@ -7,6 +7,7 @@ import {
   specDoneWithUnmetRequirement,
   specRequirementWithoutCriterion,
   statusOf,
+  UNMET,
 } from "./spec-traceability.ts";
 import { validate } from "../ledger.ts";
 
@@ -166,4 +167,28 @@ Deno.test("the three rules carry three distinct ids, so dismissing one does not 
     specDoneWithUnmetRequirement.ruleId,
   ];
   assertEquals(new Set(ids).size, 3);
+});
+
+Deno.test("the unmet marker matches the forms this repo's specs actually use", () => {
+  // Two of the alternatives were dead: `\b` after a backtick can never match, and without `i`
+  // the sentence-initial `Unmet` was missed.
+  for (const line of [
+    "R16 is UNMET: no harness reproduces the benchmark.",
+    "R9 is not met here, deliberately.",
+    "Unmet, and recorded as such.",
+    "`011-spec.md` is not `done` until T15 runs.",
+    "R2 remains outstanding.",
+  ]) {
+    assert(UNMET.test(line), `not matched: ${line}`);
+  }
+});
+
+Deno.test("the unmet marker does not fire on ordinary prose", () => {
+  for (const line of [
+    "Every requirement is met and evidenced.",
+    "The status is `done`.",
+    "Outstanding work is tracked in work/todo.md.",
+  ]) {
+    assert(!UNMET.test(line), `wrongly matched: ${line}`);
+  }
 });

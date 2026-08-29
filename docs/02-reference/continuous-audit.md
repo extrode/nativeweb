@@ -18,6 +18,10 @@ opening a `.ts` file. That is what this page is for.
    are dropped and counted; findings that cannot be evaluated are admitted as `unverified`.
 6. What survives is redacted, then appended to the ledger. The clone is deleted.
 
+A run only marks the slice as read when it read it through. A slice over the byte bound, or a
+reading pass the model cut short at its token limit, leaves the slice where it was in the
+rotation, so it comes round again rather than being recorded as covered.
+
 It writes nothing to this repository, ever. There is no flag that makes it.
 
 ## Why it cannot damage anything
@@ -28,7 +32,8 @@ It writes nothing to this repository, ever. There is no flag that makes it.
 | The audit cannot reach `origin` | The audit host holds no credential for it; the repository reaches the host by push, not pull |
 | A secret in the source cannot leak into a report | 13 redaction rules run before anything is written, and every written artefact is re-scanned afterwards; a non-zero `corpusLeaks` is a defect in the audit itself |
 | A finding you dismissed cannot come back | `rejected` is an absorbing state, on write and on read |
-| A quiet week cannot look like a clean repository | A day with no run record is reported as a gap, above the findings |
+| A quiet week cannot look like a clean repository | A day with no run record is reported as a gap, above the findings — and the gap window runs to today, so a scheduler that died a month ago shows a month of gaps rather than an unbroken history |
+| An unreachable audit host cannot look like a clean repository | The digest refuses to render (exit 4) rather than reporting an empty ledger it could not read |
 
 ## Provisioning, once
 
@@ -68,6 +73,9 @@ From the workstation. This reads over ssh and writes nothing on the audit host.
 deno run -A tools/audit/digest.ts --ssh audit-host.local
 deno run -A tools/audit/digest.ts --ssh audit-host.local --json > tmp/digest.json
 ```
+
+If the host cannot be reached it exits 4 and prints why, rather than rendering an empty digest —
+"there are no findings" and "the store could not be read" are not the same statement.
 
 The report opens with health, deliberately: if the scheduler is dead, nothing below that line
 means what it appears to mean. Then coverage, then untriaged findings with verified ones first,

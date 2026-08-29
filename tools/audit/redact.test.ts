@@ -159,3 +159,36 @@ Deno.test("scanCorpus reports locations and never the value", () => {
   assertEquals(found.length, 1);
   assert(!JSON.stringify(found).includes("hunter2correct"));
 });
+
+// --- group position, not first textual occurrence (pre-merge review) ---------------------------
+
+Deno.test("a URL whose username repeats the password redacts the password, not the username", () => {
+  // `indexOf` on the whole match found the first occurrence of the captured text, which for
+  // https://user:user@host is the username. The password was left standing in the report.
+  const redacted = redactText("connect to https://user:user@db.example.com/app");
+  assert(!/:user@/.test(redacted), `password survived: ${redacted}`);
+  assertStringIncludes(redacted, "user:[redacted:basic-auth-in-url]@");
+});
+
+Deno.test("a distinct username and password still redacts only the password", () => {
+  const redacted = redactText("https://alice:s3cr3tvalue@db.example.com");
+  assertStringIncludes(redacted, "alice:");
+  assert(!redacted.includes("s3cr3tvalue"));
+});
+
+Deno.test("an assigned secret repeating its own key name redacts the value", () => {
+  const redacted = redactText('api_key = "api_key_9f3b2c7d1e4a6b8c0d2f4a6b"');
+  assert(!redacted.includes("9f3b2c7d1e4a6b8c0d2f4a6b"), redacted);
+});
+
+Deno.test("the bare spellings are redacted, not only the prefixed ones", () => {
+  for (const line of [
+    'password = "hunter2hunter2"',
+    "api_key: 9f3b2c7d1e4a6b8c0d2f4a6b",
+    'TOKEN="abcdefgh12345678"',
+    "client_secret = s3cr3t_value_here",
+  ]) {
+    const redacted = redactText(line);
+    assertStringIncludes(redacted, "[redacted:", `not redacted: ${line}`);
+  }
+});

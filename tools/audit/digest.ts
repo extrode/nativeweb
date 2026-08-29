@@ -74,13 +74,20 @@ export function datesBetween(from: string, to: string): string[] {
  * The alternative — showing only the runs that happened — makes a dead scheduler look exactly
  * like a quiet week, which is the failure this requirement exists to prevent.
  */
-export function health(records: readonly RunRecord[]): Health {
+export function health(records: readonly RunRecord[], now?: Date): Health {
   const byDate = new Map<string, RunRecord>();
   for (const r of records) byDate.set(r.startedAt.slice(0, 10), r);
   const dates = [...byDate.keys()].sort();
-  const gaps = dates.length < 2
+
+  // The gap window runs to *today*, not to the last run. Measuring only between the first and
+  // last run is the one direction that matters getting it backwards: a scheduler that died a
+  // month ago produces no run after the last one, so there is nothing between them to be
+  // missing, and the digest renders a month of silence as a healthy history.
+  const until = now === undefined ? dates[dates.length - 1] : now.toISOString().slice(0, 10);
+  const gaps = dates.length === 0
     ? []
-    : datesBetween(dates[0], dates[dates.length - 1]).filter((d) => !byDate.has(d));
+    : datesBetween(dates[0], until < dates[dates.length - 1] ? dates[dates.length - 1] : until)
+      .filter((d) => !byDate.has(d));
 
   return {
     runs: records.length,
@@ -123,7 +130,7 @@ export function buildDigest(
     untriaged: rank(current.filter((e) => e.state === "new")),
     totalFindings: current.length,
     coverage: summarise(coverage),
-    health: health(records),
+    health: health(records, now),
     cost: costTrend(records),
   };
 }
@@ -149,7 +156,7 @@ export function render(digest: Digest, repo = "nativeweb"): string {
     out.push("**No run has ever completed.** There are no findings because nothing has looked,");
     out.push("not because the repository is clean.");
     out.push("");
-  } else if (h.failed.length > 0 || h.gaps.length > 0 || h.corpusLeaks > 0) {
+  } else if (h.failed.length > 0 || h.gaps.length > 0 || h.corpusLeaks > 0 || h.bounded.length > 0) {
     out.push("## Health — needs attention");
     out.push("");
     if (h.corpusLeaks > 0) {
@@ -254,6 +261,13 @@ export function render(digest: Digest, repo = "nativeweb"): string {
 export interface Source {
   readText(path: string): Promise<string | null>;
   listRuns(dir: string): Promise<string[]>;
+  /**
+   * Why the store could not be read at all, or null if it could. An unreachable host and a store
+   * that has never been written are both "no files", and rendering the first as "nothing has ever
+   * run, so there are no findings" states a fact about the audit's history on the strength of a
+   * failed ssh. R12 in the reader.
+   */
+  unreachable?(): Promise<string | null>;
 }
 
 export function localSource(): Source {
@@ -290,13 +304,42 @@ export function sshSource(host: string): Source {
     return code === 0 ? new TextDecoder().decode(stdout) : null;
   };
   return {
-    readText: (path) => run(["cat", "--", path]),
+    readText: (path) => run(["cat", "--", shellQuote(path)]),
     async listRuns(dir) {
-      const out = await run(["ls", "-1", dir]);
+      const out = await run(["ls", "-1", shellQuote(dir)]);
       if (out === null) return [];
       return out.split("\n").filter((n) => n.endsWith(".json")).map((n) => `${dir}/${n}`).sort();
     },
+    async unreachable() {
+      const { code, stderr } = await new Deno.Command("ssh", {
+        args: ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", host, "true"],
+        stdout: "null",
+        stderr: "piped",
+      }).output();
+      if (code === 0) return null;
+      const detail = new TextDecoder().decode(stderr).trim().split("\n")[0] ?? "";
+      return `ssh ${host} failed (${code})${detail.length > 0 ? `: ${detail}` : ""}`;
+    },
   };
+}
+
+/**
+ * Quote a path for a remote shell. `ssh host cat -- <path>` is not argv: ssh joins the arguments
+ * and the remote login shell re-splits them, so a path with a space reads the wrong file and one
+ * with a metacharacter runs something.
+ */
+export function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+export class DigestUnreachable extends Error {
+  constructor(reason: string) {
+    super(
+      `${reason}\n\nThe audit store could not be read, so no digest is produced. This is not ` +
+        `"no findings": nothing was looked at.`,
+    );
+    this.name = "DigestUnreachable";
+  }
 }
 
 export async function loadDigest(
@@ -305,6 +348,12 @@ export async function loadDigest(
   repo: string,
   now: Date,
 ): Promise<Digest> {
+  const cannotReach = source.unreachable !== undefined ? await source.unreachable() : null;
+  if (cannotReach !== null) {
+    // Not an empty digest. An empty digest is a claim; this is a refusal to make one.
+    throw new DigestUnreachable(cannotReach);
+  }
+
   const ledgerText = await source.readText(`${store}/ledger/${repo}.jsonl`);
   const coverageText = await source.readText(`${store}/ledger/${repo}-coverage.json`);
   const runFiles = await source.listRuns(`${store}/runs`);
@@ -351,6 +400,14 @@ if (import.meta.main) {
   }
 
   const source = args.ssh !== undefined ? sshSource(args.ssh) : localSource();
-  const digest = await loadDigest(source, args.store, args.repo, new Date());
-  console.log(args.json ? JSON.stringify(digest, null, 2) : render(digest, args.repo));
+  try {
+    const digest = await loadDigest(source, args.store, args.repo, new Date());
+    console.log(args.json ? JSON.stringify(digest, null, 2) : render(digest, args.repo));
+  } catch (cause) {
+    if (cause instanceof DigestUnreachable) {
+      console.error(cause.message);
+      Deno.exit(4);
+    }
+    throw cause;
+  }
 }

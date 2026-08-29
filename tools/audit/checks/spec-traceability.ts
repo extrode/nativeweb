@@ -52,8 +52,14 @@ export function statusOf(text: string): string | null {
   return STATUS.exec(text)?.[1]?.toLowerCase() ?? null;
 }
 
-/** Words a spec uses when it is recording that something was not achieved. */
-const UNMET = /\b(UNMET|not met|unmet|deliberately unmet|is not `done`|remains outstanding)\b/;
+/**
+ * Words a spec uses when it is recording that something was not achieved.
+ *
+ * No trailing \b: one alternative ends in a backtick, and a backtick is never a word character,
+ * so `\b` after it could never match and that branch was dead. Case-insensitive for the same
+ * kind of reason: `Unmet` at the start of a sentence is the common form and was being missed.
+ */
+export const UNMET = /(\bUNMET\b|\bnot met\b|\bunmet\b|\bdeliberately unmet\b|is not `done`|\bremains outstanding\b)/i;
 
 function specFiles(ctx: CheckContext) {
   return ctx.files.filter((f) => SPEC_FILE.test(f.path.replaceAll("\\", "/")));

@@ -176,6 +176,28 @@ export function collapse(lines: Iterable<Entry>): Map<string, Entry> {
   return current;
 }
 
+const STATES: readonly string[] = ["new", "accepted", "rejected", "fixed"];
+const VERIFICATIONS: readonly string[] = ["verified", "unverified", "refuted"];
+
+/** Null if this parsed value is a usable `Entry`, otherwise what is wrong with it. */
+export function shapeError(value: unknown): string | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return "not an object";
+  }
+  const e = value as Record<string, unknown>;
+  for (const field of ["id", "ruleId", "path", "what", "why", "confirm", "at"]) {
+    if (typeof e[field] !== "string" || (e[field] as string).length === 0) {
+      return `missing or empty '${field}'`;
+    }
+  }
+  if (typeof e.line !== "number" || !Number.isFinite(e.line)) return "missing or non-numeric 'line'";
+  if (!STATES.includes(e.state as string)) return `'state' is not one of ${STATES.join(", ")}`;
+  if (!VERIFICATIONS.includes(e.verified as string)) {
+    return `'verified' is not one of ${VERIFICATIONS.join(", ")}`;
+  }
+  return null;
+}
+
 export function parseLedger(text: string): Entry[] {
   const entries: Entry[] = [];
   let lineNo = 0;
@@ -184,7 +206,17 @@ export function parseLedger(text: string): Entry[] {
     const line = raw.trim();
     if (line.length === 0) continue;
     try {
-      entries.push(JSON.parse(line) as Entry);
+      const parsed = JSON.parse(line);
+      // Shape-check, not just parse-check. This module is documented as the last line of defence
+      // for a hand-edited or concatenated ledger, and a record with a valid `id` but no `what`
+      // reaches the digest's renderer and throws there — a bad line in the ledger taking out the
+      // whole report. Reject it here and say which line.
+      const bad = shapeError(parsed);
+      if (bad !== null) {
+        console.error(`ledger: skipping malformed record at line ${lineNo}: ${bad}`);
+        continue;
+      }
+      entries.push(parsed as Entry);
     } catch (cause) {
       // One bad record must not cost the file. Say which, and carry on.
       console.error(`ledger: skipping unparseable record at line ${lineNo}: ${cause}`);

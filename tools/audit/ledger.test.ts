@@ -5,15 +5,16 @@ import {
   canTransition,
   collapse,
   computeId,
-  type Candidate,
-  type Entry,
   normaliseExcerpt,
   parseLedger,
   readLedger,
   serialise,
+  shapeError,
   transition,
   TransitionError,
   validate,
+  type Candidate,
+  type Entry,
 } from "./ledger.ts";
 
 const NOW = new Date("2026-08-30T03:00:00.000Z");
@@ -267,4 +268,56 @@ Deno.test("appending nothing does not create a file", async () => {
 
 Deno.test("a missing ledger reads as empty rather than throwing", async () => {
   assertEquals(await readLedger("/nonexistent/nowhere/ledger.jsonl"), []);
+});
+
+// --- shape validation on the way in (pre-merge review) ----------------------------------------
+
+Deno.test("a record that parses but is not an Entry is skipped, not admitted", () => {
+  // The failure this prevents: an id and a state but no `what`, which reaches the digest's
+  // renderer and throws there — one bad line taking out the whole report.
+  const good = JSON.stringify({
+    id: "a".repeat(64),
+    ruleId: "stale-todo",
+    path: "src/A.cs",
+    line: 3,
+    what: "x",
+    why: "y",
+    confirm: "z",
+    verified: "verified",
+    state: "new",
+    at: "2026-08-29T00:00:00.000Z",
+  });
+  const bad = JSON.stringify({ id: "b".repeat(64), state: "new" });
+  const entries = parseLedger(`${good}\n${bad}\n`);
+  assertEquals(entries.length, 1);
+  assertEquals(entries[0].id, "a".repeat(64));
+});
+
+Deno.test("shapeError names the first thing wrong", () => {
+  assertEquals(shapeError(null), "not an object");
+  assertEquals(shapeError([1, 2]), "not an object");
+  assertEquals(shapeError("a string"), "not an object");
+  assert((shapeError({}) ?? "").includes("'id'"));
+});
+
+Deno.test("shapeError rejects a bad line number and a bad state", () => {
+  const base = {
+    id: "x",
+    ruleId: "r",
+    path: "p",
+    what: "w",
+    why: "y",
+    confirm: "c",
+    at: "t",
+    verified: "verified",
+    state: "new",
+  };
+  assert((shapeError({ ...base, line: "3" }) ?? "").includes("line"));
+  assert((shapeError({ ...base, line: 3, state: "maybe" }) ?? "").includes("state"));
+  assert((shapeError({ ...base, line: 3, verified: "sort of" }) ?? "").includes("verified"));
+  assertEquals(shapeError({ ...base, line: 3 }), null);
+});
+
+Deno.test("a JSON array on one line does not collapse onto a single undefined key", () => {
+  assertEquals(parseLedger("[1,2,3]\n").length, 0);
 });
