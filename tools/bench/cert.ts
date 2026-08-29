@@ -138,10 +138,29 @@ export const SIGN_ARGS = (
   extPath,
 ];
 
+/** True when every file of the pair exists AND the leaf is still valid tomorrow. */
+export async function reusable(
+  paths: { caCertPath: string; caKeyPath: string; certPath: string; keyPath: string },
+  openssl: string,
+  check: (openssl: string, args: string[]) => Promise<boolean> = checkend,
+): Promise<boolean> {
+  for (const path of Object.values(paths)) {
+    try {
+      await Deno.stat(path);
+    } catch {
+      return false;
+    }
+  }
+
+  // Presence alone was the first rule, and it rots: a year on, the reuse branch would keep
+  // handing back an expired leaf, every request would fail the handshake, and the only symptom
+  // would be a run full of TLS errors with nothing naming the cert.
+  return await check(openssl, ["x509", "-checkend", "86400", "-noout", "-in", paths.certPath]);
+}
+
 /**
- * Mint a CA and a leaf into `dir`, reusing what is already there. Reuse is by presence, not by
- * expiry: the lifetime is long enough that a stale pair means the directory survived years,
- * and `tmp/` does not.
+ * Mint a CA and a leaf into `dir`, reusing what is already there when the pair is complete and
+ * the leaf is not about to expire.
  */
 export async function ensureCert(dir: string, days = 365): Promise<Cert> {
   const caCertPath = join(dir, "bench-ca.pem");
@@ -151,16 +170,12 @@ export async function ensureCert(dir: string, days = 365): Promise<Cert> {
 
   await Deno.mkdir(dir, { recursive: true });
 
-  try {
-    const pem = await Deno.readTextFile(caCertPath);
-    await Deno.stat(certPath);
-    await Deno.stat(keyPath);
-    return { certPath, keyPath, pem };
-  } catch {
-    // Not minted yet.
+  const openssl = await resolveOpenssl();
+
+  if (await reusable({ caCertPath, caKeyPath, certPath, keyPath }, openssl)) {
+    return { certPath, keyPath, pem: await Deno.readTextFile(caCertPath) };
   }
 
-  const openssl = await resolveOpenssl();
   const csrPath = join(dir, "bench.csr");
   const extPath = join(dir, "bench-leaf.ext");
   await Deno.writeTextFile(extPath, `${LEAF_EXTENSIONS}\n`);
@@ -170,6 +185,17 @@ export async function ensureCert(dir: string, days = 365): Promise<Cert> {
   await run(openssl, SIGN_ARGS(csrPath, caCertPath, caKeyPath, extPath, certPath, days));
 
   return { certPath, keyPath, pem: await Deno.readTextFile(caCertPath) };
+}
+
+/** Run an openssl command for its exit code alone -- `-checkend` answers by exiting 0 or 1. */
+async function checkend(openssl: string, args: string[]): Promise<boolean> {
+  try {
+    const { code } = await new Deno.Command(openssl, { args, stdout: "null", stderr: "null" })
+      .output();
+    return code === 0;
+  } catch {
+    return false;
+  }
 }
 
 async function run(openssl: string, args: string[]): Promise<void> {

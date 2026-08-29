@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 
 import { parsePs, parseTasklist, startRssSampler } from "./rss.ts";
 
@@ -84,4 +84,23 @@ Deno.test("a sampler whose reader throws still stops, with the peak it had", asy
   // that already succeeded.
   await new Promise((resolve) => setTimeout(resolve, 10));
   assertEquals(await sampler.stop(), 64);
+});
+
+Deno.test("stop() cancels the pending interval instead of waiting it out", async () => {
+  let samples = 0;
+  const sampler = startRssSampler(1234, 60_000, () => {
+    samples++;
+    return Promise.resolve(4096);
+  });
+
+  // Let the first sample land, so the loop is parked in its sleep.
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const start = performance.now();
+  const peak = await sampler.stop();
+
+  assertEquals(peak, 4096);
+  assertEquals(samples, 1);
+  // A minute's interval: waiting it out would hang the test run rather than fail it, so the
+  // assertion is that stopping is immediate.
+  assert(performance.now() - start < 1000, `stop() took ${performance.now() - start}ms`);
 });

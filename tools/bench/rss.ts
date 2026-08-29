@@ -76,6 +76,10 @@ export function startRssSampler(
 ): RssSampler {
   let running = true;
   let peak = 0;
+  // Retained so stop() cancels the pending interval instead of waiting it out, and so a dropped
+  // handle cannot leave the loop spawning tasklist four times a second for the process's life.
+  let pending: ReturnType<typeof setTimeout> | undefined;
+  let wake: (() => void) | undefined;
 
   const loop = (async () => {
     while (running) {
@@ -89,13 +93,23 @@ export function startRssSampler(
       }
       if (bytes !== null && bytes > peak) peak = bytes;
       if (!running) break;
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      await new Promise<void>((resolve) => {
+        wake = resolve;
+        pending = setTimeout(resolve, intervalMs);
+      });
+      if (pending !== undefined) clearTimeout(pending);
+      pending = undefined;
+      wake = undefined;
     }
   })();
 
   return {
     async stop(): Promise<number> {
       running = false;
+      // Cancel the sleep rather than waiting it out: at 250ms that is a quarter second added to
+      // every scenario, and on a caller that stops mid-interval it is the whole interval.
+      if (pending !== undefined) clearTimeout(pending);
+      wake?.();
       await loop;
       return peak;
     },

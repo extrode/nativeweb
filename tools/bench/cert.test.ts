@@ -1,6 +1,14 @@
 import { assert, assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 
-import { CA_ARGS, CSR_ARGS, ensureCert, LEAF_EXTENSIONS, resolveOpenssl } from "./cert.ts";
+import {
+  CA_ARGS,
+  CSR_ARGS,
+  ensureCert,
+  LEAF_EXTENSIONS,
+  resolveOpenssl,
+  reusable,
+} from "./cert.ts";
+import { removeScratch, scratchDir } from "./scratch.ts";
 
 Deno.test("resolveOpenssl takes the first candidate that answers", async () => {
   const tried: string[] = [];
@@ -44,7 +52,7 @@ Deno.test("the CA is a CA and the leaf's key needs no passphrase", () => {
 });
 
 Deno.test("ensureCert mints a usable pair and reuses it on a second call", async () => {
-  const dir = await Deno.makeTempDir();
+  const dir = await scratchDir();
   try {
     const first = await ensureCert(dir, 2);
     assertStringIncludes(first.pem, "BEGIN CERTIFICATE");
@@ -56,12 +64,12 @@ Deno.test("ensureCert mints a usable pair and reuses it on a second call", async
     assertEquals(second.certPath, first.certPath);
     assertEquals((await Deno.stat(second.certPath)).mtime?.getTime(), mintedAt);
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await removeScratch(dir);
   }
 });
 
 Deno.test("a minted certificate actually serves TLS that the driver's client trusts", async () => {
-  const dir = await Deno.makeTempDir();
+  const dir = await scratchDir();
   try {
     const cert = await ensureCert(dir, 2);
     const controller = new AbortController();
@@ -89,6 +97,81 @@ Deno.test("a minted certificate actually serves TLS that the driver's client tru
       await server.finished;
     }
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await removeScratch(dir);
+  }
+});
+
+Deno.test("an expired leaf is not reused, however present the files are", async () => {
+  const dir = await scratchDir();
+  try {
+    for (const name of ["bench-ca.pem", "bench-ca-key.pem", "bench-cert.pem", "bench-key.pem"]) {
+      await Deno.writeTextFile(`${dir}/${name}`, "not a real cert");
+    }
+    const paths = {
+      caCertPath: `${dir}/bench-ca.pem`,
+      caKeyPath: `${dir}/bench-ca-key.pem`,
+      certPath: `${dir}/bench-cert.pem`,
+      keyPath: `${dir}/bench-key.pem`,
+    };
+
+    // Presence alone was the original rule. A year on it would keep handing back a dead leaf,
+    // and every request would fail the handshake with nothing naming the cert.
+    assertEquals(await reusable(paths, "openssl", () => Promise.resolve(false)), false);
+    assertEquals(await reusable(paths, "openssl", () => Promise.resolve(true)), true);
+  } finally {
+    await removeScratch(dir);
+  }
+});
+
+Deno.test("a half-minted pair is not reused, and the expiry is not even consulted", async () => {
+  const dir = await scratchDir();
+  try {
+    // The CA key was the file the presence check forgot: without it the leaf cannot be
+    // re-signed, so a directory missing it is not reusable however valid the leaf looks.
+    await Deno.writeTextFile(`${dir}/bench-ca.pem`, "x");
+    await Deno.writeTextFile(`${dir}/bench-cert.pem`, "x");
+    await Deno.writeTextFile(`${dir}/bench-key.pem`, "x");
+
+    let checked = false;
+    const ok = await reusable(
+      {
+        caCertPath: `${dir}/bench-ca.pem`,
+        caKeyPath: `${dir}/bench-ca-key.pem`,
+        certPath: `${dir}/bench-cert.pem`,
+        keyPath: `${dir}/bench-key.pem`,
+      },
+      "openssl",
+      () => {
+        checked = true;
+        return Promise.resolve(true);
+      },
+    );
+
+    assertEquals(ok, false);
+    assertEquals(checked, false);
+  } finally {
+    await removeScratch(dir);
+  }
+});
+
+Deno.test("a real minted pair is reusable, expiry check and all", async () => {
+  const dir = await scratchDir();
+  try {
+    await ensureCert(dir, 2);
+    assertEquals(
+      await reusable({
+        caCertPath: `${dir}/bench-ca.pem`,
+        caKeyPath: `${dir}/bench-ca-key.pem`,
+        certPath: `${dir}/bench-cert.pem`,
+        keyPath: `${dir}/bench-key.pem`,
+      }, await resolveOpenssl()),
+      true,
+    );
+
+    // One day of life left is inside openssl's -checkend 86400 window, so this pair is due for
+    // reminting rather than reuse -- the branch that would otherwise only fire a year from now.
+    await ensureCert(dir, 1);
+  } finally {
+    await removeScratch(dir);
   }
 });

@@ -4,8 +4,9 @@
 // be better. Neither is installed on this machine, and the repo's tooling rule is Deno over
 // anything that needs npm or a binary nobody can reproduce. What that costs is absolute
 // ceiling: this driver spends real time in JS per request, so its req/s is a floor for the
-// server, not the server's limit. What it buys is a harness that runs on a clean checkout with
-// `deno run` and nothing else, which is the property R16 actually needed.
+// server, not the server's limit. What it buys is a driver with no prerequisite beyond `deno
+// run` -- the harness around it needs openssl for the loopback cert, and `dotnet publish` needs
+// the JauntyQ sibling checkout unless you point it at existing output with --skip-publish.
 
 import type { RunSample } from "./stats.ts";
 

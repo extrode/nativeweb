@@ -6,6 +6,7 @@ import { join } from "@std/path";
 
 import { decide, DEFAULTS, isBaseline, type Options, readBaseline } from "./run.ts";
 import type { Baseline, Machine, ScenarioMeasurement } from "./stats.ts";
+import { removeScratch, scratchDir } from "./scratch.ts";
 
 const machine: Machine = { hostname: "bench-1", cpus: 16, os: "windows", arch: "x86_64" };
 
@@ -84,16 +85,16 @@ Deno.test("a measurement within tolerance is exit 0 and names the baseline's dat
 });
 
 Deno.test("readBaseline returns null only when the file is absent", async () => {
-  const dir = await Deno.makeTempDir();
+  const dir = await scratchDir();
   try {
     assertEquals(await readBaseline(join(dir, "nothing.json")), null);
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await removeScratch(dir);
   }
 });
 
 Deno.test("a malformed baseline throws instead of reading as absent", async () => {
-  const dir = await Deno.makeTempDir();
+  const dir = await scratchDir();
   try {
     // Reported as "no baseline yet", this would invite --baseline to overwrite a file that
     // exists -- which on a half-written baseline is the last copy of the measurement.
@@ -103,12 +104,12 @@ Deno.test("a malformed baseline throws instead of reading as absent", async () =
     const error = await assertRejects(() => readBaseline(path), Error);
     assertStringIncludes(error.message, "not valid JSON");
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await removeScratch(dir);
   }
 });
 
 Deno.test("a baseline missing its machine block is refused by name", async () => {
-  const dir = await Deno.makeTempDir();
+  const dir = await scratchDir();
   try {
     const path = join(dir, "baseline.json");
     await Deno.writeTextFile(path, JSON.stringify({ recorded: "2026-08-29", scenarios: {} }));
@@ -116,18 +117,18 @@ Deno.test("a baseline missing its machine block is refused by name", async () =>
     const error = await assertRejects(() => readBaseline(path), Error);
     assertStringIncludes(error.message, "--baseline");
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await removeScratch(dir);
   }
 });
 
 Deno.test("readBaseline round-trips a real one", async () => {
-  const dir = await Deno.makeTempDir();
+  const dir = await scratchDir();
   try {
     const path = join(dir, "baseline.json");
     await Deno.writeTextFile(path, JSON.stringify(baseline()));
     assertEquals((await readBaseline(path))?.recorded, "2026-08-29");
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await removeScratch(dir);
   }
 });
 

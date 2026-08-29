@@ -20,6 +20,14 @@ $candidates = @(
     @{ Path = Join-Path $repo 'tmp\bench-probe.ts'; What = 'the probe that found the GET / 500 over http' }
     @{ Path = Join-Path $repo 'tmp\baseline-real.json'; What = 'baseline copy kept while the regression path was verified' }
     @{ Path = Join-Path $repo 'tmp\bench-probe.log'; What = 'probe output' }
+    @{ Path = Join-Path $repo 'tmp\012-bench-branch.diff'; What = 'branch diff handed to the code review' }
+)
+
+# The test suite's scratch directories, one per run, named by tools/bench/scratch.ts. Globbed
+# rather than listed: a killed run leaves one behind and the count is not knowable in advance.
+$candidates += @(
+    Get-ChildItem -Path (Join-Path $repo 'tmp') -Directory -Filter 'bench-test-*' -ErrorAction SilentlyContinue |
+        ForEach-Object { @{ Path = $_.FullName; What = 'test scratch left by a killed deno test run' } }
 )
 
 $found = @($candidates | Where-Object { Test-Path $_.Path })

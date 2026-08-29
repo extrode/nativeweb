@@ -900,3 +900,12 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   under spec 010 and this reference was missed, or it was never written. Found by the first real run of
   the spec 013 audit, not by a review; left out of 013's scope because fixing it is a documentation
   change, not audit tooling.
+
+- **`tools/bench/run.ts` publishes into the same tree the e2e fixture uses.** `publish()` runs
+  `dotnet publish apps/web -c Release` with the default output path, which is the
+  `apps/web/bin/Release/net10.0/*/publish` directory `tests/nativeweb.web.tests.e2e/AppProcessFixture.cs`
+  also publishes into and launches from. A bench run interleaved with the e2e tier has the two
+  writing one directory. `scripts/ci/check-publish-budgets.ps1` avoids this by pinning `-o publish/web`.
+  Not fixed on the 012 harness branch: pinning an output path also changes what `--skip-publish`
+  reuses and what `findPublishedExe` scans, and the committed baseline was recorded against the
+  current layout. Found by the consequence-lens review of `feat/012-bench-harness`.

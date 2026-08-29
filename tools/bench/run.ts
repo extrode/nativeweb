@@ -14,7 +14,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 
 import { drive } from "./load.ts";
 import { startRssSampler } from "./rss.ts";
-import { findPublishedExe, publish, startApp, waitForHealthz } from "./server.ts";
+import { DEFAULT_PORT, findPublishedExe, publish, startApp, waitForHealthz } from "./server.ts";
 import {
   type Baseline,
   comparable,
@@ -39,6 +39,7 @@ export interface Options {
   check: boolean;
   writeBaseline: boolean;
   skipPublish: boolean;
+  force: boolean;
   port: number;
   harness: HarnessSettings;
 }
@@ -47,7 +48,8 @@ export const DEFAULTS: Options = {
   check: false,
   writeBaseline: false,
   skipPublish: false,
-  port: 5997,
+  force: false,
+  port: DEFAULT_PORT,
   // 16 workers, 10 seconds, 3 runs -- section 14's own "three runs per test" discipline.
   harness: { concurrency: 16, durationMs: 10_000, runs: 3 },
 };
@@ -78,6 +80,9 @@ export function parseArgs(args: string[]): Options {
         break;
       case "--skip-publish":
         options.skipPublish = true;
+        break;
+      case "--force":
+        options.force = true;
         break;
       case "--port":
         options.port = value(65_535);
@@ -261,6 +266,34 @@ export function baselineObjection(
 }
 
 /**
+ * Why this measurement must not replace the committed baseline, or null if it may.
+ *
+ * The read side treats a machine mismatch as record-only and exits 0. Without the same rule on
+ * the write side, a `--baseline` run on any other machine replaces the committed file, and every
+ * later `--check` on the recording machine passes having compared nothing -- the gate does not
+ * break, it goes quiet. `--force` is the deliberate re-baseline after a hardware change.
+ */
+export function overwriteObjection(
+  existing: Baseline | null,
+  machine: Machine,
+  force: boolean,
+): string | null {
+  if (existing === null || force) return null;
+
+  const before = existing.machine;
+  if (
+    before.hostname === machine.hostname && before.cpus === machine.cpus
+    && before.os === machine.os && before.arch === machine.arch
+  ) {
+    return null;
+  }
+
+  return `the committed baseline was recorded on ${before.hostname} (${before.cpus} cpu, `
+    + `${before.os}/${before.arch}) and this is ${machine.hostname} (${machine.cpus} cpu, `
+    + `${machine.os}/${machine.arch}). Pass --force to replace it anyway.`;
+}
+
+/**
  * Read the baseline. Null means there is none; a malformed or half-written one throws rather
  * than being reported as absent, which would invite overwriting a file that exists.
  */
@@ -383,7 +416,8 @@ export async function main(args: string[]): Promise<number> {
   console.log(`Wrote ${join(scratch, "latest.json")}`);
 
   if (options.writeBaseline) {
-    const objection = baselineObjection(measurements);
+    const objection = baselineObjection(measurements)
+      ?? overwriteObjection(await readBaseline(baselinePath(root)), machine, options.force);
     if (objection !== null) {
       console.error(`Refusing to record a baseline: ${objection}`);
       return 2;

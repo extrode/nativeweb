@@ -40,6 +40,30 @@ export interface RunningApp {
 /** How many of the app's log lines to keep for a failure message. */
 export const LOG_TAIL_LINES = 40;
 
+/** How long a killed app gets to exit before it is killed harder. */
+export const KILL_GRACE_MS = 5_000;
+
+/**
+ * Throw if something is already listening on the port.
+ *
+ * A previous run killed at the wrong moment -- taskkill on the harness, an OOM, a wrapper
+ * timeout -- leaves the published binary bound to 5997 with the page limiter raised. Without
+ * this check the next run's `waitForHealthz` gets a 200 from that stale process and the harness
+ * benchmarks last week's binary while reporting it as today's.
+ */
+export function assertPortFree(port: number, listen = Deno.listen): void {
+  let listener: Deno.Listener;
+  try {
+    listener = listen({ port, hostname: "127.0.0.1" });
+  } catch {
+    throw new Error(
+      `Port ${port} is already in use. A previous bench run may have left the app running -- `
+        + `stop it, or pass --port <n>.`,
+    );
+  }
+  listener.close();
+}
+
 /**
  * Locate the published binary. Scans for it rather than computing the RID: a checkout can
  * carry publish output for more than one RID, and a stale guess produces "file not found"
@@ -171,6 +195,7 @@ export async function startApp(options: StartOptions): Promise<RunningApp> {
   // "localhost", not 127.0.0.1: the cert's SAN carries both, but a name the client can verify
   // keeps the TLS handshake off the list of things a failed run could be blamed on.
   const baseUrl = `https://localhost:${port}`;
+  assertPortFree(port);
   const exePath = options.exePath ?? await findPublishedExe(options.repoRoot);
   const cert = options.cert ?? await ensureCert(join(options.repoRoot, "tmp", "bench"));
 
@@ -210,8 +235,23 @@ export async function startApp(options: StartOptions): Promise<RunningApp> {
       } catch {
         // Already gone.
       }
-      await exited;
-      await drain;
+      // SIGTERM first, SIGKILL if it has not gone in KILL_GRACE_MS. Without the escalation a
+      // process wedged in the native runtime blocks this await forever, the harness never
+      // exits, and the binary keeps the port -- the state the pre-flight check below exists to
+      // catch on the NEXT run, which is one run too late.
+      const escalate = setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // Raced with a normal exit.
+        }
+      }, KILL_GRACE_MS);
+      try {
+        await exited;
+        await drain;
+      } finally {
+        clearTimeout(escalate);
+      }
     },
   };
 }

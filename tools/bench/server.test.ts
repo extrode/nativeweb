@@ -1,6 +1,20 @@
-import { assert, assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 
-import { benchEnv, drainInto, findPublishedExe, LOG_TAIL_LINES, waitForHealthz } from "./server.ts";
+import {
+  assertPortFree,
+  benchEnv,
+  drainInto,
+  findPublishedExe,
+  LOG_TAIL_LINES,
+  waitForHealthz,
+} from "./server.ts";
+import { removeScratch, scratchDir } from "./scratch.ts";
 
 Deno.test("waitForHealthz returns once /healthz answers 200", async () => {
   let attempts = 0;
@@ -88,18 +102,18 @@ Deno.test("the bench environment raises the page limiter, silences telemetry and
 });
 
 Deno.test("findPublishedExe names the directory it looked in when nothing is published", async () => {
-  const root = await Deno.makeTempDir();
+  const root = await scratchDir();
   try {
     const error = await assertRejects(() => findPublishedExe(root), Error);
     assertStringIncludes(error.message, "Release");
     assertStringIncludes(error.message, "--skip-publish");
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await removeScratch(root);
   }
 });
 
 Deno.test("findPublishedExe finds the binary under an arbitrary RID directory", async () => {
-  const root = await Deno.makeTempDir();
+  const root = await scratchDir();
   try {
     const exeName = Deno.build.os === "windows" ? "nativeweb.web.exe" : "nativeweb.web";
     const dir = `${root}/apps/web/bin/Release/net10.0/some-rid-x64/publish`;
@@ -108,17 +122,17 @@ Deno.test("findPublishedExe finds the binary under an arbitrary RID directory", 
 
     assertStringIncludes(await findPublishedExe(root), exeName);
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await removeScratch(root);
   }
 });
 
 Deno.test("a RID directory with no publish output is not mistaken for one", async () => {
-  const root = await Deno.makeTempDir();
+  const root = await scratchDir();
   try {
     await Deno.mkdir(`${root}/apps/web/bin/Release/net10.0/some-rid-x64`, { recursive: true });
     await assertRejects(() => findPublishedExe(root), Error);
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await removeScratch(root);
   }
 });
 
@@ -146,4 +160,28 @@ Deno.test("a line split across two chunks is reassembled, not torn in half", asy
   await drainInto(stream, tail);
 
   assertEquals(tail, ["System.InvalidOperationException: boom"]);
+});
+
+Deno.test("a port already in use is named, not left for a 60s healthz timeout", () => {
+  const listener = Deno.listen({ port: 0, hostname: "127.0.0.1" });
+  const port = (listener.addr as Deno.NetAddr).port;
+  try {
+    const error = assertThrows(() => assertPortFree(port), Error);
+    // The stale process is the failure this names: without it, waitForHealthz gets a 200 from
+    // whatever is already listening and the harness benchmarks last week's binary.
+    assertStringIncludes(error.message, String(port));
+    assertStringIncludes(error.message, "--port");
+  } finally {
+    listener.close();
+  }
+});
+
+Deno.test("a free port passes the pre-flight and is released again", () => {
+  const listener = Deno.listen({ port: 0, hostname: "127.0.0.1" });
+  const port = (listener.addr as Deno.NetAddr).port;
+  listener.close();
+
+  assertPortFree(port);
+  // Released, not held: the app itself has to bind it a moment later.
+  assertPortFree(port);
 });

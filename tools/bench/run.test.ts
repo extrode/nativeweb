@@ -1,8 +1,16 @@
-import { assert, assertEquals, assertThrows } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 
 import type { ScenarioMeasurement } from "./stats.ts";
 
-import { baselineObjection, DEFAULTS, fingerprint, parseArgs, repoRoot, SCENARIOS } from "./run.ts";
+import {
+  baselineObjection,
+  DEFAULTS,
+  fingerprint,
+  overwriteObjection,
+  parseArgs,
+  repoRoot,
+  SCENARIOS,
+} from "./run.ts";
 
 Deno.test("no arguments is measure-and-report, not check and not baseline", () => {
   const options = parseArgs([]);
@@ -55,7 +63,14 @@ Deno.test("repoRoot walks up to the solution file", () => {
 });
 
 Deno.test("repoRoot fails rather than looping when there is no solution above", () => {
-  assertThrows(() => repoRoot(Deno.makeTempDirSync()), Error);
+  // The OS temp directory, not the repo's tmp/ as elsewhere in these tests: repoRoot walks
+  // upwards, so a repo-local directory has NativeWeb.slnx above it and would not throw.
+  const outside = Deno.makeTempDirSync({ prefix: "bench-no-slnx-" });
+  try {
+    assertThrows(() => repoRoot(outside), Error);
+  } finally {
+    Deno.removeSync(outside, { recursive: true });
+  }
 });
 
 Deno.test("both section 14 shapes are measured: the render and the floor", () => {
@@ -89,4 +104,44 @@ Deno.test("a measurement whose RSS never read is refused", () => {
 
 Deno.test("an empty measurement is refused rather than written as an empty baseline", () => {
   assert(baselineObjection({}) !== null);
+});
+
+Deno.test("--force is off by default and read when passed", () => {
+  assertEquals(parseArgs([]).force, false);
+  assertEquals(parseArgs(["--baseline", "--force"]).force, true);
+});
+
+Deno.test("--baseline refuses to replace another machine's committed baseline", () => {
+  const objection = overwriteObjection(
+    {
+      recorded: "2026-08-29",
+      machine: { hostname: "bench-host", cpus: 16, os: "windows", arch: "x86_64" },
+      harness: DEFAULTS.harness,
+      scenarios: { home: measurement() },
+    },
+    { hostname: "runner-7", cpus: 4, os: "linux", arch: "x86_64" },
+    false,
+  );
+
+  // Otherwise a --baseline anywhere else replaces the file, and every later --check on bench-host
+  // exits 0 having compared nothing: the gate does not break, it goes quiet.
+  assert(objection !== null);
+  assertStringIncludes(objection, "bench-host");
+  assertStringIncludes(objection, "runner-7");
+  assertStringIncludes(objection, "--force");
+});
+
+Deno.test("--baseline on the recording machine, and --force anywhere, are allowed", () => {
+  const machine = { hostname: "bench-host", cpus: 16, os: "windows", arch: "x86_64" };
+  const existing = {
+    recorded: "2026-08-29",
+    machine,
+    harness: DEFAULTS.harness,
+    scenarios: { home: measurement() },
+  };
+
+  assertEquals(overwriteObjection(existing, { ...machine }, false), null);
+  assertEquals(overwriteObjection(existing, { hostname: "other", cpus: 4, os: "linux", arch: "x86_64" }, true), null);
+  // Nothing committed yet: the first baseline is always allowed.
+  assertEquals(overwriteObjection(null, machine, false), null);
 });

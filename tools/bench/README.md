@@ -11,9 +11,17 @@ deno run -A tools/bench/run.ts --baseline       record this measurement as the n
 deno run -A tools/bench/run.ts --skip-publish   reuse the existing publish output
 ```
 
-Other flags: `--duration <seconds>`, `--runs <n>`, `--concurrency <n>`, `--port <n>`. Changing
+Other flags: `--duration <seconds>`, `--runs <n>`, `--concurrency <n>`, `--port <n>`, and
+`--force` (with `--baseline`, to replace a baseline recorded on a different machine). Changing
 any of the three harness settings makes the run non-comparable to the baseline, and the tool
 says so rather than comparing anyway.
+
+## Prerequisites
+
+`openssl` (for the loopback certificate; Git for Windows ships one and the resolver looks
+there), and — for the publish step only — the JauntyQ sibling checkout that
+`Directory.Build.props` requires. `--skip-publish` against existing Release output needs neither
+dotnet nor JauntyQ.
 
 ## What it measures
 
@@ -83,6 +91,8 @@ count, OS, arch). A run on any other machine, or with different settings, prints
 and says there is nothing to compare against — it does not compare and it does not fail.
 
 `--baseline` refuses to write a measurement with failed requests, zero throughput, or no RSS
-reading. That guard exists because the first real run of this harness recorded exactly such a
+reading, and refuses to replace a baseline recorded on a different machine unless `--force` says
+to. Without that second guard a `--baseline` run anywhere else would replace the committed file,
+and every later `--check` on the recording machine would exit 0 having compared nothing. That guard exists because the first real run of this harness recorded exactly such a
 baseline: 0 req/s and 245,106 errors, written without complaint, under which the floor would
 have been unfailable forever.
