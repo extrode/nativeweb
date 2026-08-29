@@ -130,7 +130,8 @@ The generated code is performance-aligned by construction:
   at runtime.
 - No reflection, zero per-row boxing, no runtime SQL parsing. (Parameter values box once
   per call at the ADO.NET boundary — `DbParameter.Value` is `object`, a fixed cost every
-  data library pays regardless of ORM; see `docs/99-design/design-decisions.md`.)
+  data library pays regardless of ORM. Once per call, not once per row, which is why it
+  does not scale with result size.)
 - A one-time shape guard validates result-set column names and count on the first call per
   query, then never again.
 
