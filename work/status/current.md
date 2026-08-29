@@ -6,6 +6,21 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Licensing** — `docs/isl-netc-licensing`, 2026-08-29. The repository is licensed: ISL-NETC 1.0
+  verbatim in `LICENSE.md`, the Licensor override in `NOTICE.md`, ISL-CLA 1.0 adopted in
+  `CONTRIBUTING.md` with optional §6 (no AI-generated contributions) opted in, `CONTRIBUTORS.md`
+  as the signing sheet, and the packable libs packing the license and notice.
+  **647 unit tests pass** (+6, `LicenseFilesTests`, each mutation-checked).
+  - **What is still open: ISL-CLA 1.0 is a draft its own drafters say not to accept contributions
+    under.** islamiclicense.org is working on it (`feat/001-isl-cla`, browsable at
+    `http://127.0.0.1:8932/isl-cla/`). The adoption here is recorded in advance and flagged not in
+    force at the top of `CONTRIBUTING.md`. When it is marked final, delete that banner — nothing
+    else in the file changes.
+  - Jurisdiction and Licensor are not invented: **Commonwealth of Virginia** and **Extrode LLC**,
+    matching `jauntyq/LICENSE.md` §6.4 and `LICENSE-EULA.md` §7.4.
+  - ISL-NETC 1.0 itself is in force (effective July 2026), so the outbound side needed no wait.
+    Neither text has been read by counsel; both say of themselves that they should be.
+
 - **Backlog sweep** — `chore/backlog-sweep`, merged to `dev` 2026-08-29, unpushed. Five `Now-ish`
   items from `work/todo.md`, each with tests and each mutation-checked. Two are worth more than
   their line in the backlog:

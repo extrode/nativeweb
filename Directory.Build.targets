@@ -42,4 +42,29 @@
     <DisableBuildCompression>true</DisableBuildCompression>
   </PropertyGroup>
 
+  <!-- License metadata for the packable libs (spec: the ISL-NETC adoption).
+
+       PackageLicenseFile, not PackageLicenseExpression: NuGet validates an
+       expression against the SPDX license list and rejects a LicenseRef, so
+       LicenseRef-ISL-NETC-1.0 can only travel as the file plus the
+       PackageLicenseFile pointer. NOTICE.md ships beside it because ISL-NETC
+       3.1(c) requires any copy of the software to retain it, and a .nupkg is a
+       copy.
+
+       Why this file and not Directory.Build.props: IsPackable is set in each
+       csproj, which is imported after the props and before the targets, so the
+       condition below is only answerable here. In .props it would be false for
+       every project and pack would emit NU5030 for a license file it was told
+       about but never packed. -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <Copyright>Copyright (c) 2026 Extrode LLC. All rights reserved.</Copyright>
+    <PackageProjectUrl>https://github.com/extrode/nativeweb</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)NOTICE.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+
 </Project>
