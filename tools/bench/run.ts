@@ -323,12 +323,21 @@ export async function readBaseline(path: string): Promise<Baseline | null> {
   return parsed;
 }
 
-/** Shape check, so a hand-edited baseline fails by name instead of as a TypeError in compare. */
+/**
+ * Shape check, so a hand-edited baseline fails by name instead of as a TypeError in compare.
+ *
+ * The scenario VALUES are checked, not only the envelope. `"rps": "6998"` or `"rps": null`
+ * parses as valid JSON and passes an envelope-only check, and then `base.rps * rpsFloor` is
+ * NaN, and `now.rps < NaN` is false for every input there has ever been. The rps and RSS gates
+ * would be unfailable from then on, with the file still round-tripping as a baseline and
+ * nothing in the output saying so. A finite number is the requirement; NaN and Infinity are
+ * numbers to `typeof` and would leave the same hole.
+ */
 export function isBaseline(value: unknown): value is Baseline {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Partial<Baseline>;
 
-  return typeof candidate.recorded === "string"
+  const enveloped = typeof candidate.recorded === "string"
     && typeof candidate.machine?.hostname === "string"
     && typeof candidate.machine?.cpus === "number"
     && typeof candidate.harness?.concurrency === "number"
@@ -336,6 +345,18 @@ export function isBaseline(value: unknown): value is Baseline {
     && typeof candidate.harness?.runs === "number"
     && typeof candidate.scenarios === "object"
     && candidate.scenarios !== null;
+
+  if (!enveloped) return false;
+
+  return Object.values(candidate.scenarios as Record<string, unknown>).every(isMeasurement);
+}
+
+function isMeasurement(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const m = value as Record<string, unknown>;
+
+  return ["rps", "p50Ms", "p99Ms", "errors", "maxRssBytes"]
+    .every((field) => typeof m[field] === "number" && Number.isFinite(m[field]));
 }
 
 export interface Decision {
@@ -367,10 +388,20 @@ export function decide(
 
   const fit = comparable(baseline, machine, options.harness);
   if (!fit.ok) {
+    // A settings mismatch is the operator's own flag, not a fact about the hardware, so under
+    // --check it gets the same exit 2 as a missing baseline for the same reason: green would
+    // read as "measured and fine" while nothing was compared. `--check --duration 5` used to
+    // exit 0 on this path, which made the whole check optional for anyone who habitually
+    // shortens a run.
+    const unchecked = options.check && fit.kind === "settings";
+
     return {
-      code: 0,
-      message: `Record-only: ${fit.reason}. Nothing to compare against.`,
-      failed: false,
+      code: unchecked ? 2 : 0,
+      message: unchecked
+        ? `Nothing was compared: ${fit.reason}. Re-run with the baseline's settings, or drop `
+          + `--check to record this measurement.`
+        : `Record-only: ${fit.reason}. Nothing to compare against.`,
+      failed: unchecked,
     };
   }
 

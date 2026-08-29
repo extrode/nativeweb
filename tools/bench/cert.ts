@@ -138,11 +138,11 @@ export const SIGN_ARGS = (
   extPath,
 ];
 
-/** True when every file of the pair exists AND the leaf is still valid tomorrow. */
+/** Every file of the pair exists, the leaf is still valid tomorrow, and it chains to the CA. */
 export async function reusable(
   paths: { caCertPath: string; caKeyPath: string; certPath: string; keyPath: string },
   openssl: string,
-  check: (openssl: string, args: string[]) => Promise<boolean> = checkend,
+  check: (openssl: string, args: string[]) => Promise<boolean> = exitZero,
 ): Promise<boolean> {
   for (const path of Object.values(paths)) {
     try {
@@ -155,7 +155,20 @@ export async function reusable(
   // Presence alone was the first rule, and it rots: a year on, the reuse branch would keep
   // handing back an expired leaf, every request would fail the handshake, and the only symptom
   // would be a run full of TLS errors with nothing naming the cert.
-  return await check(openssl, ["x509", "-checkend", "86400", "-noout", "-in", paths.certPath]);
+  const unexpired = await check(
+    openssl,
+    ["x509", "-checkend", "86400", "-noout", "-in", paths.certPath],
+  );
+  if (!unexpired) return false;
+
+  // Expiry was not enough either. Four files all present does not mean they belong together:
+  // a run interrupted between minting the CA and signing the leaf leaves a NEW ca beside the
+  // PREVIOUS leaf, both unexpired, and every later run reuses that set. Kestrel then serves a
+  // leaf the driver's trust anchor never signed, and every request fails the handshake as a
+  // generic transport error -- for up to a year, until the leaf's own -checkend finally fires.
+  // Minting now happens in scratch and moves into place (see ensureCert), so this is the
+  // second lock rather than the only one.
+  return await check(openssl, ["verify", "-CAfile", paths.caCertPath, paths.certPath]);
 }
 
 /**
@@ -176,19 +189,42 @@ export async function ensureCert(dir: string, days = 365): Promise<Cert> {
     return { certPath, keyPath, pem: await Deno.readTextFile(caCertPath) };
   }
 
-  const csrPath = join(dir, "bench.csr");
-  const extPath = join(dir, "bench-leaf.ext");
+  // Mint into scratch, then move into place. Minting is three openssl runs that used to write
+  // the live files directly, so a Ctrl-C between the first and the third left a new CA next to
+  // the old leaf -- a mixed set that every later run happily reused. Here an interrupted mint
+  // leaves the previous set untouched and the scratch directory orphaned under tmp/.
+  const scratch = join(dir, "mint");
+  await Deno.mkdir(scratch, { recursive: true });
+
+  const stagedCaCert = join(scratch, "bench-ca.pem");
+  const stagedCaKey = join(scratch, "bench-ca-key.pem");
+  const stagedCert = join(scratch, "bench-cert.pem");
+  const stagedKey = join(scratch, "bench-key.pem");
+  const csrPath = join(scratch, "bench.csr");
+  const extPath = join(scratch, "bench-leaf.ext");
   await Deno.writeTextFile(extPath, `${LEAF_EXTENSIONS}\n`);
 
-  await run(openssl, CA_ARGS(caKeyPath, caCertPath, days));
-  await run(openssl, CSR_ARGS(keyPath, csrPath));
-  await run(openssl, SIGN_ARGS(csrPath, caCertPath, caKeyPath, extPath, certPath, days));
+  await run(openssl, CA_ARGS(stagedCaKey, stagedCaCert, days));
+  await run(openssl, CSR_ARGS(stagedKey, csrPath));
+  await run(openssl, SIGN_ARGS(csrPath, stagedCaCert, stagedCaKey, extPath, stagedCert, days));
+
+  const staged: [string, string][] = [
+    [stagedCaCert, caCertPath],
+    [stagedCaKey, caKeyPath],
+    [stagedCert, certPath],
+    [stagedKey, keyPath],
+  ];
+  for (const [from, to] of staged) {
+    await Deno.rename(from, to);
+  }
+
+  await Deno.remove(scratch, { recursive: true }).catch(() => {});
 
   return { certPath, keyPath, pem: await Deno.readTextFile(caCertPath) };
 }
 
-/** Run an openssl command for its exit code alone -- `-checkend` answers by exiting 0 or 1. */
-async function checkend(openssl: string, args: string[]): Promise<boolean> {
+/** Run an openssl command for its exit code alone -- `-checkend` and `verify` both answer that way. */
+async function exitZero(openssl: string, args: string[]): Promise<boolean> {
   try {
     const { code } = await new Deno.Command(openssl, { args, stdout: "null", stderr: "null" })
       .output();

@@ -92,6 +92,18 @@ Deno.test("RSS exactly at the ceiling passes, a hair over fails", () => {
   assertEquals(over[0].metric, "rss");
 });
 
+Deno.test("a zero RSS reading is a dead sampler, not a lean process", () => {
+  // 0 > base * 1.25 is false, so this used to pass the RSS half of the check silently on every
+  // run where tasklist or ps failed -- a missing tool, a broken PATH, a PID already gone. The
+  // leak the ceiling exists to catch would have read green.
+  const baseline = { home: measurement({ maxRssBytes: 100 * 1024 * 1024 }) };
+  const result = compare(baseline, { home: measurement({ maxRssBytes: 0 }) });
+
+  assertEquals(result.length, 1);
+  assertEquals(result[0].metric, "rss");
+  assertStringIncludes(result[0].detail, "no RSS reading");
+});
+
 Deno.test("RSS below the baseline is not a regression", () => {
   const baseline = { home: measurement({ maxRssBytes: 100 * 1024 * 1024 }) };
   assertEquals(compare(baseline, { home: measurement({ maxRssBytes: 1024 }) }).length, 0);
@@ -129,6 +141,21 @@ Deno.test("comparable rejects a different machine and names both", () => {
     assertStringIncludes(fit.reason, "bench-1");
     assertStringIncludes(fit.reason, "runner-7");
   }
+});
+
+Deno.test("comparable says which kind of mismatch it found", () => {
+  // decide() routes on this: a machine mismatch is record-only under --check because nothing
+  // the operator does changes it, while a settings mismatch is a flag they just typed and has
+  // to fail. One boolean for both is what let --check --duration 5 exit green.
+  const baseline: Baseline = { recorded: "2026-08-29", machine, harness, scenarios: {} };
+
+  const elsewhere = comparable(baseline, { ...machine, hostname: "runner-7" }, harness);
+  assertEquals(elsewhere.ok, false);
+  if (!elsewhere.ok) assertEquals(elsewhere.kind, "machine");
+
+  const shorter = comparable(baseline, machine, { ...harness, durationMs: 5_000 });
+  assertEquals(shorter.ok, false);
+  if (!shorter.ok) assertEquals(shorter.kind, "settings");
 });
 
 Deno.test("comparable rejects a different core count on the same hostname", () => {

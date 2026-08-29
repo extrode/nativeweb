@@ -165,7 +165,20 @@ export function compare(
       });
     }
 
-    if (now.maxRssBytes > base.maxRssBytes * rssCeiling) {
+    // A zero reading is a dead sampler, not a lean process. `0 > base * 1.25` is false, so
+    // without this the RSS half of the check passes on every run where tasklist/ps failed --
+    // silently, and for exactly the regression the ceiling exists to catch. baselineObjection
+    // guards the write side; this is the read side of the same rule.
+    if (now.maxRssBytes <= 0) {
+      regressions.push({
+        scenario,
+        metric: "rss",
+        baseline: base.maxRssBytes,
+        measured: now.maxRssBytes,
+        detail: `no RSS reading (the sampler returned ${now.maxRssBytes}), so the `
+          + `${mb(base.maxRssBytes)} MB baseline was not checked at all`,
+      });
+    } else if (now.maxRssBytes > base.maxRssBytes * rssCeiling) {
       regressions.push({
         scenario,
         metric: "rss",
@@ -182,6 +195,17 @@ export function compare(
 }
 
 /**
+ * Why a run is not comparable, when it is not. The two reasons are not equivalent and the
+ * caller has to tell them apart: `machine` is a fact about where the harness is running and
+ * nothing the operator can do about it, while `settings` is a flag they typed on this
+ * invocation. Under `--check` the first is record-only and the second must not be, or
+ * `--check --duration 5` exits green having compared nothing.
+ */
+export type Comparability =
+  | { ok: true }
+  | { ok: false; kind: "machine" | "settings"; reason: string };
+
+/**
  * Whether a baseline was recorded somewhere this run can be compared against.
  *
  * Hardware and harness settings both count. A different core count changes the ceiling, and a
@@ -192,11 +216,12 @@ export function comparable(
   baseline: Baseline,
   machine: Machine,
   harness: HarnessSettings,
-): { ok: true } | { ok: false; reason: string } {
+): Comparability {
   const b = baseline.machine;
   if (b.hostname !== machine.hostname || b.cpus !== machine.cpus || b.os !== machine.os || b.arch !== machine.arch) {
     return {
       ok: false,
+      kind: "machine",
       reason: `baseline was recorded on ${describe(b)}; this is ${describe(machine)}`,
     };
   }
@@ -205,6 +230,7 @@ export function comparable(
   if (h.concurrency !== harness.concurrency || h.durationMs !== harness.durationMs || h.runs !== harness.runs) {
     return {
       ok: false,
+      kind: "settings",
       reason: `baseline used ${settings(h)}; this run used ${settings(harness)}`,
     };
   }
