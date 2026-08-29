@@ -28,6 +28,13 @@ export interface CheckContext {
   now: Date;
   /** Last-modification facts for a line. Returns null when git cannot answer. */
   blame(path: string, line: number): Promise<Blame | null>;
+  /**
+   * Read a tracked file outside the slice. Returns null when it does not exist.
+   *
+   * A check that has to compare two documents — a spec against its task list — cannot work from
+   * `files` alone, and `allPaths` carries names without contents.
+   */
+  readFile(path: string): Promise<string | null>;
 }
 
 export interface Check {
@@ -54,3 +61,6 @@ export function lineAt(text: string, index: number): number {
 
 /** A blame that always declines, for tests and for the case where git is unavailable. */
 export const noBlame: CheckContext["blame"] = () => Promise.resolve(null);
+
+/** A reader that finds nothing, for checks under test that do not look outside their slice. */
+export const noReadFile: CheckContext["readFile"] = () => Promise.resolve(null);

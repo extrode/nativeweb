@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { type Blame, type CheckContext, excerptAt, lineAt, noBlame, type SourceFile } from "./types.ts";
+import { type Blame, type CheckContext, excerptAt, lineAt, noBlame, noReadFile, type SourceFile } from "./types.ts";
 import { isAttributed, makeStaleTodo, staleTodo } from "./stale-todo.ts";
 import { cleanPath, docNamesMissingFile, looksLikeRepoPath, resolutions } from "./doc-names-missing-file.ts";
 import { assertionlessTest, braceBody, stripInert } from "./assertionless-test.ts";
@@ -14,6 +14,7 @@ function ctx(files: SourceFile[], over: Partial<CheckContext> = {}): CheckContex
     allPaths: new Set<string>(),
     now: NOW,
     blame: noBlame,
+    readFile: noReadFile,
     ...over,
   };
 }
