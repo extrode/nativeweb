@@ -16,6 +16,18 @@ Other flags: `--duration <seconds>`, `--runs <n>`, `--concurrency <n>`, `--port 
 any of the three harness settings makes the run non-comparable to the baseline, and the tool
 says so rather than comparing anyway.
 
+**Exit codes**, which is where a harness fails quietly if it fails at all:
+
+| code | meaning |
+|---|---|
+| 0 | within tolerance — or, without `--check`, anything at all |
+| 1 | `--check` found a regression, named per scenario and metric |
+| 2 | `--check` compared **nothing**: no baseline yet, or harness settings that differ from the baseline's |
+
+Exit 2 is the one to notice. `--check --duration 5` against a ten-second baseline is not a pass
+and does not get to look like one; a *machine* mismatch is different and stays record-only at
+exit 0, because nothing the operator types changes which machine they are on.
+
 ## Prerequisites
 
 `openssl` (for the loopback certificate; Git for Windows ships one and the resolver looks
@@ -79,6 +91,13 @@ measured, 245,106 of them, before `cert.ts` existed. The harness mints a throwaw
 with `openssl` into `tmp/bench/` and trusts that CA for its own requests only. `openssl` is
 therefore a prerequisite; Git for Windows ships one and the resolver looks there.
 
+Minting stages into `tmp/bench/mint/` and moves the four files into place at the end, and reuse
+checks that the leaf still chains to the CA on disk rather than only that both files exist. An
+interrupted mint used to leave a new CA beside the previous leaf — all four present, both
+unexpired — and every later run reused that set, serving a certificate the driver's trust anchor
+never signed. That surfaces as every request failing as a generic transport error, for up to a
+year, with nothing in the output naming the certificate.
+
 The page rate limiter is raised for the run (`NativeWeb:RateLimit:Page:PermitLimit`) because
 `GET /` is behind `RequireRateLimiting("page")` at a limit sized for one human per minute.
 Telemetry is off: an exporter retrying against a collector that is not there is work on the
@@ -87,12 +106,18 @@ process being measured.
 ## baseline.json
 
 Carries the measurement, the harness settings, and a machine fingerprint (hostname, core
-count, OS, arch). A run on any other machine, or with different settings, prints its numbers
-and says there is nothing to compare against — it does not compare and it does not fail.
+count, OS, arch). A run on another machine prints its numbers and says there is nothing to
+compare against; a run with different settings does the same, and under `--check` exits 2 (see
+the exit-code table above).
+
+The file's own numbers are validated on read, not only its envelope: a hand-edited
+`"rps": "6998"` is valid JSON, and left unchecked it would make `base.rps * 0.80` NaN and every
+later comparison unfailable while the file still looked like a baseline.
 
 `--baseline` refuses to write a measurement with failed requests, zero throughput, or no RSS
 reading, and refuses to replace a baseline recorded on a different machine unless `--force` says
-to. Without that second guard a `--baseline` run anywhere else would replace the committed file,
+to. A **measured** zero RSS is refused on the read side too: `0 > baseline × 1.25` is false, so a
+dead sampler would otherwise pass the memory half of every check in silence. Without that second guard a `--baseline` run anywhere else would replace the committed file,
 and every later `--check` on the recording machine would exit 0 having compared nothing. That guard exists because the first real run of this harness recorded exactly such a
 baseline: 0 req/s and 245,106 errors, written without complaint, under which the floor would
 have been unfailable forever.
