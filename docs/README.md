@@ -58,6 +58,7 @@ Answers to specific questions. Not written to be read in order.
 | [`02-reference/migration-lock-review.md`](02-reference/migration-lock-review.md) | How long `db/migrate.sh` holds its locks. Read before pointing it at a live database. |
 | [`02-reference/deployment.md`](02-reference/deployment.md) | The production runbook: provisioning, blue/green release, rollback, backups, restore, disaster recovery. Carries its own list of what has never been executed. |
 | [`handovers/admin-cms-handoff.md`](handovers/admin-cms-handoff.md) | The admin panel and CMS module design. |
+| [`handovers/epass-io-adoption-handoff.md`](handovers/epass-io-adoption-handoff.md) | For a downstream project building on this one: the licensing and JauntyQ constraints that reach it, the landmines, and what is built here but unproven. |
 
 ### Library READMEs
 
