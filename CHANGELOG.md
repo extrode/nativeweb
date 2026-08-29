@@ -25,6 +25,15 @@ Merged into `dev`, not yet tagged.
   does not.
 
 ### Fixed
+- **The bench harness no longer publishes into the e2e fixture's directory.** `tools/bench` ran
+  `dotnet publish apps/web -c Release` with the default output path — the same
+  `apps/web/bin/Release/net10.0/<rid>/publish` that `AppProcessFixture` publishes into and
+  launches from, so a bench run interleaved with the e2e tier had the two writing one directory.
+  The quieter half was `--skip-publish`, which would benchmark whatever binary that tier last
+  built and report the number as the harness's own. Output is now pinned to `tmp/bench/publish`
+  and `findPublishedExe` looks only there; an e2e binary in the old location is refused by name.
+  `tmp/`, not the repo-root `publish/`, which this repo deliberately does not gitignore.
+
 - **Two stale references to the retired `extrode-legacy-org` org, and the two test gaps that hid them.**
   `<Authors>extrode-legacy-org</Authors>` sat in **ten** packable `libs/nativeweb.*` csproj files, one line
   from a `Copyright` that already read Extrode LLC — because that one was central in

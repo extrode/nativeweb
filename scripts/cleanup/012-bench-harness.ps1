@@ -5,8 +5,13 @@
 # `deno run -A tools/bench/run.ts`.
 #
 # NOT removed, and not by asking either: tools/bench/baseline.json (the committed measurement
-# R16 rests on), the feat/012-bench-harness branch, and apps/web's publish output, which is
-# every test tier's launch target and not this work's to delete.
+# R16 rests on), the feat/012-bench-harness branch, and apps/web/bin/Release/*/publish, which
+# is the e2e fixture's launch target and not this work's to delete.
+#
+# Since 2026-08-29 the harness publishes into tmp\bench\publish instead of that directory --
+# they used to be the same one, so a bench run and the e2e tier wrote over each other and
+# --skip-publish could benchmark the other tier's binary. The harness's own output is therefore
+# in scope here; the e2e fixture's still is not.
 [CmdletBinding()]
 param(
     [Alias('e')][switch]$Execute
@@ -16,7 +21,7 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 $candidates = @(
-    @{ Path = Join-Path $repo 'tmp\bench'; What = 'harness scratch: latest.json plus the throwaway CA, leaf and key' }
+    @{ Path = Join-Path $repo 'tmp\bench'; What = 'harness scratch: latest.json, the throwaway CA/leaf/key, and tmp\bench\publish -- the harness''s own Release NativeAOT output, which is most of the size below' }
     @{ Path = Join-Path $repo 'tmp\bench-probe.ts'; What = 'the probe that found the GET / 500 over http' }
     @{ Path = Join-Path $repo 'tmp\baseline-real.json'; What = 'baseline copy kept while the regression path was verified' }
     @{ Path = Join-Path $repo 'tmp\bench-probe.log'; What = 'probe output' }
