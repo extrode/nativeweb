@@ -6,6 +6,18 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Bench harness, third review pass** — `fix/012-bench-review`, 2026-08-29. Fable (`review-deep`)
+  read the whole harness diff after the glm correctness and consequence lenses had already run and
+  8 findings had been fixed. It found **5 more, 4 of them holes that let a check pass without
+  checking**, all confirmed by reading the code and all now fixed with mutation-checked tests:
+  the `--check` settings-mismatch escape (exit 2 now), a measured RSS of 0 passing the ceiling,
+  `isBaseline` validating the envelope but not the numbers, and cert reuse checking expiry but not
+  the chain. The fifth was a vacuous test of its own — the remint branch was asserted by a call
+  with no assertion after it, on a pair that took the reuse path anyway.
+  **95 harness tests / 0 failed**; `--check --skip-publish` exit 0, `--duration 5` exit 2.
+  - The lesson worth keeping: two lenses plus adversarial verification did not find these. A
+    third reader on a different model did, on code already declared clean.
+
 - **Licensing** — `docs/isl-netc-licensing`, 2026-08-29. The repository is licensed: ISL-NETC 1.0
   verbatim in `LICENSE.md`, the Licensor override in `NOTICE.md`, ISL-CLA 1.0 adopted in
   `CONTRIBUTING.md` with optional §6 (no AI-generated contributions) opted in, `CONTRIBUTORS.md`

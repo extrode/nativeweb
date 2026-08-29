@@ -55,6 +55,36 @@ Deno.test("another machine's baseline is record-only, even under --check", () =>
   assertStringIncludes(decision.message, "Record-only");
 });
 
+Deno.test("a shortened --check run is exit 2, not the record-only pass a machine mismatch gets", () => {
+  // The escape hatch this closes: --check --duration 5 against a 10-second baseline used to
+  // take the record-only branch and exit 0, so the check was optional for anyone who habitually
+  // shortens a run. A machine mismatch is a fact about the hardware; this is a flag the
+  // operator typed on this invocation, and the two must not share an exit code.
+  const decision = decide(
+    options({ check: true, harness: { ...DEFAULTS.harness, durationMs: 5_000 } }),
+    baseline(),
+    machine,
+    { home: measurement({ rps: 500 }) },
+  );
+
+  assertEquals(decision.code, 2);
+  assert(decision.failed);
+  assertStringIncludes(decision.message, "Nothing was compared");
+});
+
+Deno.test("the same shortened run without --check still records rather than failing", () => {
+  const decision = decide(
+    options({ harness: { ...DEFAULTS.harness, runs: 1 } }),
+    baseline(),
+    machine,
+    { home: measurement() },
+  );
+
+  assertEquals(decision.code, 0);
+  assertEquals(decision.failed, false);
+  assertStringIncludes(decision.message, "Record-only");
+});
+
 Deno.test("a regression under --check is exit 1 and names the scenario", () => {
   const decision = decide(options({ check: true }), baseline(), machine, {
     home: measurement({ rps: 500 }),
@@ -140,6 +170,26 @@ Deno.test("isBaseline rejects what would crash the comparison", () => {
   assertEquals(isBaseline({ ...baseline(), harness: { concurrency: 16 } }), false);
   assertEquals(isBaseline({ ...baseline(), scenarios: null }), false);
   assertEquals(isBaseline(baseline()), true);
+});
+
+Deno.test("isBaseline rejects a scenario whose numbers are not numbers", () => {
+  // The envelope check passed all of these, and then `base.rps * 0.80` was NaN and
+  // `now.rps < NaN` was false for every measurement that could ever be taken. The gate was
+  // unfailable from that edit onward, with the file still round-tripping as a baseline.
+  const quoted = { ...baseline(), scenarios: { home: { ...measurement(), rps: "1000" } } };
+  const absent = { ...baseline(), scenarios: { home: { ...measurement(), maxRssBytes: null } } };
+  const notFinite = { ...baseline(), scenarios: { home: { ...measurement(), rps: NaN } } };
+  const partial = { ...baseline(), scenarios: { home: { rps: 1000 } } };
+  const oneBadOfTwo = {
+    ...baseline(),
+    scenarios: { home: measurement(), healthz: { ...measurement(), p99Ms: "2" } },
+  };
+
+  assertEquals(isBaseline(quoted), false);
+  assertEquals(isBaseline(absent), false);
+  assertEquals(isBaseline(notFinite), false);
+  assertEquals(isBaseline(partial), false);
+  assertEquals(isBaseline(oneBadOfTwo), false);
 });
 
 Deno.test("the committed baseline is a valid one", async () => {

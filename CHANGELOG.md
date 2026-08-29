@@ -46,6 +46,19 @@ Merged into `dev`, not yet tagged.
   run-to-run spread is 16.3%, so the tolerances are 20% and 25% rather than 5%.
 
 ### Fixed
+- **Four ways the bench harness could pass without checking anything**, found by a third review
+  pass (Fable) over already-reviewed code. Each is now a named failure with a test that dies when
+  the fix is reverted: `--check --duration 5` against a ten-second baseline took the record-only
+  branch and **exited 0 having compared nothing** — it is exit 2 now, while a *machine* mismatch
+  stays record-only because nothing the operator types changes which machine they are on; a
+  **measured RSS of 0** from a dead sampler satisfied `0 > baseline × 1.25` and passed the memory
+  half of every check; a hand-edited `"rps": "6998"` passed the envelope-only shape check and made
+  every later comparison NaN-unfailable; and certificate **reuse checked expiry but not the
+  chain**, so a mint interrupted between the CA and the leaf left a mismatched-but-unexpired set
+  that every later run reused, failing every request as a transport error for up to a year.
+  Minting now stages into `tmp/bench/mint/` and moves into place. **95 harness tests, 0 failed**
+  (was 87). Verified live: `--check --skip-publish` exits 0, the same run with `--duration 5`
+  exits 2.
 - **The skeleton produced products that could not build.** `skeleton/Directory.Build.props` carried
   `--` inside an XML comment, which XML forbids, so MSBuild refused to load the file (`MSB4024`)
   and every stamped product failed on its own README's first command before compiling a line.

@@ -158,20 +158,92 @@ Deno.test("a real minted pair is reusable, expiry check and all", async () => {
   const dir = await scratchDir();
   try {
     await ensureCert(dir, 2);
-    assertEquals(
-      await reusable({
-        caCertPath: `${dir}/bench-ca.pem`,
-        caKeyPath: `${dir}/bench-ca-key.pem`,
-        certPath: `${dir}/bench-cert.pem`,
-        keyPath: `${dir}/bench-key.pem`,
-      }, await resolveOpenssl()),
-      true,
-    );
-
-    // One day of life left is inside openssl's -checkend 86400 window, so this pair is due for
-    // reminting rather than reuse -- the branch that would otherwise only fire a year from now.
-    await ensureCert(dir, 1);
+    assertEquals(await reusable(paths(dir), await resolveOpenssl()), true);
   } finally {
     await removeScratch(dir);
   }
 });
+
+Deno.test("a leaf the CA on disk did not sign is refused, however unexpired both are", async () => {
+  const dir = await scratchDir();
+  const other = await scratchDir();
+  try {
+    const openssl = await resolveOpenssl();
+    await ensureCert(dir, 365);
+    await ensureCert(other, 365);
+
+    // What an interrupted mint used to leave behind: a fresh CA beside the previous leaf. Both
+    // files are present, both are valid for a year, and every check the old rule made passes --
+    // while Kestrel serves a certificate the driver's trust anchor never signed and every
+    // request in the run dies as an unexplained transport error.
+    await Deno.copyFile(`${other}/bench-ca.pem`, `${dir}/bench-ca.pem`);
+    await Deno.copyFile(`${other}/bench-ca-key.pem`, `${dir}/bench-ca-key.pem`);
+
+    assertEquals(await reusable(paths(dir), openssl), false);
+  } finally {
+    await removeScratch(dir);
+    await removeScratch(other);
+  }
+});
+
+Deno.test("a leaf inside the expiry window is reminted, not handed back", async () => {
+  const dir = await scratchDir();
+  try {
+    const openssl = await resolveOpenssl();
+
+    // A one-day leaf has slightly under 86,400 seconds left the moment it is written, so
+    // `-checkend 86400` refuses it. This is the remint branch that would otherwise fire for the
+    // first time a year after the baseline was recorded, on someone else's run.
+    await ensureCert(dir, 1);
+    const expiring = await Deno.readTextFile(`${dir}/bench-cert.pem`);
+    assertEquals(await reusable(paths(dir), openssl), false);
+
+    await ensureCert(dir, 365);
+    const renewed = await Deno.readTextFile(`${dir}/bench-cert.pem`);
+
+    assert(renewed !== expiring, "ensureCert handed back the expiring leaf instead of minting one");
+    assertEquals(await reusable(paths(dir), openssl), true);
+  } finally {
+    await removeScratch(dir);
+  }
+});
+
+Deno.test("an interrupted mint leaves the previous pair intact, not a mixture", async () => {
+  const dir = await scratchDir();
+  try {
+    const openssl = await resolveOpenssl();
+    await ensureCert(dir, 365);
+    const before = await Deno.readTextFile(`${dir}/bench-cert.pem`);
+
+    // The four live files are the only things minting may write into dir: the CSR and the
+    // extension file are intermediates, and their absence here is what proves the three openssl
+    // runs happened in scratch rather than over the live pair. Write them straight into dir
+    // again and a Ctrl-C between the first and the third leaves a new CA beside the old leaf.
+    for (const intermediate of ["bench.csr", "bench-leaf.ext", "mint"]) {
+      await assertRejects(
+        () => Deno.stat(`${dir}/${intermediate}`),
+        Deno.errors.NotFound,
+        undefined,
+        `${intermediate} was left in the live directory; minting did not stage`,
+      );
+    }
+
+    // And a half-written scratch directory left by a killed run does not disturb the live pair.
+    await Deno.mkdir(`${dir}/mint`, { recursive: true });
+    await Deno.writeTextFile(`${dir}/mint/bench-ca.pem`, "half-written");
+
+    assertEquals(await reusable(paths(dir), openssl), true);
+    assertEquals(await Deno.readTextFile(`${dir}/bench-cert.pem`), before);
+  } finally {
+    await removeScratch(dir);
+  }
+});
+
+function paths(dir: string) {
+  return {
+    caCertPath: `${dir}/bench-ca.pem`,
+    caKeyPath: `${dir}/bench-ca-key.pem`,
+    certPath: `${dir}/bench-cert.pem`,
+    keyPath: `${dir}/bench-key.pem`,
+  };
+}
