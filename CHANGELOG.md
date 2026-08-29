@@ -34,6 +34,12 @@ Merged into `dev`, not yet tagged.
   violation. It asks git now.
 - **20 cleanup scripts targeted a path this repository left** at the extrode move, and would each
   have run `git -C` against a directory that does not exist.
+- **The sign-in library's NativeAOT gate ran nowhere.** `tests/nativeweb.signin.epass.tests.aot`
+  asserts by publishing and holds no tests, so `dotnet test` collected zero facts and exited 0 in
+  silence — and the existing `aot-publish` job publishes `apps/web`, which holds no
+  ProjectReference to the library, so its IL never reached that link either. Two mechanisms that
+  looked like coverage, neither of which was. It runs in CI now, and the gate list is derived from
+  the projects rather than maintained by hand.
 
 ### Added
 - **Continuous read-only audit** (spec 013). A nightly unattended pass over one slice of the

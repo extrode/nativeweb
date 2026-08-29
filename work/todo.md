@@ -27,18 +27,16 @@ wish list; the value is in recording the ones nobody has got to yet.
   `https://e.com/r\nContact: mailto:evil@x.net` as a valid absolute https URI, and `tel:` likewise.
   The skeleton took the same change; a stamped product had been shipping
   `security@<product>.example`, a domain it does not own.
-- **The sign-in library's AOT publish gate is in the solution but runs nowhere automatic.** Found
-  2026-08-27 while re-measuring the suite. `tests/nativeweb.signin.epass.tests.aot` sets
-  `IsTestProject=false` and holds no tests, so `dotnet test` collects nothing from it and exits 0
-  in silence — a per-project run prints not one line. CI does not cover it either: the
-  `aot-publish` job publishes `apps/web/nativeweb.web.csproj` only, and `apps/web` has **no
-  ProjectReference to `nativeweb.signin.epass`**, so the library's IL never reaches that link.
-  Its assertion is `dotnet publish tests/nativeweb.signin.epass.tests.aot -c Release`, which is
-  exactly what spec 008 T14 built it for: catching a `Map*` call the Request Delegate Generator
-  did not see inside the library, before a consumer's publish finds it six months later. Run by
-  hand on 2026-08-27 and green — 0 warnings, no IL2026, no IL3050 — but a gate whose only trigger
-  is someone remembering it is not a gate. Either add it to the `aot-publish` job or say in
-  `README.md` that the suite does not include it.
+- ~~**The sign-in library's AOT publish gate is in the solution but runs nowhere automatic.**~~ —
+  **done 2026-08-29**, `chore/aot-gate-in-ci`. Added to the `aot-publish` job as a second publish,
+  which it has to be: `apps/web` holds no ProjectReference to `nativeweb.signin.epass`, so the
+  library's IL never reached the existing native link and a green `aot-publish` said nothing about
+  it. Two mechanisms that both looked like coverage, neither of which was — `dotnet test` collected
+  zero facts from it and exited 0 without printing a line.
+  `AotGateCoverageTests` derives the gate list from the projects (`PublishAot=true` **and**
+  `IsTestProject=false`, both) rather than restating it, so adding another gate project fails the
+  suite until `ci.yml` catches up; a hand-maintained list would be the same failure one level up.
+  Re-run locally 2026-08-29 before wiring: 0 warnings, no IL2026, no IL3050.
 - ~~**`SdkPinTests.NoWorkflowInstallsAnSdk` scans gitignored scratch.**~~ — **done 2026-08-29**,
   `chore/backlog-sweep`. Now `git ls-files --cached --others --exclude-standard`, the call
   `NewProductStampTests` already makes: uncommitted workflows are still governed, ignored ones are

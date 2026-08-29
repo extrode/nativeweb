@@ -112,7 +112,11 @@ worth seeing here rather than hiding, but it is the exception.
   **A twelfth project, `nativeweb.signin.epass.tests.aot`, holds no tests and `dotnet test` skips
   it silently** — `IsTestProject=false`, by design. Its assertion is
   `dotnet publish tests/nativeweb.signin.epass.tests.aot -c Release`, which exits 0 with no IL2026
-  and no IL3050. Run it separately or it is not run at all.
+  and no IL3050. **It runs in CI as of 2026-08-29** (`chore/aot-gate-in-ci`), as a second step in
+  the `aot-publish` job. It has to be a second publish: `apps/web` holds no ProjectReference to
+  `nativeweb.signin.epass`, so the library's IL never reached the existing link and a green
+  `aot-publish` said nothing about it. Between `dotnet test` collecting zero facts in silence and
+  CI never linking the library, its only trigger had been someone remembering it.
   This supersedes the 1,308 measured on `feat/009-signin-consumer-seams` on 2026-08-25. The +65 is
   work merged after that branch, **not drift**: scaffold-integration 17→31 and scaffold-e2e 4→13
   from the scaffolding follow-ups, web-unit 494→509 and signin-unit 177→184 from the JauntyQ-root
