@@ -939,13 +939,19 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   2026-08-26". `JauntyQRootProbeTests` pins it, with a regex that refuses **any** org-named
   ancestor rather than just the old one — so writing `extrode.com` in would fail the same way.
   Nothing to do; kept as a record of the reasoning.
-- **`AppProcessFixture`'s 15-minute publish budget assumes an idle machine.** All 13
+- ~~**A 15-minute publish budget assumes an idle machine.** All 13
   `nativeweb.scaffold.tests.e2e` facts failed at exactly `00:15:00` on 2026-08-25 with a NativeAOT
   publish that had not finished, while a `review-deep` worker was saturating the CPU. Re-run alone
   on the same commit: 13/13 green in 2 s. So the tier is not flaky in itself — it has no headroom
-  under load, and a CI runner sharing a host would look exactly like this. Either raise the budget
-  or make the timeout message say "publish exceeded its budget" rather than surfacing as thirteen
-  assertion failures.
+  under load, and a CI runner sharing a host would look exactly like this.~~ —
+  **done 2026-08-30**, `fix/publish-budget-diagnostics`. **This entry named the wrong fixture:**
+  `AppProcessFixture` (web e2e) had already been raised to 30 minutes; the 15-minute constant was
+  `SampleProcessFixture` in the scaffold tier, which is what the 13 failing facts belong to. Raised
+  to 30 to match, with the measurement recorded in the fixture's doc-comment so the next person to
+  read it does not re-derive it. The second half of the entry — a timeout message naming the
+  publish rather than surfacing as 13 assertion failures — was **not** done: the raise removes the
+  trigger this machine has, and a message change would be a second, unmeasured guess at what the
+  failure looks like when it does recur.
 - **A busy control can stick if the swap detaches the element that issued the request.** htmx 4
   dispatches `htmx:finally:request` on `ctx.sourceElement` and does not re-target a detached node
   (`#normalizeElement` returns elements unchanged), so a detached source means the event never
