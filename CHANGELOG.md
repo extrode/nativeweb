@@ -14,6 +14,14 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **The back button through the OAuth authorize flow is now walked by a test**, closing the
+  question 012 left open when htmx 4 removed the `localStorage` page-history cache. The worry was
+  that back would re-request a one-time-ish page; the answer is that htmx's history layer never
+  touched this flow — nothing in `apps/web` sets `hx-push-url`, `hx-boost` or `hx-history`, so back
+  is the browser's own navigation and always was. What the test pins is the server's response to a
+  re-issued authorize GET after the code has been redeemed: a fresh consent screen rather than a
+  500 or a stale replay. It counts the requests (1, then 2) instead of reading the rendered page,
+  because a bfcache hit would render identically.
 - **The two antiforgery-rejection guards are now held to agreeing.** `apps/web`'s
   `AntiforgeryValidationMiddleware` and `NativeWeb.Scaffold.UseAntiforgeryRejection` are the same
   guard written twice, kept apart on purpose so the identity provider does not depend on the CRUD

@@ -974,11 +974,17 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   - The general lesson, since it cost most of the time here: a backlog entry's *symptom* was
     evidence, its *mechanism* was a guess, and the guess read plausible enough to implement without
     checking. Instrumenting the page took one run and contradicted both readings.
-- **Back-navigation now re-issues GETs.** htmx 4 removed the `localStorage` page-history cache, so
-  going back re-fetches instead of restoring a snapshot. Good for the reason recorded in the
-  security baseline, but it means a back-button press re-requests one-time-ish flows — the OAuth
-  authorize page and anything carrying a signed time canary. Nothing is known to break; nobody has
-  walked the back button through the OAuth flow under 4.0 to check.
+- ~~**Back-navigation now re-issues GETs.** htmx 4 removed the `localStorage` page-history cache…
+  nobody has walked the back button through the OAuth flow under 4.0 to check.~~ —
+  **walked 2026-08-30**, `test/oauth-back-navigation`. Nothing to fix, and the premise was narrower
+  than it read: **htmx's history layer is not involved in this flow at all.** Nothing in `apps/web`
+  sets `hx-push-url`, `hx-boost` or `hx-history`, so every navigation in the OAuth flow is an
+  ordinary browser navigation and back is the browser's own — under htmx 2 as much as under 4.
+  What the walk does pin is the server's answer to a re-issued authorize GET after its code has
+  been redeemed: a fresh consent screen, not a 500 and not a stale replay. The request counter is
+  the assertion that carries it (**1 before approve, 2 after back**, mutation-checked: asserting 1
+  fails with `Actual: 2`), because "re-fetched" inferred from a rendered page would also be true of
+  a bfcache hit. **4 OAuth e2e facts pass** (+1).
 
 - ~~**`docs/01-architecture/native-web-architecture.md:133` points at `docs/99-design/design-decisions.md`,
   which no tracked file matches.**~~ — **done 2026-08-29**, `docs/fix-dangling-design-reference`.
