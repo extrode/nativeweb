@@ -11,7 +11,7 @@
 
 import type { Candidate } from "../ledger.ts";
 import { type Check, type CheckContext, excerptAt, lineAt } from "./types.ts";
-import { SOURCE_EXTENSIONS } from "../slices.ts";
+import { EXCLUDED_SEGMENTS, SOURCE_EXTENSIONS } from "../slices.ts";
 
 /** Inline code spans and Markdown link targets: the two places a path is written on purpose. */
 const CANDIDATE_SPAN = /`([^`\n]+)`|\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
@@ -25,8 +25,13 @@ export function looksLikeRepoPath(raw: string): boolean {
   if (value.startsWith("#")) return false; // an in-page anchor
   if (value.includes(" ")) return false; // prose, not a path
   if (value.startsWith("/")) return false; // a URL route, not a repository path
+  if (value.startsWith("~/")) return false; // home-relative: outside this repository entirely
   if (!value.includes("/")) return false; // a bare filename is too ambiguous to claim
   if (/[*?<>|]/.test(value)) return false; // a glob or a placeholder
+  // Generated-output naming. Measured: both `dist/htmx.min.js` and `dist/index.js` in this
+  // repo's prose refer to *other* projects' build output — htmx's own distribution and the
+  // bundled GitHub Action — and neither is ever going to be a tracked file here.
+  if (EXCLUDED_SEGMENTS.includes(value.split("/")[0])) return false;
   return EXT.test(value.replace(/[#?].*$/, ""));
 }
 
@@ -55,6 +60,29 @@ export function resolutions(fromDoc: string, path: string): string[] {
   return [...new Set([collapse(path), collapse(relative)])];
 }
 
+/**
+ * Does any tracked path answer to this one?
+ *
+ * Repository-relative and document-relative are the two readings `resolutions` covers, and they
+ * are not enough. Documentation in this repo routinely writes a path relative to the *app* root
+ * it is describing — `Render/Layout.cs`, `wwwroot/vendor/nativeweb/boot.js`, `locales/en.json` —
+ * because that is how the reader will see it once they are inside `apps/web`. Measured on the
+ * first real run: 9 of 12 findings were this, and a rule that is 75% noise is a rule the reader
+ * learns to skip.
+ *
+ * So a path also resolves when a tracked path ends with it at a segment boundary. That gives up
+ * catching a genuinely wrong path that happens to be a suffix of a real one, which is the right
+ * trade: a missed finding costs nothing, and a false one costs the rule's credibility.
+ */
+export function resolvesAnywhere(fromDoc: string, path: string, allPaths: ReadonlySet<string>): boolean {
+  if (resolutions(fromDoc, path).some((r) => allPaths.has(r))) return true;
+  const suffix = `/${path}`;
+  for (const tracked of allPaths) {
+    if (tracked.endsWith(suffix)) return true;
+  }
+  return false;
+}
+
 export const docNamesMissingFile: Check = {
   ruleId: "doc-names-missing-file",
   describe: "A Markdown document names a repository path that no tracked file matches.",
@@ -70,7 +98,7 @@ export const docNamesMissingFile: Check = {
         if (raw === undefined || !looksLikeRepoPath(raw)) continue;
         const path = cleanPath(raw);
         if (reported.has(path)) continue;
-        if (resolutions(file.path, path).some((r) => ctx.allPaths.has(r))) continue;
+        if (resolvesAnywhere(file.path, path, ctx.allPaths)) continue;
         reported.add(path);
 
         const line = lineAt(file.text, m.index);

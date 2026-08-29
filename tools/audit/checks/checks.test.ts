@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { type Blame, type CheckContext, excerptAt, lineAt, noBlame, noReadFile, type SourceFile } from "./types.ts";
 import { isAttributed, makeStaleTodo, staleTodo } from "./stale-todo.ts";
-import { cleanPath, docNamesMissingFile, looksLikeRepoPath, resolutions } from "./doc-names-missing-file.ts";
+import { cleanPath, docNamesMissingFile, looksLikeRepoPath, resolutions, resolvesAnywhere } from "./doc-names-missing-file.ts";
 import { assertionlessTest, braceBody, stripInert } from "./assertionless-test.ts";
 import { validate } from "../ledger.ts";
 
@@ -114,6 +114,8 @@ Deno.test("looksLikeRepoPath admits paths and rejects everything ambiguous", () 
       "boot.js", //                   bare filename, too ambiguous to claim
       "apps/**/*.cs", //              a glob
       "some words/here.cs", //        prose
+      "dist/htmx.min.js", //          another project's build output
+      "node_modules/x/index.js", //   ditto
     ]
   ) {
     assert(!looksLikeRepoPath(p), `expected not a path: ${p}`);
@@ -141,6 +143,24 @@ Deno.test("a document-relative link that resolves is not reported", async () => 
     ctx([file], { allPaths: new Set(["docs/specs/012/012-spec.md", "libs/a/boot.js"]) }),
   );
   assertEquals(found, []);
+});
+
+Deno.test("a path written relative to an app root resolves against the tracked tree", () => {
+  // Measured: 9 of the first 12 real findings were this shape, and every one was a false
+  // positive. Documentation says `Render/Layout.cs` because that is what the reader sees once
+  // they are inside apps/web.
+  const tracked = new Set(["apps/web/Render/Layout.cs", "apps/web/wwwroot/vendor/nativeweb/boot.js"]);
+  assert(resolvesAnywhere("docs/a.md", "Render/Layout.cs", tracked));
+  assert(resolvesAnywhere("docs/a.md", "wwwroot/vendor/nativeweb/boot.js", tracked));
+  assert(!resolvesAnywhere("docs/a.md", "Render/Gone.cs", tracked));
+  // A suffix must land on a segment boundary, not mid-name.
+  assert(!resolvesAnywhere("docs/a.md", "ender/Layout.cs", tracked));
+});
+
+Deno.test("a home-relative path is outside the repository and is never a finding", async () => {
+  const file = { path: "work/todo.md", text: "See `~/.claude/away-questions.md` for the list." };
+  assertEquals((await docNamesMissingFile.run(ctx([file]))).length, 0);
+  assertEquals(looksLikeRepoPath("~/.claude/away-questions.md"), false);
 });
 
 Deno.test("a path no tracked file matches is reported once, with a grep to confirm it", async () => {
