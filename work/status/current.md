@@ -6,6 +6,13 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **OAuth back-navigation walk** — `test/oauth-back-navigation`, 2026-08-30. The last unblocked
+  item from 012's open questions. No defect: htmx's removed history cache never applied here, since
+  nothing in `apps/web` sets `hx-push-url`, `hx-boost` or `hx-history`. The test pins what does
+  matter — a re-issued authorize GET after the code is redeemed renders a fresh consent screen, and
+  the request count proves it reached the server (**1 → 2**, mutation-checked). **4 OAuth e2e
+  facts** (+1).
+
 - **Sticky busy control** — `fix/busy-control-detached-source`, 2026-08-30. A submit control left
   disabled forever when the response swapped away the region that issued the request. Cause is
   **not** what the 012 review recorded: htmx reassigns `ctx.sourceElement` to the swap target while
