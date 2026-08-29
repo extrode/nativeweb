@@ -6,6 +6,11 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Unsupervised backlog run** — 2026-08-29, one branch per item, each merged to `dev` as it
+  finished. `test/antiforgery-guard-agreement`: the two antiforgery guards are now held to
+  agreeing across the three feature states, mutation-checked both ways (one guard drifts → fails;
+  both drift together → still fails). **652 unit tests pass** (+3).
+
 - **Stale `extrode-legacy-org` references** — `fix/stale-extrode-legacy-org-references`, 2026-08-29. Two survivors of the
   2026-08-26 org rename, each with the test gap that let it survive: `<Authors>extrode-legacy-org</Authors>` in
   **ten** packable csproj (now one central value in `Directory.Build.targets`, verified through

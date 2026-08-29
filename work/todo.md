@@ -899,19 +899,18 @@ bookmarking app to manzil.my and `apps/` holds `web` alone, so the DB-backed lis
 scenarios drove no longer exist in this repo. Same finding as the 2026-08-17 note at "Later" —
 carry it to manzil.my's backlog rather than re-opening it as NativeWeb work. What remains here is
 the publish-budget gate above, which `aot-publish` already runs on every CI build.
-- **The antiforgery-rejection guard exists twice and nothing enforces that they agree.**
-  `apps/web/Middleware/AntiforgeryValidationMiddleware.cs` and
-  `NativeWeb.Scaffold.UseAntiforgeryRejection` are the same ten lines. Reviewed 2026-08-25
-  (`fix/web-antiforgery-dedup`, Fable) and the duplicate was kept deliberately — apps/web does
-  not reference the scaffolding library and should not acquire that edge for one extension
-  method; `nativeweb.security` would drag libsodium into every stamped product, and a new
-  library buys a package id and a CI packaging lane for one method. Both files now cross-
-  reference each other. The residual risk is repo policy drift (a body, a log line,
-  problem-details), which a comment cannot catch. The cheap enforcement, if it ever earns its
-  keep: one test in `nativeweb.web.tests.unit` running both through the same three feature
-  states and asserting they agree — the *test* project takes the scaffold reference, so the
-  production dependency graph stays truthful. At a third copy, stop and give the guard one home
-  (shared-source `<Compile Include>` link, or a real library).
+- ~~**The antiforgery-rejection guard exists twice and nothing enforces that they agree.**~~ —
+  **done 2026-08-29**, `test/antiforgery-guard-agreement`. Built as this entry specified: one
+  theory in `nativeweb.web.tests.unit` runs both through the three feature states (absent, valid,
+  rejected) and asserts they agree, and the *test* project takes the scaffold ProjectReference so
+  the production graph still says apps/web does not depend on CRUD scaffolding. Two things beyond
+  the sketch: the scaffold copy is driven through a built `ApplicationBuilder` rather than a lifted
+  lambda, so the registration is in scope; and each row asserts the expected outcome as well as
+  agreement, because two copies drifting *together* would otherwise pass. Mutation-checked both
+  ways — one guard to 403 fails, both to 403 also fails. The duplication itself is unchanged and
+  still deliberate — and the standing rule survives it: **at a third copy, stop and give the guard
+  one home** (shared-source `<Compile Include>` link, or a real library), because a test that two
+  copies agree does not make three copies right.
 - Both guards are a workaround for the RDG form binder not consulting
   `IAntiforgeryValidationFeature` before reading the form. Worth finding or filing the
   dotnet/aspnetcore issue and tagging both copies with its number, so they carry a deletion
