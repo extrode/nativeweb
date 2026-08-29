@@ -979,7 +979,20 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   resolved as repo-rooted. Filtering to live documentation left **14**, of which exactly **one**
   was this defect. A test at that signal-to-noise would be turned off within a week.
 
-- **`tools/bench/run.ts` publishes into the same tree the e2e fixture uses.** `publish()` runs
+- ~~**`tools/bench/run.ts` publishes into the same tree the e2e fixture uses.**~~ —
+  **done 2026-08-29**, `fix/bench-publish-path`. `publish()` now pins `-o tmp/bench/publish` and
+  `findPublishedExe` looks only there. `tmp/` rather than the repo-root `publish/` that
+  `check-publish-budgets.ps1` uses, because that one is deliberately **not** gitignored (justsmtp
+  commits a top-level `publish/`), and a throwaway NativeAOT publish where `git add -A` can see it
+  has cost this repo a bad commit before. The RID scan is gone with the collision: pinned output
+  means one directory, so "several RIDs, take the newest" no longer has a question to answer. Three
+  new harness tests, one of them the regression itself — an e2e binary sitting in
+  `apps/web/bin/Release/net10.0/win-x64/publish` must now be **refused**, not benchmarked. 97 pass;
+  mutating `PUBLISH_DIR` back to the e2e path fails two of them. **The committed
+  `baseline.json` is unaffected** — it records throughput and RSS, not paths, and the binary is
+  the same publish either way. `scripts/cleanup/012-bench-harness.ps1` updated: the harness's own
+  output is now in scope, the e2e fixture's still is not. The original entry:
+  `publish()` runs
   `dotnet publish apps/web -c Release` with the default output path, which is the
   `apps/web/bin/Release/net10.0/*/publish` directory `tests/nativeweb.web.tests.e2e/AppProcessFixture.cs`
   also publishes into and launches from. A bench run interleaved with the e2e tier has the two
