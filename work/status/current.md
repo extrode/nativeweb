@@ -19,22 +19,22 @@ worth seeing here rather than hiding, but it is the exception.
     third reader on a different model did, on code already declared clean.
 
 - **Licensing** — `docs/isl-netc-licensing`, 2026-08-29. The repository is licensed: ISL-NETC 1.0
-  verbatim in `LICENSE.md`, the Licensor override in `NOTICE.md`, ISL-CLA 1.0 adopted in
+  verbatim in `LICENSE.md`, the Licensor override in `NOTICE.md`, ISL-CLA 1.1 adopted in
   `CONTRIBUTING.md` with optional §6 (no AI-generated contributions) opted in, `CONTRIBUTORS.md`
   as the signing sheet, and the packable libs packing the license and notice.
   **647 unit tests pass** (+6, `LicenseFilesTests`, each mutation-checked).
-  - **What is still open: ISL-CLA 1.0 is a draft its own drafters say not to accept contributions
+  - **What is still open: ISL-CLA 1.1 is a draft its own drafters say not to accept contributions
     under.** islamiclicense.org merged it to their `dev` on 2026-08-29; it publishes at
-    <https://islamiclicense.org/isl-cla/> once deployed, and 404s until then. The adoption here is
-    recorded in advance and flagged not in force at the top of `CONTRIBUTING.md`. When it is marked
-    final, delete that banner — nothing else in the file changes.
-  - **Amended twice on 2026-08-29, both by islamiclicense.org editing the draft in place under the
-    same version number.** First `docs/isl-cla-four-statements`: three required statements became
-    **four**, (c) jurisdiction and (d) who the Licensor is becoming listed items rather than one
-    item and a footnote. Then `docs/isl-cla-forum-statement`: **five**, adding **(e) the forum** —
-    §9.2 now carries two placeholders, `[JURISDICTION]` and `[FORUM]`, and the agreement calls
-    omitting the forum "the more expensive of the two to leave open". (e) was the one item this
-    repository had never stated. The table labels (a)–(e); `LicenseFilesTests` asserts (d) and (e).
+    <https://islamiclicense.org/isl-cla/1.1/CLA.md> once deployed, and 404s until then. The adoption
+    here is recorded in advance and flagged not in force at the top of `CONTRIBUTING.md`. When it is
+    marked final, delete that banner — nothing else in the file changes.
+  - **The version moved 1.0 → 1.1 on 2026-08-29, `docs/isl-cla-1-1`.** The agreement had been
+    amended twice in place under a fixed 1.0 — three required statements to **four**, then to
+    **five** with **(e) the forum** and a second §9.2 placeholder `[FORUM]`. Told that adoption is
+    by name *and version*, islamiclicense.org undid it: `ISL-CLA-1.0.md` is frozen back to its
+    original four-item text and the revisions are `ISL-CLA-1.1.md`. This repository states five
+    items, so it adopts **1.1**. The table labels (a)–(e); `LicenseFilesTests` asserts the version,
+    (d) and (e).
   - **The license family moved to 1.1 the same day** — `[LICENSOR]` becomes a placeholder the
     adopter fills, retiring the `NOTICE.md` override. **Merged on their `dev`, not published**, so
     the live site still serves 1.0 and `/isl-cla/` still 404s. Their CHANGELOG says a 1.0 copy with

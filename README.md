@@ -123,7 +123,7 @@ SPDX `LicenseRef-ISL-NETC-1.0`. Copyright (c) 2026 Extrode LLC.
 |---|---|
 | [`LICENSE.md`](LICENSE.md) | the ISL-NETC 1.0 text, verbatim |
 | [`NOTICE.md`](NOTICE.md) | who the Licensor is, the two copyrights, and what binds an operator — **required to be retained by §3.1(c)** |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | ISL-CLA 1.0 adoption, including the **no-AI-contributions** rule |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | ISL-CLA 1.1 adoption, including the **no-AI-contributions** rule |
 
 Two consequences that reach further than a permissive license: **§3.6** obliges anyone running a
 *modified* version as a network service to offer its users the corresponding source of that exact
