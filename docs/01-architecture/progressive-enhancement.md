@@ -44,15 +44,16 @@ It is not a frontend framework and not a rendering engine. It never renders busi
 stores application state, never duplicates server validation, never replaces server routing.
 
 Two hooks cover every element: a `DOMContentLoaded` sweep for the initial document, and an
-`htmx:beforeProcessNode` listener for fragments swapped in by htmx. The second hook has a
-subtlety: htmx snapshots the elements it will initialize *before* this event fires, so an
-element that becomes enhanceable only through the attributes the sweep just added (say, a
-swapped-in `<a data-nw-target>`) is not in that snapshot — forms and submit buttons are, since
-htmx selects those unconditionally. boot.js therefore re-submits every element it modified to
-`htmx.process()` on a microtask after the current pass. For elements htmx had not seen, that
-wires them; for ones it had (forms), the attribute-hash mismatch triggers a clean
-de-init/re-init — listeners are removed before re-adding and load-trigger state is preserved,
-so there are no double handlers or duplicate requests. Normalization is idempotent.
+`htmx:before:process` listener for fragments swapped in by htmx. Normalization is idempotent.
+
+Under htmx 2 the second hook needed a workaround: htmx snapshotted the elements it would
+initialize *before* the event fired, so an element that became enhanceable only through the
+attributes the sweep had just added (say, a swapped-in `<a data-nw-target>`) was not in that
+snapshot, and boot.js had to re-submit everything it modified to `htmx.process()` on a
+microtask. **htmx 4 dispatches `htmx:before:process` and only then queries the subtree**, so
+attributes added by the sweep are picked up by the very pass that follows and the
+re-submission is gone (spec 012 T4, removed on a browser assertion rather than on reading the
+source).
 
 ---
 
@@ -132,24 +133,39 @@ the skeleton; the e2e suites enforce them.
 
 ### Busy states (R3)
 
-boot.js owns in-flight feedback: on `htmx:beforeRequest` it resolves the triggering submit
-control and sets `disabled`, `aria-busy="true"` and class `nw-busy`; on `htmx:afterRequest`
-(success, error and abort alike) it restores, and re-focuses the control when the swap dropped
-focus to `<body>`. No per-form markup, no `hx-indicator` repetition; each app styles `.nw-busy`
-in its own `components.css`. **Accepted posture:** busy treatment covers submit controls only —
-links and background triggers stay unstyled.
+boot.js owns in-flight feedback: on `htmx:before:request` it resolves the triggering submit
+control (from `ctx.request.submitter`) and sets `disabled`, `aria-busy="true"` and class
+`nw-busy`; on **`htmx:finally:request`** it restores, and re-focuses the control when the swap
+dropped focus to `<body>`. No per-form markup, no `hx-indicator` repetition; each app styles
+`.nw-busy` in its own `components.css`. **Accepted posture:** busy treatment covers submit
+controls only — links and background triggers stay unstyled.
+
+**Restore is on `finally:`, not `after:`, and the difference is the one that matters.** htmx 2's
+`afterRequest` fired on success, error, timeout and abort alike. htmx 4's `after:request` fires
+only once the response body has been read and is cancelable, so a dropped connection skips it
+entirely — restoring there would leave the submit control disabled with no way back.
+`finally:request` sits in the request's actual `finally` block and covers every path, including
+a `before:request` that another listener cancelled. Pinned by
+`BusyState_RestoredWhenTheRequestFailsOutright`.
 
 ### Focus after swap (R6)
 
-boot.js recovers focus only when it saw the swap take it: at `htmx:beforeSwap` it records
+boot.js recovers focus only when it saw the swap take it: at `htmx:before:swap` it records
 whether the focused element (or the busy-disabled submitter, whose `disabled` is what drops
-focus to `<body>`) sits inside the swap target; on `htmx:afterSwap` with that record set it
+focus to `<body>`) sits inside the swap target; on `htmx:after:swap` with that record set it
 focuses the first `[autofocus]` inside the swapped content, else the swapped root via
 `tabindex="-1"`. A polling or load-triggered swap that fires while focus is already on
-`<body>` deliberately does not autofocus, and focus that survived the swap is never stolen. Subtlety worth keeping: for `outerHTML` swaps htmx leaves the *old*
-detached element in `event.detail.target` while dispatching the event on the swapped-in
-content, so the handler falls back to `event.target` when `detail.target` is disconnected.
-Layouts must not carry their own afterSwap autofocus script — boot.js is the single owner.
+`<body>` deliberately does not autofocus, and focus that survived the swap is never stolen.
+
+**Where the swapped content is read from changed in htmx 4.** htmx 2 dispatched `afterSwap` on
+each swapped-in element, so the handler could fall back to `event.target`. htmx 4 dispatches
+`after:swap` on `ctx.sourceElement` — the element that *issued* the request — so `event.target`
+is now the wrong node and may not be in the swapped region at all. The live content is reached
+through `event.detail.ctx.target`. This one fails silently rather than loudly: the old fallback
+still resolves to *an* element, so focus would land somewhere plausible and accessibility would
+regress with nothing erroring.
+
+Layouts must not carry their own `after:swap` autofocus script — boot.js is the single owner.
 
 ### Flash messages (R4)
 

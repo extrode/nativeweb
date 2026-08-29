@@ -167,3 +167,34 @@ None. The three decisions this work turned on were taken before the spec was wri
 now rather than wait; mark inheritance explicitly rather than set the compatibility flag; and
 adopt in-place-preserving swaps selectively, never on forms carrying credentials or re-rendering
 on validation error.
+
+## Acceptance review (2026-08-29)
+
+Sixteen of seventeen requirements are met. **R16 is not, so this spec stays `draft`.**
+
+| R# | Verdict | Evidence |
+|---|---|---|
+| R1 | met | Both `htmx.min.js` report `version = '4.0.0'`; no CDN reference exists. |
+| R2 | met | `boot.js` derives `hx-*` from `data-nw-*` on `htmx:before:process` only; unchanged opt-in semantics, proven by the existing enhancement e2e tests. |
+| R3 | met | Busy state is restored on `htmx:finally:request`, not `after:request` — `BusyState_RestoredWhenTheRequestFailsOutright` fails if it is moved back. |
+| R4 | met | Focus recovery reads `ctx.target`; the `event.target` fallback that 4.0 made wrong is gone. |
+| R5 | met | `htmx:config:request` writes `ctx.request.headers` as a plain object; `AntiforgeryToken_IsSentAsAHeaderOnHtmxRequests` pins it. |
+| R6 | met | Audit found zero attributes whose effect depends on inheritance, so nothing carries `:inherited` and no `implicitInheritance` flag is set. Recorded as a finding in T5, not assumed. |
+| R7 | met | `noSwap: [204, 304, "4xx", "5xx"]`; `GuardRejection_DoesNotSwapItsBodyIntoThePage`. |
+| R8 | met, by a recorded negative | Zero eligible targets; per-target reasoning in `docs/decisions/2026-08-29-003-morph-swaps-not-adopted.md`. The credential half is pinned by `FailedSignIn_LeavesTheCredentialFieldEmpty`. |
+| R9 | met | Every browser-reachable endpoint sits under `Program.cs`'s 30 s request timeout, half htmx 4's 60 s default; no allowance needed. |
+| R10 | met | `htmx.min.js` md5 `45a83abc852d60f7f66695570eacf41b` and `boot.js` md5 `6beafed97d6b5e67c028ea42c9bd007c` match across trees; `VendoredBootJsTests` fails the suite on drift. |
+| R11 | met | `libs/nativeweb.assets/rollback/htmx-2.0.10.min.js`, retained at its original md5 `6b99da76b7f7c677e7571a1047a92204`, outside every `wwwroot` so R1 and R11 hold together. |
+| R12 | met | §15's checklist is closed out item by item, including the two corrections it needed: `noSwap` takes an array, and its beta-era `htmax.min.js` filename warning is void. |
+| R13 | met | Docs sweep across `progressive-enhancement.md`, §14/§15, `security-baseline.md`, both `components.css` and the assets `README.md`. |
+| R14 | met | 611 unit / 307 integration / 71 e2e, 0 failed; build 0 warnings 0 errors. All four new assertions mutation-checked — one of them exposed that the pre-existing suite could not see the antiforgery header at all. |
+| R15 | met | `hx-alpine-compat` absent with a reason: zero tracked Alpine directives in `apps/web` or `skeleton`. |
+| **R16** | **UNMET** | The 2.x benchmark cannot be re-run. §14's figures came from two purpose-built minimal apps load-tested with `wrk` in a sandbox that no longer exists; no harness under `tools/` or `scripts/` reproduces them, and the figures are server-side throughput and RSS, which a browser-side library does not appear in. Measured instead: the minified asset, 51,238 B → 36,716 B, 28.3% smaller. No throughput or memory number is reported, because none was produced. |
+| R17 | met | No tracked package manifest, lockfile or npm/npx invocation; `structure-audit` 0 errors. |
+
+**What would close R16.** Either a reproducible load harness committed to this repo — at which
+point the requirement becomes re-runnable for every future upgrade, not just this one — or an
+amendment acknowledging that a client-side library upgrade has no server-side benchmark to move
+and replacing R16 with an asset-weight budget. The second is the honest fit for this change; the
+first is worth more to the repo. Neither is in scope here, so the requirement is left visibly open
+rather than reworded to match what was convenient to measure.

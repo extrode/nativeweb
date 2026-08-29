@@ -33,7 +33,13 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: (none — spec 011 built, T15 outstanding)
+## Current work: (none — specs 011 and 012 built, both with one requirement unmet)
+
+Spec 012 (htmx 2.0.10 → 4.0.0 upgrade) shipped 2026-08-29 and is **not** `done`: all fourteen
+tasks are ticked, but R16 — re-run the §14 benchmark — has no runnable harness in this repo and is
+recorded unmet. Task breakdown at `docs/specs/012-htmx-4-upgrade/012-tasks.md`; the two features
+evaluated and declined are in `012-plan.md` and
+`docs/decisions/2026-08-29-003-morph-swaps-not-adopted.md`.
 
 Spec 011 (production deployment of `apps/web`) shipped 2026-08-27 and is **not** `done`: T1-T14
 and T16 are ticked, T15 is executed by a person on a real host. Task breakdown at

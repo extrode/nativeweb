@@ -180,6 +180,27 @@ htmx event payload, restated above as `ctx`.
   attribute appears in this repo, so this is a documentation-only item — recorded because the
   silent reuse of a name is a trap for anyone copying the skeleton.
 
+## Decisions taken during implementation
+
+Three items the plan left open resolved to a negative. Each is recorded because "we looked and
+chose not to" is not the same finding as "we did not look".
+
+**`hx-alpine-compat` — declined (R15).** The extension exists to keep Alpine components alive
+across htmx swaps. `git grep` for `x-data`, `x-on:`, `x-text`, `x-show` and `x-model` across
+`apps/web` and `skeleton`, excluding the vendored library itself, returns **zero tracked
+occurrences**: Alpine 3.15.0 is vendored and served, but no page uses a single directive. There is
+no htmx/Alpine interaction to preserve, so the extension resolves a conflict that cannot occur
+here. Revisit when the first `x-data` lands inside a swap target.
+
+**Morph swaps — not adopted (R8).** All five swap-target shapes are excluded by the rule the user
+approved. Reasoning, per target, in
+`docs/decisions/2026-08-29-003-morph-swaps-not-adopted.md`.
+
+**Benchmark — not re-run, R16 unmet.** §14's figures came from two purpose-built minimal apps in a
+sandbox that no longer exists; no harness in this repo reproduces them, and the numbers are
+server-side throughput that a browser-side library change cannot move. The measured result of this
+upgrade is the client asset: 51,238 B → 36,716 B minified, 28.3% smaller. Detail in §14.
+
 ## Coverage check
 
 | R# | Covered by |

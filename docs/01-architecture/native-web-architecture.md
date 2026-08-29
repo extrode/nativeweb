@@ -371,44 +371,81 @@ APIs. Real, but not adopted as the default: it costs the "boring, AI/human-legib
 corpus" property that makes Minimal APIs the maintainability winner, and per §7, "DI alone"
 was never isolated as the specific variable responsible for the gain.
 
+**Not re-run for the htmx 4.0 upgrade (spec 012, R16), and the reason is not effort.** These
+figures came from a purpose-built pair of minimal apps load-tested with `wrk` in a single-vCPU
+sandbox. Neither app is in this repo, no harness under `tools/` or `scripts/` reproduces them, and
+the sandbox is gone — so there is no baseline to re-measure against, and a fresh run on different
+hardware would not be comparable to the table above. Beyond that, every number here is
+server-side throughput and RSS, which an htmx version change cannot move: htmx runs in the
+browser and does not appear in the request path being measured. What the upgrade did change is
+the client asset, and that was measured directly — the minified library went from 51,238 B to
+36,716 B, a 28.3% reduction, one fewer 14 KB download per cold page load. R16 is recorded as
+unmet rather than answered with a number nobody produced.
+
 ------
 
 ## 15. Upgrading to htmx 4.0
 
-**The mechanical part is cheap, by construction.** htmx isn't a package dependency here —
-one vendored file (`wwwroot/htmx.min.js`) referenced from a single `<script src>`, plus
-`hx-*` attribute strings inside C# string literals. Upgrading never forces a C# recompile
-on its own.
+**The mechanical part is cheap, by construction** — and it was, but it was not the cost. htmx
+isn't a package dependency here: one vendored file (`wwwroot/vendor/htmx/htmx.min.js`)
+referenced from a single `<script src>`, plus `hx-*` attribute strings inside C# string
+literals. Upgrading never forces a C# recompile on its own. What it did force was rewriting
+every htmx event listener in the enhancement layer, because 4.0 changed the payload those
+listeners read and, in two places, when they fire at all. See "What the upgrade actually cost"
+below.
 
-**Status as of this writing:** latest pre-release `v4.0.0-beta5` (June 26, 2026); current
-stable is still `2.0.9` (April 2026). A full release was targeted for "late summer" 2026 per
-a May 2026 planning note, though the project already extended its original early-2026
-estimate once. 2.x keeps receiving security fixes — no forced deadline, and vendoring the
-file ourselves means no upstream `latest`-tag flip can force our hand either way.
+**Done, 2026-08-29 (spec 012).** htmx 4.0.0 was released 2026-08-28 and is vendored here now.
+4.0 ships as the `next` dist-tag; 2.x holds `latest` until early 2027, so this was an early
+adoption taken deliberately rather than a forced move. The checklist below is closed out.
 
-**Checklist for when the moment comes:**
-- [ ] Re-verify no `hx-*` attribute relies on implicit inheritance from a parent (clean as
-  of this skeleton — the biggest reported migration cost for typical apps; re-check if
-  markup has grown since)
-- [ ] Decide the 4xx/5xx response shape (§12) — they swap into the target by default under
-  4.0; either shape those fragments properly or set `htmx.config.noSwap = ['4xx','5xx']`
-- [ ] If `hx-boost` is in use, confirm back/forward still feels right under the new
-  refetch-based history model (no more DOM-snapshot restore)
-- [ ] Grep for `hx-vars` (removed) and `hx-disable` (renamed — `hx-disabled-elt` becomes
-  the *new* `hx-disable`, a silent meaning-flip on the same attribute name)
-- [ ] Check for any endpoint that could run past 60 seconds; set
-  `htmx.config.defaultTimeout` if so
-- [ ] Pull the new file from the GitHub release assets, not a `latest` CDN link — the exact
-  filename has moved during the beta cycle (beta5 lists `htmax.min.js`, not `htmx.min.js`;
-  verify against the live release page each time)
-- [ ] Stage with `htmx-2-compat` if "on the new file" and "adopted the new behavior" should
-  happen separately
-- [ ] Re-run §14's benchmark suite after upgrading — 4.0 claims internal performance gains
-- [ ] Keep the previous file around, renamed not deleted — rollback is a one-file swap
+**Checklist, closed:**
+- [x] Re-verify no `hx-*` attribute relies on implicit inheritance from a parent — **clean, and
+  structurally so.** Every `hx-*` attribute in this codebase is derived by boot.js onto the same
+  element that carries the `data-nw-*`, so no parent ever configures a descendant and
+  `:inherited` is needed nowhere. `implicitInheritance` left at its `false` default.
+- [x] Decide the 4xx/5xx response shape — **`noSwap` set.** Correction to the note this
+  checklist carried: the config takes an *array*, defaulting to `[204, 304]`, and the matcher
+  tests the status against `"404"`, `"40x"` and `"4xx"` in turn, so the value is
+  `[204, 304, "4xx", "5xx"]` and not a bare `['4xx','5xx']`. Validation errors here already
+  return `200 OK` with a fragment and were never affected; the 4xx paths are guards (415
+  content-type, 400 antiforgery, OAuth RFC JSON), whose bodies would otherwise have rendered
+  inside the page. Pinned by `GuardRejection_DoesNotSwapItsBodyIntoThePage`. htmx 4 also adds a
+  per-element `hx-status:4xx` attribute if a finer rule is ever wanted.
+- [x] If `hx-boost` is in use — **not in use.** Zero occurrences outside the vendored library.
+- [x] Grep for `hx-vars` and `hx-disable` — **neither appears.** Recorded for anyone starting
+  from the skeleton: in htmx 4 `hx-disable` means "disable this control during the request"
+  (htmx 2's `hx-disabled-elt`), and htmx 2's "don't process this subtree" meaning moved to
+  `hx-ignore`. Same attribute name, different job, no error if you get it wrong.
+- [x] Check for any endpoint that could run past 60 seconds — **none can.** `Program.cs` sets a
+  `RequestTimeoutPolicy` default of 30 s and Npgsql's command timeout is 30 s, both inside
+  htmx 4's new 60,000 ms `defaultTimeout`. No allowance set.
+- [x] Pull the new file from the project's own distribution — **done**, and the beta-era warning
+  about the filename is void: 4.0.0 ships `dist/htmx.min.js` as before. (`htmax.js` is a
+  separate bundle of htmx plus extensions, not a rename.)
+- [x] Stage with a compat shim — **declined.** No compat layer exists for 4.0 anyway, and the
+  inheritance audit above was cheap enough that a flag would have been a permanent fixture in a
+  template other projects copy. `implicitInheritance: true` was considered and rejected.
+- [ ] **Re-run §14's benchmark suite — NOT DONE, and not doable as written.** §14's figures came
+  from an ad-hoc comparative experiment (htmx-skeleton vs C# JSON API vs Deno) run during
+  architecture exploration; no runnable harness was ever committed, so there is nothing here to
+  re-run and no reproducible 2.x baseline to compare against. The one measured client-side
+  delta: the minified library went **51,238 B → 36,716 B, 28.3% smaller**. Server throughput and
+  RSS under 4.0 are **unmeasured**. Spec 012 R16 is therefore unmet.
+- [x] Keep the previous file around — **kept at `libs/nativeweb.assets/rollback/htmx-2.0.10.min.js`**,
+  outside every `wwwroot` so a superseded library is not served or shipped in the published
+  output. Rollback is copying it over the two vendored `htmx.min.js` files.
+
+**What the upgrade actually cost**, for the next time: not the renames. Three behaviours changed
+under the same-looking API. `after:request` stopped covering error/timeout/abort (restore moved
+to `finally:request`), `after:swap` moved its dispatch from the swapped-in element to the
+issuing one, and every payload moved from flat `detail.*` fields onto `detail.ctx`. The first
+two fail silently — a mechanical rename leaves a permanently disabled button and a focus bug,
+both green in CI.
 
 **Watch, don't act on yet:** 4.0's declarative signals may let some of §8's Alpine rows
 move to plain htmx; a proposed `hx-drag` extension could shrink the "Island" row for simple
-drag-and-drop cases. Worth a second pass over §8's table once 4.0 stabilizes.
+drag-and-drop cases. Worth a second pass over §8's table now that 4.0 has shipped. The
+`hx-alpine-compat` extension is evaluated and declined in spec 012 — see there.
 
 ------
 

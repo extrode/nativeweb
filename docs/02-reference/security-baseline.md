@@ -78,6 +78,8 @@ this document. Items marked ☐ are known-open, with the reason.
 | ▢ | CI CVE gate: `dotnet list package --vulnerable --include-transitive` fails the build on any finding or on a vacuous audit. Wired in V6 but unverifiable until the CI package-feed gap below is closed -- the job dies at restore before the gate runs | `.github/workflows/ci.yml` (V6) |
 | ☑ | `TreatWarningsAsErrors` repo-wide incl. trim/AOT analyzers | `Directory.Build.props` |
 | ☑ | Central package versions, vendored htmx/Alpine (no CDN) | `Directory.Packages.props`, `wwwroot/vendor` |
+| ☑ | No page HTML cached in `localStorage`. htmx 2 kept a snapshot cache there to restore pages on back-navigation, which put rendered authenticated markup in origin-scoped storage that survives sign-out and is readable by any script that gets execution on the origin. **htmx 4.0 removed it** — back-navigation re-fetches instead. The `hx-history-cache` extension restores the old behaviour and is deliberately not vendored (spec 012 non-goal) | `wwwroot/vendor/htmx`, spec 012 |
+| ☑ | Guard responses are not swapped into the page. htmx 4 swaps 4xx/5xx bodies into the target by default; `noSwap: [204, 304, "4xx", "5xx"]` keeps a 415 or 400 guard body from rendering inside an authenticated page | `Render/Layout.cs` htmx-config meta |
 
 ## Known-open items
 
