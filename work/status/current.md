@@ -6,7 +6,15 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing is in flight.** Spec 012 -- the htmx 2.0.10 → 4.0.0 upgrade -- merged into `dev` on
+- **Spec 013 — continuous read-only audit** is being built on `feat/013-continuous-audit`. A daily
+  unattended read of one slice of this repository on audit-host.local, producing a deduplicated defect
+  ledger that an interactive session triages with the user. Read-only by topology, not by
+  instruction: audit-host audits a throwaway clone of a pushed mirror and holds no credential that
+  reaches `origin`. Scope is `nativeweb` only. **R2 and R15 are met by the operator, not by an
+  agent** — they are properties of audit-host after the user runs `scripts/audit/provision-audit-host.sh`.
+  Spec/plan/tasks at `docs/specs/013-continuous-audit/`.
+
+- Spec 012 -- the htmx 2.0.10 → 4.0.0 upgrade -- merged into `dev` on
   2026-08-29, unpushed; its summary is in `previous.md`. All fourteen tasks are ticked, but
   **`012-spec.md` is not `done`**: R16 asked for the §14 benchmark re-run and no harness in this
   repo reproduces it, so the requirement is recorded unmet rather than answered.
