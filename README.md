@@ -116,12 +116,12 @@ mode is the working path today.
 
 ## License
 
-**Islamic Software License - Network Copyleft (ISL-NETC), Version 1.0** —
-SPDX `LicenseRef-ISL-NETC-1.0`. Copyright (c) 2026 Extrode LLC.
+**Islamic Software License - Network Copyleft (ISL-NETC), Version 1.1** —
+SPDX `LicenseRef-ISL-NETC-1.1`. Copyright (c) 2026 Extrode LLC.
 
 | file | what it is |
 |---|---|
-| [`LICENSE.md`](LICENSE.md) | the ISL-NETC 1.0 text, verbatim |
+| [`LICENSE.md`](LICENSE.md) | the [ISL-NETC 1.1 text](https://islamiclicense.org/isl-netc/1.1/LICENSE.md), with §1.2 `[LICENSOR]` completed as Extrode LLC and unmodified otherwise |
 | [`NOTICE.md`](NOTICE.md) | who the Licensor is, the two copyrights, and what binds an operator — **required to be retained by §3.1(c)** |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | ISL-CLA 1.1 adoption, including the **no-AI-contributions** rule |
 

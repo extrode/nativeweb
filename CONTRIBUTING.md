@@ -27,10 +27,10 @@ are stated here:
 
 | required statement | NativeWeb |
 |---|---|
-| **(a)** which ISL variant the project is licensed under | **ISL-NETC 1.0** — see [`LICENSE.md`](./LICENSE.md). Not ISL-R, so **§2 (Limited Consent to Modify) does not apply**: ISL-NETC permits modification already, and §2 is inert here. |
+| **(a)** which ISL variant the project is licensed under | **ISL-NETC 1.1** — see [`LICENSE.md`](./LICENSE.md). Not ISL-R, so **§2 (Limited Consent to Modify) does not apply**: ISL-NETC permits modification already, and §2 is inert here. |
 | **(b)** whether the project adopts optional **§6 (No AI-Generated Contributions)** | **Adopted.** §6 applies in full to every contribution to this project. |
 | **(c)** the jurisdiction whose law governs the agreement, completing the first **§9.2** placeholder | **Commonwealth of Virginia**, matching the jurisdiction Extrode LLC's other licenses use. |
-| **(d)** who the Licensor is | **Extrode LLC**. This project is on an ISL-NETC **1.0** text, which names Ikhbat Foundation in its §1.2 because the family was drafted as the Foundation's own; under the second limb of (d), the Licensor is the party that applied the text. The override is recorded in [`NOTICE.md`](./NOTICE.md). From ISL-NETC 1.1 that limb is unnecessary — §1.2 becomes a `[LICENSOR]` placeholder the adopter fills — and this row changes when the re-sync happens. |
+| **(d)** who the Licensor is | **Extrode LLC**, stated in [`LICENSE.md`](./LICENSE.md) §1.2 itself. ISL-NETC 1.1 makes §1.2 a `[LICENSOR]` placeholder the adopter completes, and its reproduction notice puts completing it outside the definition of a modification, so the second limb of (d) — the reading that rescued a Foundation-named §1.2 — is no longer relied on here. [`NOTICE.md`](./NOTICE.md) records the re-sync rather than an override. |
 | **(e)** the forum in which disputes are brought, completing the second **§9.2** placeholder | **The courts located in the Commonwealth of Virginia**, matching the forum clause in Extrode LLC's other licenses. |
 
 Absent (b), §6 would not apply and the AI prohibition below would bind nobody. A project that

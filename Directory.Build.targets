@@ -46,7 +46,7 @@
 
        PackageLicenseFile, not PackageLicenseExpression: NuGet validates an
        expression against the SPDX license list and rejects a LicenseRef, so
-       LicenseRef-ISL-NETC-1.0 can only travel as the file plus the
+       LicenseRef-ISL-NETC-1.1 can only travel as the file plus the
        PackageLicenseFile pointer. NOTICE.md ships beside it because ISL-NETC
        3.1(c) requires any copy of the software to retain it, and a .nupkg is a
        copy.
