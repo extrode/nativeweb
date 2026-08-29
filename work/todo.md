@@ -856,11 +856,17 @@ not executed. Read each note below for which half survives.**
   staging host can no longer advertise production. Note the neighbouring hardcode this did **not**
   touch: `apps/web/SecurityTxtEndpoint.cs` still emits `security@epass.io` literally — out of
   011's scope, and correct only after the cutover.
-- **CI cannot restore in package mode.** Unchanged and still deferred: no reachable feed publishes
-  `JauntyQ.*`. Only `-p:JauntyQUsePackages=true` paths are affected and CI is green in checkout
-  mode, but a deploy pipeline that assumes package mode will not build. **011 sidesteps rather
-  than closes it**: `build.sh` pins `-p:JauntyQUsePackages=false` and builds from the local
-  checkout, which is why the release build is a workstation task and not a CI one.
+- **CI cannot restore in package mode.** Only `-p:JauntyQUsePackages=true` paths are affected, and
+  a deploy pipeline that assumes package mode will not build. **011 sidesteps rather than closes
+  it**: `build.sh` pins `-p:JauntyQUsePackages=false` and builds from the local checkout, which is
+  why the release build is a workstation task and not a CI one.
+
+  **The premise changed on 2026-08-29 and the cause is now narrower.** "No reachable feed
+  publishes `JauntyQ.*`" is no longer true: `JauntyQ.Runtime`, `JauntyQ.Generator` and
+  `JauntyQ.Schema.Contract` are published under `extrode` at **0.4.0**, matching the pins. What is
+  missing is the package-read grant to `extrode/nativeweb`, so restore fails `NU1301`/403 rather
+  than `NU1101`. See the entry at the top of Now-ish; that grant is the whole remaining gap, and
+  it is one UI action.
 
 Not blockers, verified green the same day: web-unit 494/494, integration 298/298, web-e2e 64/64,
 CI run 2026-08-24T07:11Z green on both `aot-publish` and `test`.
@@ -926,6 +932,13 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   step 1). The
   fix in the build file — probe `..\..\jauntyq` and `..\..\..\..\jauntyq` too, before the named
   ones — was left out of a documentation branch deliberately.
+
+  **Stale as of 2026-08-29 — this was fixed and the entry outlived it.** `Directory.Build.props`
+  now probes `$(MSBuildThisFileDirectory)..\jauntyq` and `..\..\..\jauntyq`, both guarded by
+  `Exists()`, and its own comment records that the named-ancestor form "broke twice in one move on
+  2026-08-26". `JauntyQRootProbeTests` pins it, with a regex that refuses **any** org-named
+  ancestor rather than just the old one — so writing `extrode.com` in would fail the same way.
+  Nothing to do; kept as a record of the reasoning.
 - **`AppProcessFixture`'s 15-minute publish budget assumes an idle machine.** All 13
   `nativeweb.scaffold.tests.e2e` facts failed at exactly `00:15:00` on 2026-08-25 with a NativeAOT
   publish that had not finished, while a `review-deep` worker was saturating the CPU. Re-run alone
