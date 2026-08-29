@@ -371,16 +371,25 @@ APIs. Real, but not adopted as the default: it costs the "boring, AI/human-legib
 corpus" property that makes Minimal APIs the maintainability winner, and per §7, "DI alone"
 was never isolated as the specific variable responsible for the gain.
 
-**Not re-run for the htmx 4.0 upgrade (spec 012, R16), and the reason is not effort.** These
-figures came from a purpose-built pair of minimal apps load-tested with `wrk` in a single-vCPU
-sandbox. Neither app is in this repo, no harness under `tools/` or `scripts/` reproduces them, and
-the sandbox is gone — so there is no baseline to re-measure against, and a fresh run on different
-hardware would not be comparable to the table above. Beyond that, every number here is
-server-side throughput and RSS, which an htmx version change cannot move: htmx runs in the
-browser and does not appear in the request path being measured. What the upgrade did change is
-the client asset, and that was measured directly — the minified library went from 51,238 B to
-36,716 B, a 28.3% reduction, one fewer 14 KB download per cold page load. R16 is recorded as
-unmet rather than answered with a number nobody produced.
+**Never re-run, and never re-runnable — these figures are frozen.** They came from a
+purpose-built pair of minimal apps load-tested with `wrk` in a single-vCPU sandbox. Neither app
+is in this repo and the sandbox is gone, so nothing can reproduce them and nothing should be
+compared against them. They stand as the relative comparison they were made for: HTMX+ASP.NET
+Core against Svelte+Deno, ~13.8x on the same page. Not as a target.
+
+**What replaced them for regression work: `tools/bench/`** (spec 012 R16, 2026-08-29). A Deno
+load driver against the published `apps/web` binary, with a committed `baseline.json` and a
+`--check` mode. First baseline, bench-host, 16 cpu, win-x64: `/healthz` 19,677.5 req/s, 0.76 ms p50,
+73.4 MB peak RSS; `GET /` — the full page render — 8,020.7 req/s, 1.83 ms p50, 65.9 MB. Zero
+errors. **These are a new baseline, not a re-measurement of the table above**: different apps,
+different load tool, different hardware, and a `fetch`-based driver whose numbers are a floor
+for the server rather than its ceiling. Tolerances are 15% down on throughput and 25% up on RSS,
+sized from a measured 13.8% run-to-run spread. `tools/bench/README.md` has the rest.
+
+What the htmx upgrade itself changed was the client asset, and that was measured directly — the
+minified library went from 51,238 B to 36,716 B, a 28.3% reduction, one fewer 14 KB download per
+cold page load. It could not have moved a server-side throughput number: htmx runs in the browser
+and does not appear in the request path either harness measures.
 
 ------
 

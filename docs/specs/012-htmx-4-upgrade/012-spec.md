@@ -1,5 +1,5 @@
 # 012 — htmx 4.0 upgrade
-Status: draft
+Status: done
 Created: 2026-08-29
 
 ## Problem
@@ -170,7 +170,8 @@ on validation error.
 
 ## Acceptance review (2026-08-29)
 
-Sixteen of seventeen requirements are met. **R16 is not, so this spec stays `draft`.**
+Sixteen of seventeen requirements were met at merge. **R16 was not, and closing it is what
+took this spec from `draft` to `done` on 2026-08-29** -- see "Closing R16" below.
 
 | R# | Verdict | Evidence |
 |---|---|---|
@@ -189,12 +190,30 @@ Sixteen of seventeen requirements are met. **R16 is not, so this spec stays `dra
 | R13 | met | Docs sweep across `progressive-enhancement.md`, §14/§15, `security-baseline.md`, both `components.css` and the assets `README.md`. |
 | R14 | met | 611 unit / 307 integration / 71 e2e, 0 failed; build 0 warnings 0 errors. All four new assertions mutation-checked — one of them exposed that the pre-existing suite could not see the antiforgery header at all. |
 | R15 | met | `hx-alpine-compat` absent with a reason: zero tracked Alpine directives in `apps/web` or `skeleton`. |
-| **R16** | **UNMET** | The 2.x benchmark cannot be re-run. §14's figures came from two purpose-built minimal apps load-tested with `wrk` in a sandbox that no longer exists; no harness under `tools/` or `scripts/` reproduces them, and the figures are server-side throughput and RSS, which a browser-side library does not appear in. Measured instead: the minified asset, 51,238 B → 36,716 B, 28.3% smaller. No throughput or memory number is reported, because none was produced. |
+| **R16** | **met, restated** | Closed by `tools/bench/`, not by re-running the 2.x benchmark, which is impossible: §14's figures came from two purpose-built minimal apps load-tested with `wrk` in a sandbox that no longer exists. The harness measures the published `apps/web` binary against a committed `baseline.json` on the machine that recorded it. First baseline, bench-host, 16 cpu, win-x64, 2026-08-29: `healthz` 19,677.5 req/s / 0.76 ms p50 / 73.4 MB peak RSS; `home` (the full page render) 8,020.7 req/s / 1.83 ms p50 / 65.9 MB. Zero errors in both. Also measured, and the number an htmx upgrade could actually move: the minified asset, 51,238 B -> 36,716 B, 28.3% smaller. |
 | R17 | met | No tracked package manifest, lockfile or npm/npx invocation; `structure-audit` 0 errors. |
 
-**What would close R16.** Either a reproducible load harness committed to this repo — at which
-point the requirement becomes re-runnable for every future upgrade, not just this one — or an
-amendment acknowledging that a client-side library upgrade has no server-side benchmark to move
-and replacing R16 with an asset-weight budget. The second is the honest fit for this change; the
-first is worth more to the repo. Neither is in scope here, so the requirement is left visibly open
-rather than reworded to match what was convenient to measure.
+**Closing R16.** The spec offered two ways out -- a committed harness, or an amendment replacing
+R16 with an asset-weight budget -- and called the second the honest fit and the first worth more to
+the repo. The first was built: `tools/bench/`, a Deno load driver against the published binary,
+with `tools/bench/baseline.json` and `--check`. R16 now reads as **throughput and peak RSS within
+tolerance of `baseline.json`**, which is re-runnable for every future upgrade rather than for this
+one. Plan: `docs/plans/2026-08-29-005-r16-load-harness.md`.
+
+Three things about that number are worth carrying forward, because each one is a limit on what it
+proves:
+
+- **It is not comparable to §14.** Different apps, a different load tool, hardware that no longer
+  exists. It is a new baseline, not a re-measurement of the old one, and §14 says so.
+- **It is a floor, not a ceiling.** The driver is Deno's `fetch` rather than `wrk` -- neither `wrk`
+  nor `bombardier` nor `hey` is installed on this machine and the repo's tooling rule is Deno over
+  anything needing npm -- so real JS time is spent per request.
+- **It cannot see a small regression.** Eight `home` passes on one unchanged binary spread 13.8%,
+  peak RSS 24%. The shipped tolerances are 15% down on throughput and 25% up on RSS, sized from
+  that measured spread rather than from a round number, and the harness is not a CI job for the
+  same reason.
+
+**What R16 does NOT claim.** htmx 4.0 did not move these figures, and nothing here says it did:
+the library runs in the browser and does not appear in the request path being measured. The
+baseline is the state of `apps/web` after the upgrade, recorded so the next change has something
+to be compared against.
