@@ -36,7 +36,29 @@ namespace NativeWeb.Scaffold.Tests.E2e;
 /// </remarks>
 public abstract class SampleProcessFixture : IAsyncLifetime
 {
-    private static readonly TimeSpan PublishTimeout = TimeSpan.FromMinutes(15);
+    /// <summary>
+    /// Ceiling on the one NativeAOT publish this tier runs.
+    /// </summary>
+    /// <remarks>
+    /// Thirty, not fifteen, and the same number as
+    /// <c>tests/nativeweb.web.tests.e2e/AppProcessFixture.cs</c> for the same
+    /// reason — that fixture was raised first, and this one was left behind.
+    /// <para>
+    /// Measured: on 2026-08-25 all thirteen facts in this tier failed at exactly
+    /// <c>00:15:00</c> with a publish that had not finished, while a review worker
+    /// was saturating the CPU. Re-run alone on the same commit, 13/13 green in 2 s.
+    /// So the tier is not flaky — it had no headroom under load, and a CI runner
+    /// sharing a host looks exactly like that machine did.
+    /// </para>
+    /// <para>
+    /// The ceiling still has to exist: without it a hung link waits on whatever
+    /// the CI job's own timeout happens to be, and the job dies saying nothing
+    /// about what it was doing. But it has to be a number no healthy build can
+    /// reach, because the failure it catches is rare and a false trip costs a
+    /// whole green suite.
+    /// </para>
+    /// </remarks>
+    private static readonly TimeSpan PublishTimeout = TimeSpan.FromMinutes(30);
 
     /// <summary>
     /// The publish, run once for the whole tier however many fixtures want it.
