@@ -22,9 +22,9 @@ Merged into `dev`, not yet tagged.
   against. This closes spec 012's R16, which had asked for a benchmark re-run that was impossible
   — §14's figures came from apps that are not in this repo and a sandbox that no longer exists —
   and turns it into something re-runnable for every future upgrade. **Spec 012 is now `done`.**
-  First baseline (bench-host, 16 cpu, win-x64): `/healthz` 19,677.5 req/s / 73.4 MB peak RSS, `home`
-  8,020.7 req/s / 65.9 MB, zero errors. Not comparable to §14, and not a CI job: the measured
-  run-to-run spread is 13.8%, so the tolerances are 15% and 25% rather than 5%.
+  First baseline (bench-host, 16 cpu, win-x64): `/healthz` 18,067.2 req/s / 74.4 MB peak RSS, `home`
+  6,998.0 req/s / 60.9 MB, zero errors. Not comparable to §14, and not a CI job: the measured
+  run-to-run spread is 16.3%, so the tolerances are 20% and 25% rather than 5%.
 
 ### Fixed
 - **The skeleton produced products that could not build.** `skeleton/Directory.Build.props` carried

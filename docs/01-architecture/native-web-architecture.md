@@ -379,12 +379,12 @@ Core against Svelte+Deno, ~13.8x on the same page. Not as a target.
 
 **What replaced them for regression work: `tools/bench/`** (spec 012 R16, 2026-08-29). A Deno
 load driver against the published `apps/web` binary, with a committed `baseline.json` and a
-`--check` mode. First baseline, bench-host, 16 cpu, win-x64: `/healthz` 19,677.5 req/s, 0.76 ms p50,
-73.4 MB peak RSS; `GET /` — the full page render — 8,020.7 req/s, 1.83 ms p50, 65.9 MB. Zero
+`--check` mode. First baseline, bench-host, 16 cpu, win-x64: `/healthz` 18,067.2 req/s, 0.83 ms p50,
+74.4 MB peak RSS; `GET /` — the full page render — 6,998.0 req/s, 2.11 ms p50, 60.9 MB. Zero
 errors. **These are a new baseline, not a re-measurement of the table above**: different apps,
 different load tool, different hardware, and a `fetch`-based driver whose numbers are a floor
-for the server rather than its ceiling. Tolerances are 15% down on throughput and 25% up on RSS,
-sized from a measured 13.8% run-to-run spread. `tools/bench/README.md` has the rest.
+for the server rather than its ceiling. Tolerances are 20% down on throughput and 25% up on RSS,
+sized from a measured 16.3% run-to-run spread. `tools/bench/README.md` has the rest.
 
 What the htmx upgrade itself changed was the client asset, and that was measured directly — the
 minified library went from 51,238 B to 36,716 B, a 28.3% reduction, one fewer 14 KB download per

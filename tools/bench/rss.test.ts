@@ -27,27 +27,61 @@ Deno.test("ps output for a dead pid is null", () => {
   assertEquals(parsePs("ps: no such process"), null);
 });
 
-Deno.test("the sampler keeps the peak, not the last reading", async () => {
-  const readings = [10, 90, 30];
+/**
+ * Drive the sampler off its own reads rather than off a sleep: with `setTimeout` racing the
+ * assertions, a loaded machine runs fewer iterations than the test expects and "keeps the
+ * peak" starts asserting 90 against a peak of 10.
+ */
+function sampledOnce(readings: (number | null)[]) {
   let i = 0;
-  const sampler = startRssSampler(1, 0, () => Promise.resolve(readings[i++] ?? null));
+  let signalDone: () => void;
+  const done = new Promise<void>((resolve) => (signalDone = resolve));
 
-  // Let the loop run through all three readings.
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  return {
+    done,
+    sample: () => {
+      const value = i < readings.length ? readings[i] : null;
+      i++;
+      if (i >= readings.length) signalDone();
+      return Promise.resolve(value);
+    },
+  };
+}
+
+Deno.test("the sampler keeps the peak, not the last reading", async () => {
+  const stub = sampledOnce([10, 90, 30]);
+  const sampler = startRssSampler(1, 0, stub.sample);
+
+  await stub.done;
   assertEquals(await sampler.stop(), 90);
 });
 
 Deno.test("failed samples are skipped, not treated as zero", async () => {
-  const readings: (number | null)[] = [null, 77, null];
-  let i = 0;
-  const sampler = startRssSampler(1, 0, () => Promise.resolve(readings[i++] ?? null));
+  const stub = sampledOnce([null, 77, null]);
+  const sampler = startRssSampler(1, 0, stub.sample);
 
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await stub.done;
   assertEquals(await sampler.stop(), 77);
 });
 
 Deno.test("a sampler that never read anything reports 0", async () => {
-  const sampler = startRssSampler(1, 0, () => Promise.resolve(null));
-  await new Promise((resolve) => setTimeout(resolve, 5));
+  const stub = sampledOnce([null, null]);
+  const sampler = startRssSampler(1, 0, stub.sample);
+
+  await stub.done;
   assertEquals(await sampler.stop(), 0);
+});
+
+Deno.test("a sampler whose reader throws still stops, with the peak it had", async () => {
+  let calls = 0;
+  const sampler = startRssSampler(1, 0, () => {
+    calls++;
+    if (calls === 1) return Promise.resolve(64);
+    return Promise.reject(new Error("tasklist vanished"));
+  });
+
+  // A rejecting reader must not become an unhandled rejection, and must not lose the reading
+  // that already succeeded.
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assertEquals(await sampler.stop(), 64);
 });

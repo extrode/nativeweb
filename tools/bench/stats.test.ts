@@ -149,18 +149,18 @@ Deno.test("comparable rejects a different concurrency", () => {
 });
 
 Deno.test("the shipped tolerances are the measured ones, not round numbers", () => {
-  // Eight home passes on one unchanged binary spread 13.8%, healthz 9.4%, and peak RSS 24%,
-  // so a 5% band on either would fail on noise. Pinned here because widening a tolerance
-  // quietly is how a check stops meaning anything.
-  assertEquals(RPS_FLOOR, 0.85);
+  // Eleven home passes on one unchanged binary spread 16.3% and peak RSS 29%, so a 5% band on
+  // either would fail on noise. Pinned here because widening a tolerance quietly is how a
+  // check stops meaning anything.
+  assertEquals(RPS_FLOOR, 0.80);
   assertEquals(RSS_CEILING, 1.25);
 
   const baseline = { home: measurement({ rps: 1000, maxRssBytes: 100 * 1024 * 1024 }) };
-  // The observed extremes, 13.8% down and 24% up: both inside the shipped band.
+  // The observed extremes, 16.3% down and 24% up: both inside the shipped band.
   assertEquals(
-    compare(baseline, { home: measurement({ rps: 862, maxRssBytes: 124 * 1024 * 1024 }) }).length,
+    compare(baseline, { home: measurement({ rps: 837, maxRssBytes: 124 * 1024 * 1024 }) }).length,
     0,
   );
-  // A 20% throughput drop is larger than anything this harness has measured as noise.
-  assertEquals(compare(baseline, { home: measurement({ rps: 800 }) }).length, 1);
+  // A 25% throughput drop is larger than anything this harness has measured as noise.
+  assertEquals(compare(baseline, { home: measurement({ rps: 750 }) }).length, 1);
 });

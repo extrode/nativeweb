@@ -11,7 +11,7 @@
 // per connection and the driver keeps connections alive, so it does not dominate the numbers,
 // and production serves https anyway.
 
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 
 import { type Cert, ensureCert } from "./cert.ts";
 
@@ -30,8 +30,15 @@ export interface RunningApp {
   baseUrl: string;
   /** The certificate it is listening with, for the driver's caCerts. */
   cert: Cert;
+  /** The app's last few log lines, oldest first. Empty until it writes something. */
+  logTail(): string;
+  /** Its exit code once it has exited, null while it is still running. */
+  exitCode(): number | null;
   stop(): Promise<void>;
 }
+
+/** How many of the app's log lines to keep for a failure message. */
+export const LOG_TAIL_LINES = 40;
 
 /**
  * Locate the published binary. Scans for it rather than computing the RID: a checkout can
@@ -104,9 +111,17 @@ export async function waitForHealthz(
   fetchImpl: typeof fetch = fetch,
   sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
   now: () => number = () => performance.now(),
+  // A process that died on startup would otherwise be waited on for the full minute and then
+  // reported as "did not answer", which describes a hang rather than what happened.
+  exitCode: () => number | null = () => null,
 ): Promise<number> {
   const start = now();
   while (now() - start < timeoutMs) {
+    const dead = exitCode();
+    if (dead !== null) {
+      throw new Error(`The app exited with code ${dead} before answering ${baseUrl}/healthz.`);
+    }
+
     try {
       const response = await fetchImpl(`${baseUrl}/healthz`);
       await response.arrayBuffer();
@@ -131,9 +146,21 @@ export async function waitForHealthz(
 export function benchEnv(baseUrl: string, cert: Cert): Record<string, string> {
   return {
     ASPNETCORE_URLS: baseUrl,
+    // Development, and it has to be: outside it the app refuses to start without the contact,
+    // store and pairwise secrets (Program.cs:565) and without an SMTP host (Program.cs:613),
+    // so a configuration-free launch is only possible here. It measures a slightly different
+    // pipeline -- no HSTS header, the /dev/inbox route present, user secrets layered into
+    // configuration -- which is a real caveat on the numbers and is recorded in the README.
     ASPNETCORE_ENVIRONMENT: "Development",
     ASPNETCORE_Kestrel__Certificates__Default__Path: cert.certPath,
     ASPNETCORE_Kestrel__Certificates__Default__KeyPath: cert.keyPath,
+    // Warning and above. RequestLoggingMiddleware writes an info line per request, and this
+    // harness drains the app's output rather than discarding it (below), so at default level
+    // the run measures the harness draining its own log: 8,020 req/s on `home` became 6,900,
+    // a 14% cut, measured. Startup failures are logged at error or higher and still reach the
+    // tail. The cost of formatting an info line per request is therefore NOT in these numbers;
+    // a production deployment at default level pays it.
+    Logging__LogLevel__Default: "Warning",
     NativeWeb__Telemetry__Enabled: "false",
     NativeWeb__RateLimit__Page__PermitLimit: "1000000000",
   };
@@ -150,25 +177,64 @@ export async function startApp(options: StartOptions): Promise<RunningApp> {
   // From inside its own publish folder, as a deployment runs it: ContentRootPath-relative
   // lookups (wwwroot, appsettings.json) resolve against the CWD otherwise.
   const command = new Deno.Command(exePath, {
-    cwd: exePath.slice(0, Math.max(exePath.lastIndexOf("/"), exePath.lastIndexOf("\\"))),
+    cwd: dirname(exePath),
     env: { ...benchEnv(baseUrl, cert), ...options.env },
-    stdout: "null",
-    stderr: "null",
+    // Piped and drained into a bounded tail rather than discarded. A port already in use, an
+    // unreadable cert or a startup guard refusing to boot are all silent otherwise, and the
+    // only symptom is waitForHealthz timing out sixty seconds later with no cause.
+    stdout: "piped",
+    stderr: "piped",
   });
 
   const child = command.spawn();
+  const tail: string[] = [];
+  let exitCode: number | null = null;
+  const exited = child.status.then((status) => {
+    exitCode = status.code;
+    return status;
+  });
+  const drain = Promise.all([
+    drainInto(child.stdout, tail),
+    drainInto(child.stderr, tail),
+  ]);
 
   return {
     pid: child.pid,
     baseUrl,
     cert,
+    logTail: () => tail.join("\n"),
+    exitCode: () => exitCode,
     async stop(): Promise<void> {
       try {
         child.kill();
       } catch {
         // Already gone.
       }
-      await child.status;
+      await exited;
+      await drain;
     },
   };
+}
+
+/** Read a stream to exhaustion, keeping the last LOG_TAIL_LINES lines. */
+export async function drainInto(
+  stream: ReadableStream<Uint8Array>,
+  tail: string[],
+): Promise<void> {
+  const decoder = new TextDecoder();
+  let partial = "";
+
+  try {
+    for await (const chunk of stream) {
+      partial += decoder.decode(chunk, { stream: true });
+      const lines = partial.split("\n");
+      partial = lines.pop() ?? "";
+      for (const line of lines) {
+        tail.push(line.trimEnd());
+        if (tail.length > LOG_TAIL_LINES) tail.shift();
+      }
+    }
+  } catch {
+    // Killed mid-read; whatever is already in the tail is what there is.
+  }
 }

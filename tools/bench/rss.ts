@@ -79,7 +79,14 @@ export function startRssSampler(
 
   const loop = (async () => {
     while (running) {
-      const bytes = await sample(pid);
+      // A reader that throws must not take the sampler with it: the rejection would surface
+      // as an unhandled promise, and stop() would lose every reading already taken.
+      let bytes: number | null = null;
+      try {
+        bytes = await sample(pid);
+      } catch {
+        bytes = null;
+      }
       if (bytes !== null && bytes > peak) peak = bytes;
       if (!running) break;
       await new Promise((resolve) => setTimeout(resolve, intervalMs));

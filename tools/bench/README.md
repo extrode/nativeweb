@@ -36,10 +36,24 @@ its ceiling. **They are not comparable to the figures in
 different hardware, a sandbox that no longer exists. That is the whole reason this harness
 exists.
 
-**Small regressions.** Eight `home` passes on one machine and one unchanged binary spread
-13.8%; `healthz` spread 9.4%; peak RSS spread 24%. The shipped tolerances are 15% down on
-throughput and 25% up on RSS, sized from that. Anything smaller is under the noise floor. Run
-it on an otherwise idle machine and re-record the baseline when the hardware changes.
+**Small regressions.** Eleven `home` passes across five sessions on one machine and one
+unchanged binary ranged 6,887 to 8,012 req/s, 16.3%; peak RSS moved 57.1 MB to 73.8 MB, 29%.
+Back to back within one session the spread is a few per cent; across sessions it is whatever
+else the machine was doing. The shipped tolerances are 20% down on throughput and 25% up on
+RSS, sized from that, so **this catches gross regressions and not small ones** — a doubling of
+page cost, a leak, a middleware that suddenly blocks. Run it on an otherwise idle machine, and
+re-record the baseline when the hardware changes.
+
+**A production log volume.** The app is launched at `Logging:LogLevel:Default=Warning`. At
+default level `RequestLoggingMiddleware` writes an info line per request and the harness drains
+the app's output rather than discarding it, so the run measures its own log draining: 8,020
+req/s on `home` became 6,900, measured. The cost of formatting that line is therefore not in
+these numbers and a default-level deployment pays it.
+
+**The production pipeline.** `ASPNETCORE_ENVIRONMENT=Development`, and it has to be — outside
+Development the app refuses to start without the contact, store and pairwise secrets and an
+SMTP host. So no HSTS header, the `/dev/inbox` route present, and user secrets layered into
+configuration on a machine that has any.
 
 ## Why it is not in CI
 

@@ -9,12 +9,12 @@
 
 /** One timed pass of one scenario. */
 export interface RunSample {
-  /** Responses with a 2xx or 3xx status. */
+  /** Responses `fetch` reported as ok -- 2xx, redirects having been followed. */
   requests: number;
-  /** Responses with a 4xx/5xx status, plus transport failures. */
+  /** Every other response, plus transport failures and aborts. */
   errors: number;
   elapsedMs: number;
-  /** Per-request wall time, unsorted. */
+  /** Wall time per SUCCESSFUL request, unsorted. */
   latenciesMs: number[];
 }
 
@@ -93,18 +93,18 @@ export function round(value: number, decimals: number): number {
 
 /**
  * Default tolerances, sized from this harness's own measured spread rather than from a round
- * number. Eight `home` passes across four sessions on one machine and one unchanged binary
- * ranged 6,843 to 7,941 req/s -- 13.8% between the extremes -- and `healthz` ranged 17,382 to
- * 19,196, 9.4%. Peak RSS over the same passes moved 57.1 MB to 70.7 MB, 24%, which is GC
- * timing rather than a leak.
+ * number. Eleven `home` passes across five sessions on one machine and one unchanged binary
+ * ranged 6,887 to 8,012 req/s -- 16.3% between the extremes -- and peak RSS moved 57.1 MB to
+ * 73.8 MB, 29%. Within a single session, back to back, the spread is a few per cent; across
+ * sessions it is whatever else the machine was doing.
  *
- * So a 5% floor, which is what spec 012's close-out first proposed, would fail on noise more
- * often than on a regression, and this machine is not quiet while it runs. 15% is the smallest
- * band that does not: anything below it is under this harness's noise floor and the README
- * says so. A wider band catches less; it also gets read, where a check that fails every third
- * run for no reason gets muted.
+ * So the 5% band spec 012's close-out first proposed would fail on noise far more often than
+ * on a regression. 20% down on throughput and 25% up on RSS is what survives the observed
+ * spread, and it means plainly: **this harness detects gross regressions, not small ones.** A
+ * doubling of page cost, a leak, a middleware that suddenly blocks -- yes. A 10% loss -- no,
+ * and no honest configuration of it would.
  */
-export const RPS_FLOOR = 0.85;
+export const RPS_FLOOR = 0.80;
 export const RSS_CEILING = 1.25;
 
 export interface Regression {

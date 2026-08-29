@@ -55,8 +55,8 @@ worth seeing here rather than hiding, but it is the exception.
   `tools/bench/` publishes `apps/web`, drives the published binary over https and averages three
   ten-second passes per scenario against a committed `baseline.json`. **60 facts, 0 failed**
   (`cd tools/bench && deno task test`), four of them mutation-checked.
-  - **First baseline (bench-host, 16 cpu, win-x64, 2026-08-29):** `/healthz` 19,677.5 req/s, 0.76 ms p50,
-    73.4 MB peak RSS; `home` — the full page render — 8,020.7 req/s, 1.83 ms p50, 65.9 MB. Zero
+  - **First baseline (bench-host, 16 cpu, win-x64, 2026-08-29):** `/healthz` 18,067.2 req/s, 0.83 ms p50,
+    74.4 MB peak RSS; `home` — the full page render — 6,998.0 req/s, 2.11 ms p50, 60.9 MB. Zero
     errors in both.
   - **It has to serve https, and that was measured rather than assumed.** The first real run
     recorded a baseline in which every `GET /` answered 500: the antiforgery cookie is
@@ -65,8 +65,8 @@ worth seeing here rather than hiding, but it is the exception.
     now refuses a measurement with failed requests, zero throughput or no RSS reading, and
     `tools/bench/cert.ts` mints a throwaway CA and leaf with openssl — a CA *and* a leaf because
     Deno rejects a trust anchor offered as an end entity.
-  - **Tolerances are 15% down on throughput and 25% up on RSS, not the 5% the plan proposed.**
-    Eight `home` passes on one unchanged binary spread 13.8%, peak RSS 24%. A 5% band would fail
+  - **Tolerances are 20% down on throughput and 25% up on RSS, not the 5% the plan proposed.**
+    Eleven `home` passes across five sessions on one unchanged binary spread 16.3%, peak RSS 29%. A 5% band would fail
     on noise more often than on a regression — which is also why this is not a CI job.
   - **`012-spec.md` is `done`.** R16 is closed as *within tolerance of `baseline.json`* rather
     than as the §14 re-run it originally asked for, which is impossible: those figures came from

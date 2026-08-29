@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 
-import { drive } from "./load.ts";
+import { drive, GRACE_MS } from "./load.ts";
 
 /** A fake clock the workers advance themselves, so no test sleeps. */
 function fakeClock(stepMs: number) {
@@ -75,26 +75,100 @@ Deno.test("a refused connection is counted, not swallowed", async () => {
   assertEquals(sample.latenciesMs.length, 0);
 });
 
-Deno.test("every worker drives", async () => {
+Deno.test("every worker drives concurrently, not one after another", async () => {
   const clock = fakeClock(1);
-  const seen = new Set<number>();
-  let next = 0;
+  let inFlight = 0;
+  let peak = 0;
+  let release: (() => void) | null = null;
 
-  await drive({
+  const sample = await drive({
     url: "http://stub/",
     concurrency: 4,
     durationMs: 4,
     now: clock.now,
     fetchImpl: () => {
-      // Each worker's first call happens before any clock advance, so four distinct ids
-      // are handed out before the deadline can be reached.
-      seen.add(next++);
-      clock.advance();
-      return Promise.resolve(new Response("ok"));
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      // Hold every request open until all four workers are inside one, then let them all go.
+      // A driver that ignored `concurrency` and ran one worker would deadlock here rather
+      // than pass -- which is what the previous version of this test did.
+      return new Promise<Response>((resolve) => {
+        const finish = () => {
+          inFlight--;
+          clock.advance();
+          resolve(new Response("ok"));
+        };
+        if (inFlight === 4) {
+          const waiting = release;
+          release = null;
+          finish();
+          waiting?.();
+        } else {
+          const previous = release;
+          release = () => {
+            previous?.();
+            finish();
+          };
+        }
+      });
     },
   });
 
-  assert(seen.size >= 4, `expected at least one request per worker, saw ${seen.size}`);
+  assertEquals(peak, 4);
+  assertEquals(sample.errors, 0);
+});
+
+Deno.test("latency is recorded for successful responses only", async () => {
+  const clock = fakeClock(1);
+  let calls = 0;
+
+  const sample = await drive({
+    url: "http://stub/",
+    concurrency: 1,
+    durationMs: 4,
+    now: clock.now,
+    fetchImpl: () => {
+      // Alternate 200 and 500. A 500 costs the server nothing to produce, so counting its
+      // round trip would make a broken run look faster than a working one.
+      const status = calls++ % 2 === 0 ? 200 : 500;
+      clock.advance();
+      return Promise.resolve(new Response("x", { status }));
+    },
+  });
+
+  assertEquals(sample.requests, 2);
+  assertEquals(sample.errors, 2);
+  assertEquals(sample.latenciesMs.length, 2);
+});
+
+Deno.test("a request that never answers is aborted rather than hanging the pass", async () => {
+  const clock = fakeClock(1);
+  let armedFor = -1;
+  let fire: (() => void) | null = null;
+
+  const sample = await drive({
+    url: "http://stub/",
+    concurrency: 1,
+    durationMs: 10,
+    now: clock.now,
+    setTimer: (callback, ms) => {
+      armedFor = ms;
+      fire = callback;
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    },
+    clearTimer: () => {},
+    fetchImpl: (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        // The server accepted and will never answer; only the abort ends this.
+        const signal = (init as RequestInit).signal;
+        signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        fire?.();
+      }),
+  });
+
+  assertEquals(armedFor, 10 + GRACE_MS);
+  assertEquals(sample.requests, 0);
+  assertEquals(sample.errors, 1);
 });
 
 Deno.test("the body is consumed so the connection returns to the pool", async () => {

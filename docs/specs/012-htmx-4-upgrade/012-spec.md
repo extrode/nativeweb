@@ -190,7 +190,7 @@ took this spec from `draft` to `done` on 2026-08-29** -- see "Closing R16" below
 | R13 | met | Docs sweep across `progressive-enhancement.md`, §14/§15, `security-baseline.md`, both `components.css` and the assets `README.md`. |
 | R14 | met | 611 unit / 307 integration / 71 e2e, 0 failed; build 0 warnings 0 errors. All four new assertions mutation-checked — one of them exposed that the pre-existing suite could not see the antiforgery header at all. |
 | R15 | met | `hx-alpine-compat` absent with a reason: zero tracked Alpine directives in `apps/web` or `skeleton`. |
-| **R16** | **met, restated** | Closed by `tools/bench/`, not by re-running the 2.x benchmark, which is impossible: §14's figures came from two purpose-built minimal apps load-tested with `wrk` in a sandbox that no longer exists. The harness measures the published `apps/web` binary against a committed `baseline.json` on the machine that recorded it. First baseline, bench-host, 16 cpu, win-x64, 2026-08-29: `healthz` 19,677.5 req/s / 0.76 ms p50 / 73.4 MB peak RSS; `home` (the full page render) 8,020.7 req/s / 1.83 ms p50 / 65.9 MB. Zero errors in both. Also measured, and the number an htmx upgrade could actually move: the minified asset, 51,238 B -> 36,716 B, 28.3% smaller. |
+| **R16** | **met, restated** | Closed by `tools/bench/`, not by re-running the 2.x benchmark, which is impossible: §14's figures came from two purpose-built minimal apps load-tested with `wrk` in a sandbox that no longer exists. The harness measures the published `apps/web` binary against a committed `baseline.json` on the machine that recorded it. First baseline, bench-host, 16 cpu, win-x64, 2026-08-29: `healthz` 18,067.2 req/s / 0.83 ms p50 / 74.4 MB peak RSS; `home` (the full page render) 6,998.0 req/s / 2.11 ms p50 / 60.9 MB. Zero errors in both. Also measured, and the number an htmx upgrade could actually move: the minified asset, 51,238 B -> 36,716 B, 28.3% smaller. |
 | R17 | met | No tracked package manifest, lockfile or npm/npx invocation; `structure-audit` 0 errors. |
 
 **Closing R16.** The spec offered two ways out -- a committed harness, or an amendment replacing
@@ -208,8 +208,8 @@ proves:
 - **It is a floor, not a ceiling.** The driver is Deno's `fetch` rather than `wrk` -- neither `wrk`
   nor `bombardier` nor `hey` is installed on this machine and the repo's tooling rule is Deno over
   anything needing npm -- so real JS time is spent per request.
-- **It cannot see a small regression.** Eight `home` passes on one unchanged binary spread 13.8%,
-  peak RSS 24%. The shipped tolerances are 15% down on throughput and 25% up on RSS, sized from
+- **It cannot see a small regression.** Eleven `home` passes across five sessions on one unchanged binary spread
+  16.3%, peak RSS 29%. The shipped tolerances are 20% down on throughput and 25% up on RSS, sized from
   that measured spread rather than from a round number, and the harness is not a CI job for the
   same reason.
 
