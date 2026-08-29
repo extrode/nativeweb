@@ -24,12 +24,17 @@ wish list; the value is in recording the ones nobody has got to yet.
   which no error names but which resolves transitively once the other two do. Keep them private
   (`AGENTS.md` forbids redistributing JauntyQ binaries); the grant is per-repository and publishes
   nothing. Widening to a PAT was already rejected in the workflow comment at lines 23-26.
-- **Five packable `libs/nativeweb.*` csproj files still say `<Authors>extrode-legacy-org</Authors>`** — the
-  company renamed to Extrode LLC on 2026-08-26 and the nuspec now carries
-  `<copyright>Copyright (c) 2026 Extrode LLC</copyright>` beside an author who no longer exists.
-  `OrgReferenceTests` does not catch it: that test bans the old org in things that *resolve* (a
-  checkout `repository:`, a feed host), by design, and package metadata resolves nothing. Noticed
-  while adding license metadata 2026-08-29 and left alone as out of scope for that branch.
+- ~~**Five packable `libs/nativeweb.*` csproj files still say `<Authors>extrode-legacy-org</Authors>`**~~ —
+  **done 2026-08-29**, `fix/stale-extrode-legacy-org-references`. **Ten, not five.** `<Authors>` is now central
+  in `Directory.Build.targets` beside the `Copyright` that already said Extrode LLC, and the ten
+  per-project lines are gone; verified end to end, `dotnet pack libs/nativeweb.render` produces
+  `<authors>Extrode LLC</authors>`. New `PackageMetadataTests` pins both halves: one central value,
+  and no per-project `<Authors>` — that file is imported *after* each csproj, so a local one is
+  silently overridden and reads as though it works. Same branch fixed
+  `skeleton/nuget.config`'s `framework-github` feed, still pointing at
+  `https://nuget.pkg.github.com/extrode-legacy-org`, and the gap that hid it:
+  `OrgReferenceTests.NoPackageFeedPointsAtTheOldOrg` scanned the root config and the workflows but
+  not the skeleton config, so it was green on the one file that had rotted.
 - **The ISL-CLA draft banner in `CONTRIBUTING.md` comes out when the agreement is marked final.**
   Watch <https://islamiclicense.org/isl-cla/1.1/CLA.md> — merged to islamiclicense.org's `dev`
   2026-08-29 but **not deployed yet, so that URL 404s today**; the text meanwhile is
