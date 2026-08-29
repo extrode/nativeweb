@@ -6,6 +6,16 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Scaffold e2e publish budget** — `fix/publish-budget-diagnostics`, 2026-08-30.
+  `SampleProcessFixture` allowed the NativeAOT publish 15 minutes; `AppProcessFixture` in the web
+  tier already allowed 30 for the same publish. Raised to 30. **13/13 pass, 2 s** from a detached
+  worktree — the main tree cannot run this tier while a Debug `nativeweb.web` holds `apps/web/bin`.
+  The `work/todo.md` entry that logged this named `AppProcessFixture`; the constant was in
+  `SampleProcessFixture`, and the entry now says so.
+  - Its first verification run looked hung for 45 minutes and was not: the background command
+    piped through `tail -25`, which buffers to EOF, so the output file stayed at 0 bytes while the
+    tier ran to completion. Redirect a long background run to a log file instead.
+
 - **Unsupervised backlog run** — 2026-08-29, one branch per item, each merged to `dev` as it
   finished. `test/antiforgery-guard-agreement`: the two antiforgery guards are now held to
   agreeing across the three feature states, mutation-checked both ways (one guard drifts → fails;

@@ -34,6 +34,13 @@ Merged into `dev`, not yet tagged.
   and `findPublishedExe` looks only there; an e2e binary in the old location is refused by name.
   `tmp/`, not the repo-root `publish/`, which this repo deliberately does not gitignore.
 
+- **`nativeweb.scaffold.tests.e2e` had no headroom under load: its NativeAOT publish budget was
+  15 minutes.** On 2026-08-25 all 13 facts failed at `00:15:00` while another process saturated
+  the CPU, and 13/13 passed in 2 s when re-run alone on the same commit — the tier was starved,
+  not flaky. `SampleProcessFixture` now allows 30 minutes, which is what `AppProcessFixture` in
+  the web e2e tier had already been raised to; the two fixtures do the same publish and there was
+  no reason for them to disagree. A CI runner sharing a host looks exactly like the 2026-08-25
+  failure, so the budget is sized for a busy machine rather than an idle one.
 - **Two stale references to the retired `extrode-legacy-org` org, and the two test gaps that hid them.**
   `<Authors>extrode-legacy-org</Authors>` sat in **ten** packable `libs/nativeweb.*` csproj files, one line
   from a `Copyright` that already read Extrode LLC — because that one was central in
