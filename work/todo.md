@@ -20,6 +20,24 @@ wish list; the value is in recording the ones nobody has got to yet.
   **not deployed yet, so that URL 404s today**; the text meanwhile is
   `C:\home\code\license-repo\licenses\ISL-CLA-1.0.md` on `dev`. Nothing else in
   the file changes; `LicenseFilesTests` already pins the parts that must survive.
+- **Re-sync to ISL-NETC 1.1 once islamiclicense.org publishes it.** Their `dev` is 23 commits ahead
+  of `main` and unpushed; the live site serves 1.0 and their spec 002 froze the 1.0 texts at
+  `/isl-x/1.0/LICENSE.md`, so nothing here is broken and nothing is urgent. When it lands, one
+  branch does all of it: replace `LICENSE.md` with the 1.1 text and fill `[LICENSOR]` with
+  **Extrode LLC**; bump SPDX to `LicenseRef-ISL-NETC-1.1` in `NOTICE.md`, `README.md`,
+  `Directory.Build.targets` and `LicenseFilesTests`; **rewrite
+  `LicenseTextIsNotEditedToNameThisLicensor`, which asserts `LICENSE.md` contains no "Extrode" and
+  inverts on a filled 1.1 copy**; strip the now-unnecessary Licensor-override argument from
+  `NOTICE.md`; and update `CONTRIBUTING.md` row (a) and row (d), which both cite the 1.0 text.
+  Until then `NOTICE.md:13` and `README.md` point at `https://islamiclicense.org/isl-netc/`, which
+  becomes latest-1.1 on their deploy — either bump, or repoint those two at
+  `https://islamiclicense.org/isl-netc/1.0/LICENSE.md`, which 404s today.
+- **Send islamiclicense.org one finding:** the `[LICENSOR]` carve-out lives only in the
+  instructions. `content/how-to-apply.md:30-36` permits filling the copyright line and the
+  placeholder, but the *Notice on Reproducing This License* inside each 1.1 text is unchanged from
+  1.0 and still permits copying "verbatim and unmodified in its entirety" with no exception, so a
+  reader of the text alone is told the fill is forbidden. That is their spec 002 G2 — "the
+  published instructions and the published texts agree" — with one gap left.
 - ~~**22 cleanup scripts hardcode `C:\home\code\extrode-legacy-org.com\NativeWeb`**~~ — **done 2026-08-29**,
   `chore/backlog-sweep`. 20 rewritten to `C:\home\code\extrode.com\nativeweb`. Two left alone:
   `move-to-extrode.ps1` and `relocate-nativeweb-to-extrode-legacy-org.ps1` are records of completed

@@ -15,19 +15,21 @@ Version 1.0**, by reference. The text is at <https://islamiclicense.org/isl-cla/
 reproduced or edited here — the agreement is adopted whole or not at all, and deleting a clause
 would produce a modified ISL-CLA, which its reproduction notice forbids.
 
-Its *How a Project adopts this Agreement* section requires a project to state four things. They
+Its *How a Project adopts this Agreement* section requires a project to state five things. They
 are stated here:
 
 | required statement | NativeWeb |
 |---|---|
 | **(a)** which ISL variant the project is licensed under | **ISL-NETC 1.0** — see [`LICENSE.md`](./LICENSE.md). Not ISL-R, so **§2 (Limited Consent to Modify) does not apply**: ISL-NETC permits modification already, and §2 is inert here. |
 | **(b)** whether the project adopts optional **§6 (No AI-Generated Contributions)** | **Adopted.** §6 applies in full to every contribution to this project. |
-| **(c)** the jurisdiction whose law governs the agreement, completing the **§9.2** placeholder | **Commonwealth of Virginia**, matching the jurisdiction Extrode LLC's other licenses use. |
-| **(d)** who the Licensor is, where the project license names a specific entity | **Extrode LLC**, per the §1.2 note and as recorded in [`NOTICE.md`](./NOTICE.md) — not Ikhbat Foundation, whose name appears in the ISL-NETC text because that text was drafted as the Foundation's own. |
+| **(c)** the jurisdiction whose law governs the agreement, completing the first **§9.2** placeholder | **Commonwealth of Virginia**, matching the jurisdiction Extrode LLC's other licenses use. |
+| **(d)** who the Licensor is | **Extrode LLC**. This project is on an ISL-NETC **1.0** text, which names Ikhbat Foundation in its §1.2 because the family was drafted as the Foundation's own; under the second limb of (d), the Licensor is the party that applied the text. The override is recorded in [`NOTICE.md`](./NOTICE.md). |
+| **(e)** the forum in which disputes are brought, completing the second **§9.2** placeholder | **The courts located in the Commonwealth of Virginia**, matching the forum clause in Extrode LLC's other licenses. |
 
 Absent (b), §6 would not apply and the AI prohibition below would bind nobody. A project that
-omits (c) has left its governing law unsettled, which the agreement calls a defect in the adoption
-rather than a permission to proceed without one.
+omits (c) has left its governing law unsettled, and one that omits (e) has left the court
+unsettled — the more expensive of the two to leave open. Either is a defect in the adoption rather
+than a permission to proceed without one.
 
 ## No AI-generated contributions
 
