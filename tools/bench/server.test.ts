@@ -12,6 +12,7 @@ import {
   drainInto,
   findPublishedExe,
   LOG_TAIL_LINES,
+  PUBLISH_DIR,
   waitForHealthz,
 } from "./server.ts";
 import { removeScratch, scratchDir } from "./scratch.ts";
@@ -105,18 +106,18 @@ Deno.test("findPublishedExe names the directory it looked in when nothing is pub
   const root = await scratchDir();
   try {
     const error = await assertRejects(() => findPublishedExe(root), Error);
-    assertStringIncludes(error.message, "Release");
+    assertStringIncludes(error.message, PUBLISH_DIR);
     assertStringIncludes(error.message, "--skip-publish");
   } finally {
     await removeScratch(root);
   }
 });
 
-Deno.test("findPublishedExe finds the binary under an arbitrary RID directory", async () => {
+Deno.test("findPublishedExe finds the binary in the harness's own publish directory", async () => {
   const root = await scratchDir();
   try {
     const exeName = Deno.build.os === "windows" ? "nativeweb.web.exe" : "nativeweb.web";
-    const dir = `${root}/apps/web/bin/Release/net10.0/some-rid-x64/publish`;
+    const dir = `${root}/${PUBLISH_DIR}`;
     await Deno.mkdir(dir, { recursive: true });
     await Deno.writeTextFile(`${dir}/${exeName}`, "");
 
@@ -126,14 +127,42 @@ Deno.test("findPublishedExe finds the binary under an arbitrary RID directory", 
   }
 });
 
-Deno.test("a RID directory with no publish output is not mistaken for one", async () => {
+// The regression this whole change exists to stop. Before it, findPublishedExe scanned
+// apps/web/bin/Release/net10.0/*/publish -- which is the e2e fixture's output directory --
+// so a --skip-publish run would silently benchmark whatever binary that tier last built and
+// report the number as the harness's own. It must now refuse.
+Deno.test("the e2e fixture's publish output is not mistaken for the harness's", async () => {
   const root = await scratchDir();
   try {
-    await Deno.mkdir(`${root}/apps/web/bin/Release/net10.0/some-rid-x64`, { recursive: true });
+    const exeName = Deno.build.os === "windows" ? "nativeweb.web.exe" : "nativeweb.web";
+    const e2eDir = `${root}/apps/web/bin/Release/net10.0/win-x64/publish`;
+    await Deno.mkdir(e2eDir, { recursive: true });
+    await Deno.writeTextFile(`${e2eDir}/${exeName}`, "");
+
+    const error = await assertRejects(() => findPublishedExe(root), Error);
+    assertStringIncludes(error.message, "belongs to the e2e fixture");
+  } finally {
+    await removeScratch(root);
+  }
+});
+
+// A directory with no binary in it is not a publish. Same shape as the RID-directory case
+// this replaced: the check is the file, not the folder.
+Deno.test("an empty publish directory is not mistaken for a published binary", async () => {
+  const root = await scratchDir();
+  try {
+    await Deno.mkdir(`${root}/${PUBLISH_DIR}`, { recursive: true });
     await assertRejects(() => findPublishedExe(root), Error);
   } finally {
     await removeScratch(root);
   }
+});
+
+Deno.test("publish output is pinned outside every tree git can see", () => {
+  // tmp/ is gitignored by rule; the repo-root publish/ deliberately is not, because
+  // justsmtp commits one. A throwaway NativeAOT publish landing where `git add -A` can
+  // see it has cost this repo a bad commit once already.
+  assertStringIncludes(PUBLISH_DIR, "tmp");
 });
 
 Deno.test("the log tail keeps the last lines and drops the rest", async () => {

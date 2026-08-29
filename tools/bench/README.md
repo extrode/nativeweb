@@ -8,8 +8,15 @@ change, a rewrite of the render path.
 deno run -A tools/bench/run.ts                  measure, report, compare for information
 deno run -A tools/bench/run.ts --check          the same, but a regression exits 1
 deno run -A tools/bench/run.ts --baseline       record this measurement as the new baseline
-deno run -A tools/bench/run.ts --skip-publish   reuse the existing publish output
+deno run -A tools/bench/run.ts --skip-publish   reuse this harness's existing publish output
 ```
+
+**Where it publishes: `tmp/bench/publish/`, and only there.** Not the default
+`apps/web/bin/Release/net10.0/<rid>/publish/`, which belongs to
+`tests/nativeweb.web.tests.e2e/AppProcessFixture.cs` — a bench run interleaved with the e2e
+tier had the two writing one directory, and `--skip-publish` would benchmark whichever binary
+that tier had last built and report it as this harness's own. `--skip-publish` now finds only
+what this harness published, and says so by name when it finds nothing.
 
 Other flags: `--duration <seconds>`, `--runs <n>`, `--concurrency <n>`, `--port <n>`, and
 `--force` (with `--baseline`, to replace a baseline recorded on a different machine). Changing
@@ -32,8 +39,8 @@ exit 0, because nothing the operator types changes which machine they are on.
 
 `openssl` (for the loopback certificate; Git for Windows ships one and the resolver looks
 there), and — for the publish step only — the JauntyQ sibling checkout that
-`Directory.Build.props` requires. `--skip-publish` against existing Release output needs neither
-dotnet nor JauntyQ.
+`Directory.Build.props` requires. `--skip-publish` against an existing `tmp/bench/publish/`
+needs neither dotnet nor JauntyQ.
 
 ## What it measures
 

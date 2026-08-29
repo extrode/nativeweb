@@ -65,58 +65,55 @@ export function assertPortFree(port: number, listen = Deno.listen): void {
 }
 
 /**
- * Locate the published binary. Scans for it rather than computing the RID: a checkout can
- * carry publish output for more than one RID, and a stale guess produces "file not found"
- * where the real problem is "you have not published".
+ * Where this harness publishes, relative to the repo root.
+ *
+ * Its own directory, and not the default output path, because the default is
+ * `apps/web/bin/Release/net10.0/<rid>/publish` -- which is the directory
+ * `tests/nativeweb.web.tests.e2e/AppProcessFixture.cs` also publishes into and launches from.
+ * A bench run interleaved with the e2e tier had the two writing one directory, and the
+ * quieter half of that bug is `--skip-publish`: it would happily benchmark whatever binary
+ * the e2e tier last put there and report the number as this harness's own.
+ * `scripts/ci/check-publish-budgets.ps1` avoids the same collision by pinning `-o publish/web`.
+ *
+ * Under `tmp/` rather than the repo-root `publish/`, which is deliberately NOT gitignored
+ * (see .gitignore: justsmtp commits a top-level publish/, so this repo does not blanket-ignore
+ * one). A throwaway NativeAOT publish landing somewhere `git add -A` can see it has cost this
+ * repo a bad commit once already. `tmp/` is gitignored by rule, and the harness already writes
+ * `tmp/bench/latest.json`.
+ */
+export const PUBLISH_DIR = join("tmp", "bench", "publish");
+
+/**
+ * Locate the published binary in the harness's own publish directory.
+ *
+ * No RID scan any more: with the output pinned there is exactly one, so "several RIDs, take
+ * the newest" was answering a question this function can no longer be asked. What it must
+ * still do is refuse to guess -- a `--skip-publish` run against a directory nobody has
+ * published into should say so, not benchmark something else.
  */
 export async function findPublishedExe(repoRoot: string): Promise<string> {
   const exeName = Deno.build.os === "windows" ? "nativeweb.web.exe" : "nativeweb.web";
-  const releaseRoot = join(repoRoot, "apps", "web", "bin", "Release", "net10.0");
+  const candidate = join(repoRoot, PUBLISH_DIR, exeName);
 
-  const found: string[] = [];
   try {
-    for await (const entry of Deno.readDir(releaseRoot)) {
-      if (!entry.isDirectory) continue;
-      const candidate = join(releaseRoot, entry.name, "publish", exeName);
-      try {
-        const info = await Deno.stat(candidate);
-        if (info.isFile) found.push(candidate);
-      } catch {
-        // No publish output for this RID; keep looking.
-      }
-    }
+    const info = await Deno.stat(candidate);
+    if (info.isFile) return candidate;
   } catch {
-    throw new Error(
-      `No Release output under ${releaseRoot}. Run the harness without --skip-publish, or `
-        + `\`dotnet publish apps/web -c Release\` first.`,
-    );
+    // Fall through to the one error message, below.
   }
 
-  if (found.length === 0) {
-    throw new Error(
-      `No published ${exeName} under ${releaseRoot}/*/publish. Run the harness without `
-        + `--skip-publish.`,
-    );
-  }
-
-  // More than one RID published: newest wins, and say so, because benchmarking last month's
-  // binary and reporting it as today's is the failure this whole harness exists to prevent.
-  if (found.length > 1) {
-    const stats = await Promise.all(
-      found.map(async (path) => ({ path, mtime: (await Deno.stat(path)).mtime?.getTime() ?? 0 })),
-    );
-    stats.sort((a, b) => b.mtime - a.mtime);
-    console.log(`  note: ${found.length} published RIDs found; using the newest, ${stats[0].path}`);
-    return stats[0].path;
-  }
-
-  return found[0];
+  throw new Error(
+    `No published ${exeName} at ${candidate}. Run the harness without --skip-publish, or `
+      + `\`dotnet publish apps/web -c Release -o ${PUBLISH_DIR}\` first. Note this is the `
+      + `harness's own publish directory, not apps/web/bin/Release/*/publish -- that one `
+      + `belongs to the e2e fixture.`,
+  );
 }
 
 export async function publish(repoRoot: string): Promise<void> {
   const csproj = join(repoRoot, "apps", "web", "nativeweb.web.csproj");
   const command = new Deno.Command("dotnet", {
-    args: ["publish", csproj, "-c", "Release", "-v", "q", "--nologo"],
+    args: ["publish", csproj, "-c", "Release", "-o", PUBLISH_DIR, "-v", "q", "--nologo"],
     cwd: repoRoot,
     stdout: "inherit",
     stderr: "inherit",
