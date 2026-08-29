@@ -36,26 +36,33 @@ wish list; the value is in recording the ones nobody has got to yet.
   `OrgReferenceTests.NoPackageFeedPointsAtTheOldOrg` scanned the root config and the workflows but
   not the skeleton config, so it was green on the one file that had rotted.
 - **The ISL-CLA draft banner in `CONTRIBUTING.md` comes out when the agreement is marked final.**
-  Watch <https://islamiclicense.org/isl-cla/1.1/CLA.md> — merged to islamiclicense.org's `dev`
-  2026-08-29 but **not deployed yet, so that URL 404s today**; the text meanwhile is
-  `C:\home\code\license-repo\licenses\ISL-CLA-1.1.md` on `dev`. Nothing else in
-  the file changes; `LicenseFilesTests` already pins the parts that must survive.
-- **Re-check both adoptions against the published texts once islamiclicense.org deploys.** The
-  ISL-CLA 1.1 bump on `docs/isl-cla-1-1` was taken against their working tree at `dev` `48ce96e`,
-  not against anything served, so every claim in `CONTRIBUTING.md` rests on an unpublished file
-  that can still change before it reaches `main` (25 commits behind at the time). When
-  `/isl-cla/1.1/CLA.md` and `/isl-netc/1.1/LICENSE.md` return 200, diff both against
-  `licenses/ISL-CLA-1.1.md` and `licenses/ISL-NETC-1.1.md` in that checkout, and confirm the five
-  adoption items and the two §9.2 placeholders survived to publication.
+  Watch <https://islamiclicense.org/isl-cla/1.1/CLA.md> — **published and live since 2026-08-30**
+  (200, 29,482 chars), and still `**Status:** Draft — not in force` at line 3 with the
+  **DRAFT — NOT YET IN FORCE** banner at line 9. So the banner in `CONTRIBUTING.md` stays. Nothing
+  else in the file changes; `LicenseFilesTests` already pins the parts that must survive.
+- ~~**Re-check both adoptions against the published texts once islamiclicense.org deploys.**~~ —
+  **done 2026-08-30**, `docs/isl-1-1-published-verification`. All four URLs return 200; the
+  published `/isl-netc/1.1/LICENSE.md` and `/isl-cla/1.1/CLA.md` are **byte-identical** to
+  `site/isl-netc/1.1/LICENSE.md` and `site/isl-cla/1.1/CLA.md` in the checkout the bumps were taken
+  from, and the published 1.1 differs from this repo's `LICENSE.md` at one line, the completed
+  §1.2. The five adoption items survived verbatim (CLA 1.1 lines 98–113). The **two §9.2
+  placeholders did not, and never existed in 1.1**: 1.0 §9.2 carries a literal
+  `` `[JURISDICTION — to be completed by the Licensor.]` `` (line 342), while 1.1 §9.2 (line 417)
+  states the law and the forum are "stated by the Licensor where it adopts this Agreement" and the
+  adoption section says "This Agreement carries no blanks to fill". `CONTRIBUTING.md` rows (c) and
+  (e) described them as placeholders being completed — 1.0's shape, carried forward by mistake in
+  the 1.1 bump — and were reworded on the same branch. The stated values are unchanged.
 - ~~**Re-sync to ISL-NETC 1.1 once islamiclicense.org publishes it.**~~ — **done 2026-08-30**,
   `docs/isl-netc-1.1`. Every item below landed. Two corrections to what this entry claimed:
   the pinned `https://islamiclicense.org/isl-netc/1.0/LICENSE.md` **does not 404** — spec 003 gave
   every version a permanent URL, and the last line of this entry was already stale when written.
   And the source used was the local `ikhbat.org/islamiclicense.org` checkout (`ad5291a`, tree
-  clean), not the site: this sandbox cannot reach islamiclicense.org at all, so the four URL checks
-  the entry above asks for return `000` here rather than 200, and remain unverified from here.
-  The re-synced `LICENSE.md` differs from that checkout's `site/isl-netc/1.1/LICENSE.md` at exactly
-  one line — the completed §1.2 — confirmed by `diff`.
+  clean), not the site. The re-synced `LICENSE.md` differs from that checkout's
+  `site/isl-netc/1.1/LICENSE.md` at one line — the completed §1.2 — confirmed by `diff`.
+  **Verified against the live site 2026-08-30** (entry above): the published text is byte-identical
+  to that checkout, so the local-source caveat is discharged. Note for the next agent that hits
+  this: `curl` on this machine fails every https request with code 43 / `000`, which reads exactly
+  like blocked egress and is not — `deno eval 'await fetch(...)'` gets 200 from the same shell.
   <details><summary>original entry</summary>
 
   Their `dev` is 25 commits ahead

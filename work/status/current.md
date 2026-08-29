@@ -9,12 +9,18 @@ worth seeing here rather than hiding, but it is the exception.
 - **ISL-NETC 1.1 re-sync** — `docs/isl-netc-1.1`, 2026-08-30. Unblocked by the family maintainer's
   notice (`216557c`), which the user merged. `LICENSE.md` is now the 1.1 text with §1.2 completed as
   Extrode LLC — one line different from the published text, `diff`-verified — so the `NOTICE.md`
-  Licensor override is gone and both notice and README cite the version-pinned URL. Source was the
-  local `ikhbat.org/islamiclicense.org` checkout at `ad5291a`, **not** the site: this sandbox gets
-  `000` on every islamiclicense.org URL, so the entry in `work/todo.md` asking for 200-checks
-  against the live site is still unverified from here and needs a machine with egress.
+  Licensor override is gone and both notice and README cite the version-pinned URL.
   `LicenseTextIsNotEditedToNameThisLicensor` inverted into
   `LicenseCompletesTheLicensorFieldWithThisLicensor`; 652/652 unit, both mutations bite.
+  - **Verified against the published site, `docs/isl-1-1-published-verification`, 2026-08-30.** The
+    re-sync was taken from the local licence checkout because `curl` here returns `000`; that reads
+    as blocked egress and is not — `curl` on this machine fails every https request with code 43,
+    while `deno eval 'await fetch(...)'` from the same shell gets 200. All four URLs are live, and
+    published `/isl-netc/1.1/LICENSE.md` and `/isl-cla/1.1/CLA.md` are **byte-identical** to the
+    checkout the bumps came from. One real finding: `CONTRIBUTING.md` rows (c) and (e) called the
+    §9.2 jurisdiction and forum "placeholders" being completed. That is 1.0's shape — 1.0 §9.2
+    carries a literal `[JURISDICTION]`, 1.1 carries none and says the Agreement "carries no blanks
+    to fill". Reworded; the stated values did not change.
 
 - **OAuth back-navigation walk** — `test/oauth-back-navigation`, 2026-08-30. The last unblocked
   item from 012's open questions. No defect: htmx's removed history cache never applied here, since
@@ -75,19 +81,24 @@ worth seeing here rather than hiding, but it is the exception.
   **647 unit tests pass** (+6, `LicenseFilesTests`, each mutation-checked).
   - **What is still open: ISL-CLA 1.1 is a draft its own drafters say not to accept contributions
     under.** islamiclicense.org merged it to their `dev` on 2026-08-29; it publishes at
-    <https://islamiclicense.org/isl-cla/1.1/CLA.md> once deployed, and 404s until then. The adoption
+    <https://islamiclicense.org/isl-cla/1.1/CLA.md> once deployed, and 404s until then
+    (**deployed 2026-08-30; that URL is 200 and the DRAFT banner is still in it**). The adoption
     here is recorded in advance and flagged not in force at the top of `CONTRIBUTING.md`. When it is
     marked final, delete that banner — nothing else in the file changes.
   - **The version moved 1.0 → 1.1 on 2026-08-29, `docs/isl-cla-1-1`.** The agreement had been
     amended twice in place under a fixed 1.0 — three required statements to **four**, then to
-    **five** with **(e) the forum** and a second §9.2 placeholder `[FORUM]`. Told that adoption is
+    **five** with **(e) the forum** and a second §9.2 placeholder `[FORUM]`. (That last detail did
+    not survive: published 1.1 §9.2 has **no** bracketed field at all — it defers both the law and
+    the forum to the adoption section. Corrected 2026-08-30.) Told that adoption is
     by name *and version*, islamiclicense.org undid it: `ISL-CLA-1.0.md` is frozen back to its
     original four-item text and the revisions are `ISL-CLA-1.1.md`. This repository states five
     items, so it adopts **1.1**. The table labels (a)–(e); `LicenseFilesTests` asserts the version,
     (d) and (e).
   - **The license family moved to 1.1 the same day** — `[LICENSOR]` becomes a placeholder the
     adopter fills, retiring the `NOTICE.md` override. **Merged on their `dev`, not published**, so
-    the live site still serves 1.0 and `/isl-cla/` still 404s. Their CHANGELOG says a 1.0 copy with
+    the live site still serves 1.0 and `/isl-cla/` still 404s. (**Published 2026-08-30**; this repo
+    re-synced the same day and the unversioned `/isl-netc/LICENSE.md` now serves 1.1.) Their
+    CHANGELOG says a 1.0 copy with
     a documented override "remains internally coherent", and the frozen 1.0 texts stay online at
     `/isl-x/1.0/LICENSE.md`. Bumping waits on their deploy; see `work/todo.md`.
   - Jurisdiction and Licensor are not invented: **Commonwealth of Virginia** and **Extrode LLC**,
