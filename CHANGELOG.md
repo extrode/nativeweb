@@ -25,9 +25,11 @@ Merged into `dev`, not yet tagged.
   Two obligations reach further than a permissive license and are called out in the README: §3.6
   network copyleft, and the §§4–5 ethical use restrictions that cannot be relicensed away.
 - **`CONTRIBUTING.md` adopts ISL-CLA 1.0, including optional §6 — no AI-generated contributions.**
-  Adoption is by reference and states the four things the agreement requires: the variant
-  (ISL-NETC 1.0, so its ISL-R-only §2 is inert), that §6 **is** adopted, the §9.2 jurisdiction, and
-  who the Licensor is — Extrode LLC, not the Ikhbat Foundation the ISL-NETC text names in its §1.2.
+  Adoption is by reference and states the five things the agreement requires: the variant
+  (ISL-NETC 1.0, so its ISL-R-only §2 is inert), that §6 **is** adopted, the §9.2 jurisdiction, who
+  the Licensor is — Extrode LLC, not the Ikhbat Foundation the ISL-NETC 1.0 text names in its §1.2
+  — and the forum, §9.2's second placeholder: the courts located in the Commonwealth of Virginia,
+  matching Extrode's other licenses.
   The asymmetry is stated openly rather than hidden: this repository is developed with AI
   assistance under the Licensor's own review, which §6.4(3) frames as a decision about the
   Licensor's own liability and not one it can make on a contributor's behalf. Written contributions

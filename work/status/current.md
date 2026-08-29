@@ -28,10 +28,18 @@ worth seeing here rather than hiding, but it is the exception.
     <https://islamiclicense.org/isl-cla/> once deployed, and 404s until then. The adoption here is
     recorded in advance and flagged not in force at the top of `CONTRIBUTING.md`. When it is marked
     final, delete that banner — nothing else in the file changes.
-  - **Amended 2026-08-29 by `docs/isl-cla-four-statements`:** the agreement's adoption section now
-    names **four** required statements, not three — (c) jurisdiction and (d) who the Licensor is
-    are both listed items rather than one item and a footnote. All four were already stated here;
-    the table now labels them (a)–(d) and `LicenseFilesTests` asserts (d) as well.
+  - **Amended twice on 2026-08-29, both by islamiclicense.org editing the draft in place under the
+    same version number.** First `docs/isl-cla-four-statements`: three required statements became
+    **four**, (c) jurisdiction and (d) who the Licensor is becoming listed items rather than one
+    item and a footnote. Then `docs/isl-cla-forum-statement`: **five**, adding **(e) the forum** —
+    §9.2 now carries two placeholders, `[JURISDICTION]` and `[FORUM]`, and the agreement calls
+    omitting the forum "the more expensive of the two to leave open". (e) was the one item this
+    repository had never stated. The table labels (a)–(e); `LicenseFilesTests` asserts (d) and (e).
+  - **The license family moved to 1.1 the same day** — `[LICENSOR]` becomes a placeholder the
+    adopter fills, retiring the `NOTICE.md` override. **Merged on their `dev`, not published**, so
+    the live site still serves 1.0 and `/isl-cla/` still 404s. Their CHANGELOG says a 1.0 copy with
+    a documented override "remains internally coherent", and the frozen 1.0 texts stay online at
+    `/isl-x/1.0/LICENSE.md`. Bumping waits on their deploy; see `work/todo.md`.
   - Jurisdiction and Licensor are not invented: **Commonwealth of Virginia** and **Extrode LLC**,
     matching `jauntyq/LICENSE.md` §6.4 and `LICENSE-EULA.md` §7.4.
   - ISL-NETC 1.0 itself is in force (effective July 2026), so the outbound side needed no wait.
