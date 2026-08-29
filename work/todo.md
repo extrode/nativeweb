@@ -16,12 +16,20 @@ wish list; the value is in recording the ones nobody has got to yet.
   checkout `repository:`, a feed host), by design, and package metadata resolves nothing. Noticed
   while adding license metadata 2026-08-29 and left alone as out of scope for that branch.
 - **The ISL-CLA draft banner in `CONTRIBUTING.md` comes out when the agreement is marked final.**
-  Watch <https://islamiclicense.org/isl-cla/> — merged to islamiclicense.org's `dev` 2026-08-29 but
-  **not deployed yet, so that URL 404s today**; the text meanwhile is
-  `C:\home\code\license-repo\licenses\ISL-CLA-1.0.md` on `dev`. Nothing else in
+  Watch <https://islamiclicense.org/isl-cla/1.1/CLA.md> — merged to islamiclicense.org's `dev`
+  2026-08-29 but **not deployed yet, so that URL 404s today**; the text meanwhile is
+  `C:\home\code\license-repo\licenses\ISL-CLA-1.1.md` on `dev`. Nothing else in
   the file changes; `LicenseFilesTests` already pins the parts that must survive.
-- **Re-sync to ISL-NETC 1.1 once islamiclicense.org publishes it.** Their `dev` is 23 commits ahead
-  of `main` and unpushed; the live site serves 1.0 and their spec 002 froze the 1.0 texts at
+- **Re-check both adoptions against the published texts once islamiclicense.org deploys.** The
+  ISL-CLA 1.1 bump on `docs/isl-cla-1-1` was taken against their working tree at `dev` `48ce96e`,
+  not against anything served, so every claim in `CONTRIBUTING.md` rests on an unpublished file
+  that can still change before it reaches `main` (25 commits behind at the time). When
+  `/isl-cla/1.1/CLA.md` and `/isl-netc/1.1/LICENSE.md` return 200, diff both against
+  `licenses/ISL-CLA-1.1.md` and `licenses/ISL-NETC-1.1.md` in that checkout, and confirm the five
+  adoption items and the two §9.2 placeholders survived to publication.
+- **Re-sync to ISL-NETC 1.1 once islamiclicense.org publishes it.** Their `dev` is 25 commits ahead
+  of `main` (pushed to `origin/dev`, but the site deploys from `main` and there is no workflow, so
+  it is a manual step of theirs); the live site serves 1.0 and their spec 002 froze the 1.0 texts at
   `/isl-x/1.0/LICENSE.md`, so nothing here is broken and nothing is urgent. When it lands, one
   branch does all of it: replace `LICENSE.md` with the 1.1 text and fill `[LICENSOR]` with
   **Extrode LLC**; bump SPDX to `LicenseRef-ISL-NETC-1.1` in `NOTICE.md`, `README.md`,
@@ -32,12 +40,12 @@ wish list; the value is in recording the ones nobody has got to yet.
   Until then `NOTICE.md:13` and `README.md` point at `https://islamiclicense.org/isl-netc/`, which
   becomes latest-1.1 on their deploy — either bump, or repoint those two at
   `https://islamiclicense.org/isl-netc/1.0/LICENSE.md`, which 404s today.
-- **Send islamiclicense.org one finding:** the `[LICENSOR]` carve-out lives only in the
-  instructions. `content/how-to-apply.md:30-36` permits filling the copyright line and the
-  placeholder, but the *Notice on Reproducing This License* inside each 1.1 text is unchanged from
-  1.0 and still permits copying "verbatim and unmodified in its entirety" with no exception, so a
-  reader of the text alone is told the fill is forbidden. That is their spec 002 G2 — "the
-  published instructions and the published texts agree" — with one gap left.
+- ~~**Send islamiclicense.org one finding:** the `[LICENSOR]` carve-out lives only in the
+  instructions~~ — **closed 2026-08-29** by their spec 003 (`7bfe873`). Every 1.1 text's *Notice on
+  Reproducing This License* now says completing the bracketed fields "is not a modification of this
+  text for the purposes of this notice", and that a copy so completed may be published under its
+  ISL name. The companion finding — ISL-CLA amended in place under a fixed version — closed the
+  same day: 1.0 is frozen back to four items and the revisions are `ISL-CLA-1.1.md`.
 - ~~**22 cleanup scripts hardcode `C:\home\code\extrode-legacy-org.com\NativeWeb`**~~ — **done 2026-08-29**,
   `chore/backlog-sweep`. 20 rewritten to `C:\home\code\extrode.com\nativeweb`. Two left alone:
   `move-to-extrode.ps1` and `relocate-nativeweb-to-extrode-legacy-org.ps1` are records of completed

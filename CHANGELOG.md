@@ -24,7 +24,7 @@ Merged into `dev`, not yet tagged.
   nuspec carries `<license type="file">LICENSE.md</license>` and both files are in the .nupkg).
   Two obligations reach further than a permissive license and are called out in the README: §3.6
   network copyleft, and the §§4–5 ethical use restrictions that cannot be relicensed away.
-- **`CONTRIBUTING.md` adopts ISL-CLA 1.0, including optional §6 — no AI-generated contributions.**
+- **`CONTRIBUTING.md` adopts ISL-CLA 1.1, including optional §6 — no AI-generated contributions.**
   Adoption is by reference and states the five things the agreement requires: the variant
   (ISL-NETC 1.0, so its ISL-R-only §2 is inert), that §6 **is** adopted, the §9.2 jurisdiction, who
   the Licensor is — Extrode LLC, not the Ikhbat Foundation the ISL-NETC 1.0 text names in its §1.2
@@ -34,8 +34,11 @@ Merged into `dev`, not yet tagged.
   assistance under the Licensor's own review, which §6.4(3) frames as a decision about the
   Licensor's own liability and not one it can make on a contributor's behalf. Written contributions
   are the wanted route; the maintainers implement. `CONTRIBUTORS.md` is the signing sheet.
-  **Nothing is accepted yet** — ISL-CLA 1.0 is published in draft and says not to accept
+  **Nothing is accepted yet** — ISL-CLA 1.1 is published in draft and says not to accept
   contributions under it until it is marked final, and `CONTRIBUTING.md` says so at the top.
+  The version is 1.1 because the agreement's own adoption mechanism is identification by name and
+  version, and 1.0 was frozen back to a four-item text on 2026-08-29: the fifth item and the §9.2
+  forum placeholder this adoption completes exist only in 1.1.
 - **`tools/bench/` — a load harness for `apps/web`, with a committed baseline.** Publishes the
   Release binary, drives it over https with a throwaway certificate, and averages three ten-second
   passes per scenario against `tools/bench/baseline.json`: `/healthz` as the no-render floor and
