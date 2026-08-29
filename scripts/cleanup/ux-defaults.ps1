@@ -25,7 +25,7 @@ foreach ($a in $Rest) {
 
 $ErrorActionPreference = 'Stop'
 
-$nativeWeb = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
+$nativeWeb = 'C:\home\code\extrode.com\nativeweb'
 $manzil = 'C:\home\code\extrode-legacy-org.com\manzil.my'
 $scratch = @(
     'C:\Users\user\AppData\Local\Temp\tmp\flashcheck-15825',

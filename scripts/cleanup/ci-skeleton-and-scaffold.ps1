@@ -47,7 +47,7 @@ foreach ($a in $Rest) {
     }
 }
 
-$repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
+$repo = 'C:\home\code\extrode.com\nativeweb'
 $stamped = 'C:\home\code\extrode-legacy-org.com\ciprobe'
 
 # Safety gate. "Must be on dev" was the obvious rule and it is the wrong one here:

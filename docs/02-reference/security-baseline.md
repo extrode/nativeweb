@@ -59,8 +59,8 @@ this document. Items marked ☐ are known-open, with the reason.
 | ☑ | Permissions-Policy denying unused powerful features (WebAuthn's stay at default 'self') | `SecurityHeadersMiddleware` (V6) |
 | ☑ | X-Content-Type-Options, X-Frame-Options, Referrer-Policy | `SecurityHeadersMiddleware` |
 | ☑ | `no-store` + `Pragma: no-cache` on sensitive content types and secret-bearing redirects (incl. HX-Redirect) | `SecurityHeadersMiddleware` |
-| ☑ | `security.txt` (RFC 9116) at /.well-known/ | `SecurityTxtEndpoint.cs` (V6) |
-| ☐ | security.txt contact address is a placeholder (`security@epass.io`) — operator must confirm the real mailbox and bump `Expires` yearly | `SecurityTxtEndpoint.cs` |
+| ☑ | `security.txt` (RFC 9116) at /.well-known/, served only when `NativeWeb:SecurityContact` names a mailbox — **unset serves no file, by design** | `SecurityTxtEndpoint.cs` (V6, address made configuration 2026-08-29) |
+| ☐ | `Expires` is a source literal and needs a yearly bump; currently `2027-08-01` | `SecurityTxtEndpoint.cs` |
 
 ## V7/V16 — Logging and auditing
 
@@ -83,8 +83,12 @@ this document. Items marked ☐ are known-open, with the reason.
 
 ## Known-open items
 
-- **security.txt contact addresses** — placeholders until the operator confirms real mailboxes
-  (needs-decision, flagged in the V6 report).
+- **security.txt contact address** — no longer a placeholder in source. `security@epass.io` was a
+  literal until 2026-08-29; it is now `NativeWeb:SecurityContact`, and unset means no file is
+  served rather than a file naming the wrong mailbox. Still open as an **operator** item: a
+  deployment that wants a `security.txt` must set the key, and nothing warns when it has not.
+  Deliberately not a startup guard — refusing to boot without a security contact would be a
+  larger claim than this baseline makes.
 - **Canary replay breadth** — the bot-trap canary is app-bound, not session/path/single-use;
   documented as an accepted bypass in `BotTraps.IssueCanary`.
 - **CI package-mode feed gap** — the CVE gate runs against the package-mode restore, which CI

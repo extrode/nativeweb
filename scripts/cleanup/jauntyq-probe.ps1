@@ -20,7 +20,7 @@ foreach ($a in $Rest) {
 
 $ErrorActionPreference = 'Stop'
 
-$nativeWeb = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
+$nativeWeb = 'C:\home\code\extrode.com\nativeweb'
 $tmp       = "$env:LOCALAPPDATA\Temp\tmp"
 
 # Safety gate: repo must be on dev with the docs branch merged.

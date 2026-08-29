@@ -6,8 +6,28 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 013 — continuous read-only audit** is built on `feat/013-continuous-audit`, all fourteen
-  tasks ticked, **231 tests pass / 0 fail** (`cd tools/audit && deno test -A -q`). A daily
+- **Backlog sweep** — `chore/backlog-sweep`, merged to `dev` 2026-08-29, unpushed. Five `Now-ish`
+  items from `work/todo.md`, each with tests and each mutation-checked. Two are worth more than
+  their line in the backlog:
+  - **`skeleton/Directory.Build.props` was not valid XML** (`--` inside an XML comment), so MSBuild
+    refused to load it with `MSB4024` and **no stamped product had ever built** — it failed on its
+    own README's first command, before compiling a line. Found by stamping one and running it,
+    which is the only thing that would have found it: the suite covers `apps/` and `libs/`, whose
+    build files MSBuild loads every run, while the skeleton's are copied as text and parsed by
+    nobody until a product exists. `BuildFileXmlTests` now parses every tracked build file via
+    `git ls-files`. Verified by stamping `Sectest` and building it: 0 warnings, 0 errors.
+  - **The `security.txt` contact is configuration**, in `apps/web` and the skeleton both, and
+    unset serves no file rather than one naming a mailbox the deployment does not own. The
+    newline guard on the value is reachable rather than defensive padding, which mutation testing
+    is how I know: `Uri.TryCreate` accepts `https://e.com/r\nContact: mailto:evil@x.net` as a
+    valid absolute https URI, so without the guard that reaches the file.
+  - Also: 20 cleanup scripts repointed off the pre-extrode path, `SdkPinTests` asking git rather
+    than walking into gitignored scratch, and `apps/web`'s launch profile turned HTTPS.
+  - **Suite after the sweep: 640 unit / 310 integration / 71 e2e, 0 failed**; solution build 0
+    warnings, 0 errors. The +29 unit and +3 integration are this branch's own facts.
+
+- **Spec 013 — continuous read-only audit** is merged to `dev`, unpushed, all fourteen
+  tasks ticked, **253 tests pass / 0 fail** (`cd tools/audit && deno test -A -q`). A daily
   unattended read of one slice of this repository on audit-host.local, producing a deduplicated defect
   ledger that an interactive session triages with the user. Read-only by topology, not by
   instruction: audit-host audits a throwaway clone of a pushed mirror and holds no credential that

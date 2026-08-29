@@ -20,7 +20,7 @@ foreach ($a in $Rest) {
 
 $ErrorActionPreference = 'Stop'
 
-$nativeWeb = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
+$nativeWeb = 'C:\home\code\extrode.com\nativeweb'
 $manzil = 'C:\home\code\extrode-legacy-org.com\manzil.my'
 
 # Safety gate: both repos must be on dev.

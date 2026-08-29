@@ -32,7 +32,7 @@ foreach ($a in $Rest) {
     }
 }
 
-$repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
+$repo = 'C:\home\code\extrode.com\nativeweb'
 $tmp  = "$env:LOCALAPPDATA\Temp"
 
 # Safety gate: the branch must already be merged, which means being on dev.

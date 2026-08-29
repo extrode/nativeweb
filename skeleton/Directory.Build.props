@@ -66,7 +66,7 @@
        BOTH CASINGS ARE PROBED, and that is not belt-and-braces. The framework
        repository is `nativeweb` on disk, but docs/getting-started.md tells you
        to `git clone <repo> NativeWeb` and the README's layout diagram draws it
-       that way -- so both spellings are in the wild, and a stamped product
+       that way, so both spellings are in the wild, and a stamped product
        inherits whichever its author happened to use. On Windows either probe
        matches either directory and the bug is invisible; on Linux, where the
        skeleton's own CI runs, exactly one of them resolves. Lowercase is tried
