@@ -13,6 +13,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Added
+- **The two antiforgery-rejection guards are now held to agreeing.** `apps/web`'s
+  `AntiforgeryValidationMiddleware` and `NativeWeb.Scaffold.UseAntiforgeryRejection` are the same
+  guard written twice, kept apart on purpose so the identity provider does not depend on the CRUD
+  scaffolding library. The risk the 2026-08-25 review left open was repo policy drift, which a
+  cross-referencing comment cannot catch. One theory now runs both through the three feature
+  states — absent, valid, rejected — and asserts they agree *and* that what they agree on is a 400
+  with the endpoint not reached. The scaffold copy goes through a built `ApplicationBuilder`, so
+  its registration is covered too. The test project takes the scaffold reference; `apps/web` still
+  does not.
+
 ### Fixed
 - **Two stale references to the retired `extrode-legacy-org` org, and the two test gaps that hid them.**
   `<Authors>extrode-legacy-org</Authors>` sat in **ten** packable `libs/nativeweb.*` csproj files, one line

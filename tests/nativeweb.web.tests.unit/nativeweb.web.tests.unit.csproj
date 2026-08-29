@@ -20,6 +20,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\apps\web\nativeweb.web.csproj" />
+    <!-- For AntiforgeryGuardAgreementTests only, which runs apps/web's antiforgery
+         middleware and this library's UseAntiforgeryRejection through the same
+         states and asserts they agree. The reference belongs HERE and not in
+         apps/web: the two guards are duplicated on purpose (see the header of
+         apps/web/Middleware/AntiforgeryValidationMiddleware.cs), and the whole
+         point of that decision is that the identity provider does not depend on
+         CRUD scaffolding. A test project may know about both without making the
+         production dependency graph say something untrue. -->
+    <ProjectReference Include="..\..\libs\nativeweb.scaffold\nativeweb.scaffold.csproj" />
   </ItemGroup>
 
 </Project>
