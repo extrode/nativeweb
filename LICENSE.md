@@ -1,6 +1,6 @@
-# Islamic Software License - Network Copyleft (ISL-NETC), Version 1.0
+# Islamic Software License - Network Copyleft (ISL-NETC), Version 1.1
 
-**Effective Date:** July 2026
+**Effective Date:** August 2026
 
 **Copyright (c) 2026 Ikhbat Foundation (ikhbat.org). All rights reserved.**
 
@@ -62,6 +62,13 @@ or Section 5 of this License. This right extends only to the unmodified text of 
 License document; it does not extend to the Software distributed under it, and does not
 permit publishing a modified version of this text under an "ISL" name.
 
+Completing the bracketed fields this License provides for — the copyright line at the top,
+the `[LICENSOR]` placeholder in the Licensor definition, and any further bracketed placeholder
+this variant defines — is not a modification of this text for the purposes of this notice. A
+copy so completed remains an unmodified reproduction of this License, and may be published,
+distributed, and applied to a work under its ISL name. A copy in which those fields are left
+unfilled is likewise unmodified, but names no Licensor and grants nothing anyone can rely on.
+
 ---
 
 ## 1. Definitions
@@ -69,7 +76,12 @@ permit publishing a modified version of this text under an "ISL" name.
 **1.1 "Software"** means the source code, object code, documentation, and any associated
 files made available under this License.
 
-**1.2 "Licensor"** means Ikhbat Foundation (ikhbat.org) and any authorized successors or assigns.
+**1.2 "Licensor"** means **Extrode LLC** and any authorized successors or assigns.
+
+> **Completing this definition.** `[LICENSOR]` is the party applying this License to a work — fill
+> in your legal name or entity where you apply it, alongside the copyright line above. Where Ikhbat
+> Foundation licenses its own work under this text, the Foundation is the Licensor. A copy left
+> unfilled names no one, and grants nothing anyone can rely on.
 
 **1.3 "Licensee"** means any individual, organization, company, government entity, or
 other legal person exercising rights under this License, including any recipient of the
@@ -208,7 +220,7 @@ rights, subject to Section 8 (Termination).
 
 **3.5 Copyleft; Corresponding Source.** Any Derivative Work, and any modified copy of the
 Software, that a Licensee Distributes must be licensed as a whole, at no separate charge
-for the license itself, under this License — ISL-NETC 1.0 or, at the Licensee's option, a
+for the license itself, under this License — ISL-NETC 1.1 or, at the Licensee's option, a
 later version published by the Licensor under Section 14 (Future Versions) — and the
 Licensee must make the Corresponding Source available to every recipient by:
   - (a) accompanying the Object Form with the Corresponding Source on a durable medium;
@@ -228,7 +240,7 @@ operates a Modified Version and thereby engages in Remote Network Interaction wi
 User, that Licensee must, without further request and by a reasonably prominent means
 (such as a link, notice, or menu item presented within the interface through which the
 interaction occurs), offer to every such User an opportunity to receive the Corresponding
-Source of that exact Modified Version, at no charge, under this License — ISL-NETC 1.0 or,
+Source of that exact Modified Version, at no charge, under this License — ISL-NETC 1.1 or,
 at the Licensee's option, a later version published by the Licensor under Section 14
 (Future Versions).
 
@@ -423,6 +435,7 @@ The Software may not be used by any entity whose Primary Business involves:
 hospitals, or medical institutions that may offer such services among a broader range of
 medical care. It targets entities whose Primary Business is the activities described
 above.
+
 ### 4.11 Zina and Fahisha (Extra-Marital Relations, Lewdness, and Sexual Promiscuity)
 
 The Quran states:
@@ -715,17 +728,17 @@ Licensor.
 Include the following notice in your source files:
 
 ```
-SPDX-License-Identifier: LicenseRef-ISL-NETC-1.0
+SPDX-License-Identifier: LicenseRef-ISL-NETC-1.1
 
 Copyright (c) [Year] [Copyright Holder]
 
 Licensed under the Islamic Software License - Network Copyleft (ISL-NETC),
-Version 1.0 (the "License"). You may use, copy, modify, merge, publish,
+Version 1.1 (the "License"). You may use, copy, modify, merge, publish,
 distribute, sublicense, and sell copies of this Software, for commercial or
 non-commercial purposes, subject to the Ethical Use Restrictions in
 Sections 4 and 5 of the License and the copyleft obligations in Section
 3.5, which require any derivative work you distribute to be licensed
-under ISL-NETC 1.0 (or a later version) with Corresponding Source made
+under ISL-NETC 1.1 (or a later version) with Corresponding Source made
 available. If you run a modified version of this Software to provide a
 service to users over a network, Section 3.6 requires you to offer those
 users the Corresponding Source of that exact modified version, at no
@@ -740,7 +753,7 @@ This Software is provided "AS IS", without warranty of any kind.
 
 ---
 
-*The Islamic Software License - Network Copyleft (ISL-NETC) v1.0 was drafted to align
+*The Islamic Software License - Network Copyleft (ISL-NETC) v1.1 was drafted to align
 network/SaaS-aware copyleft software licensing with Islamic ethical principles and
 universal human rights. It is a source-available, ethically restricted license. It is not
 certified by the Open Source Initiative or the Free Software Foundation and does not claim

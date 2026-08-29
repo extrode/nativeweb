@@ -6,6 +6,16 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **ISL-NETC 1.1 re-sync** — `docs/isl-netc-1.1`, 2026-08-30. Unblocked by the family maintainer's
+  notice (`216557c`), which the user merged. `LICENSE.md` is now the 1.1 text with §1.2 completed as
+  Extrode LLC — one line different from the published text, `diff`-verified — so the `NOTICE.md`
+  Licensor override is gone and both notice and README cite the version-pinned URL. Source was the
+  local `ikhbat.org/islamiclicense.org` checkout at `ad5291a`, **not** the site: this sandbox gets
+  `000` on every islamiclicense.org URL, so the entry in `work/todo.md` asking for 200-checks
+  against the live site is still unverified from here and needs a machine with egress.
+  `LicenseTextIsNotEditedToNameThisLicensor` inverted into
+  `LicenseCompletesTheLicensorFieldWithThisLicensor`; 652/652 unit, both mutations bite.
+
 - **OAuth back-navigation walk** — `test/oauth-back-navigation`, 2026-08-30. The last unblocked
   item from 012's open questions. No defect: htmx's removed history cache never applied here, since
   nothing in `apps/web` sets `hx-push-url`, `hx-boost` or `hx-history`. The test pins what does

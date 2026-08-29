@@ -47,7 +47,18 @@ wish list; the value is in recording the ones nobody has got to yet.
   `/isl-cla/1.1/CLA.md` and `/isl-netc/1.1/LICENSE.md` return 200, diff both against
   `licenses/ISL-CLA-1.1.md` and `licenses/ISL-NETC-1.1.md` in that checkout, and confirm the five
   adoption items and the two §9.2 placeholders survived to publication.
-- **Re-sync to ISL-NETC 1.1 once islamiclicense.org publishes it.** Their `dev` is 25 commits ahead
+- ~~**Re-sync to ISL-NETC 1.1 once islamiclicense.org publishes it.**~~ — **done 2026-08-30**,
+  `docs/isl-netc-1.1`. Every item below landed. Two corrections to what this entry claimed:
+  the pinned `https://islamiclicense.org/isl-netc/1.0/LICENSE.md` **does not 404** — spec 003 gave
+  every version a permanent URL, and the last line of this entry was already stale when written.
+  And the source used was the local `ikhbat.org/islamiclicense.org` checkout (`ad5291a`, tree
+  clean), not the site: this sandbox cannot reach islamiclicense.org at all, so the four URL checks
+  the entry above asks for return `000` here rather than 200, and remain unverified from here.
+  The re-synced `LICENSE.md` differs from that checkout's `site/isl-netc/1.1/LICENSE.md` at exactly
+  one line — the completed §1.2 — confirmed by `diff`.
+  <details><summary>original entry</summary>
+
+  Their `dev` is 25 commits ahead
   of `main` (pushed to `origin/dev`, but the site deploys from `main` and there is no workflow, so
   it is a manual step of theirs); the live site serves 1.0 and their spec 002 froze the 1.0 texts at
   `/isl-x/1.0/LICENSE.md`, so nothing here is broken and nothing is urgent. When it lands, one
@@ -60,6 +71,7 @@ wish list; the value is in recording the ones nobody has got to yet.
   Until then `NOTICE.md:13` and `README.md` point at `https://islamiclicense.org/isl-netc/`, which
   becomes latest-1.1 on their deploy — either bump, or repoint those two at
   `https://islamiclicense.org/isl-netc/1.0/LICENSE.md`, which 404s today.
+  </details>
 - ~~**Send islamiclicense.org one finding:** the `[LICENSOR]` carve-out lives only in the
   instructions~~ — **closed 2026-08-29** by their spec 003 (`7bfe873`). Every 1.1 text's *Notice on
   Reproducing This License* now says completing the bracketed fields "is not a modification of this
@@ -1059,3 +1071,11 @@ The re-syncs are yours; none of this is urgent. Ordered by what it costs to leav
   went to four repos. §2 supplies the prior written consent only where the licence grants no right
   to modify or adapt: ISL-R, ISL-CW-ND and ISL-CW-NC-ND. ISL-NETC permits modification, so §2 never
   applied to NativeWeb and your `CONTRIBUTING.md` does not rely on it.
+
+**Answered 2026-08-30 on `docs/isl-netc-1.1`.** Bullets one and two are done: `LICENSE.md` is the
+1.1 text with §1.2 completed as Extrode LLC, the `NOTICE.md` override section is gone, and both
+`NOTICE.md:13` and `README.md` now cite the version-pinned `/isl-netc/1.1/LICENSE.md`. Bullet three
+is moot rather than fixed — the one-blank-line delta was against the frozen 1.0 text, which this
+repository no longer carries. Bullets four and five need nothing: `CONTRIBUTING.md` already adopts
+ISL-CLA 1.1 by reference with five statements, and its **DRAFT — not yet in force** status is
+unchanged by any of this, so the banner question stays open and stays theirs.
