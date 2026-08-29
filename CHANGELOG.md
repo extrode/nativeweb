@@ -13,6 +13,28 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Fixed
+- **The skeleton produced products that could not build.** `skeleton/Directory.Build.props` carried
+  `--` inside an XML comment, which XML forbids, so MSBuild refused to load the file (`MSB4024`)
+  and every stamped product failed on its own README's first command before compiling a line.
+  Nothing read the skeleton as XML until a product existed, so nothing caught it. Every tracked
+  `.props`, `.targets`, `.csproj`, `.slnx`, `nuget.config` and `.nuspec` is now parsed by the
+  suite.
+- **`security.txt` named one deployment's mailbox in everybody's source.** `apps/web` shipped
+  `security@epass.io` and a stamped product shipped `security@<product>.example`. Both are now
+  `<Product>:SecurityContact`, and unset serves no `security.txt` at all rather than one naming a
+  mailbox that does not read the reports: a wrong `Sitemap:` line is discarded by the crawler, a
+  wrong `Contact:` line is acted on and the reporter never learns it went nowhere.
+- **`apps/web` would not run without a flag.** Its only launch profile was HTTP and the app is
+  HTTPS-only in practice, so `dotnet run --project apps/web` served `/healthz` 200 and every page
+  with a form 500 — a combination that reads as one broken page rather than a wrong scheme. The
+  profile is HTTPS; `README.md` and the quick start drop the `--urls` workaround.
+- **A checkout under `tmp/` turned the suite red.** `SdkPinTests` walked the whole tree for
+  workflows, so scratch placed where `AGENTS.md` says scratch belongs was reported as a CI
+  violation. It asks git now.
+- **20 cleanup scripts targeted a path this repository left** at the extrode move, and would each
+  have run `git -C` against a directory that does not exist.
+
 ### Added
 - **Continuous read-only audit** (spec 013). A nightly unattended pass over one slice of the
   repository, run on a separate host, producing findings a session triages by hand. Read-only

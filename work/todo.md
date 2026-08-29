@@ -9,14 +9,24 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
-- **22 cleanup scripts hardcode `C:\home\code\extrode-legacy-org.com\NativeWeb`**, which has not been this
-  repo's path since the extrode move. Every one of them would `git -C` a directory that does not
-  exist. Noticed 2026-08-27 while writing `scripts/cleanup/011-production-deployment.ps1`, which
-  uses the current path; out of that work's scope, and a mechanical sweep rather than a decision.
-- **`apps/web/SecurityTxtEndpoint.cs` hardcodes `security@epass.io`.** Spec 011 retired the
-  `epass.io` hardcodes in `robots.txt` and `sitemap.xml` by rendering them from
-  `NativeWeb:CanonicalBaseUrl`; this one was out of its scope and remains literal. Correct only
-  after the cutover, and wrong on any other host today. Noted 2026-08-27.
+- ~~**22 cleanup scripts hardcode `C:\home\code\extrode-legacy-org.com\NativeWeb`**~~ — **done 2026-08-29**,
+  `chore/backlog-sweep`. 20 rewritten to `C:\home\code\extrode.com\nativeweb`. Two left alone:
+  `move-to-extrode.ps1` and `relocate-nativeweb-to-extrode-legacy-org.ps1` are records of completed
+  relocations, and rewriting their paths would make each contradict its own first paragraph.
+  `extrode-legacy-org.com\manzil.my` untouched — still there. `CleanupScriptPathTests` matches the assignment
+  rather than the text, so a script may narrate a move it performed, and asserts the absence of the
+  abandoned path rather than the presence of the current one, so it holds on a checkout elsewhere
+  and on CI.
+- ~~**`apps/web/SecurityTxtEndpoint.cs` hardcodes `security@epass.io`.**~~ — **done 2026-08-29**,
+  `chore/backlog-sweep`. Now `NativeWeb:SecurityContact`, validated at startup the way
+  `CanonicalBaseUrl` is (exit 78 on a supplied-but-unusable value, blank valid). Blank serves **no**
+  `security.txt` rather than one carrying a placeholder: a wrong `Sitemap:` line is discarded by the
+  crawler, a wrong `Contact:` line is acted on and the reporter cannot tell it went nowhere. A
+  newline in the value is refused, and mutation testing is how I know that guard is reachable rather
+  than defensive padding — `Uri.TryCreate` accepts
+  `https://e.com/r\nContact: mailto:evil@x.net` as a valid absolute https URI, and `tel:` likewise.
+  The skeleton took the same change; a stamped product had been shipping
+  `security@<product>.example`, a domain it does not own.
 - **The sign-in library's AOT publish gate is in the solution but runs nowhere automatic.** Found
   2026-08-27 while re-measuring the suite. `tests/nativeweb.signin.epass.tests.aot` sets
   `IsTestProject=false` and holds no tests, so `dotnet test` collects nothing from it and exits 0
@@ -29,29 +39,31 @@ wish list; the value is in recording the ones nobody has got to yet.
   hand on 2026-08-27 and green — 0 warnings, no IL2026, no IL3050 — but a gate whose only trigger
   is someone remembering it is not a gate. Either add it to the `aot-publish` job or say in
   `README.md` that the suite does not include it.
-- **`SdkPinTests.NoWorkflowInstallsAnSdk` scans gitignored scratch.** Found 2026-08-25 while
-  verifying spec 010. It walks the whole repository for `.github/workflows/*.yml`, so a checkout
-  placed under `tmp/` — exactly where AGENTS.md says scratch belongs — turns the suite red with
-  "setup-dotnet is back in: tmp/<whatever>/.github/workflows/ci.yml". The message names a real rule
-  and a file nobody committed, which is the worst kind of false positive. It should skip anything
-  git ignores, the same way `NewProductStampTests` already asks git what the skeleton is.
-- **The stamped product's README omits the two things its test tiers need.** Found 2026-08-25 by
-  stamping one and running them. (a) The integration tier reads `<Product>__Db__ConnectionString`
-  from the environment; without it `/readyz` reports `ServiceUnavailable` and one fact fails.
-  (b) When the product is not beside NativeWeb, `NativeWebRoot`/`JauntyQRoot` must be **environment
-  variables** — `-p:` flags satisfy `dotnet build` and then fail the e2e tier, because its fixture
-  shells out to its own `dotnet publish` and command-line properties do not cross process
-  boundaries. Both are now in `docs/00-quick-start/getting-started.md` Path A;
-  `skeleton/README.md` should say them too.
+- ~~**`SdkPinTests.NoWorkflowInstallsAnSdk` scans gitignored scratch.**~~ — **done 2026-08-29**,
+  `chore/backlog-sweep`. Now `git ls-files --cached --others --exclude-standard`, the call
+  `NewProductStampTests` already makes: uncommitted workflows are still governed, ignored ones are
+  not, and `.gitignore` stays the one place the distinction lives. Two facts added — a decoy
+  checkout written under `tmp/` that the scan must not see, which fails against the old tree-walk,
+  and a floor of two workflows, because a scan matching nothing reported no offenders and read as a
+  clean bill.
+- ~~**The stamped product's README omits the two things its test tiers need.**~~ — **done
+  2026-08-29**, `chore/backlog-sweep`. Both are in `skeleton/README.md`'s Build-and-test section now.
+  Verifying it by stamping a product turned up something larger, fixed in the same branch:
+  **`skeleton/Directory.Build.props` was not valid XML** — `--` inside an XML comment — so MSBuild
+  refused to load it (`MSB4024`) and **no stamped product had ever built**, failing on its own
+  README's first command before compiling a line. It survived because nothing reads the skeleton as
+  XML: the suite covers `apps/` and `libs/`, whose build files MSBuild loads every run, while the
+  skeleton's are copied as text and parsed by nobody until a product exists. `BuildFileXmlTests` now
+  parses every tracked `.props`/`.targets`/`.csproj`/`.slnx`/`nuget.config`/`.nuspec` via
+  `git ls-files`. Verified by stamping `Sectest` and building it: 0 warnings, 0 errors.
 
-- **`apps/web`'s only launch profile is HTTP, and the app is HTTPS-only in practice.** Found while
-  verifying spec 010's getting-started commands, 2026-08-25. `dotnet run --project apps/web` serves
-  `/healthz` 200 and every page carrying a form 500, with
-  `InvalidOperationException: AntiforgeryOptions.Cookie.SecurePolicy = Always, but the current
-  request is not an SSL request`. The 200 on `/healthz` makes it read as one broken page rather
-  than a wrong scheme. `--urls https://localhost:5444` fixes it and the README now says so, but the
-  profile in `apps/web/Properties/launchSettings.json` should probably just be HTTPS. One-line fix,
-  deliberately not taken inside spec 010's scope.
+- ~~**`apps/web`'s only launch profile is HTTP, and the app is HTTPS-only in practice.**~~ —
+  **done 2026-08-29**, `chore/backlog-sweep`. The profile is `https://localhost:5444`, and both
+  `README.md` and `getting-started.md` drop the `--urls` flag they used to tell the reader to pass.
+  One profile, not two: an HTTP one beside it is the same trap with a name to select it by.
+  `LaunchProfileTests` asserts that, and asserts both documents name the URL the profile listens on
+  — a profile and a document that disagree send a newcomer to a port nothing answers, and neither
+  file can tell.
 
 Small, clear, and could be picked up without a design decision.
 
