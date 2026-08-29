@@ -78,6 +78,10 @@ dotnet test tests/nativeweb.web.tests.unit      # one tier; the full list is in 
 Every command on this page was executed in the form written, from a fresh clone, on
 2026-08-25 — Windows 11 (10.0.26200.8457), .NET SDK 10.0.203, PostgreSQL 18.2, PowerShell 7.6.4.
 
+A read-only nightly audit runs on a separate host and reports defects for a human to triage; it
+never writes to this repository. Provisioning, reading a digest and triaging are in
+[`continuous-audit.md`](docs/02-reference/continuous-audit.md).
+
 ## Layout
 
 | Path | What |

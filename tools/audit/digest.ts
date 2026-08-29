@@ -18,6 +18,8 @@ import type { RunRecord } from "./run.ts";
 export interface Digest {
   generatedAt: string;
   untriaged: Entry[];
+  /** Every finding ever raised, in any state. Distinguishes "none raised" from "all triaged". */
+  totalFindings: number;
   coverage: CoverageSummary;
   health: Health;
   cost: CostTrend;
@@ -119,6 +121,7 @@ export function buildDigest(
   return {
     generatedAt: now.toISOString(),
     untriaged: rank(current.filter((e) => e.state === "new")),
+    totalFindings: current.length,
     coverage: summarise(coverage),
     health: health(records),
     cost: costTrend(records),
@@ -186,11 +189,19 @@ export function render(digest: Digest, repo = "nativeweb"): string {
   out.push(`## Untriaged findings (${digest.untriaged.length})`);
   out.push("");
   if (digest.untriaged.length === 0) {
-    out.push(
-      h.runs === 0
-        ? "None, because nothing has run. See Health above."
-        : "None. Every finding so far has been triaged.",
-    );
+    // Three different nothings, and conflating them is the failure R12 exists to prevent:
+    // nothing ran, nothing was found in what did run, or everything found has been decided.
+    if (h.runs === 0) {
+      out.push("None, because nothing has run. See Health above.");
+    } else if (digest.totalFindings === 0) {
+      out.push(
+        `None raised. ${c.audited} of ${c.total} slices have been read so far; the rest have ` +
+          "not been looked at, so this is not a statement about the repository.",
+      );
+    } else {
+      out.push(`None outstanding. All ${digest.totalFindings} findings so far have been decided.`);
+    }
+    out.push("");
   } else {
     out.push("| # | Verified | Rule | Where | What |");
     out.push("| --- | --- | --- | --- | --- |");

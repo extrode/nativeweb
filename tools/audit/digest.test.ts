@@ -168,6 +168,24 @@ Deno.test("no runs at all is a distinct state from no findings", () => {
   assertStringIncludes(text, "not because the repository is clean");
 });
 
+Deno.test("no findings from one audited slice is not a statement about the repository", () => {
+  const coverage: SliceRow[] = [
+    { slice: "docs", lastAuditedAt: "2026-08-29T00:00:00.000Z", findingsAtLastAudit: 0 },
+    { slice: "apps/web", lastAuditedAt: null, findingsAtLastAudit: 0 },
+  ];
+  const text = render(buildDigest([], coverage, [record()], new Date()));
+  assertStringIncludes(text, "None raised");
+  assertStringIncludes(text, "not a statement about the repository");
+  assert(!text.includes("has been triaged"));
+});
+
+Deno.test("all-decided is worded differently from none-raised", () => {
+  const ledger = [entry({ id: "a" }), entry({ id: "a", state: "rejected", at: "2026-08-21T00:00:00.000Z" })];
+  const text = render(buildDigest(ledger, [], [record()], new Date()));
+  assertStringIncludes(text, "None outstanding");
+  assertStringIncludes(text, "All 1 findings so far have been decided");
+});
+
 Deno.test("the rendered report never calls an empty ledger a clean repository", () => {
   const text = render(buildDigest([], [], [], new Date("2026-08-29T00:00:00.000Z")));
   assert(!/no (defects|problems) found/i.test(text));
