@@ -9,6 +9,21 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **CI is red on every push, and the cause is a missing package grant — not a missing package.**
+  Measured on run `33259408524` (2026-08-29): `NU1301` … `403 (Forbidden)` against
+  `https://nuget.pkg.github.com/extrode/download/jauntyq.runtime/index.json`, killing Restore in
+  all three jobs. `gh api orgs/extrode/packages?package_type=nuget` returns `JauntyQ.Runtime`,
+  `JauntyQ.Generator` and `JauntyQ.Schema.Contract`, each `private`, owned by `extrode/jauntyq`,
+  each at **0.4.0**, matching the pins in `Directory.Packages.props:22-23`. So the packages were
+  published after all — this is the *next* failure, not the `NU1101` empty-feed one from 2026-08-27
+  recurring. `.github/workflows/ci.yml:12-16` names the requirement: the job's own `GITHUB_TOKEN`
+  works "only because the extrode org grants this repo read access to the jauntyq packages", and
+  that grant is missing. **The fix is UI-only and the user's** — no REST endpoint exists: for each
+  of the three, `github.com/orgs/extrode/packages/nuget/package/<name>` → Package settings → Manage
+  Actions access → Add repository → `extrode/nativeweb` → Read. Include `JauntyQ.Schema.Contract`,
+  which no error names but which resolves transitively once the other two do. Keep them private
+  (`AGENTS.md` forbids redistributing JauntyQ binaries); the grant is per-repository and publishes
+  nothing. Widening to a PAT was already rejected in the workflow comment at lines 23-26.
 - **Five packable `libs/nativeweb.*` csproj files still say `<Authors>extrode-legacy-org</Authors>`** — the
   company renamed to Extrode LLC on 2026-08-26 and the nuspec now carries
   `<copyright>Copyright (c) 2026 Extrode LLC</copyright>` beside an author who no longer exists.
