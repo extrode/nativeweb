@@ -314,6 +314,28 @@ jobs:
       - name: Publish budgets (web)
         run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath publish/web/nativeweb.web.exe -Name nativeweb.web -Port 5998
 
+      # Spec 008 T14: the sign-in library's own AOT gate, which until now ran
+      # nowhere automatic.
+      #
+      # It is a second publish rather than a reuse of the one above because
+      # apps/web has NO ProjectReference to nativeweb.signin.epass -- the
+      # library's IL never reaches that link, so a green publish above says
+      # nothing whatever about it. `dotnet test` says nothing either: the project
+      # sets IsTestProject=false and holds no tests, so the tier is collected as
+      # zero facts and exits 0 without printing a line. A gate whose only trigger
+      # is someone remembering it is not a gate.
+      #
+      # Its assertion IS the publish. What it really checks is that the Request
+      # Delegate Generator saw every Map* call inside the library: a generator
+      # does not see another generator's output, so a Map* the library emitted
+      # rather than wrote binds the reflection-based Delegate overload, and that
+      # failure has to surface in the repository that owns the library rather
+      # than in a consumer's publish six months later.
+      #
+      # No budget check: this is not a shipped binary, it is a compilation.
+      - name: Publish (NativeAOT, sign-in library gate)
+        run: dotnet publish tests/nativeweb.signin.epass.tests.aot -c Release -p:JauntyQUsePackages=true -o publish/signin-gate
+
   # ---------------------------------------------------------------------------
   # The skeleton, exercised the only way that proves anything: by stamping a
   # product from it and running that product's own three tiers.
