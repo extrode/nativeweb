@@ -949,13 +949,22 @@ the publish-budget gate above, which `aot-publish` already runs on every CI buil
   authorize page and anything carrying a signed time canary. Nothing is known to break; nobody has
   walked the back button through the OAuth flow under 4.0 to check.
 
-- **`docs/01-architecture/native-web-architecture.md:133` points at `docs/99-design/design-decisions.md`,
-  which no tracked file matches.** The sentence explains why `DbParameter.Value` boxing is a cost every
-  data library pays and refers the reader onward for the detail; the file it refers them to does not
-  exist, and `docs/` has no `99-design/` directory. Either the note moved during the `docs/` restructure
-  under spec 010 and this reference was missed, or it was never written. Found by the first real run of
-  the spec 013 audit, not by a review; left out of 013's scope because fixing it is a documentation
-  change, not audit tooling.
+- ~~**`docs/01-architecture/native-web-architecture.md:133` points at `docs/99-design/design-decisions.md`,
+  which no tracked file matches.**~~ — **done 2026-08-29**, `docs/fix-dangling-design-reference`.
+  The pointer is gone rather than repointed: nothing in the repo discusses this (`DbParameter` and
+  `boxing` appear in exactly one file, that one), so the note was never written rather than moved
+  in the spec 010 restructure. The sentence already carried the whole argument; it now finishes it
+  — once per call, not once per row, which is why the cost does not scale with result size.
+
+  **Do not build a repo-wide broken-path test for this.** Measured with a throwaway probe over all
+  114 tracked `.md` files: **88 markdown links, 0 broken**, so the link form is already clean. The
+  prose form is 664 backticked repo-path mentions with **198 unresolved**, and nearly all of those
+  are false positives the probe cannot tell apart — paths relative to a project directory
+  (`Auth/SessionAuth.cs`, `locales/en.json` under `apps/web`), upstream vendor paths (`dist/htmx.min.js`
+  in the htmx repo), sibling-repo paths (`JauntyQ.Generator/AutoCrud.cs`), illustrative examples
+  (`templates/layout/page.html`, which exists in `skeleton/`), and `../`-relative links the probe
+  resolved as repo-rooted. Filtering to live documentation left **14**, of which exactly **one**
+  was this defect. A test at that signal-to-noise would be turned off within a week.
 
 - **`tools/bench/run.ts` publishes into the same tree the e2e fixture uses.** `publish()` runs
   `dotnet publish apps/web -c Release` with the default output path, which is the
