@@ -6,6 +6,17 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Sticky busy control** — `fix/busy-control-detached-source`, 2026-08-30. A submit control left
+  disabled forever when the response swapped away the region that issued the request. Cause is
+  **not** what the 012 review recorded: htmx reassigns `ctx.sourceElement` to the swap target while
+  swapping (`FORM.auth-card` at `before:request`, `DIV.auth-board` at `finally:request`, measured),
+  so `boot.js` read its busy reference off an element that never had one. The reference rides on
+  the per-request `ctx` object now. **72 web e2e pass** (+1), 652 unit unchanged.
+  - The backlog's proposed fix — bind at-target with `{once: true}` — was implemented first and
+    **fails the regression test**, because htmx's `trigger` ends `isConnected ? element : document`
+    and routes a detached source's event to `document`. Delegation was the thing that worked.
+    Symptom was evidence; mechanism was a guess; one instrumented run contradicted both readings.
+
 - **Scaffold e2e publish budget** — `fix/publish-budget-diagnostics`, 2026-08-30.
   `SampleProcessFixture` allowed the NativeAOT publish 15 minutes; `AppProcessFixture` in the web
   tier already allowed 30 for the same publish. Raised to 30. **13/13 pass, 2 s** from a detached

@@ -25,6 +25,19 @@ Merged into `dev`, not yet tagged.
   does not.
 
 ### Fixed
+- **A busy submit control stayed disabled forever when the response swapped away the region that
+  issued the request.** `boot.js` parked its reference to the disabled control on
+  `ctx.sourceElement` at `htmx:before:request` and read it back at `htmx:finally:request` — but
+  htmx reassigns `ctx.sourceElement` to the swap target while swapping, so the read landed on an
+  element that had never been given a reference. Measured on one signin submission: the property
+  is `FORM.auth-card` at `before:request` and `DIV.auth-board` at `finally:request`. The reference
+  now rides on the per-request `ctx` object, which htmx does not reassign. Nothing in `apps/web`
+  has the shape that shows this — every submit sits inside its own swap target and is replaced
+  along with it — so the regression test builds it, attaching a submit from outside the swapped
+  board with `form="..."`. The 012 review had logged the symptom with a different mechanism
+  (dispatch on a detached node never reaching `document`) and a different fix (bind at-target with
+  `{once: true}`); both were wrong, and the proposed fix fails this test. htmx's own `trigger`
+  ends `isConnected ? element : document`, so detachment was never the problem.
 - **The bench harness no longer publishes into the e2e fixture's directory.** `tools/bench` ran
   `dotnet publish apps/web -c Release` with the default output path — the same
   `apps/web/bin/Release/net10.0/<rid>/publish` that `AppProcessFixture` publishes into and
