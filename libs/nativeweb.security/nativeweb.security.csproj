@@ -10,7 +10,6 @@
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Security</PackageId>
     <Version>0.1.0</Version>
-    <Authors>extrode-legacy-org</Authors>
     <Description>NativeWeb framework: Argon2id passphrases, opaque tokens, bot traps, security primitives.</Description>
   </PropertyGroup>
 

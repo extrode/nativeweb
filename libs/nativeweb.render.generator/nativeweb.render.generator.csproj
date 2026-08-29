@@ -23,7 +23,6 @@
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Render.Generator</PackageId>
     <Version>0.1.0</Version>
-    <Authors>extrode-legacy-org</Authors>
     <Description>NativeWeb framework: build-time template + locale-catalog source generator.</Description>
     <!-- Analyzer semantics for consumers: no transitive flow, no lib dependency. -->
     <DevelopmentDependency>true</DevelopmentDependency>
