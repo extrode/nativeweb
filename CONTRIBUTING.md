@@ -29,9 +29,9 @@ are stated here:
 |---|---|
 | **(a)** which ISL variant the project is licensed under | **ISL-NETC 1.1** — see [`LICENSE.md`](./LICENSE.md). Not ISL-R, so **§2 (Limited Consent to Modify) does not apply**: ISL-NETC permits modification already, and §2 is inert here. |
 | **(b)** whether the project adopts optional **§6 (No AI-Generated Contributions)** | **Adopted.** §6 applies in full to every contribution to this project. |
-| **(c)** the jurisdiction whose law governs the agreement, completing the first **§9.2** placeholder | **Commonwealth of Virginia**, matching the jurisdiction Extrode LLC's other licenses use. |
+| **(c)** the jurisdiction whose law governs the agreement, which **§9.2** leaves to the Licensor to state here | **Commonwealth of Virginia**, matching the jurisdiction Extrode LLC's other licenses use. |
 | **(d)** who the Licensor is | **Extrode LLC**, stated in [`LICENSE.md`](./LICENSE.md) §1.2 itself. ISL-NETC 1.1 makes §1.2 a `[LICENSOR]` placeholder the adopter completes, and its reproduction notice puts completing it outside the definition of a modification, so the second limb of (d) — the reading that rescued a Foundation-named §1.2 — is no longer relied on here. [`NOTICE.md`](./NOTICE.md) records the re-sync rather than an override. |
-| **(e)** the forum in which disputes are brought, completing the second **§9.2** placeholder | **The courts located in the Commonwealth of Virginia**, matching the forum clause in Extrode LLC's other licenses. |
+| **(e)** the forum in which disputes are brought, which the second sentence of **§9.2** likewise leaves to the Licensor to state here | **The courts located in the Commonwealth of Virginia**, matching the forum clause in Extrode LLC's other licenses. |
 
 Absent (b), §6 would not apply and the AI prohibition below would bind nobody. A project that
 omits (c) has left its governing law unsettled, and one that omits (e) has left the court
