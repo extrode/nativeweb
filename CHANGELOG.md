@@ -13,6 +13,21 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Changed
+- **Re-synced to ISL-NETC 1.1**, SPDX `LicenseRef-ISL-NETC-1.1`. The point of 1.1 is that §1.2 is a
+  `[LICENSOR]` placeholder the adopter completes, and its *Notice on Reproducing This License* says
+  in terms that filling the bracketed fields "is not a modification of this text for the purposes
+  of this notice". `LICENSE.md` is therefore an unmodified 1.1 reproduction naming **Extrode LLC**
+  in §1.2 — it differs from the published text at that one line, verified by `diff`. That retires
+  the `NOTICE.md` workaround that had been reconciling a Foundation-named §1.2 with a third-party
+  licensor; the "two copyrights" table stays, because completing a field transfers nothing and the
+  text's own copyright is still Ikhbat Foundation's. `NOTICE.md` and `README.md` now cite the
+  version-pinned `/isl-netc/1.1/LICENSE.md` rather than the unversioned URL, which serves whichever
+  text is current and had already drifted from 1.0 to 1.1 under them. `CONTRIBUTING.md` rows (a)
+  and (d) restated: (d) survives, since the ISL-CLA asks who the Licensor is in its own right and
+  not only as a rescue for a hardcoded §1.2. ISL-CLA adoption is untouched — still 1.1 by
+  reference, still **DRAFT — not yet in force** pending their counsel review.
+
 ### Added
 - **The back button through the OAuth authorize flow is now walked by a test**, closing the
   question 012 left open when htmx 4 removed the `localStorage` page-history cache. The worry was
