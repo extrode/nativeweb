@@ -55,7 +55,7 @@ foreach ($a in $Rest) {
     }
 }
 
-$repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
+$repo = 'C:\home\code\extrode.com\nativeweb'
 $failed = $false
 
 # Context, reported and NOT refused on -- deliberately, and changed from the

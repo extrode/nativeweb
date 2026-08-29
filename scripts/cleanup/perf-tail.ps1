@@ -20,7 +20,7 @@ foreach ($a in $Rest) {
 
 $ErrorActionPreference = 'Stop'
 
-$nativeWeb = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
+$nativeWeb = 'C:\home\code\extrode.com\nativeweb'
 $manzil    = 'C:\home\code\extrode-legacy-org.com\manzil.my'
 $tmp       = "$env:LOCALAPPDATA\Temp\tmp"
 

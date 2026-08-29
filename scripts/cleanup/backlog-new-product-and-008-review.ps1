@@ -40,7 +40,7 @@ foreach ($a in $Rest) {
     }
 }
 
-$repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
+$repo = 'C:\home\code\extrode.com\nativeweb'
 
 # Safety gate. "Must be on dev" was the obvious rule and it is the wrong one HERE:
 # .worktrees/dev holds `dev`, git allows a branch in one worktree at a time, so

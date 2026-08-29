@@ -36,7 +36,7 @@ foreach ($a in $Rest) {
     }
 }
 
-$repo = 'C:\home\code\extrode-legacy-org.com\NativeWeb'
+$repo = 'C:\home\code\extrode.com\nativeweb'
 
 # Safety gate: the branches must already be merged, which means being on dev.
 $branch = git -C $repo branch --show-current
