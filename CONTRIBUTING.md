@@ -15,18 +15,19 @@ Version 1.0**, by reference. The text is at <https://islamiclicense.org/isl-cla/
 reproduced or edited here — the agreement is adopted whole or not at all, and deleting a clause
 would produce a modified ISL-CLA, which its reproduction notice forbids.
 
-Its *How a Project adopts this Agreement* section requires a project to state three things. They
+Its *How a Project adopts this Agreement* section requires a project to state four things. They
 are stated here:
 
 | required statement | NativeWeb |
 |---|---|
 | **(a)** which ISL variant the project is licensed under | **ISL-NETC 1.0** — see [`LICENSE.md`](./LICENSE.md). Not ISL-R, so **§2 (Limited Consent to Modify) does not apply**: ISL-NETC permits modification already, and §2 is inert here. |
 | **(b)** whether the project adopts optional **§6 (No AI-Generated Contributions)** | **Adopted.** §6 applies in full to every contribution to this project. |
-| **§9.2** governing law, left blank for the Licensor to complete | **Commonwealth of Virginia**, matching the jurisdiction Extrode LLC's other licenses use. |
+| **(c)** the jurisdiction whose law governs the agreement, completing the **§9.2** placeholder | **Commonwealth of Virginia**, matching the jurisdiction Extrode LLC's other licenses use. |
+| **(d)** who the Licensor is, where the project license names a specific entity | **Extrode LLC**, per the §1.2 note and as recorded in [`NOTICE.md`](./NOTICE.md) — not Ikhbat Foundation, whose name appears in the ISL-NETC text because that text was drafted as the Foundation's own. |
 
-The Licensor is **Extrode LLC**, per the §1.2 note and as recorded in
-[`NOTICE.md`](./NOTICE.md) — not Ikhbat Foundation, whose name appears in the license text
-because that text was drafted as the Foundation's own.
+Absent (b), §6 would not apply and the AI prohibition below would bind nobody. A project that
+omits (c) has left its governing law unsettled, which the agreement calls a defect in the adoption
+rather than a permission to proceed without one.
 
 ## No AI-generated contributions
 

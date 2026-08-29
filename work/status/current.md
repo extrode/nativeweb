@@ -24,10 +24,14 @@ worth seeing here rather than hiding, but it is the exception.
   as the signing sheet, and the packable libs packing the license and notice.
   **647 unit tests pass** (+6, `LicenseFilesTests`, each mutation-checked).
   - **What is still open: ISL-CLA 1.0 is a draft its own drafters say not to accept contributions
-    under.** islamiclicense.org is working on it (`feat/001-isl-cla`, browsable at
-    `http://127.0.0.1:8932/isl-cla/`). The adoption here is recorded in advance and flagged not in
-    force at the top of `CONTRIBUTING.md`. When it is marked final, delete that banner — nothing
-    else in the file changes.
+    under.** islamiclicense.org merged it to their `dev` on 2026-08-29; it publishes at
+    <https://islamiclicense.org/isl-cla/> once deployed, and 404s until then. The adoption here is
+    recorded in advance and flagged not in force at the top of `CONTRIBUTING.md`. When it is marked
+    final, delete that banner — nothing else in the file changes.
+  - **Amended 2026-08-29 by `docs/isl-cla-four-statements`:** the agreement's adoption section now
+    names **four** required statements, not three — (c) jurisdiction and (d) who the Licensor is
+    are both listed items rather than one item and a footnote. All four were already stated here;
+    the table now labels them (a)–(d) and `LicenseFilesTests` asserts (d) as well.
   - Jurisdiction and Licensor are not invented: **Commonwealth of Virginia** and **Extrode LLC**,
     matching `jauntyq/LICENSE.md` §6.4 and `LICENSE-EULA.md` §7.4.
   - ISL-NETC 1.0 itself is in force (effective July 2026), so the outbound side needed no wait.

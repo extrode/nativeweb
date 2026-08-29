@@ -16,7 +16,9 @@ wish list; the value is in recording the ones nobody has got to yet.
   checkout `repository:`, a feed host), by design, and package metadata resolves nothing. Noticed
   while adding license metadata 2026-08-29 and left alone as out of scope for that branch.
 - **The ISL-CLA draft banner in `CONTRIBUTING.md` comes out when the agreement is marked final.**
-  Watch `http://127.0.0.1:8932/isl-cla/` (islamiclicense.org, `feat/001-isl-cla`). Nothing else in
+  Watch <https://islamiclicense.org/isl-cla/> — merged to islamiclicense.org's `dev` 2026-08-29 but
+  **not deployed yet, so that URL 404s today**; the text meanwhile is
+  `C:\home\code\license-repo\licenses\ISL-CLA-1.0.md` on `dev`. Nothing else in
   the file changes; `LicenseFilesTests` already pins the parts that must survive.
 - ~~**22 cleanup scripts hardcode `C:\home\code\extrode-legacy-org.com\NativeWeb`**~~ — **done 2026-08-29**,
   `chore/backlog-sweep`. 20 rewritten to `C:\home\code\extrode.com\nativeweb`. Two left alone:
