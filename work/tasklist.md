@@ -33,7 +33,14 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: (none — specs 011 and 012 built, both with one requirement unmet)
+## Current work: (none — specs 011, 012 and 013 built, each with a requirement unmet)
+
+Spec 013 (continuous read-only audit) shipped 2026-08-29 and is **not** `done`: all fourteen
+tasks are ticked and 231 tests pass, but R2 (the schedule runs unattended and survives a reboot)
+and R15 (the audit host holds no production credential) are properties of audit-host after the user runs
+`scripts/audit/provision-audit-host.sh --execute` on it. Same shape of outstanding as spec 011's T15.
+Task breakdown at `docs/specs/013-continuous-audit/013-tasks.md`; the operator guide it produced
+is `docs/02-reference/continuous-audit.md`.
 
 Spec 012 (htmx 2.0.10 → 4.0.0 upgrade) shipped 2026-08-29 and is **not** `done`: all fourteen
 tasks are ticked, but R16 — re-run the §14 benchmark — has no runnable harness in this repo and is

@@ -13,6 +13,19 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Added
+- **Continuous read-only audit** (spec 013). A nightly unattended pass over one slice of the
+  repository, run on a separate host, producing findings a session triages by hand. Read-only
+  because of how it is arranged rather than because it is asked to be: the run works on a
+  throwaway clone of a mirror the workstation pushes, and the audit host holds no credential
+  that reaches `origin`. Six mechanical checks plus one bounded model reading pass; every
+  candidate is put to a second model prompted to refute it, and what survives is redacted before
+  it is written. Finding identity is hashed over the normalised excerpt rather than the line
+  number, so an edit above a defect does not resurrect it, and `rejected` is absorbing so a
+  dismissal costs one decision rather than one a day. `tools/audit/`, `scripts/audit/`, operator
+  guide in `docs/02-reference/continuous-audit.md`. The schedule is not running yet: it starts
+  when `scripts/audit/provision-audit-host.sh --execute` is run on the audit host.
+
 ### Changed
 - **htmx 2.0.10 → 4.0.0** (spec 012), vendored into `apps/web` and the skeleton. htmx 4 is a
   rewrite onto `fetch()`: lifecycle events are renamed to `htmx:phase:action` and carry their
