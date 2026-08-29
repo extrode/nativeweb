@@ -27,6 +27,14 @@ Merged into `dev`, not yet tagged.
   and (d) restated: (d) survives, since the ISL-CLA asks who the Licensor is in its own right and
   not only as a rescue for a hardcoded §1.2. ISL-CLA adoption is untouched — still 1.1 by
   reference, still **DRAFT — not yet in force** pending their counsel review.
+- **Verified both ISL 1.1 adoptions against the published texts**, which the re-sync above could
+  not do because it was taken from a local licence checkout. islamiclicense.org deployed on
+  2026-08-30; `/isl-netc/1.1/LICENSE.md` and `/isl-cla/1.1/CLA.md` are byte-identical to that
+  checkout, so the caveat is discharged. One correction fell out of it: `CONTRIBUTING.md` rows (c)
+  and (e) described the governing law and the forum as completing two ISL-CLA §9.2 placeholders,
+  which is 1.0's shape — 1.0 §9.2 carries a literal `[JURISDICTION]`, and 1.1 carries none, stating
+  that the Agreement "carries no blanks to fill" and deferring both to the adoption section.
+  Reworded; the stated values, **Commonwealth of Virginia** and its courts, are unchanged.
 
 ### Added
 - **The back button through the OAuth authorize flow is now walked by a test**, closing the
