@@ -43,8 +43,14 @@ affected endpoints return 503 instead.
 | Key | Default | Notes |
 |---|---|---|
 | `NativeWeb:CanonicalBaseUrl` | unset (**the request's own scheme and host**) | This deployment's public origin, emitted by `/robots.txt` and `/sitemap.xml`. Must be an absolute `http`/`https` origin with **no path, query or fragment** — one trailing slash is trimmed, several are rejected. A supplied-but-unusable value exits `78` at startup naming the key; blank is valid and selects the fallback |
+| `NativeWeb:SecurityContact` | unset (**no `security.txt` is served**) | Where a vulnerability report should go, emitted by `/.well-known/security.txt` and `/security.txt` (RFC 9116). A bare address gains a `mailto:`; a `mailto:`, `https:` or `tel:` URI passes through. One line only — a value containing a newline is refused, since the body is assembled by concatenation and a second line would be a field of its own. A supplied-but-unusable value exits `78` at startup naming the key |
 
-The fallback reads scheme and host after `UseForwardedHeaders`, so behind a correctly configured
+**Unset serves no `security.txt` at all, on purpose.** A `Sitemap:` line naming the wrong origin is
+discarded by the crawler; a `Contact:` line naming the wrong mailbox sends somebody's vulnerability
+report to a stranger, and the reporter cannot tell it went nowhere. Absence tells a researcher to
+look elsewhere. A placeholder tells them they are finished.
+
+The `CanonicalBaseUrl` fallback reads scheme and host after `UseForwardedHeaders`, so behind a correctly configured
 proxy it is already the public origin. It is still only as trustworthy as the `Host` header, and a
 `Sitemap:` line pointing at a different origin than the one a crawler fetched is **discarded
 silently** — no error, no log line, nothing observable from the serving side. Production sets the
