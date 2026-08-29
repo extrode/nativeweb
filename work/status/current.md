@@ -6,6 +6,13 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Stale `extrode-legacy-org` references** — `fix/stale-extrode-legacy-org-references`, 2026-08-29. Two survivors of the
+  2026-08-26 org rename, each with the test gap that let it survive: `<Authors>extrode-legacy-org</Authors>` in
+  **ten** packable csproj (now one central value in `Directory.Build.targets`, verified through
+  `dotnet pack`), and `skeleton/nuget.config`'s `framework-github` feed host (now `extrode`, and
+  `OrgReferenceTests` now scans that file too). **649 unit tests pass** (+2, both mutation-checked).
+  CI stays red regardless: the JauntyQ 403 in `todo.md` is a package grant only the user can add.
+
 - **Bench harness, third review pass** — `fix/012-bench-review`, 2026-08-29. Fable (`review-deep`)
   read the whole harness diff after the glm correctness and consequence lenses had already run and
   8 findings had been fixed. It found **5 more, 4 of them holes that let a check pass without

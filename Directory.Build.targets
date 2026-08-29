@@ -59,6 +59,17 @@
   <PropertyGroup Condition="'$(IsPackable)' == 'true'">
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <Copyright>Copyright (c) 2026 Extrode LLC. All rights reserved.</Copyright>
+    <!-- Central, like Copyright beside it, and for the reason the nine per-project
+         copies of this proved: they said `extrode-legacy-org` for three days after the
+         2026-08-26 rename, sitting one line above a Copyright that already said
+         Extrode LLC. Nine strings drift; one does not. This file is imported
+         after each csproj, so a stray per-project <Authors> is silently
+         overridden rather than merged; PackageMetadataTests bans one for that
+         reason, since a value that has no effect is worse than no value.
+
+         (XML forbids a double hyphen inside a comment, as skeleton/nuget.config
+         also notes. Write dashes as semicolons or commas here.) -->
+    <Authors>Extrode LLC</Authors>
     <PackageProjectUrl>https://github.com/extrode/nativeweb</PackageProjectUrl>
   </PropertyGroup>
 

@@ -17,7 +17,6 @@
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Scaffold.Generator</PackageId>
     <Version>0.1.0</Version>
-    <Authors>extrode-legacy-org</Authors>
     <Description>NativeWeb framework: build-time CRUD scaffolding source generator.</Description>
     <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeBuildOutput>false</IncludeBuildOutput>

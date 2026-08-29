@@ -21,7 +21,6 @@
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Scaffold</PackageId>
     <Version>0.1.0</Version>
-    <Authors>extrode-legacy-org</Authors>
     <Description>NativeWeb framework: scaffolding attributes and the store contract the generated CRUD endpoints call.</Description>
   </PropertyGroup>
   <ItemGroup>

@@ -13,6 +13,20 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Fixed
+- **Two stale references to the retired `extrode-legacy-org` org, and the two test gaps that hid them.**
+  `<Authors>extrode-legacy-org</Authors>` sat in **ten** packable `libs/nativeweb.*` csproj files, one line
+  from a `Copyright` that already read Extrode LLC — because that one was central in
+  `Directory.Build.targets` and Authors was not. Authors is now central too and the ten local lines
+  are gone; `dotnet pack libs/nativeweb.render` produces `<authors>Extrode LLC</authors>`.
+  `skeleton/nuget.config` still pointed its `framework-github` source at
+  `https://nuget.pkg.github.com/extrode-legacy-org`, which a stamped product would have restored against.
+  Neither was caught: `OrgReferenceTests` bans the old org only in things that *resolve*, and its
+  feed check scanned the root `nuget.config` and the workflows but not the skeleton one, so it was
+  green on the single file that had rotted. That candidate list now names both configs and asserts
+  each exists; new `PackageMetadataTests` requires one central `<Authors>` and forbids a
+  per-project one, which `Directory.Build.targets` would override silently.
+
 ### Added
 - **The repository has a license.** NativeWeb is licensed under the **Islamic Software License -
   Network Copyleft (ISL-NETC) 1.0** (SPDX `LicenseRef-ISL-NETC-1.0`), copyright Extrode LLC,
