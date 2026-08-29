@@ -43,43 +43,33 @@
     return false;
   }
 
-  /* Returns true when normalization added at least one hx-* attribute. */
   function normalize(el) {
-    var changed = false;
     for (var i = 0; i < NAMES.length; i++) {
       var value = el.getAttribute('data-nw-' + NAMES[i]);
       if (value !== null && !el.hasAttribute('hx-' + NAMES[i])) {
         el.setAttribute('hx-' + NAMES[i], value);
-        changed = true;
       }
     }
-    if (hasTransport(el)) { return changed; }
+    if (hasTransport(el)) { return; }
     if (el.tagName === 'FORM') {
       var action = el.getAttribute('action');
       if (action) {
         var method = (el.getAttribute('method') || 'get').toLowerCase();
         el.setAttribute(method === 'post' ? 'hx-post' : 'hx-get', action);
-        changed = true;
       }
     } else if (el.tagName === 'A') {
       var href = el.getAttribute('href');
       if (href !== null) {
         el.setAttribute('hx-get', href);
-        changed = true;
       }
     }
-    return changed;
   }
 
-  function sweep(root, modified) {
-    if (root.matches && root.matches(SELECTOR) && normalize(root) && modified) {
-      modified.push(root);
-    }
+  function sweep(root) {
+    if (root.matches && root.matches(SELECTOR)) { normalize(root); }
     if (root.querySelectorAll) {
       var found = root.querySelectorAll(SELECTOR);
-      for (var i = 0; i < found.length; i++) {
-        if (normalize(found[i]) && modified) { modified.push(found[i]); }
-      }
+      for (var i = 0; i < found.length; i++) { normalize(found[i]); }
     }
   }
 
@@ -87,27 +77,22 @@
   // FIFO ordering runs the initial sweep before htmx processes the document.
   // (Holds for the vendored htmx 4.0.0, whose ready gate is still
   // `readyState === "loading"` -> DOMContentLoaded — re-verify on any bump.)
-  document.addEventListener('DOMContentLoaded', function () { sweep(document, null); });
+  document.addEventListener('DOMContentLoaded', function () { sweep(document); });
 
   // Swapped-in fragments. htmx 4 dispatches htmx:before:process on the subtree
   // root with NO detail, so the root is read off event.target.
   //
-  // The re-submission below is inherited from the htmx 2 layer, where htmx built
-  // its list of elements to initialize BEFORE firing the equivalent event, so an
-  // element selectable only through the hx-* attributes this sweep just added was
-  // not in that snapshot. htmx 4 queries AFTER dispatching, which may make this
-  // redundant — it is kept until a test proves it so (spec 012 T4). While it
-  // stays it is harmless: htmx.process() on an unchanged element is a no-op, and
-  // on one boot modified it is a clean de-init/re-init with listeners removed
-  // before re-adding, so no double handlers or duplicate requests.
+  // Under htmx 2 this listener also had to re-submit whatever it modified via a
+  // queued htmx.process(): htmx built its list of elements to initialize BEFORE
+  // firing the equivalent event, so a swapped-in *descendant* whose only hooks
+  // were data-nw-* attributes was invisible to that pass (the B3-review HIGH
+  // finding). htmx 4 dispatches this event and only then queries the subtree, so
+  // attributes added here are picked up by the very pass that follows and the
+  // re-submission is dead weight. Removed on measurement, not on reading:
+  // Normalization_SwappedInDescendantAnchor_GetsHtmxWired passes without it, and
+  // still fails when this sweep is removed, so it does exercise the path.
   document.addEventListener('htmx:before:process', function (event) {
-    var modified = [];
-    sweep(event.target, modified);
-    if (modified.length > 0 && window.htmx) {
-      queueMicrotask(function () {
-        for (var i = 0; i < modified.length; i++) { window.htmx.process(modified[i]); }
-      });
-    }
+    sweep(event.target);
   });
 
   /* Busy states (spec 005 R3): while a request is in flight, the control that

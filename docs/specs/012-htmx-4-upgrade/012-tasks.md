@@ -4,20 +4,20 @@ Plan: ./012-plan.md
 **T1 and T2 land in one commit.** The plan's risk register requires `noSwap` to be set in the
 same change as the library swap: between them, every guard rejection body swaps into the page.
 
-- [ ] **T1 Vendor htmx 4.0.0** — files: `apps/web/wwwroot/vendor/htmx/{htmx.min.js,LICENSE}`,
+- [x] **T1 Vendor htmx 4.0.0** — files: `apps/web/wwwroot/vendor/htmx/{htmx.min.js,LICENSE}`,
   `skeleton/apps/__product__/wwwroot/vendor/htmx/{htmx.min.js,LICENSE}` — covers: R1, R10, R11 —
   done when: both `htmx.min.js` report `version = '4.0.0'`, the two copies are byte-identical
   (md5 match), the 2.0.10 build is retained beside them under a version-bearing name in both
   trees, and `LICENSE` matches the 4.0.0 distribution.
 
-- [ ] **T2 Layout config and glue** — files: `apps/web/Render/Layout.cs`,
+- [x] **T2 Layout config and glue** — files: `apps/web/Render/Layout.cs`,
   `skeleton/apps/__product__/templates/layout/page.html` — covers: R5, R6, R7, R9 — done when:
   the listener is `htmx:config:request` writing to `event.detail.ctx.request.headers`; the
   `htmx-config` meta uses `includeIndicatorCSS: false` and sets
   `noSwap: [204, 304, "4xx", "5xx"]`; no `implicitInheritance` key is present; and a served page
   shows the indicator stylesheet still not injected.
 
-- [ ] **T3 Translate the enhancement layer** — files: `libs/nativeweb.assets/boot.js` (mirrored to
+- [x] **T3 Translate the enhancement layer** — files: `libs/nativeweb.assets/boot.js` (mirrored to
   `apps/web/wwwroot/vendor/nativeweb/boot.js` and
   `skeleton/apps/__product__/wwwroot/vendor/nativeweb/boot.js`) — covers: R2, R3, R4 — done when:
   all six listeners use the 4.0 names; every payload read goes through `detail.ctx`
@@ -25,20 +25,20 @@ same change as the library swap: between them, every guard rejection body swaps 
   from `ctx` rather than `event.target`; the three copies are byte-identical; and the file's
   comments describe 4.0 behaviour, not 2.0.10's.
 
-- [ ] **T4 Re-verify the two inherited 2.0.10 assumptions** — files:
+- [x] **T4 Re-verify the two inherited 2.0.10 assumptions** — files:
   `libs/nativeweb.assets/boot.js` (+ mirrors), `tests/nativeweb.web.tests.e2e/` — covers: R2 —
   done when: (a) boot's `DOMContentLoaded` listener is proven to still run before htmx's initial
   scan under 4.0, and (b) the microtask re-`process()` is either kept with a test that fails
   without it, or removed with a test that passes without it. Reading the source is not sufficient
   for either; both need a browser assertion.
 
-- [ ] **T5 Inheritance audit** — files: `apps/web/Render/*.cs` (read), any page found to rely on a
+- [x] **T5 Inheritance audit** — files: `apps/web/Render/*.cs` (read), any page found to rely on a
   parent — covers: R6 — done when: every rendered page has been checked for an attribute whose
   effect depends on a descendant inheriting it; each one found carries `:inherited`; the expected
   result of zero changes is recorded as a finding, not assumed; `OAuthAuthorizePage`'s shared
   `#oauth-consent` target is named explicitly in that record.
 
-- [ ] **T6 Timeout audit** — files: `apps/web/Auth/*.cs` (read), `apps/web/Render/Layout.cs` if an
+- [x] **T6 Timeout audit** — files: `apps/web/Auth/*.cs` (read), `apps/web/Render/Layout.cs` if an
   allowance is needed — covers: R9 — done when: every browser-reachable endpoint is confirmed to
   complete inside 60,000 ms, or the ones that cannot are listed and given an explicit allowance.
 
@@ -47,7 +47,7 @@ same change as the library swap: between them, every guard rejection body swaps 
   `data-nw-swap="innerMorph"`; every auth and consent page named in the plan's exclusion list is
   confirmed unchanged; and no global morph config is set.
 
-- [ ] **T8 E2E assertions for the new behaviours** — files:
+- [x] **T8 E2E assertions for the new behaviours** — files:
   `tests/nativeweb.web.tests.e2e/ProgressiveEnhancementTests.cs` — covers: R7, R8, R14 — done
   when: a guard rejection (415 or 400) is asserted not to swap into the page; a failed submit on a
   credential form is asserted to leave the credential field empty; a morphed target is asserted to
