@@ -13,6 +13,15 @@ decision with a stated default.
 > nobody has provisioned a host from this document or restored a backup taken by
 > `backup.sh`. Until they have, R1, R16 and R17 are unmet and this runbook is a
 > plan rather than a procedure.
+>
+> **2026-08-30: an audit sweep read the scripts and found eight defects, four of
+> which would have stopped this walkthrough dead on a clean Debian** — Caddy never
+> reading the environment file it is told to fill in, a log directory the Caddy
+> user cannot write, the firewall skipped on every first provision, and `sudo`
+> refusing the variables `deploy.sh` passes on its command line. All eight are
+> fixed and each has a test. That is a reason to have more confidence in the
+> document, and none at all to think it has been run: static reading cannot find
+> the ninth.
 
 ## Shape of it
 
@@ -59,15 +68,23 @@ sudo scripts/deploy/provision.sh
 ```
 
 Idempotent — safe to re-run after editing a unit file. Two things it deliberately
-will **not** do on a re-run: overwrite an `/etc/nftables.conf` it did not write
-(the ruleset opens with `flush ruleset`, which would drop every other table on
-the host — it prints what to merge by hand instead), and restart PostgreSQL when
+will **not** do on a re-run: overwrite an `/etc/nftables.conf` **an operator has
+edited** (the ruleset opens with `flush ruleset`, which would drop every other
+table on the host — it prints what to merge by hand instead), and restart PostgreSQL when
 `listen_addresses` is already local by any spelling. It installs packages,
 creates the `nativeweb` system account with no interactive shell, lays out the
 directories, confines PostgreSQL to localhost, installs the units, the nftables
 ruleset and the Caddy config, bounds journal retention, and enables the backup
 timer. It writes **no secrets**; a script that generates production keys is a
 script that has seen them.
+
+> The nftables guard used to read *absent, or carrying our marker*, which never
+> fired: this same script installs Debian's `nftables` package, and that package
+> ships `/etc/nftables.conf` as a conffile. Every **first** provision took the
+> "not ours, refusing" branch and left the host with no firewall — R5 unmet, on a
+> clean install, with a line of output that read like a considered decision. It
+> now also accepts a conffile `dpkg --verify` reports as unmodified. Found in the
+> 2026-08-30 audit sweep, one of eight defects in scripts nobody had run yet.
 
 Then, in order:
 
@@ -241,6 +258,15 @@ sudo /opt/nativeweb/scripts/restore.sh --target nativeweb_drill              # d
 sudo /opt/nativeweb/scripts/restore.sh --target nativeweb_drill --execute
 ```
 
+> Until 2026-08-30 this drill could not have worked. `provision.sh` scoped its
+> `pg_hba` peer-map line to the database `nativeweb`, so `createdb` (which
+> connects to the `postgres` maintenance database) and the restore itself (which
+> connects to `nativeweb_drill`) both fell through to Debian's default
+> `local all all peer`, where OS root maps to no role. The `createdb` failure was
+> swallowed by `2>/dev/null || true` and `pg_restore` died on authentication. The
+> production overwrite would have worked and the drill would not — the wrong way
+> round for a guard whose whole argument is "practise on the scratch copy".
+
 `pg_restore` exiting 0 means the rows loaded, not that the application works
 against them. The drill is not finished until you have pointed a NativeWeb
 instance at the restored database and **signed in as an account that existed when
@@ -260,7 +286,12 @@ whole way back, from nothing but this repository and the backup bucket:
 1. Provision a new host: **Provisioning a host**, above.
 2. Restore the `age` private key from wherever the off-host copy lives. Without
    it, stop — the bucket is noise.
-3. `restore.sh --target nativeweb --overwrite-production --execute`.
+3. `restore.sh --target nativeweb --from-host <old-host> --overwrite-production --execute`.
+   **`--from-host` is not optional here if the new machine has a different name.**
+   `backup.sh` writes under the *writing* host's short name, and `restore.sh`
+   derives the same prefix from the host it is running on — so a rebuilt machine
+   reports "no backups found" against a bucket that is full of them. Omit the flag
+   only when the replacement carries the old hostname.
 4. Build and deploy the last known-good release: **Releasing**, above.
 5. Point DNS at the new host and wait for Caddy to obtain a certificate.
 
