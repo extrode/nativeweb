@@ -2,6 +2,21 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Backlog leftovers** — `fix/014-leftovers`, 2026-08-31. Five `work/todo.md` items closed, none
+  of them needing a host or a decision: the `NWF010` false positive, the two fixture-arithmetic
+  assertions in `DeclarativeFormTests`, the `DenoToolingPolicyTests` race, `deploy.sh --port`, and
+  the back-reference in `DeployScriptTests`. **706 web-unit / 339 web-integration / 85 forms /
+  157 render / 64 scaffold-unit / 38 scaffold-integration / 36 sample, 0 failed**; solution build
+  0 warnings; structure-audit 0 errors. Seven mutations, each killing its own fact.
+  - **Two measurements worth keeping.** IOperation hands an analyzer the UNREDUCED symbol for both
+    extension-call spellings, so `ReducedFrom` is null and the `this` is `Parameters[0]`; a first
+    cut read `ReducedFrom` and the branch never ran, which only a mutation showed. And the
+    `--help` output of every deploy script is a `sed` line range over its own header, so adding
+    three comment lines truncated it — caught by `AssertHelpRangeIsIntact`, which exists for that.
+  - **One item was opened rather than closed.** The runtime packages not referencing their
+    generators is all three families, not just Forms, and fixing it means choosing a publishing
+    model. Left on `todo.md` as a decision.
+
 - **Spec 014 — declarative form binding** — `feat/014-declarative-form-binding`, 2026-08-30,
   **all ten tasks ticked and `014-spec.md` is `done`**. Brainstorm 001 T1.2 closed. A `[Form]`
   record gets a generated binder; `MapFormPost<TForm>` attaches the 415, the antiforgery metadata
