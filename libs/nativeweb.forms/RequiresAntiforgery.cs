@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 
 namespace NativeWeb.Forms;
 
@@ -45,17 +46,19 @@ public static class FormRouteBuilderExtensions
     /// <see cref="FormAttribute"/> model.
     /// </summary>
     /// <remarks>
-    /// Omitting this call is a build error, not a runtime surprise:
-    /// <c>NWF010</c> (MissingAntiforgeryAnalyzer) reports any <c>Map*</c> whose
-    /// parameter type is a form model and whose chain does not reach here. The
-    /// analyzer is the reason this method is safe to make ordinary application code
-    /// rather than something the framework applies invisibly — a guard you can see
-    /// in the route table is easier to review than one you cannot, provided
-    /// forgetting it cannot compile.
+    /// <c>MapFormPost</c> and its siblings call this themselves, so an application
+    /// using them never writes it. It stays public for a route that binds a form
+    /// some other way — and for reading: a guard visible in the route table is
+    /// easier to review than one the framework applies invisibly.
     /// </remarks>
+    /// <typeparam name="TBuilder">Any endpoint builder. Generic because the
+    /// <c>RequestDelegate</c> overloads return an
+    /// <see cref="IEndpointConventionBuilder"/> rather than a
+    /// <see cref="RouteHandlerBuilder"/>, and those are the AOT-clean ones.</typeparam>
     /// <param name="builder">The route being built.</param>
     /// <returns>The same builder, for chaining.</returns>
-    public static RouteHandlerBuilder RequireFormAntiforgery(this RouteHandlerBuilder builder)
+    public static TBuilder RequireFormAntiforgery<TBuilder>(this TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder
     {
         ArgumentNullException.ThrowIfNull(builder);
 

@@ -1,3 +1,8 @@
+using System.Globalization;
+
+using Microsoft.AspNetCore.Antiforgery;
+
+using NativeWeb.Forms;
 using NativeWeb.Sample.Render;
 
 namespace NativeWeb.Sample;
@@ -26,16 +31,82 @@ internal static class PublicArticleEndpoints
     // lever, and a demo feed has no reason to offer one.
     private const int PageSize = 20;
 
+    // The most the filter form will show, whatever it asks for. Same reasoning as
+    // PageSize: the number comes from the request now, so it needs a ceiling.
+    private const int MaxPageSize = 100;
+
     public static IEndpointRouteBuilder MapPublicArticles(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/articles", async (
+            IAntiforgery antiforgery,
+            HttpContext http,
             IPublishedArticles articles,
             CancellationToken ct) =>
         {
             IReadOnlyList<PublishedArticle> recent = await articles.RecentAsync(PageSize, ct).ConfigureAwait(false);
-            return Results.Content(ArticlesPage.Render(recent), "text/html");
+            AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
+            return Results.Content(ArticlesPage.Render(recent, null, tokens.RequestToken), "text/html");
+        });
+
+        // The declarative-binding demo (spec 014). Three things are worth reading
+        // here, because all three are the point:
+        //
+        //  - The handler takes ArticleFilter, already bound. No ReadFormAsync, no
+        //    HasFormContentType check, no per-field indexer. The binder is emitted
+        //    onto the record from its [Form] attribute.
+        //  - MapFormPost, not MapPost, and that is not a style choice. Measured
+        //    2026-08-30: the Request Delegate Generator cannot see the generated
+        //    binder, so a plain MapPost binds the model as a JSON body and answers a
+        //    form POST with 415 from routing. Writing it that way is now NWF010, a
+        //    build error.
+        //  - Nothing here attaches the antiforgery metadata, because MapFormPost
+        //    does. §12 measured a route in this shape answering 200 OK to a POST
+        //    with no token, silently; the guard is now structural.
+        endpoints.MapFormPost<ArticleFilter>("/articles", async (filter, http) =>
+        {
+            IPublishedArticles articles = http.RequestServices.GetRequiredService<IPublishedArticles>();
+            IAntiforgery antiforgery = http.RequestServices.GetRequiredService<IAntiforgery>();
+
+            int take = ParseTake(filter.Take);
+            IReadOnlyList<PublishedArticle> recent = await articles
+                .RecentAsync(take, http.RequestAborted).ConfigureAwait(false);
+            IReadOnlyList<PublishedArticle> matching = Matching(recent, filter.Query);
+
+            AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
+            return Results.Content(
+                ArticlesPage.Render(matching, filter.Query, tokens.RequestToken),
+                "text/html");
         });
 
         return endpoints;
+    }
+
+    // A blank box means "everything", which is why an empty query is not a filter
+    // that matches nothing.
+    internal static IReadOnlyList<PublishedArticle> Matching(
+        IReadOnlyList<PublishedArticle> articles,
+        string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return articles;
+        }
+
+        return articles
+            .Where(a => a.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    // The conversion the form model deliberately does not do. Anything unparseable
+    // is the default rather than an error: a page size is not worth a 400, and the
+    // ceiling is what stops it being a denial-of-service lever.
+    internal static int ParseTake(string? raw)
+    {
+        if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out int take) || take <= 0)
+        {
+            return PageSize;
+        }
+
+        return Math.Min(take, MaxPageSize);
     }
 }

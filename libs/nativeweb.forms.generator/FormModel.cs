@@ -206,10 +206,10 @@ internal static class FormDiagnostics
 
     internal static readonly DiagnosticDescriptor MissingAntiforgery = new(
         id: "NWF010",
-        title: "Form route carries no antiforgery metadata",
-        messageFormat: "The route '{0}' binds the form model '{1}' but carries no antiforgery metadata, so a POST with no token would be accepted. Add .RequireFormAntiforgery().",
+        title: "Form model bound by a plain route",
+        messageFormat: "The route '{0}' takes the form model '{1}' as a handler parameter. Bind it with MapFormPost (or MapFormPut/Patch/Delete) instead: a plain {2} binds the model as a JSON body and carries no antiforgery metadata.",
         category: "NativeWeb.Forms",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "Measured, brainstorm 001 §12: a route bound through IBindableFromHttpContext carries no antiforgery metadata of its own, so UseAntiforgery() skips the endpoint entirely and a form POST with no token at all is answered 200 OK. Nothing logs and nothing warns, which is why this is an error rather than a warning.");
+        description: "Two measured failures, both silent. (1) The Request Delegate Generator runs in the same pass as this one and cannot see the generated binder, so it emits hasBindAsync:false and treats the model as a JSON body -- a form POST is then answered 415 by routing itself, before any handler runs (2026-08-30). (2) A route whose model binds itself carries no antiforgery metadata, so UseAntiforgery() skips the endpoint and a POST with no token at all is answered 200 OK (brainstorm 001 §12). MapFormPost closes both by construction.");
 }

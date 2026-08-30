@@ -66,15 +66,22 @@ public sealed class FormGeneratorTests
         Assert.Empty(diagnostics);
     }
 
+    /// <summary>
+    /// <c>IFormModel</c>, and NOT the platform's <c>IBindableFromHttpContext</c>.
+    /// Measured 2026-08-30: the Request Delegate Generator runs in the same pass and
+    /// cannot see this partial, so it recorded <c>hasBindAsync: false</c> and bound
+    /// the model as a JSON body — a form POST was then answered 415 by routing.
+    /// </summary>
     [Fact]
     public void The_emitted_partial_implements_the_binding_interface()
     {
         (_, string emitted) = Run(Attributes, RegisterModel);
 
         Assert.Contains(
-            "partial record RegisterForm : global::Microsoft.AspNetCore.Http.IBindableFromHttpContext<RegisterForm>",
+            "partial record RegisterForm : global::NativeWeb.Forms.IFormModel<RegisterForm>",
             emitted,
             StringComparison.Ordinal);
+        Assert.DoesNotContain("IBindableFromHttpContext", emitted, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -134,12 +141,20 @@ public sealed class FormGeneratorTests
     [Fact]
     public void Nothing_emitted_registers_a_route()
     {
-        (_, string emitted) = Run(Attributes, RegisterModel);
+        // Comments stripped first: the emitted doc names MapFormPost as the caller,
+        // and a substring match would read that as a route registration.
+        string code = WithoutComments(Run(Attributes, RegisterModel).Source);
 
-        Assert.DoesNotContain("MapPost", emitted, StringComparison.Ordinal);
-        Assert.DoesNotContain("MapGroup", emitted, StringComparison.Ordinal);
-        Assert.DoesNotContain("IEndpointRouteBuilder", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapPost", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapFormPost", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapGroup", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("IEndpointRouteBuilder", code, StringComparison.Ordinal);
     }
+
+    private static string WithoutComments(string emitted) =>
+        string.Join(
+            "\n",
+            emitted.Split('\n').Where(line => !line.TrimStart().StartsWith("//", StringComparison.Ordinal)));
 
     [Fact]
     public void A_model_in_the_global_namespace_still_emits()

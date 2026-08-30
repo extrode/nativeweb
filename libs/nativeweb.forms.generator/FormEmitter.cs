@@ -2,16 +2,21 @@ using System.Text;
 
 namespace NativeWeb.Forms.Generator;
 
-// Emits variant 5b from brainstorm 001 §12: a static BindAsync implementing
-// IBindableFromHttpContext<TSelf>, with the content-type check as its first
-// statement.
+// Emits variant 5b from brainstorm 001 §12 -- a static binder carrying its own
+// content-type check as its first statement -- onto NativeWeb.Forms.IFormModel<TSelf>.
 //
-// What is NOT emitted here is a Map* call, and that is the point. §14 measured
-// that the Request Delegate Generator does not run over another generator's
-// output, so an emitted route registration binds the reflection overload and
-// fails an AOT publish with IL2026/IL3050. The route stays hand-written in the
-// application's own tree, where RDG sees it and resolves this BindAsync as a
-// compile-time static call.
+// Two things are NOT emitted here, for the same underlying reason. §14 measured
+// that Roslyn does not feed one generator's output into another's input:
+//
+//  - No Map* call. An emitted route registration is invisible to the Request
+//    Delegate Generator, binds the reflection overload, and fails an AOT publish
+//    with IL2026/IL3050.
+//  - No IBindableFromHttpContext<TSelf>. Measured 2026-08-30 and it invalidated
+//    the first design: RDG cannot see this partial either, so it emits
+//    `hasBindAsync: false` and binds the model as a JSON body, which answered a
+//    form POST with 415 from routing before any of our code ran. The route uses
+//    MapFormPost instead, whose delegate takes only HttpContext and so leaves RDG
+//    nothing to infer.
 internal static class FormEmitter
 {
     public static string Emit(FormModel model)
@@ -30,12 +35,11 @@ internal static class FormEmitter
         }
 
         sb.AppendLine("partial " + model.TypeKeyword + " " + model.TypeName
-            + " : global::Microsoft.AspNetCore.Http.IBindableFromHttpContext<" + model.TypeName + ">");
+            + " : global::NativeWeb.Forms.IFormModel<" + model.TypeName + ">");
         sb.AppendLine("{");
-        sb.AppendLine("    /// <summary>Binds this form from the request. Called by the framework, not by hand.</summary>");
-        sb.AppendLine("    public static async global::System.Threading.Tasks.ValueTask<" + model.TypeName + "?> BindAsync(");
-        sb.AppendLine("        global::Microsoft.AspNetCore.Http.HttpContext context,");
-        sb.AppendLine("        global::System.Reflection.ParameterInfo parameter)");
+        sb.AppendLine("    /// <summary>Binds this form from the request. Called by MapFormPost, not by hand.</summary>");
+        sb.AppendLine("    public static async global::System.Threading.Tasks.ValueTask<" + model.TypeName + "> BindFormAsync(");
+        sb.AppendLine("        global::Microsoft.AspNetCore.Http.HttpContext context)");
         sb.AppendLine("    {");
         sb.AppendLine("        // FIRST, and it has to be: argument binding runs upstream of the whole");
         sb.AppendLine("        // endpoint-filter pipeline, so a filter cannot protect this read.");

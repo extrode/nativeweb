@@ -8,10 +8,11 @@ using Xunit;
 namespace NativeWeb.Forms.Tests.Unit;
 
 /// <summary>
-/// The guard whose absence is silent. Brainstorm 001 §12 finding 3: a route bound through
-/// <c>IBindableFromHttpContext</c> carries no antiforgery metadata of its own, so
-/// <c>UseAntiforgery()</c> skips the endpoint and a form POST with no token at all is
-/// answered 200 OK. These facts pin the metadata onto the route so that cannot recur.
+/// The guard whose absence is silent. Brainstorm 001 §12 finding 3: a route whose model
+/// binds itself carries no antiforgery metadata of its own, so <c>UseAntiforgery()</c>
+/// skips the endpoint and a form POST with no token at all is answered 200 OK. These facts
+/// pin the metadata onto the route so that cannot recur; <c>MapFormPost</c> makes the call
+/// itself, and <see cref="MapFormTests"/> holds that.
 /// </summary>
 public sealed class RequiresAntiforgeryTests
 {
@@ -73,7 +74,7 @@ public sealed class RequiresAntiforgeryTests
     public void A_null_builder_is_a_programming_error()
     {
         Assert.Throws<ArgumentNullException>(
-            () => FormRouteBuilderExtensions.RequireFormAntiforgery(null!));
+            () => FormRouteBuilderExtensions.RequireFormAntiforgery<RouteHandlerBuilder>(null!));
     }
 
     private static Endpoint BuildEndpoint(Action<RouteHandlerBuilder> configure)

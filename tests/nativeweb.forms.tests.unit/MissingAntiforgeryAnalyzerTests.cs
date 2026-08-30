@@ -11,14 +11,26 @@ using Xunit;
 namespace NativeWeb.Forms.Tests.Unit;
 
 /// <summary>
-/// The analyzer that closes §12's foot-gun (spec 014 R7).
+/// The analyzer that closes both silent failures (spec 014 R7).
 /// </summary>
 /// <remarks>
-/// Without it the feature is net-negative: a route bound through
-/// <c>IBindableFromHttpContext</c> compiles clean, binds every field, and answers
-/// <b>200 OK to a form POST with no antiforgery token</b>. Every fact here is either
-/// "the hole is a build error" or "a route that is fine is left alone" — the second
-/// half matters as much, because an analyzer that cries wolf gets suppressed.
+/// <para>
+/// Without it the feature is net-negative. A <c>[Form]</c> model handed to a plain
+/// <c>Map*</c> fails twice over, and neither failure says anything. The Request
+/// Delegate Generator cannot see the binder this generator emits, so it records
+/// <c>hasBindAsync: false</c> and binds the model as a <b>JSON body</b> — measured
+/// 2026-08-30, a form POST answered <b>415 by routing</b> before any of our code ran.
+/// And the endpoint carries no antiforgery metadata of its own, so
+/// <c>UseAntiforgery()</c> skips it and a POST with no token at all is answered
+/// <b>200 OK</b> (brainstorm 001 §12).
+/// </para>
+/// <para>
+/// So the rule these facts encode is narrow and total: <c>MapFormPost</c> (or its
+/// verb siblings) is the only shape that works, and a <c>[Form]</c> model on any
+/// plain <c>Map*</c> is an error whatever else is chained onto it. Every fact is
+/// either "the hole is a build error" or "a route that is fine is left alone" — the
+/// second half matters as much, because an analyzer that cries wolf gets suppressed.
+/// </para>
 /// </remarks>
 public sealed class MissingAntiforgeryAnalyzerTests
 {
@@ -51,6 +63,14 @@ public sealed class MissingAntiforgeryAnalyzerTests
                 public static Microsoft.AspNetCore.Builder.RouteHandlerBuilder RequireFormAntiforgery(
                     this Microsoft.AspNetCore.Builder.RouteHandlerBuilder b) => b;
             }
+
+            public static class FormEndpointRouteBuilderExtensions
+            {
+                public static Microsoft.AspNetCore.Builder.RouteHandlerBuilder MapFormPost<TForm>(
+                    this Microsoft.AspNetCore.Builder.IEndpointRouteBuilder e,
+                    string pattern,
+                    System.Func<TForm, object, object> handler) => new();
+            }
         }
 
         namespace Demo
@@ -63,7 +83,7 @@ public sealed class MissingAntiforgeryAnalyzerTests
         """;
 
     [Fact]
-    public async Task A_form_route_without_the_metadata_is_a_build_error()
+    public async Task A_form_route_mapped_the_plain_way_is_a_build_error()
     {
         Diagnostic diagnostic = Assert.Single(await AnalyzeAsync("""
             app.MapPost("/auth/register", (Demo.RegisterForm form) => 0);
@@ -75,10 +95,11 @@ public sealed class MissingAntiforgeryAnalyzerTests
 
     /// <summary>
     /// The message has to name the route, or the author has to guess which of a
-    /// dozen registrations in the file it means.
+    /// dozen registrations in the file it means — and it has to name the fix, which
+    /// is not deducible from the defect.
     /// </summary>
     [Fact]
-    public async Task The_message_names_the_route_and_the_model()
+    public async Task The_message_names_the_route_the_model_and_the_fix()
     {
         Diagnostic diagnostic = Assert.Single(await AnalyzeAsync("""
             app.MapPost("/auth/register", (Demo.RegisterForm form) => 0);
@@ -87,40 +108,52 @@ public sealed class MissingAntiforgeryAnalyzerTests
         string message = diagnostic.GetMessage();
         Assert.Contains("/auth/register", message, StringComparison.Ordinal);
         Assert.Contains("Demo.RegisterForm", message, StringComparison.Ordinal);
+        Assert.Contains("MapFormPost", message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The fix, and the only one: <c>MapFormPost</c> binds through the generated
+    /// <c>IFormModel</c> implementation and attaches the antiforgery metadata itself.
+    /// </summary>
     [Fact]
-    public async Task A_form_route_that_requires_it_reports_nothing()
+    public async Task A_route_mapped_with_MapFormPost_reports_nothing()
     {
         Assert.Empty(await AnalyzeAsync("""
+            app.MapFormPost<Demo.RegisterForm>("/auth/register", (form, http) => 0);
+            """));
+    }
+
+    /// <summary>
+    /// <b>Attaching the metadata by hand does not make a plain route acceptable, and
+    /// this is the fact that changed on 2026-08-30.</b> The missing metadata was never
+    /// the whole defect: with it attached the model is still bound as a JSON body, so
+    /// a form POST is answered 415 by routing before the token is ever looked at.
+    /// </summary>
+    [Fact]
+    public async Task Attaching_the_metadata_by_hand_does_not_excuse_a_plain_route()
+    {
+        Assert.Single(await AnalyzeAsync("""
             app.MapPost("/auth/register", (Demo.RegisterForm form) => 0).RequireFormAntiforgery();
             """));
     }
 
     /// <summary>
-    /// The call does not have to be last in the chain, and normally is not.
+    /// Nor does burying it further down a chain, nor splitting it over two statements.
+    /// Both were escape hatches under the old rule; neither fixes the binding.
     /// </summary>
     [Fact]
-    public async Task The_metadata_call_may_sit_anywhere_in_the_chain()
+    public async Task Neither_a_longer_chain_nor_a_local_hides_the_route()
     {
-        Assert.Empty(await AnalyzeAsync("""
-            app.MapPost("/auth/register", (Demo.RegisterForm form) => 0)
+        Assert.Single(await AnalyzeAsync("""
+            app.MapPost("/chained", (Demo.RegisterForm form) => 0)
                .RequireFormAntiforgery()
                .RequireAuthorization()
                .WithName("register");
             """));
-    }
 
-    /// <summary>
-    /// Written over two statements, this is the same endpoint. Reporting it would be
-    /// a wrong build error, which is the failure mode that gets an analyzer disabled.
-    /// </summary>
-    [Fact]
-    public async Task A_route_held_in_a_local_and_configured_after_reports_nothing()
-    {
-        Assert.Empty(await AnalyzeAsync("""
+        Assert.Single(await AnalyzeAsync("""
             Microsoft.AspNetCore.Builder.RouteHandlerBuilder route =
-                app.MapPost("/auth/register", (Demo.RegisterForm form) => 0);
+                app.MapPost("/local", (Demo.RegisterForm form) => 0);
             route.RequireFormAntiforgery();
             """));
     }
@@ -134,19 +167,20 @@ public sealed class MissingAntiforgeryAnalyzerTests
     }
 
     /// <summary>
-    /// A form model on a GET is a different mistake. Reporting it as missing
-    /// antiforgery would name the wrong problem.
+    /// A GET too. The antiforgery half of the defect does not apply to a GET, but the
+    /// bound-as-a-JSON-body half does, so the route is broken either way and the
+    /// message names the same fix.
     /// </summary>
     [Fact]
-    public async Task A_get_route_is_not_reported()
+    public async Task A_get_route_is_reported_too()
     {
-        Assert.Empty(await AnalyzeAsync("""
+        Assert.Single(await AnalyzeAsync("""
             app.MapGet("/auth/register", (Demo.RegisterForm form) => 0);
             """));
     }
 
     [Fact]
-    public async Task Every_unsafe_verb_is_covered()
+    public async Task Every_verb_is_covered()
     {
         Assert.Equal(2, (await AnalyzeAsync("""
             app.MapPost("/a", (Demo.RegisterForm form) => 0);
@@ -177,14 +211,14 @@ public sealed class MissingAntiforgeryAnalyzerTests
     }
 
     /// <summary>
-    /// One good route must not cover for a bad one, which is why the analyzer reports
-    /// at the <c>Map*</c> call rather than at the model.
+    /// One correct route must not cover for a broken one, which is why the analyzer
+    /// reports at the <c>Map*</c> call rather than at the model.
     /// </summary>
     [Fact]
-    public async Task One_guarded_route_does_not_excuse_an_unguarded_one()
+    public async Task One_correct_route_does_not_excuse_a_broken_one()
     {
         Diagnostic diagnostic = Assert.Single(await AnalyzeAsync("""
-            app.MapPost("/good", (Demo.RegisterForm form) => 0).RequireFormAntiforgery();
+            app.MapFormPost<Demo.RegisterForm>("/good", (form, http) => 0);
             app.MapPost("/bad", (Demo.RegisterForm form) => 0);
             """));
 
