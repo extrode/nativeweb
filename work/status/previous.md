@@ -26,6 +26,20 @@ The task completed most recently, kept for one rotation so the next one has cont
   - **Two of the four WebAuthn assertions were wrong on the first run and the code was right.**
     System.Text.Json escapes as `<`, not as a literal `<`, and inert text like `onerror`
     survives verbatim inside the JSON string. A test failing is not evidence the code is.
+  - **The two-lens review then found seven more, and the second lens earned its cost.** Four
+    were holes in the fixes themselves rather than in the code they fixed -- the body-less 415
+    coming back as an HTML page, the unvalidated form-action contribution, the unguarded
+    `new Uri`, and a mask lifetime borrowed from an unrelated rate-limit window. The consequence
+    lens alone found the three the correctness lens could not see from the diff: the IPv6
+    literal that CSP's grammar has no production for, the application rows written before
+    `ValidateHttpUrl` that nothing backfills, and the skeleton carrying all three drifts into
+    every product stamped from it. **787 web-unit / 347 web-integration after the fixes.**
+  - **One finding was refuted by measurement and its fix backed out.** `Uri.IsLoopback` really
+    is true for an empty host, and no http(s) input reaches that gate with one --
+    `Uri.TryCreate(UriKind.Absolute)` refuses `https:///logo.png`, `http://`, `http:////x` and
+    every other empty-authority form on .NET 10.0.7. The check was dead code; the inputs are
+    pinned as refused regardless, because what makes them safe is someone else's parser.
+
   - **One item left open, needing a decision:** `GET /oauth/authorize` is a state-changing GET
     under a `SameSite=Lax` session cookie, so where silent-SSO conditions hold a cross-site link
     can drive a signed-in user into a grant with no consent interaction. Every fix is a design

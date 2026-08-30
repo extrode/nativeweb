@@ -140,6 +140,34 @@ Merged into `dev`, not yet tagged.
     username; a release switching to the relaxed encoder would have turned that username into
     markup with every suite still green.
 
+- **The two-lens review of that branch found seven more, all fixed on it.** Four were holes in
+    the fixes themselves: the `POST /csp-report` 415 was body-less, so `ErrorPageMiddleware`
+    filled it with the 849-byte HTML error page on the one route whose caller is a browser's
+    reporting agent (`ErrorPageMiddleware.SuppressItemKey` is the opt-out, and 415 gained a
+    `Describe` arm for the form routes that do want a page); the `form-action` widening was
+    interpolated into the header with no validation, so the middleware now validates the one
+    value another component may contribute and refuses anything that is not a bare http(s)
+    origin, IPv6 literals included, because CSP3's host-source grammar has no case for a
+    bracketed literal and a browser drops the whole expression; the consent screen's
+    `redirect_uri` was parsed with an unguarded `new Uri`, which would turn a page that used to
+    render into a 500 for a row no admin form ever validated; and the masked-destination token
+    borrowed the codes-per-day rate-limit window for its lifetime, coupling two policies that
+    mean nothing alike.
+  - **An application's logo is now checked at render as well as at write.** `ValidateHttpUrl`
+    closed the create form and nothing backfills the rows already in the table, so the consent
+    screen refuses to emit a `src` it cannot vouch for rather than resting on `default-src
+    'self'` staying exactly as it is.
+  - **The same fixes are propagated into `skeleton/`**, which had the old pipeline order, no
+    content-type guard on its report sink, and the same false comment about `form-action 'self'`
+    costing nothing. Three parity facts, three mutations; a stamped product builds with 0
+    warnings.
+  - **One review finding was refuted by measurement and the fix backed out.** `ValidateHttpUrl`
+    was said to admit an empty authority, since `Uri.IsLoopback` is true for an empty host --
+    true of `file:///c:/x`, and unreachable here: `Uri.TryCreate(UriKind.Absolute)` refuses
+    every empty-authority http(s) form on .NET 10.0.7, so the check would have been dead code.
+    The inputs are pinned as refused anyway, because the reason they are safe lives in someone
+    else's parser.
+
 ### Changed
 - **Re-synced to ISL-NETC 1.1**, SPDX `LicenseRef-ISL-NETC-1.1`. The point of 1.1 is that §1.2 is a
   `[LICENSOR]` placeholder the adopter completes, and its *Notice on Reproducing This License* says
