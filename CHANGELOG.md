@@ -28,7 +28,9 @@ Merged into `dev`, not yet tagged.
   cherry-picking from history later. `libs/nativeweb.security` kept its framework primitives and
   lost `Pkce` and `PairwiseSubject`; `libs/nativeweb.mail` kept its SMTP transport and lost the two
   senders that implemented auth interfaces. `apps/sample` is now the reference application and the
-  only deployable project. Solution builds 0 warnings / 0 errors and 393 tests pass afterwards.
+  only deployable project. Solution builds 0 warnings / 0 errors and 444 tests pass afterwards,
+  across seven suites — the seventh being `tests/nativeweb.repo.tests.unit`, a new home for the
+  repository-level guards that had been living in the deleted tier and would have gone with it.
 
 ### Added
 - **Declarative form binding for hand-written endpoints** (spec 014). A `[Form]`-annotated
