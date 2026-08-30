@@ -767,6 +767,17 @@ Not doing, with the reason. Kept so the same idea does not get re-raised every q
   yield nothing, four real step shapes, and one document carrying both. The comment reworded
   around it in `skeleton/.github/workflows/ci.yml` can now say whatever it likes.
 
+## Solution-wide `dotnet test` hangs, 2026-08-30
+
+`dotnet test` with no project argument produced no output in 30+ minutes and was killed. Every
+one of the eleven test projects passes when run individually, in well under a minute each:
+**699 web-unit, 333 web-integration, 73 web-e2e, 184 signin-unit, 157 render-unit, 64
+scaffold-unit, 34 signin-integration, 31 scaffold-integration, 16 sample-unit, 13 scaffold-e2e,
+3 signin-e2e — 1,607 total, all green.** Suspects, in order: the three integration tiers
+contending for the same PostgreSQL instance when run in parallel, and
+`nativeweb.signin.epass.tests.aot`, which is a publish check rather than a test project. Not
+investigated; run projects individually until it is.
+
 ## Security audit findings, 2026-08-19 (`review` on Opus + `glm-think` on GLM-5.3)
 
 Two independent audits of the `apps/web` request-handling surface, run after the antiforgery

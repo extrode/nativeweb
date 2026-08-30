@@ -359,7 +359,13 @@ if [[ -n "$EDGE_PROXY" ]]; then
 	# address it will trust X-Forwarded-* from. Written rather than left blank,
 	# because unlike the other two it is known at provision time: it is the
 	# argument that put this host in edge mode.
-	if ! grep -q NATIVEWEB_EDGE_PROXY /etc/default/caddy 2>/dev/null; then
+	# Anchored to an assignment at the start of a line, not a bare name match. An
+	# unanchored grep is also satisfied by a commented-out `# NATIVEWEB_EDGE_PROXY=`
+	# line, so a re-provision could not repair a hand-disabled value: the guard sees
+	# the name, skips the write, `{$NATIVEWEB_EDGE_PROXY}` expands to nothing, and
+	# `trusted_proxies static` trusts no one -- silently reproducing the measured
+	# header-replacement failure this whole mode exists to avoid.
+	if ! grep -qE '^NATIVEWEB_EDGE_PROXY=.' /etc/default/caddy 2>/dev/null; then
 		cat >>/etc/default/caddy <<EOF
 # The TLS-terminating proxy in front of this host. Caddy preserves the
 # X-Forwarded-* headers set by this address and replaces any others, so a wrong

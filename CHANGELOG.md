@@ -24,6 +24,19 @@ Merged into `dev`, not yet tagged.
   to re-enter as `--local`. The `--host` ssh path is untouched.
 
 ### Fixed
+- **Three silent deaths in the deploy scripts.** Under `set -euo pipefail` a command substitution
+  whose pipeline fails ends the script at the assignment, before the `die` written to explain it.
+  A mistyped `--incus <instance>` exited 127 with no output at all; a guest with no sshd — the
+  fleet's normal case — died before the message about deriving the firewall's SSH allowance. Both
+  now reach their message. A failed `incus file push` no longer skips the cleanup and leaves a
+  partial artifact in the guest.
+- **The firewall install no longer fails open.** `/etc/nftables.conf` was written and the service
+  enabled before `nft -f` proved the ruleset parses, so a bad render left the host with no ruleset
+  at all after a reboot. It is now checked with `nft -c` before anything is installed.
+- **`provision.sh --edge` restricts the public surface.** It changed the Caddyfile and the app
+  config but left the ruleset accepting `{ 80, 443 }` from any source, while the config's own
+  comment said only the edge could reach it. Edge mode now renders
+  `ip saddr <edge> tcp dport 80 accept`, and says so when it cannot.
 - **The 503-degrade is tested, and a comment about it corrected.** `RequireServicesFilter` — the
   filter that keeps a fresh checkout runnable before any secrets exist — had no test in either
   tier. Ten now cover it, including that an unconfigured box still rejects a form POST with no
