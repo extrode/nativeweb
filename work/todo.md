@@ -1152,3 +1152,12 @@ is moot rather than fixed — the one-blank-line delta was against the frozen 1.
 repository no longer carries. Bullets four and five need nothing: `CONTRIBUTING.md` already adopts
 ISL-CLA 1.1 by reference with five statements, and its **DRAFT — not yet in force** status is
 unchanged by any of this, so the banner question stays open and stays theirs.
+
+## Deploy toolchain hardcodes SSH port 22 (found 2026-08-30, before T15)
+
+`scripts/deploy/nftables/nativeweb.nft:43-44` accepts `tcp dport 22` only, and `provision.sh:351`
+installs it as `/etc/nftables.conf` and enables it. On `web-host` — sshd on 2222, 22 closed at
+the DO firewall and not bound by sshd — that is an immediate lockout with no console failover, in
+the middle of the provisioning step. Fix is to derive the ports from `sshd -T` and emit an
+nftables `define` rather than hardcoding, so the ruleset opens whatever sshd actually listens on.
+Blocks spec 011 T15 at its first step.
