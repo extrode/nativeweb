@@ -14,6 +14,12 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Fixed
+- **The host firewall no longer hardcodes SSH port 22.** `scripts/deploy/nftables/nativeweb.nft`
+  now carries `define ssh_ports`, and `provision.sh` rewrites it from `sshd -T` before installing,
+  so the ruleset opens whatever sshd is bound to. Found on `web-host`, where sshd listens on
+  2222 and 22 is closed upstream: provisioning would have dropped the operator's own connection
+  mid-step, on a host with no console failover. The script now refuses to install rather than
+  guess if `sshd -T` reports no port or the substitution does not take.
 - **Nineteen defects from a two-lane audit sweep**, each confirmed by a refutation pass before
   being fixed. Eight in `scripts/deploy/**`, which has never run against a real host and where the
   first four each stop the runbook dead on a clean Debian: Caddy never reading the environment file

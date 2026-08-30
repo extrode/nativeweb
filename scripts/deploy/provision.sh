@@ -342,13 +342,50 @@ step "installing the nftables ruleset"
 # guard was for. A conffile the package installed and nobody has edited is ours to
 # replace; `dpkg --verify` is what distinguishes that from an operator's ruleset.
 NFT_MARKER='# NativeWeb spec 011 ruleset'
+
+# The ruleset ships `define ssh_ports = { 22 }`. Installing that verbatim on a
+# host whose sshd moved is an immediate lockout: the running session's port is
+# dropped, 22 is closed upstream and unbound locally, and there is no console
+# failover. So the define is rewritten from what sshd reports it is bound to --
+# the one source that cannot disagree with reality.
+#
+# `sshd -T` prints one `port N` line per listening port, already resolved from
+# every drop-in under sshd_config.d, in the order sshd applies them.
+ssh_ports_from_sshd() {
+	sshd -T 2>/dev/null | awk '$1 == "port" { printf "%s%s", sep, $2; sep = ", " }'
+}
+
+nft_with_ssh_ports() {
+	local ports="$1"
+	# Anchored to the whole define line so a stray `ssh_ports` in a comment is
+	# not rewritten, and so a ruleset that has lost the line fails the check
+	# below rather than being installed unchanged.
+	sed -E "s/^define ssh_ports = \{[^}]*\}$/define ssh_ports = { ${ports} }/" \
+		"$REPO_ROOT/scripts/deploy/nftables/nativeweb.nft"
+}
 nft_conf_is_untouched_package_default() {
 	dpkg --verify nftables 2>/dev/null | grep -qE '[[:space:]]/etc/nftables\.conf$' && return 1
 	dpkg -S /etc/nftables.conf >/dev/null 2>&1
 }
 if [[ ! -f /etc/nftables.conf ]] || grep -qF "$NFT_MARKER" /etc/nftables.conf \
 	|| nft_conf_is_untouched_package_default; then
-	install -o root -g root -m 0644 "$REPO_ROOT/scripts/deploy/nftables/nativeweb.nft" /etc/nftables.conf
+	SSH_PORTS="$(ssh_ports_from_sshd)"
+	if [[ -z "$SSH_PORTS" ]]; then
+		die "sshd -T reported no listening port, so the firewall's SSH allowance cannot be
+       derived. Installing the ruleset with its default of 22 would lock this host out if
+       sshd is anywhere else. Fix sshd -T, or install /etc/nftables.conf by hand."
+	fi
+	NFT_RENDERED="$(nft_with_ssh_ports "$SSH_PORTS")"
+	# The substitution failing silently is the failure this whole block exists to
+	# prevent, so it is checked rather than assumed.
+	if [[ "$NFT_RENDERED" != *"define ssh_ports = { $SSH_PORTS }"* ]]; then
+		die "could not rewrite 'define ssh_ports' in nativeweb.nft. Refusing to install a
+       ruleset whose SSH allowance was not confirmed."
+	fi
+	step "opening SSH on port(s) $SSH_PORTS, as reported by sshd -T"
+	printf '%s\n' "$NFT_RENDERED" >/etc/nftables.conf
+	chown root:root /etc/nftables.conf
+	chmod 0644 /etc/nftables.conf
 	systemctl enable --now nftables
 	nft -f /etc/nftables.conf
 else

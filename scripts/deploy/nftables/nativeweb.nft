@@ -16,6 +16,17 @@
 
 flush ruleset
 
+# The SSH ports this host actually listens on. provision.sh rewrites this line
+# from `sshd -T` before installing, so the firewall opens whatever sshd is bound
+# to rather than what this file guessed months earlier.
+#
+# It was hardcoded to 22, and that is a lockout on any host whose sshd moved:
+# installing this ruleset drops the port the operator is connected on, while 22
+# is closed upstream and unbound locally, on a box with no console failover. The
+# default below is the stock port so the file still loads standalone with
+# `nft -f`, but the substitution is the thing that makes it correct.
+define ssh_ports = { 22 }
+
 table inet filter {
 	chain input {
 		type filter hook input priority filter; policy drop;
@@ -40,8 +51,8 @@ table inet filter {
 		# drop`, denying the only administrative access to a host with no console
 		# failover -- during precisely the incident when rollback.sh needs
 		# running. Per-source, that attack costs the attacker their own quota.
-		tcp dport 22 ct state new meter ssh4 { ip saddr limit rate 10/minute burst 5 packets } accept
-		tcp dport 22 ct state new meter ssh6 { ip6 saddr limit rate 10/minute burst 5 packets } accept
+		tcp dport $ssh_ports ct state new meter ssh4 { ip saddr limit rate 10/minute burst 5 packets } accept
+		tcp dport $ssh_ports ct state new meter ssh6 { ip6 saddr limit rate 10/minute burst 5 packets } accept
 
 		# The public surface. 80 exists to redirect and to answer the ACME
 		# HTTP-01 challenge; closing it would break certificate renewal.
