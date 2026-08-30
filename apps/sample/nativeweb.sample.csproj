@@ -15,6 +15,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Declarative form binding (spec 014). The generator is referenced with
+         ReferenceOutputAssembly="false" like every other one here: its types are a
+         build-time concern and must not reach the published binary. -->
+    <ProjectReference Include="..\..\libs\nativeweb.forms\nativeweb.forms.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.forms.generator\nativeweb.forms.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\libs\nativeweb.scaffold\nativeweb.scaffold.csproj" />
     <ProjectReference Include="..\..\libs\nativeweb.scaffold.generator\nativeweb.scaffold.generator.csproj"
                       OutputItemType="Analyzer"

@@ -2,6 +2,60 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Spec 014 — declarative form binding** — `feat/014-declarative-form-binding`, 2026-08-30,
+  **all ten tasks ticked and `014-spec.md` is `done`**. Brainstorm 001 T1.2 closed. A `[Form]`
+  record gets a generated binder; `MapFormPost<TForm>` attaches the 415, the antiforgery metadata
+  and the accepts metadata by construction; `NWF010` makes any other shape a build error. Both
+  `/auth/register` POSTs are converted. **699 unit / 339 integration / 73 e2e, 0 failed, and no
+  existing assertion edited**; `dotnet publish -c Release -r win-x64` of `apps/sample` and
+  `apps/web` both 0 warnings.
+  - **The plan's mechanism was disproved by measurement and replaced mid-build.** It assumed the
+    Request Delegate Generator would resolve an `IBindableFromHttpContext` that this generator
+    emits. It cannot: both generators run in the **same** pass over the same input compilation, so
+    RDG never sees a partial another generator added — it recorded `hasBindAsync: false`, treated
+    the model as a JSON body, and `ConsumesMatcherPolicy` answered every form POST **415 at
+    routing**, before a line of this feature ran. Five of seven integration tests were red on that
+    and nothing else said a word. `IFormModel<TSelf>` + `MapFormPost` replaced it; the correction
+    is at the top of `014-plan.md`. This is §14's rule from the other direction, and the second
+    time this repo has paid for the same fact.
+  - **The route is a `RequestDelegate` because the alternative does not build.** The
+    `Map*(…, Delegate)` overloads carry `RequiresDynamicCode`, and RDG cannot rewrite a call inside
+    a generic method, so the first `MapFormPost` failed the AOT publish with IL2026 + IL3050. The
+    `RequestDelegate` overloads carry neither attribute, and return `IEndpointConventionBuilder`
+    rather than `RouteHandlerBuilder` — which is why `RequireServices<T1,T2,T3>` gained an overload
+    on the interface beside the existing one. No existing call site changed.
+  - **`AcceptsMetadata` is what decides which rejection wins**, and it was found by three existing
+    assertions going red. RDG attached it for `[FromForm]` routes; without it,
+    `ConsumesMatcherPolicy` no longer answers a tokenless JSON POST 415 at routing and the
+    antiforgery middleware answers 400 first. `MapForm` attaches it.
+  - **Recorded rather than chosen:** `IFormCollection` is keyed case-insensitively, so a field
+    posted as `ConfirmPassphrase` binds a member whose wire name is `confirmPassphrase`. A form
+    model cannot declare two members whose wire names differ only in case. Found by an assertion
+    written the other way.
+  - Nine mutations run across the branch, each killing the facts it should: the analyzer's matched
+    verbs, the antiforgery attach, the accepts attach, the emitted content-type guard, the emitted
+    wire names, the 503-degrade, and the sample's page-size ceiling and case-insensitive query.
+  - **Pre-merge two-lens review, 2026-08-30/31.** Correctness and consequence lenses over the
+    whole branch diff; the generator findings were verified by reading `FormModel.cs` and
+    `FormGenerator.cs` rather than by refutation prompt. **Eleven code fixes and four weak
+    assertions**, each landing with the fact that would have caught it — eleven further mutations
+    run, every one killing its own fact. The code fixes: `SymbolDisplay.FormatLiteral` for wire
+    names (hand-rolled escaping emitted a raw newline into a string literal); `@`-prefixing
+    keyword identifiers (a model written `@class` emitted `partial record class`); the duplicate
+    wire-name check moved to `OrdinalIgnoreCase` to match how `IFormCollection` reads;
+    `NullableAnnotation.Annotated` rather than "not NotAnnotated", which had let a plain `string`
+    in a nullable-disabled file bind null silently; `[property: FormField]` read as well as the
+    parameter attribute, which is what `014-plan.md`'s own example wrote; file-local types
+    rejected by NWF005; structural `IEquatable<>` on `FormModel`, `FormFieldModel` and `Parsed`,
+    without which the incremental cache never hits; `Map` and `MapFallback` added to NWF010's
+    matched set; null guards on `MapForm`'s pattern and method; and two corrected remarks in
+    `FormBinding`. The four assertion defects: a theory that called the guard and asserted
+    nothing, a `NotEqual(BadRequest)` that a 500 would have satisfied, an undisambiguated 400,
+    and a binding fact that posted `Name` — testing case-insensitivity by accident rather than
+    the naming convention on purpose. Three `WebApplication` hosts now disposed.
+    **Final: 82 forms-unit / 36 sample-unit / 699 web-unit / 339 integration / 73 e2e, 0 failed;
+    both AOT publishes 0 warnings; structure-audit 0 errors.**
+
 - **htmx 4.0.0 upgrade** (spec 012, `feat/012-htmx-4-upgrade`, merged 2026-08-29, unpushed).
   All fourteen tasks ticked; **`012-spec.md` is not `done` — R16 is unmet.** htmx 4 is a rewrite
   from `XMLHttpRequest` onto `fetch()`: every lifecycle event was renamed to `htmx:phase:action`

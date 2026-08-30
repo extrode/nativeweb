@@ -2,6 +2,30 @@
 
 Spec: ./014-spec.md
 
+> **Correction, 2026-08-30 — the mechanism below was disproved during T5 and replaced.**
+> The plan assumed the Request Delegate Generator would resolve a `BindAsync` that this
+> generator emits. It does not: both generators run in the **same** pass over the same input
+> compilation, so RDG never sees a partial another generator added. Measured on the converted
+> route, RDG recorded `hasBindAsync: false`, listed the model in `jsonBodyOrServiceTypeTuples`
+> with `AcceptsMetadata(application/json)`, and `ConsumesMatcherPolicy` then answered a form
+> POST **415 at routing**, before any code in this feature ran.
+>
+> What replaced it, and what is built:
+>
+> | plan said | shipped |
+> | --- | --- |
+> | `IBindableFromHttpContext<TSelf>`, resolved by RDG | `NativeWeb.Forms.IFormModel<TSelf>`, a `static abstract` this library owns |
+> | application writes `MapPost("/x", (MyForm f, …) => …)` | application writes `MapFormPost<MyForm>("/x", (f, ctx) => …)` |
+> | `.RequireFormAntiforgery()` on the route, forgetting it is a build error | `MapFormPost` attaches the metadata itself; the analyzer now rejects **any** plain `Map*` with a `[Form]` parameter, because `.RequireFormAntiforgery()` no longer fixes the binding |
+> | route returns `RouteHandlerBuilder` | route is a `RequestDelegate`, returning `IEndpointConventionBuilder` — the `Map*(…, Delegate)` overloads carry `RequiresDynamicCode`, and RDG cannot rewrite a call inside a generic method, so that shape failed the AOT build with IL2026 + IL3050 |
+>
+> This is §14's rule arriving from the other direction. There it was "a generator cannot emit a
+> `Map*` call"; here it is "a generator cannot give a type a binder RDG will honour". Same cause,
+> and the same fix: the route takes only `HttpContext`, so nothing is inferred.
+>
+> Every requirement R1–R10 is unchanged and all are met. Read the rest of this plan as the
+> design that was approved, with the binding hook substituted.
+
 ## Approach
 
 A source-generator pair, `libs/nativeweb.forms` (runtime) and `libs/nativeweb.forms.generator`
@@ -56,7 +80,7 @@ Verified against what the repo already builds, not assumed:
 | Generator TFM | `netstandard2.0`, `IsRoslynComponent`, `EnforceExtendedAnalyzerRules`, `NoWarn=RS2008` — copied from `nativeweb.scaffold.generator.csproj` |
 | Runtime TFM | `net10.0`, matching `nativeweb.scaffold` |
 | Roslyn | `Microsoft.CodeAnalysis.CSharp` + `.Analyzers`, `PrivateAssets="all"`, versions from the existing `Directory.Packages.props` — **not pinned by hand** |
-| Binding hook | `IBindableFromHttpContext<TSelf>` (ASP.NET Core 8+), resolved statically by RDG |
+| Binding hook | ~~`IBindableFromHttpContext<TSelf>`, resolved statically by RDG~~ — **`NativeWeb.Forms.IFormModel<TSelf>`**, a `static abstract` called from `MapFormPost`. See the correction above. |
 | Metadata | `IAntiforgeryMetadata`; the framework's own `AntiforgeryMetadata` is internal, so 014 mirrors `RequiresAntiforgery` in `ScaffoldValues.cs` |
 | 415 mechanism | `BadHttpRequestException(…, 415)`, which `ErrorPageMiddleware` already surfaces at its own status |
 | AOT gate | `dotnet publish -c Release -r win-x64`; verified working on this machine 2026-08-30 (`apps/sample` → 24.3 MB native exe, exit 0) |
@@ -68,6 +92,8 @@ Verified against what the repo already builds, not assumed:
 | `libs/nativeweb.forms/FormAttributes.cs` | `[Form]` marker, and `[FormField(Name = …)]` for a wire name that differs from the property | R1, R4 |
 | `libs/nativeweb.forms/FormBinding.cs` | Runtime helpers the emitted code calls: read a field, the 415 throw, the tri-state "absent vs empty vs present" | R2 |
 | `libs/nativeweb.forms/RequiresAntiforgery.cs` | `IAntiforgeryMetadata` implementation, and the `.RequireFormAntiforgery()` extension that attaches it | R3 |
+| `libs/nativeweb.forms/IFormModel.cs` | The `static abstract` binder contract, replacing `IBindableFromHttpContext` | R1 |
+| `libs/nativeweb.forms/FormEndpointRouteBuilderExtensions.cs` | `MapFormPost`/`Put`/`Patch`/`Delete`: maps a `RequestDelegate`, calls the binder, attaches the antiforgery metadata and `AcceptsMetadata` | R2, R3 |
 | `libs/nativeweb.forms.generator/FormGenerator.cs` | Incremental generator: find `[Form]` records, validate, emit | R1, R5, R8 |
 | `libs/nativeweb.forms.generator/FormModel.cs` | The parsed model — members, wire names, diagnostics | R8 |
 | `libs/nativeweb.forms.generator/FormEmitter.cs` | Emits `BindAsync` with the content-type check first | R1, R2, R6 |
@@ -87,15 +113,15 @@ public sealed partial record RegisterForm(
     string? Username,
     string? Email,
     string? Passphrase,
-    [property: FormField(Name = "confirmPassphrase")] string? ConfirmPassphrase);
+    [FormField("confirmPassphrase")] string? ConfirmPassphrase);   // positional, not Name =
 ```
 
 Generated (shape, not final text):
 
 ```csharp
-partial record RegisterForm : IBindableFromHttpContext<RegisterForm>
+partial record RegisterForm : IFormModel<RegisterForm>
 {
-    public static ValueTask<RegisterForm?> BindAsync(HttpContext context, ParameterInfo _)
+    public static async ValueTask<RegisterForm> BindFormAsync(HttpContext context)
     {
         // FIRST. Not a filter, not middleware: binding runs upstream of the filter
         // pipeline, so this is the only place the check can sit and still precede
@@ -109,11 +135,13 @@ partial record RegisterForm : IBindableFromHttpContext<RegisterForm>
 }
 ```
 
-Route, hand-written and unchanged in shape:
+Route, hand-written, and the shape is the correction:
 
 ```csharp
-endpoints.MapPost("/auth/register", (RegisterForm form, HttpContext ctx, …) => …)
-    .RequireFormAntiforgery();   // omitting this is a build error, not a 200 OK
+endpoints.MapFormPost<RegisterForm>("/auth/register", (form, ctx) => …);
+// Both guards come with the mapping call. A plain MapPost with a [Form] parameter
+// is a build error, because it does not merely lose the metadata -- it binds the
+// model as a JSON body and answers a form POST 415 at routing.
 ```
 
 ## Risks & mitigations

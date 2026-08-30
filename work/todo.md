@@ -1227,3 +1227,29 @@ remove.
 Noted only, one line, because it turned up while verifying the same port was closed on the
 NativeWeb VMs. The resolver drop-in in `harden-host.sh` closes it. That host belongs to the
 another project's deployment and runbook, not to this repo.
+
+## Spec 014 leftovers — noted during the pre-merge review, out of that branch's scope
+
+- **The `NWF010` analyzer has three blind spots**, all of them a route it cannot see rather than
+  one it misreads. A handler delegate held in a local or a field and passed by name; a
+  user-defined `MapPost` on some other receiver type, which it matches by method name alone and
+  would report as a false positive; and a plain route whose handler calls
+  `MyForm.BindFormAsync(ctx)` by hand, which binds a form the analyzer never inspects. A
+  receiver-type check fixes the second and would narrow the first.
+
+- **`PublicArticleEndpoints.Matching` filters within the already-taken page**, not the feed, so
+  `?q=` searches the first N articles rather than all of them. Right for the R5 publish gate it
+  exists to serve; wrong as an example anyone copies.
+
+- **`DeclarativeFormTests` asserts exact article counts**, which is fixture arithmetic: adding a
+  seed article breaks the test without breaking anything it is about.
+
+- **The `NativeWeb.Forms` package does not reference `NativeWeb.Forms.Generator`.** A consumer
+  installing the runtime package gets `IFormModel` and `MapFormPost` and neither the generator
+  nor the analyzer, so `[Form]` does nothing and no diagnostic says why.
+
+- **`FormModel.FullyQualifiedName` is dead code**, and `MissingAntiforgeryAnalyzer.cs` carries an
+  unused `using System.Collections.Generic;`.
+
+- **`DeployScriptTests.cs:727` points the wrong way** — "See The_ssh_allowance_is_not_hardcoded
+  below" when that fact is above it. Found by Fable during the spec 011 review.

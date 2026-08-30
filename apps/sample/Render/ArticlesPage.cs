@@ -24,7 +24,15 @@ namespace NativeWeb.Sample.Render;
 /// </remarks>
 internal static class ArticlesPage
 {
-    public static string Render(IReadOnlyList<PublishedArticle> articles)
+    /// <param name="articles">What to show.</param>
+    /// <param name="query">The filter text that produced this list, echoed back into
+    /// the box so a filtered page does not look like an unfiltered one.</param>
+    /// <param name="token">The antiforgery request token. Null omits the form
+    /// entirely rather than rendering one that would be rejected on submit.</param>
+    public static string Render(
+        IReadOnlyList<PublishedArticle> articles,
+        string? query = null,
+        string? token = null)
     {
         HtmlEncoder encoder = HtmlEncoder.Default;
 
@@ -63,6 +71,22 @@ internal static class ArticlesPage
             items.Append("</ul>");
         }
 
+        // The counterpart to ArticleFilter: the wire names in here are the ones the
+        // generated binder reads, and nothing else on the form can reach the handler.
+        // Omitted without a token, because a form that cannot be submitted is worse
+        // than no form.
+        string filter = token is null
+            ? ""
+            : $"""
+                <form class="articles__filter" method="post" action="/articles">
+                  <input type="hidden" name="__RequestVerificationToken" value="{encoder.Encode(token)}">
+                  <label for="q">Filter</label>
+                  <input id="q" name="query" type="search" value="{encoder.Encode(query ?? "")}">
+                  <input name="max" type="number" min="1" max="100" value="20">
+                  <button type="submit">Filter</button>
+                </form>
+                """;
+
         return $"""
             <!doctype html>
             <html lang="en">
@@ -74,6 +98,7 @@ internal static class ArticlesPage
             <body>
               <main>
                 <h1>Articles</h1>
+                {filter}
                 {items}
               </main>
             </body>
