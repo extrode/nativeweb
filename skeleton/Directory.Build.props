@@ -32,9 +32,9 @@
        project until JauntyQ ships on NuGet.
        Probed as a SIBLING of the stamped product, exactly like NativeWebRoot
        below, and naming no parent directory. It used to hard-code an ancestor
-       called `extrode-legacy-org.com`; that broke on 2026-08-26 when the org directory was
-       renamed and jauntyq moved with it, and a stamped product would have
-       inherited the same break. Relative probes survive the next rename.
+       by name; that broke on 2026-08-26 when the org directory was renamed and
+       jauntyq moved with it, and a stamped product would have inherited the same
+       break. Relative probes survive the next rename.
 
        Two probes, both guarded, for the reason the framework repo's own copy
        gives: a build from `.worktrees/<branch>` sits three directories deeper, so
