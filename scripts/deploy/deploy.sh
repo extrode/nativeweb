@@ -10,10 +10,13 @@
 # production exactly as it was, which is R10 -- not "briefly down", not "down
 # only if the binary is broken", but untouched.
 #
-# Two modes:
-#   --host <name>   run from a workstation: copies the artifact and this script
-#                   to <name> and re-executes there under sudo. The normal way.
-#   --local         already on the host. What --host invokes remotely.
+# Three modes:
+#   --host <name>    run from a workstation: copies the artifact and this script
+#                    to <name> and re-executes there under sudo. The normal way.
+#   --incus <inst>   run on an Incus host: pushes both into the guest <inst> and
+#                    re-executes there. For a guest that runs no sshd because it
+#                    is managed by `incus exec` -- decision 006.
+#   --local          already on the host. What the other two invoke on the target.
 #
 # Re-running with an artifact that is already live is a no-op and exits 0 (R8).
 #
@@ -33,6 +36,7 @@ RELEASES_KEEP="${RELEASES_KEEP:-5}"
 
 ARTIFACT=""
 HOST=""
+INSTANCE=""
 LOCAL=0
 
 die() {
@@ -60,12 +64,17 @@ while [[ $# -gt 0 ]]; do
 		HOST="$2"
 		shift 2
 		;;
+	--incus)
+		need_value "$@"
+		INSTANCE="$2"
+		shift 2
+		;;
 	--local)
 		LOCAL=1
 		shift
 		;;
 	-h | --help)
-		sed -n '2,24p' "${BASH_SOURCE[0]}"
+		sed -n '2,25p' "${BASH_SOURCE[0]}"
 		exit 0
 		;;
 	*) die "unknown argument '$1'" ;;
@@ -78,8 +87,67 @@ done
 # Workstation half: ship and re-execute.
 # ---------------------------------------------------------------------------
 if [[ "$LOCAL" -ne 1 ]]; then
-	[[ -n "$HOST" ]] || die "pass --host <name> to deploy remotely, or --local if already on the host"
+	# Two transports that both end in `--local` on the target, so taking both would
+	# deploy twice to two different places from one invocation. Rejected rather
+	# than resolved by precedence: there is no reading of `--host a --incus b` that
+	# is obviously what was meant.
+	[[ -z "$HOST" || -z "$INSTANCE" ]] ||
+		die "--host and --incus are alternative transports; pass one, not both"
+	[[ -n "$HOST" || -n "$INSTANCE" ]] ||
+		die "pass --host <name> to deploy over ssh, --incus <instance> to deploy into an Incus guest, or --local if already on the target"
 	[[ -f "$ARTIFACT" ]] || die "artifact not found: $ARTIFACT"
+
+	# --- Incus transport -----------------------------------------------------
+	#
+	# Same shape as the ssh half below -- private staging directory, ship the
+	# artifact and this script, re-execute --local on the far side, remove the
+	# staging directory whatever happens -- with `incus file push` and `incus exec`
+	# in place of scp and ssh.
+	#
+	# No sudo here, and no deploy account: `incus exec` enters the guest as root
+	# through the host's control socket. That is the whole reason this transport
+	# exists rather than an sshd in every guest (decision 006) -- the privilege
+	# already belongs to whoever can talk to Incus on the host.
+	if [[ -n "$INSTANCE" ]]; then
+		command -v incus >/dev/null ||
+			die "incus not found. --incus runs ON the Incus host; from a workstation, ssh there first."
+
+		# Checked before anything is pushed. `incus file push` into a stopped guest
+		# succeeds -- it writes straight into the filesystem -- so without this the
+		# artifact lands, `incus exec` fails with a message about the instance not
+		# running, and a full release tarball is left inside a stopped guest.
+		instance_state="$(incus info "$INSTANCE" 2>/dev/null | awk '$1 == "Status:" { print $2; exit }')"
+		[[ -n "$instance_state" ]] || die "no such Incus instance: $INSTANCE"
+		[[ "$instance_state" == "RUNNING" ]] ||
+			die "Incus instance $INSTANCE is $instance_state, not RUNNING"
+
+		remote_dir="$(incus exec "$INSTANCE" -- mktemp -d /tmp/nativeweb-deploy.XXXXXXXX)"
+		remote_dir="${remote_dir%$'\r'}"
+		remote_dir="${remote_dir%$'\n'}"
+		[[ -n "$remote_dir" ]] || die "could not create a staging directory in $INSTANCE"
+		remote_artifact="$remote_dir/$(basename "$ARTIFACT")"
+
+		echo "deploy.sh: pushing $(basename "$ARTIFACT") into $INSTANCE:$remote_dir"
+		# `incus file push <src> <instance>/<abs-path>` -- the instance name and the
+		# path are one argument, and $remote_dir already begins with a slash.
+		incus file push "$ARTIFACT" "$INSTANCE$remote_artifact"
+		incus file push "${BASH_SOURCE[0]}" "$INSTANCE$remote_dir/deploy.sh"
+
+		# `|| status=$?` rather than a bare call followed by `status=$?`: under
+		# `set -e` the bare form never reaches the assignment on a failed deploy,
+		# so the staging directory survives with a full artifact in it -- on
+		# exactly the runs where someone re-runs and leaves another. The `||`
+		# suppresses the errexit and lets the cleanup below happen either way.
+		status=0
+		incus exec "$INSTANCE" \
+			--env READY_TIMEOUT="$READY_TIMEOUT" \
+			--env RELEASES_KEEP="$RELEASES_KEEP" \
+			-- bash "$remote_dir/deploy.sh" --local --artifact "$remote_artifact" || status=$?
+		incus exec "$INSTANCE" -- rm -rf "$remote_dir" || true
+		exit $status
+	fi
+
+	# --- SSH transport -------------------------------------------------------
 
 	# A private staging directory, not /tmp directly. Root fetches and executes
 	# this script on the far side, and a predictable path in a world-writable

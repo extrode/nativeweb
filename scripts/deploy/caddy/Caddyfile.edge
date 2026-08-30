@@ -1,0 +1,71 @@
+# NativeWeb reverse proxy, edge variant. Decision 006.
+#
+# The sibling Caddyfile is for a host the public resolves to directly: it holds
+# :443, gets its own certificates over ACME, and redirects :80. This one is for a
+# host that sits BEHIND such a proxy -- an Incus guest on incus-host, where a
+# single host-level Caddy terminates TLS for every site on the box and forwards
+# over plain HTTP to a private bridge address.
+#
+# Only one of the two is ever installed. provision.sh --edge picks this one.
+#
+# Why keep a Caddy in the guest at all, when the edge could proxy straight to the
+# app port the way auth.epass.io does? Because deploy.sh promotes a release by
+# rewriting upstream.caddy and reloading THIS Caddy, and a reload is graceful --
+# in-flight requests finish on the old upstream and new ones land on the new one.
+# That is R10's gapless swap. Pointing the edge at the app directly would move the
+# swap to the host's Caddyfile, where it would mean editing a file that fronts
+# five unrelated live sites on every deploy.
+#
+# {$NATIVEWEB_EDGE_PROXY} comes from /etc/default/caddy, written by provision.sh.
+
+{
+	# No ACME, and no :80 -> :443 redirect. Both would be wrong here rather than
+	# merely unnecessary: this guest has no public address, so the HTTP-01
+	# challenge cannot reach it and Caddy would retry a failing order forever;
+	# and a redirect to https on a hop that never terminates TLS is a loop, since
+	# the edge would forward the redirected request straight back.
+	auto_https off
+
+	servers {
+		# Without this, Caddy treats the inbound X-Forwarded-* as untrusted and
+		# replaces them -- so X-Forwarded-Proto arrives as "https" from the edge
+		# and leaves as "http", and the app builds http:// absolute URLs and
+		# decides the request was insecure. Naming the edge is what makes the
+		# header it set survive the hop.
+		#
+		# Deliberately one address, not the whole bridge subnet: every other
+		# guest on incusbr0 can reach this port if the firewall lets it, and a
+		# neighbour is not a trusted proxy.
+		trusted_proxies static {$NATIVEWEB_EDGE_PROXY}
+	}
+
+	# Same bounded access log as the non-edge variant (R6). Two log sources, two
+	# retention settings, neither able to fill the disk.
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10MiB
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format json
+	}
+}
+
+# Bare :80, matching the fleet's own tenant sidecar shape -- the base image's
+# nftables comment names it, and edge-test.example.com already runs
+# it. No hostname match, because the boundary here is the firewall: one rule,
+# `ip saddr 10.0.0.1 tcp dport 80 accept`, so the only peer that can reach
+# this listener is the edge. A hostname match would add a second, weaker copy of
+# that boundary and break probing the guest by address.
+:80 {
+	# No Strict-Transport-Security here, unlike the non-edge variant. There, Caddy
+	# owns the TLS termination and emits responses of its own (the :80 redirect)
+	# that never reach the app, so the header has to be set at that hop. Here every
+	# response is the app's, and SecurityHeadersMiddleware already sets HSTS on it.
+	# Setting it again would emit the header twice.
+
+	# The live colour. deploy.sh rewrites this file and reloads; rollback.sh
+	# rewrites it back. Identical to the non-edge variant, which is the point --
+	# the promotion machinery does not know which mode it is running under.
+	import /etc/caddy/upstream.caddy
+}
