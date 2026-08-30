@@ -37,26 +37,17 @@ env:
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
-  # Slice 2's two encryption-key secrets. Program.cs registers ContactProtector
-  # and StoreDataProtector only when these are configured, and the endpoints
-  # resolve them via RequestServices and return 503 when they are absent -- a
-  # deliberate "missing config degrades the feature, doesn't crash the app"
-  # posture. NativeWebFactory reads exactly these two variable names and its
-  # comment says CI sets them "as real env vars instead" of the user-secrets
-  # store local dev uses. Nothing ever did, so the integration tier failed the
-  # first time it ran on a runner: 27 DI resolution failures and 17 endpoints
-  # answering ServiceUnavailable. The e2e tier reads NativeWeb__ContactKey too,
-  # in TestDatabase, and throws outright when it is missing.
-  #
-  # Defined at workflow level so the e2e fixture's CHILD process inherits them:
-  # AppProcessFixture launches the app with UseShellExecute=false, which copies
-  # the parent environment.
+  # Keys for ContactProtector and StoreDataProtector, which are framework
+  # primitives in libs/nativeweb.security and outlived the identity provider that
+  # used to consume them here. No suite in this repository reads them today; they
+  # stay because a stamped product's own workflow inherits this shape, and because
+  # deleting a key that a future suite silently needs fails as a 503 rather than
+  # by name.
   #
   # These are test values and deliberately not secrets, which is why they are
   # here in the clear rather than in the secret store. DeriveKey SHA256s
   # anything that is not already a 32-byte encoded key, so they only have to be
-  # stable and non-empty, and every row they protect lives in a database this
-  # job creates and throws away. Do not reuse either value anywhere real.
+  # stable and non-empty. Do not reuse either value anywhere real.
   NativeWeb__ContactKey: ci-test-contact-key-not-a-secret
   NativeWeb__StoreEncryptionKey: ci-test-store-encryption-key-not-a-secret
 
@@ -87,10 +78,10 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      ConnectionStrings__NativeWeb: "Host=localhost;Database=nativeweb_test;Username=nativeweb_app;Password=ci_test_password"
-      # The scaffolding demo's database, which is not the identity one: db/sample/
-      # is a separate schema for a separate reason (see its README). Both the
-      # scaffold integration and e2e tiers read this name.
+      # The scaffolding demo's database, and since 2026-08-31 the only one this
+      # repository has. ConnectionStrings__NativeWeb pointed at the identity
+      # schema and went with it. Both the scaffold integration and e2e tiers read
+      # this name.
       #
       # It is exported job-wide, which the in-memory halves of those tiers have to
       # defend against rather than merely ignore: configuration reads environment
@@ -110,29 +101,16 @@ jobs:
       # 10.0.100 with rollForward: latestFeature, so any 10.0.x satisfies it and an
       # image without one fails by name instead of rolling forward to 9.x.
 
-      - name: Apply migrations
-        run: |
-          for f in db/migrations/*.sql; do
-            echo "Applying $f"
-            PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_test -v ON_ERROR_STOP=1 -f "$f"
-          done
-
-      # The scaffolding demo's own database. One table, one migration, and
-      # deliberately not part of db/migrations -- a demo articles table in the
-      # identity schema would ship to production and turn up in the generated data
-      # layer of every consumer of libs/nativeweb.data.
+      # db/sample/ is the only schema this repository has since the identity
+      # provider left it (decision 2026-08-31-007): db/migrations, db/queries,
+      # db/schema and db/seed were the IdP's and went with it, so there is no
+      # "apply migrations" step above this one any more.
       - name: Provision the scaffolding demo database
         run: |
           PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d postgres -v ON_ERROR_STOP=1 \
             -c "CREATE DATABASE nativeweb_sample_test;"
           PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_sample_test -v ON_ERROR_STOP=1 \
             -f db/sample/migrations/0001_articles.sql
-
-      # No seed step. db/migrations alone is enough: 0055 creates the first-party
-      # application row that RealmResolver.ResolveFirstPartyAsync requires, so a
-      # migrations-only database is serviceable. That was measured -- withholding
-      # 0055 and applying every other migration reproduces the 33 integration
-      # failures this step was originally added to fix.
 
       # NativeWeb.slnx lists the two JauntyQ projects as solution members, so a
       # local checkout can co-develop them. That listing is unconditional,
@@ -212,19 +190,18 @@ jobs:
         run: git checkout -- NativeWeb.slnx
 
       - name: Install Playwright browsers
-        run: pwsh tests/nativeweb.web.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+        run: pwsh tests/nativeweb.scaffold.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
-      - name: Unit tests
-        run: dotnet test tests/nativeweb.web.tests.unit --no-build $DOTNET_BUILD_ARGS
+      # Every suite is listed by name rather than globbed, so a suite that stops
+      # being discovered fails by name instead of vanishing quietly from the run.
+      # The web and sign-in tiers that used to head this list left with the
+      # identity provider (decision 2026-08-31-007).
+      - name: Render unit tests
+        run: dotnet test tests/nativeweb.render.tests.unit --no-build $DOTNET_BUILD_ARGS
 
-      - name: Integration tests
-        run: dotnet test tests/nativeweb.web.tests.integration --no-build $DOTNET_BUILD_ARGS
+      - name: Forms unit tests
+        run: dotnet test tests/nativeweb.forms.tests.unit --no-build $DOTNET_BUILD_ARGS
 
-      # The scaffolding tiers, which this workflow did not run at all until
-      # 2026-08-25 -- three suites and 97 facts that only ever ran on someone's
-      # machine. Listed separately from the web tiers rather than globbed, so a
-      # suite that stops being discovered fails by name instead of vanishing
-      # quietly from the run.
       - name: Scaffolding unit tests
         run: dotnet test tests/nativeweb.scaffold.tests.unit --no-build $DOTNET_BUILD_ARGS
 
@@ -239,23 +216,13 @@ jobs:
         # Linux runner, which needs clang and zlib headers.
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
-      - name: E2E tests
-        # AppProcessFixture publishes apps/web itself (Release; the outer
-        # --no-build does not apply to that inner publish). The env var is what
-        # reaches that CHILD process -- $DOTNET_BUILD_ARGS only applies to the
-        # outer `dotnet test`, and MSBuild reads bare environment variables as
-        # properties. Without it the inner publish evaluates in checkout mode
-        # and EnsureJauntyQRoot fails the whole e2e tier on a runner that has
-        # no jauntyq sibling. Same wiring as skeleton/.github/workflows/ci.yml.
-        env:
-          JauntyQUsePackages: "true"
-        run: dotnet test tests/nativeweb.web.tests.e2e --no-build $DOTNET_BUILD_ARGS
-
       - name: Scaffolding E2E tests
-        # Same child-process reasoning as the step above: SampleProcessFixture
-        # publishes apps/sample itself, and that inner publish inherits this
-        # variable rather than the outer command's -p: flag. apps/sample hosts the
-        # JauntyQ generator now, so it needs package mode exactly as apps/web does.
+        # SampleProcessFixture publishes apps/sample itself (Release; the outer
+        # --no-build does not apply to that inner publish), and that inner publish
+        # inherits this environment variable rather than the outer command's -p:
+        # flag -- MSBuild reads bare environment variables as properties. Without
+        # it the inner publish evaluates in checkout mode and EnsureJauntyQRoot
+        # fails the tier on a runner that has no jauntyq sibling.
         env:
           JauntyQUsePackages: "true"
         run: dotnet test tests/nativeweb.scaffold.tests.e2e --no-build $DOTNET_BUILD_ARGS
@@ -264,7 +231,7 @@ jobs:
     # The NativeAOT gate: the native link needs MSVC's link.exe, which
     # windows-latest ships preinstalled (VS2022, Desktop development with
     # C++) and which the ILCompiler locates itself -- this job proves
-    # apps/web still links and stays warning-free under TreatWarningsAsErrors
+    # apps/sample still links and stays warning-free under TreatWarningsAsErrors
     # for AOT/trim analysis, matching the local publish gate used throughout
     # Phase 0. It doesn't need Postgres: publish only compiles, it never runs
     # the app.
@@ -281,8 +248,9 @@ jobs:
       # Microsoft.NETCore.Native.Windows.targets shells its bundled
       # findvcvarsall.bat, which asks vswhere for the VC.Tools component and sets
       # CppLinker to an absolute link.exe. Measured 2026-08-20: a full AOT publish
-      # of apps/web from a shell with no VCINSTALLDIR and no cl.exe on PATH links
-      # and exits 0 in 56s. If the tools really are missing the publish stops with
+      # of an app from a shell with no VCINSTALLDIR and no cl.exe on PATH links
+      # and exits 0 in 56s (measured against apps/web, which has since left this
+      # repository; the toolchain fact is about the runner, not the project). If the tools really are missing the publish stops with
       # "Platform linker not found", so the failure is named, not silent.
       #
       # Removing it also removed a defect: the action exported Platform=x64, which
@@ -307,34 +275,12 @@ jobs:
       # looked in bin/Release/net10.0/win-x64/publish/. The action is gone and
       # -o stays, because the RID segment alone is reason enough to pin.
       - name: Publish (NativeAOT)
-        run: dotnet publish apps/web/nativeweb.web.csproj -c Release -p:JauntyQUsePackages=true -o publish/web
+        run: dotnet publish apps/sample/nativeweb.sample.csproj -c Release -p:JauntyQUsePackages=true -o publish/sample
 
       # Spec 003 R36: size + time-to-/healthz against scripts/ci/publish-budgets.json.
       # Budgets are null (record-only) until the close-out baseline is recorded.
-      - name: Publish budgets (web)
-        run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath publish/web/nativeweb.web.exe -Name nativeweb.web -Port 5998
-
-      # Spec 008 T14: the sign-in library's own AOT gate, which until now ran
-      # nowhere automatic.
-      #
-      # It is a second publish rather than a reuse of the one above because
-      # apps/web has NO ProjectReference to nativeweb.signin.epass -- the
-      # library's IL never reaches that link, so a green publish above says
-      # nothing whatever about it. `dotnet test` says nothing either: the project
-      # sets IsTestProject=false and holds no tests, so the tier is collected as
-      # zero facts and exits 0 without printing a line. A gate whose only trigger
-      # is someone remembering it is not a gate.
-      #
-      # Its assertion IS the publish. What it really checks is that the Request
-      # Delegate Generator saw every Map* call inside the library: a generator
-      # does not see another generator's output, so a Map* the library emitted
-      # rather than wrote binds the reflection-based Delegate overload, and that
-      # failure has to surface in the repository that owns the library rather
-      # than in a consumer's publish six months later.
-      #
-      # No budget check: this is not a shipped binary, it is a compilation.
-      - name: Publish (NativeAOT, sign-in library gate)
-        run: dotnet publish tests/nativeweb.signin.epass.tests.aot -c Release -p:JauntyQUsePackages=true -o publish/signin-gate
+      - name: Publish budgets (sample)
+        run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath publish/sample/nativeweb.sample.exe -Name nativeweb.sample -Port 5998
 
   # ---------------------------------------------------------------------------
   # The skeleton, exercised the only way that proves anything: by stamping a
