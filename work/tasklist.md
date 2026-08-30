@@ -33,7 +33,16 @@ tick.
   duplicating it — two copies of a task list is one stale copy.
 - `milestones.md` is where the project is going. A tasklist is how one milestone gets done.
 
-## Current work: (none — specs 011, 012 and 013 built, each with a requirement unmet)
+## Current work: (none — specs 011 and 013 built with an operator step unmet; 012 and 014 done)
+
+Spec 014 (declarative form binding, brainstorm 001 T1.2) shipped 2026-08-30 and is **`done`**. A
+`[Form]`-annotated partial record gets a generated `BindFormAsync`, `MapForm*` attaches the
+antiforgery filter and the form `AcceptsMetadata`, and NWF010 makes forgetting the filter a build
+error. `IBindableFromHttpContext<T>` was the design until it was measured: Roslyn does not feed
+one generator's output into the Request Delegate Generator's input, so the generated `BindAsync`
+was invisible, the model bound as a JSON body, and every form POST answered 415 from routing.
+Task breakdown at `docs/specs/014-declarative-form-binding/014-tasks.md`; the leftovers the
+pre-merge review found are six lines on `todo.md`.
 
 Spec 013 (continuous read-only audit) shipped 2026-08-29 and is **not** `done`: all fourteen
 tasks are ticked and 231 tests pass, but R2 (the schedule runs unattended and survives a reboot)
