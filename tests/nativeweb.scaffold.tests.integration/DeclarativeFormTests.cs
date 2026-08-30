@@ -49,11 +49,21 @@ public sealed class DeclarativeFormTests
     /// The <c>[FormField]</c> name, not the member name. If the generator fell back
     /// to the convention this would bind nothing and the count would not change.
     /// </summary>
+    /// <remarks>
+    /// Stated against the unfiltered feed rather than against a literal, because a
+    /// literal here is fixture arithmetic: seeding one more article would fail this
+    /// test without breaking anything it is about. The claim is "the cap bound and
+    /// took effect", which needs an unfiltered feed longer than the cap to mean
+    /// anything at all — so that is asserted too rather than assumed.
+    /// </remarks>
     [Fact]
     public async Task A_renamed_field_binds_under_its_wire_name()
     {
         using var factory = new SampleFactory();
         using HttpClient client = factory.CreateFollowingNothing();
+
+        int unfiltered = await FeedCountAsync(client);
+        Assert.True(unfiltered > 1, $"The feed seeds {unfiltered} articles; a cap of 1 proves nothing.");
 
         using HttpResponseMessage response = await Forms.PostAsync(
             client, Feed, Feed, new KeyValuePair<string, string>("max", "1"));
@@ -67,17 +77,31 @@ public sealed class DeclarativeFormTests
     /// binding: the member is named <c>Take</c>, but only <c>max</c> is on the wire,
     /// so a field called <c>take</c> is not a field at all.
     /// </summary>
+    /// <remarks>
+    /// "Unchanged from the unfiltered feed" is the claim, so the unfiltered feed is
+    /// what it is measured against. The fact above proves a cap that IS declared
+    /// changes the count, so an unchanged count here is the field being ignored
+    /// rather than the cap never working.
+    /// </remarks>
     [Fact]
     public async Task An_undeclared_field_is_not_read()
     {
         using var factory = new SampleFactory();
         using HttpClient client = factory.CreateFollowingNothing();
 
+        int unfiltered = await FeedCountAsync(client);
+
         using HttpResponseMessage response = await Forms.PostAsync(
             client, Feed, Feed, new KeyValuePair<string, string>("take", "1"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(2, ArticleCount(await response.Content.ReadAsStringAsync()));
+        Assert.Equal(unfiltered, ArticleCount(await response.Content.ReadAsStringAsync()));
+    }
+
+    private static async Task<int> FeedCountAsync(HttpClient client)
+    {
+        using HttpResponseMessage response = await client.GetAsync(new Uri(Feed, UriKind.Relative));
+        return ArticleCount(await response.Content.ReadAsStringAsync());
     }
 
     /// <summary>
