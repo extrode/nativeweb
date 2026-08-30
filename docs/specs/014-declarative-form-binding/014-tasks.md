@@ -18,23 +18,23 @@ mutation-checked per global `AGENTS.md` — **commit before mutating**, because 
       `IAntiforgeryMetadata` with `RequiresValidation => true`, and `.RequireFormAntiforgery()`
       attaches it. Unit-tested directly.
 
-- [ ] T3 The generator project — files:
+- [x] T3 The generator project — files:
       `libs/nativeweb.forms.generator/nativeweb.forms.generator.csproj`, `FormGenerator.cs`
       (skeleton) — covers: R5 — done when: an empty incremental generator is wired the way
       `nativeweb.scaffold.generator` is (`netstandard2.0`, `IsRoslynComponent`,
       `OutputItemType="Analyzer" ReferenceOutputAssembly="false"`) and a consuming project builds.
 
-- [ ] T4 Parse the model — files: `libs/nativeweb.forms.generator/FormModel.cs` — covers: R1, R4,
+- [x] T4 Parse the model — files: `libs/nativeweb.forms.generator/FormModel.cs` — covers: R1, R4,
       R8 — done when: a `[Form]` record yields its members and wire names, and each malformed case
       (unsupported member type, no accessible constructor, duplicate wire name) yields a
       diagnostic rather than an emit. One test per diagnostic.
 
-- [ ] T5 Emit `BindAsync` — files: `libs/nativeweb.forms.generator/FormEmitter.cs` — covers: R1,
+- [x] T5 Emit `BindAsync` — files: `libs/nativeweb.forms.generator/FormEmitter.cs` — covers: R1,
       R2, R6 — done when: the emitted partial implements `IBindableFromHttpContext<TSelf>`, the
       `HasFormContentType` check is the **first** statement, only declared members are read, and
       the emitted text contains no `Map` call. Snapshot-tested.
 
-- [ ] T6 The analyzer — files:
+- [x] T6 The analyzer — files:
       `libs/nativeweb.forms.generator/MissingAntiforgeryAnalyzer.cs` — covers: R7 — done when: a
       `Map*` call whose parameter type is `[Form]`-annotated and whose chain lacks the metadata
       reports an **error** naming the route, and the same call with it reports nothing. This is
