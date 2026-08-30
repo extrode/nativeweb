@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Routing;
 
 using Xunit;
@@ -156,6 +157,28 @@ public sealed class MapFormTests
 
         Assert.NotNull(methods);
         Assert.Equal([method], methods.HttpMethods);
+    }
+
+    /// <summary>
+    /// <b>The metadata that decides which rejection wins.</b> Routing's
+    /// <c>ConsumesMatcherPolicy</c> reads it and answers a JSON POST 415 before
+    /// <c>UseAntiforgery()</c> runs, so a tokenless JSON POST is a 415 and not a 400.
+    /// Measured 2026-08-30: without it, three of the register endpoints' existing
+    /// integration assertions flipped from 415 to 400.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(EveryVerb))]
+    public void Every_mapped_form_route_declares_what_it_consumes(string method)
+    {
+        Endpoint endpoint = Map(app => MapVerb(app, method, "/c"));
+
+        IAcceptsMetadata? accepts = endpoint.Metadata.GetMetadata<IAcceptsMetadata>();
+
+        Assert.NotNull(accepts);
+        Assert.Equal(
+            ["application/x-www-form-urlencoded", "multipart/form-data"],
+            accepts.ContentTypes);
+        Assert.False(accepts.IsOptional);
     }
 
     public static TheoryData<string> EveryVerb() =>

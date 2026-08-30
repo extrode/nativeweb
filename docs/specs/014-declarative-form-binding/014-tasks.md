@@ -50,7 +50,7 @@ mutation-checked per global `AGENTS.md` — **commit before mutating**, because 
       `dotnet publish -c Release -r win-x64` completes with **zero** warnings. This is the gate
       §14's failure was invisible to `dotnet build` for.
 
-- [ ] T8 Convert `/auth/register` — files: `apps/web/Auth/RegisterEndpoints.cs` — covers: R9, R10
+- [x] T8 Convert `/auth/register` — files: `apps/web/Auth/RegisterEndpoints.cs` — covers: R9, R10
       — done when: the two POST routes bind through a `[Form]` record, the domain logic is
       untouched, and every existing unit, integration and e2e assertion passes **unedited**. An
       assertion that had to change means behaviour moved and fails the task.

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Routing;
 
 namespace NativeWeb.Forms;
@@ -113,6 +114,23 @@ public static class FormEndpointRouteBuilderExtensions
             await result.ExecuteAsync(context).ConfigureAwait(false);
         };
 
-        return endpoints.MapMethods(pattern, [method], route).RequireFormAntiforgery();
+        return endpoints.MapMethods(pattern, [method], route)
+            .RequireFormAntiforgery()
+            .WithMetadata(new AcceptsMetadata(FormContentTypes));
     }
+
+    // What the route consumes, and it is ordering rather than documentation.
+    //
+    // ConsumesMatcherPolicy reads this during routing and answers a request whose
+    // content type is not on the list with a 415 -- before UseAntiforgery(), and so
+    // before a tokenless JSON POST can be answered 400 instead. That is the order the
+    // register endpoints already had, because the Request Delegate Generator attaches
+    // the same metadata to a route with [FromForm] parameters; measured when it went
+    // missing on 2026-08-30, three integration assertions flipped 415 to 400.
+    //
+    // A request carrying no content type at all still reaches the binder, because the
+    // policy only rejects a content type it can see. The 415 for that one comes from
+    // FormBinding.RequireFormContentType.
+    private static readonly string[] FormContentTypes =
+        ["application/x-www-form-urlencoded", "multipart/form-data"];
 }
