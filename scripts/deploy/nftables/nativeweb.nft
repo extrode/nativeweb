@@ -56,6 +56,13 @@ table inet filter {
 
 		# The public surface. 80 exists to redirect and to answer the ACME
 		# HTTP-01 challenge; closing it would break certificate renewal.
+		#
+		# provision.sh --edge rewrites the line below, exactly as it rewrites the
+		# ssh_ports define above and for the same reason: behind a TLS-terminating
+		# edge this host answers only the edge, on 80 only. Leaving it open to the
+		# world there would put an unauthenticated listener on the bridge whose
+		# X-Forwarded-* headers Caddy then trusts and rewrites. The line is
+		# anchored whole so the substitution either matches or fails loudly.
 		tcp dport { 80, 443 } accept
 
 		# Everything else, including 5432 and the two release-colour ports on

@@ -420,7 +420,13 @@ NFT_MARKER='# NativeWeb spec 011 ruleset'
 # `sshd -T` prints one `port N` line per listening port, already resolved from
 # every drop-in under sshd_config.d, in the order sshd applies them.
 ssh_ports_from_sshd() {
-	sshd -T 2>/dev/null | awk '$1 == "port" { printf "%s%s", sep, $2; sep = ", " }'
+	# `|| true` so an absent or erroring sshd yields the empty string rather than
+	# killing the script. Without it, `set -euo pipefail` turns the failed pipeline
+	# into a silent exit at the SSH_PORTS assignment below -- before the die that
+	# explains the problem, so the operator sees a bare nonzero exit. A guest with
+	# no sshd at all is not exotic: it is decision 006's stated target, and the one
+	# real --edge run never reached this branch because the flush guard skipped it.
+	sshd -T 2>/dev/null | awk '$1 == "port" { printf "%s%s", sep, $2; sep = ", " }' || true
 }
 
 nft_with_ssh_ports() {
@@ -430,6 +436,16 @@ nft_with_ssh_ports() {
 	# below rather than being installed unchanged.
 	sed -E "s/^define ssh_ports = \{[^}]*\}$/define ssh_ports = { ${ports} }/" \
 		"$REPO_ROOT/scripts/deploy/nftables/nativeweb.nft"
+}
+
+# In edge mode the public surface is not public. The stock ruleset accepts
+# { 80, 443 } from any source, which on a fleet guest means every neighbour on
+# the bridge can reach a listener whose X-Forwarded-* headers Caddy trusts --
+# and 443 is not even bound, because Caddyfile.edge runs with auto_https off.
+# Same anchored-substitution discipline as ssh_ports, checked by the caller.
+nft_restricted_to_edge() {
+	local edge="$1"
+	sed -E "s|^(\t\t)tcp dport \{ 80, 443 \} accept$|\1ip saddr ${edge} tcp dport 80 accept|"
 }
 nft_conf_is_untouched_package_default() {
 	dpkg --verify nftables 2>/dev/null | grep -qE '[[:space:]]/etc/nftables\.conf$' && return 1
@@ -450,17 +466,51 @@ if [[ ! -f /etc/nftables.conf ]] || grep -qF "$NFT_MARKER" /etc/nftables.conf \
 		die "could not rewrite 'define ssh_ports' in nativeweb.nft. Refusing to install a
        ruleset whose SSH allowance was not confirmed."
 	fi
+
+	if [[ -n "$EDGE_PROXY" ]]; then
+		NFT_RENDERED="$(printf '%s\n' "$NFT_RENDERED" | nft_restricted_to_edge "$EDGE_PROXY")"
+		# Checked the same way, and for a sharper reason: a silent no-op here does
+		# not fail, it installs the world-open rule while every message this script
+		# prints says the listener is reachable only from the edge.
+		if [[ "$NFT_RENDERED" != *"ip saddr $EDGE_PROXY tcp dport 80 accept"* ]]; then
+			die "could not restrict the public surface to $EDGE_PROXY in nativeweb.nft.
+       Refusing to install a ruleset that opens 80 and 443 to every host on the network
+       while --edge says only the edge can reach this guest."
+		fi
+		step "restricting the public surface to $EDGE_PROXY on port 80 (edge mode)"
+	fi
 	step "opening SSH on port(s) $SSH_PORTS, as reported by sshd -T"
-	printf '%s\n' "$NFT_RENDERED" >/etc/nftables.conf
-	chown root:root /etc/nftables.conf
-	chmod 0644 /etc/nftables.conf
+
+	# Checked with `nft -c` BEFORE it is written, not loaded with `nft -f` after
+	# the service is already enabled. The old order had the worst failure mode in
+	# this file: a ruleset that does not parse was still installed and nftables
+	# still enabled, so errexit ended the run with a broken /etc/nftables.conf on
+	# disk -- and at the next boot nftables.service fails and the host comes up
+	# with NO ruleset at all. A firewall that fails to install must not become a
+	# host with no firewall.
+	NFT_STAGED="$(mktemp)"
+	printf '%s\n' "$NFT_RENDERED" >"$NFT_STAGED"
+	if ! nft -c -f "$NFT_STAGED"; then
+		rm -f "$NFT_STAGED"
+		die "the rendered nftables ruleset does not parse. Refusing to install it: a broken
+       /etc/nftables.conf leaves this host with no ruleset at all after a reboot."
+	fi
+	install -o root -g root -m 0644 "$NFT_STAGED" /etc/nftables.conf
+	rm -f "$NFT_STAGED"
 	systemctl enable --now nftables
 	nft -f /etc/nftables.conf
+	NFT_INSTALLED=yes
 else
+	NFT_INSTALLED=no
 	step "SKIPPED: /etc/nftables.conf exists and is not ours -- not overwriting it"
 	echo "       This ruleset starts with 'flush ruleset', so installing it would drop every"
 	echo "       table on this host. Merge scripts/deploy/nftables/nativeweb.nft by hand, or"
 	echo "       move the existing file aside and re-run. R5 is NOT met until you do."
+	if [[ -n "$EDGE_PROXY" ]]; then
+		echo "       In edge mode that includes the one rule this guest needs, which was NOT added:"
+		echo "         ip saddr $EDGE_PROXY tcp dport 80 accept"
+		echo "       Until it exists, the edge cannot reach Caddy and every proxied request fails."
+	fi
 fi
 
 # --- Log retention (R6) ------------------------------------------------------
@@ -496,8 +546,17 @@ systemctl enable --now unattended-upgrades
 
 # --- Done --------------------------------------------------------------------
 if [[ -n "$EDGE_PROXY" ]]; then
+	# Told the truth per branch. This used to say "add the firewall rule" in both
+	# cases: a no-op instruction when provision installed the ruleset itself (it
+	# now contains the rule), and the single most important step when it skipped.
+	if [[ "$NFT_INSTALLED" == yes ]]; then
+		EDGE_FIREWALL_NOTE="The installed ruleset already restricts :80 to $EDGE_PROXY."
+	else
+		EDGE_FIREWALL_NOTE="The firewall was NOT installed, so add by hand:
+       ip saddr $EDGE_PROXY tcp dport 80 accept"
+	fi
 	CADDY_NEXT_STEP="2. Caddy needs no hostname or ACME address in edge mode; NATIVEWEB_EDGE_PROXY is
-     already set to $EDGE_PROXY. Add the firewall rule that lets the edge reach :80, then:
+     already set to $EDGE_PROXY. $EDGE_FIREWALL_NOTE
        systemctl restart caddy"
 	DEPLOY_NEXT_STEP="5. Then:                       scripts/deploy/deploy.sh --artifact dist/... --incus <instance>"
 else
