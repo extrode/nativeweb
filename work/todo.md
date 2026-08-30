@@ -1161,3 +1161,31 @@ the DO firewall and not bound by sshd — that is an immediate lockout with no c
 the middle of the provisioning step. Fix is to derive the ports from `sshd -T` and emit an
 nftables `define` rather than hardcoding, so the ruleset opens whatever sshd actually listens on.
 Blocks spec 011 T15 at its first step.
+
+## Deploy target moved to incus-host — three follow-ups
+
+Recorded in `docs/decisions/2026-08-30-006-fleet-as-deploy-target.md`. `nativeweb-dev`
+(`10.0.0.30`) and `nativeweb-prod` (`10.0.0.31`) exist, are hardened and are idempotent;
+`build-host` is the NativeAOT builder. Three T15 stoppers from the vm rehearsal are
+gone with the host change. What is left is code, not infrastructure:
+
+- **Caddy needs a behind-an-edge variant.** The fleet terminates TLS at one host Caddy and speaks
+  plain HTTP to a private address, so the VM's Caddy moves from `:443`-with-ACME to `:80` with
+  `auto_https off`. Keeping that sidecar rather than dropping it is what preserves R10's zero-gap
+  blue/green swap, since `deploy.sh` promotes by rewriting `upstream.caddy` and reloading. Needs
+  the Caddyfile variant, the matching `deploy.sh` branch, and tests for both.
+- **Guest firewall rule.** The golden image's default-deny `inet filter` needs
+  `ip saddr 10.0.0.1 tcp dport 80 accept` — the bridge gateway only, per the fleet convention
+  epass follows. Waiting on the sidecar port above.
+- **`deploy.sh` still has no SSH port flag** (`:89`, `:94`, `:95`, `:111` — no `-p`/`-P`). Not
+  blocking here, because a `ProxyJump` ssh_config alias carries host and port. It stays wrong for
+  any standalone host, which is what `nativeweb.nft` and spec 011's provisioning path still target.
+
+`web-host` is untouched and still running. It is not in any cleanup script and is not mine to
+remove.
+
+## `other-vm` has LLMNR open on `0.0.0.0:5355` — not ours
+
+Noted only, one line, because it turned up while verifying the same port was closed on the
+NativeWeb VMs. The resolver drop-in in `harden-host.sh` closes it. That host belongs to the
+another project's deployment and runbook, not to this repo.
