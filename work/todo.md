@@ -60,6 +60,21 @@ wish list; the value is in recording the ones nobody has got to yet.
   candidates, of which **52 are that one false positive** — the daily audit spends its refutation
   budget on them. One line in `checks/assertionless-test.ts` fixes it.
 
+  **All 19 are fixed on the same branch, 2026-08-30.** Deploy lane: eight fixes plus ten new
+  `DeployScriptTests` facts. Skeleton lane: ten drifts closed — five mechanical, five behavioural
+  (four new files: `Middleware/AntiforgeryValidationMiddleware.cs`, `StartupConfigGuards.cs`,
+  `ReadinessCache.cs`, `QueryRedactingProcessor.cs`) — plus `SkeletonParityTests`, **14 facts, and
+  the first parity coverage this repo has had**: nothing in `NativeWeb.slnx` builds `skeleton/`, so
+  every one of these ten was a thing a stamped product would do WRONG rather than fail to compile.
+  Six mutations, six distinct failures. `assertionless-test` fixed and the sweep re-run: **124 →
+  83 candidates**. Suites after: 676 web-unit (+14), 157 render, 64 scaffold, 184 signin, 16
+  sample; `tools/audit` 255; structure-audit 0 errors.
+
+- **`nativeweb.signin.epass.tests.unit` failed 1 of 184 once on 2026-08-30 and has passed 5 runs
+  since**, in `.worktrees/audit-sweep`. The failing test's name was lost to a shell loop that
+  filtered it out, so there is nothing here to act on beyond knowing that tier has produced one
+  unexplained red. Worth capturing the name if it recurs.
+
 - **CI is red on every push, and the cause is a missing package grant — not a missing package.**
   Measured on run `33259408524` (2026-08-29): `NU1301` … `403 (Forbidden)` against
   `https://nuget.pkg.github.com/extrode/download/jauntyq.runtime/index.json`, killing Restore in

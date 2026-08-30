@@ -13,6 +13,31 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Fixed
+- **Nineteen defects from a two-lane audit sweep**, each confirmed by a refutation pass before
+  being fixed. Eight in `scripts/deploy/**`, which has never run against a real host and where the
+  first four each stop the runbook dead on a clean Debian: Caddy never reading the environment file
+  `provision.sh` writes, an access-log directory owned by the wrong user, an nftables guard that
+  skipped on every first provision because Debian's own package ships the file it checks for, and
+  `sudo VAR=value` under `env_reset`. Also a disaster-recovery restore that could only find backups
+  under the dead host's name (`restore.sh --from-host`), a `pg_hba` map that let the production
+  overwrite authenticate but not the drill, a `db/migrate.sh` that was mode 100644 in the index,
+  and a systemd template that enabled both colours before either existed.
+- **Ten drifts between `skeleton/` and `apps/web`**, every one a fix the real app made and the
+  template never took, so every stamped product inherited it. `skeleton/` is in no solution, so
+  none of them broke a build: a failed antiforgery check answering 500 rather than 400, an
+  unguarded `AddUserSecrets` outranking a deployment's own environment variables, `/readyz`
+  spending a pooled connection per anonymous request, OpenTelemetry exporting unredacted query
+  strings and no service resource, startup errors thrown rather than exited (a fail-fast that hangs
+  a Windows service on a modal box under NativeAOT), unlimited `security.txt` routes, a bare
+  antiforgery cookie with no `__Host-` prefix, JauntyQ pinned a minor behind, a single unguarded
+  `JauntyQRoot` probe that breaks every worktree build, and three references naming other products.
+  `tests/nativeweb.web.tests.unit/SkeletonParityTests.cs` is the first parity coverage in the repo.
+- **`tools/audit`'s `assertionless-test` check read a project-local `Assert*` helper as no
+  assertion**, reporting 52 of this repository's own tests. The daily audit was spending its
+  refutation budget on them; the mechanical sweep now yields 83 candidates across 130 slices
+  instead of 124.
+
 ### Changed
 - **Re-synced to ISL-NETC 1.1**, SPDX `LicenseRef-ISL-NETC-1.1`. The point of 1.1 is that §1.2 is a
   `[LICENSOR]` placeholder the adopter completes, and its *Notice on Reproducing This License* says

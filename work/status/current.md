@@ -6,6 +6,25 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Audit sweep and its fixes** — `chore/backlog-audit-2026-08-30`, 2026-08-30. Find-what-is-wrong
+  rather than build-the-next-thing: two `audit` lanes over `scripts/deploy/**` and `skeleton/`,
+  every claim then handed to a `review-deep` (Fable) worker prompted to refute it. **18 claims, 18
+  confirmed, 0 refuted**, plus one correction from Fable and one precision defect in the repo's own
+  audit tool. All 19 are fixed on this branch. The full list is in `work/todo.md`.
+  - **The skeleton is where the value was.** Ten drifts, none of which anything could have caught:
+    `skeleton/` is not in `NativeWeb.slnx`, so it never builds, and every drift was a thing a
+    stamped product would do wrong rather than fail to compile — a form POST answering 500 instead
+    of 400, a user-secrets store outranking a production environment variable, `/readyz` taking a
+    pooled connection per anonymous hit, unredacted query strings in every trace, and a mistyped
+    config value hanging the service behind a modal box under NativeAOT. `SkeletonParityTests` is
+    the first parity coverage this repo has had: **14 facts, six mutations, six distinct failures**.
+  - **`assertionless-test` had no notion of a project-local assertion helper**, so 52 of this
+    repo's own tests read as asserting nothing and the daily audit spent its refutation budget on
+    them. One regex; the mechanical sweep went **124 → 83 candidates**.
+  - Suites: **676 web-unit** (+14), 157 render, 64 scaffold, 184 signin, 16 sample, `tools/audit`
+    255, structure-audit 0 errors / 2 pre-existing warnings. `tmp/probe-app2` stamped and built
+    (0 warnings, 0 errors) to compile the skeleton C#, which the solution does not.
+
 - **ISL-NETC 1.1 re-sync** — `docs/isl-netc-1.1`, 2026-08-30. Unblocked by the family maintainer's
   notice (`216557c`), which the user merged. `LICENSE.md` is now the 1.1 text with §1.2 completed as
   Extrode LLC — one line different from the published text, `diff`-verified — so the `NOTICE.md`
