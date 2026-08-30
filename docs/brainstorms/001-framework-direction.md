@@ -420,10 +420,11 @@ query — decides whether any of this is pleasant to use.
 
 **Q0 — Internal or public? RESOLVED: internal** (§0). Licence noted and deferred.
 
-**Q1 — Consumption and compatibility.** Package mode does not currently restore anywhere (§5).
-Publish `NativeWeb.*` to the private feed and fix the feed gap, or require every consumer to
-hold a checkout and accept lockstep upgrades? Package mode additionally needs a semver and
-deprecation policy that does not exist.
+**Q1 — Consumption and compatibility. RESOLVED 2026-08-30: packages.** Consumers take pinned
+`NativeWeb.*` packages; checkout mode stays as a co-development convenience only. Recorded with
+the reasoning, the four things it obliges, and the rejected alternative in
+`docs/decisions/2026-08-30-004-package-mode-for-consumers.md`. Note that this is approved rather
+than working: the feed gap is real, and a library release process still has to be written.
 
 **Q1b — Does the framework inherit `AGENTS.md`'s PostgreSQL-only binding? RESOLVED 2026-08-30:
 the question does not arise.** NativeWeb does not deal with the data layer — all data access goes
