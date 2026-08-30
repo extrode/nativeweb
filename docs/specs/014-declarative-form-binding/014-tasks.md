@@ -55,7 +55,7 @@ mutation-checked per global `AGENTS.md` — **commit before mutating**, because 
       untouched, and every existing unit, integration and e2e assertion passes **unedited**. An
       assertion that had to change means behaviour moved and fails the task.
 
-- [ ] T9 Pin the three statuses — files:
+- [x] T9 Pin the three statuses — files:
       `tests/nativeweb.web.tests.integration/RequireServicesFilterTests.cs` (extend) or a new file
       — covers: R10 — done when: 415 for a JSON POST, 400 for a tokenless form POST and 503 for a
       route with a gated service absent are each asserted on the converted routes and each
