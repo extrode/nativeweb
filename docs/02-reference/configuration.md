@@ -105,6 +105,23 @@ partition**. Nothing errors, no log line says so, and the limits above stop bein
 default is the safe direction — an untrusted hop cannot spoof its way past a limit — but it is
 only correct for a deployment with no proxy in front of it. Production must set this.
 
+### `NativeWeb:ForwardedHeaders:ForwardLimit` — how many hops back to look
+
+`1`. A value that does not parse, or is zero or negative, leaves the default in place rather than
+failing startup: a typo here should cost a shared rate-limit partition, not an outage.
+
+One hop is right for the usual shape — a single Caddy on the same host. It is wrong the moment
+there are two proxies. On incus-host the host-level Caddy terminates TLS and a Caddy sidecar
+in the guest owns the blue/green swap, so `X-Forwarded-For` arrives as `<client>, <edge>` and a
+limit of 1 unwinds only the sidecar's entry — leaving `RemoteIpAddress` on the bridge gateway,
+with the same silent consequence as leaving `KnownProxies` unset.
+
+**Raise it together with `KnownProxies`, never alone.** The limit is how many entries are popped,
+and a pop is only honoured while the address it lands on is trusted, so raising one without the
+other changes nothing at all — which reads exactly like the setting not working.
+`provision.sh --edge` seeds both in one place for that reason. A limit larger than the real chain
+is not a spoofing hole, because the untrusted address stops the walk regardless.
+
 ## Readiness
 
 | Key | Default | Notes |

@@ -1178,8 +1178,23 @@ gone with the host change. What is left is code, not infrastructure:
   `ip saddr 10.0.0.1 tcp dport 80 accept` — the bridge gateway only, per the fleet convention
   epass follows. Waiting on the sidecar port above.
 - **`deploy.sh` still has no SSH port flag** (`:89`, `:94`, `:95`, `:111` — no `-p`/`-P`). Not
-  blocking here, because a `ProxyJump` ssh_config alias carries host and port. It stays wrong for
-  any standalone host, which is what `nativeweb.nft` and spec 011's provisioning path still target.
+  blocking on the fleet, but not for the reason first written here: the original note said a
+  `ProxyJump` alias carries the port, which presumed an sshd in the guest that does not exist.
+  What makes it non-blocking is the `--incus` transport added on 2026-08-30, which does not use
+  ssh at all. It stays wrong for any standalone host, which is what `nativeweb.nft` and spec
+  011's provisioning path still target.
+
+- **Both Caddyfiles trip `caddy fmt`** on the blank line between the header comment and the
+  global options block (`caddy validate` still passes; it is a formatting warning, not an
+  error). Left alone rather than fixed in one file, which would make the pair inconsistent.
+
+- **`DenoToolingPolicyTests.Repo_HasNoNodePackageManifestOrLockfile` failed once in a full-suite
+  run on 2026-08-30 and passed in isolation and on the immediate re-run.** Ordering-dependent, so
+  something else in the tier is creating and removing a scanned path while it walks. A guard that
+  fails at random gets muted eventually; worth pinning the scan to a snapshot.
+
+- **`nativeweb-prod` has no sidecar firewall rule and no provisioning.** `nativeweb-dev` has
+  both. Deliberate: prod waits until dev has served a real release.
 
 `web-host` is untouched and still running. It is not in any cleanup script and is not mine to
 remove.
