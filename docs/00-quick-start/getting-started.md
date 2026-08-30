@@ -83,6 +83,7 @@ Then run a tier at a time. Naming a tier rather than globbing is deliberate: a s
 being discovered fails by name instead of vanishing from the run.
 
 ```
+dotnet test tests/nativeweb.repo.tests.unit
 dotnet test tests/nativeweb.render.tests.unit
 dotnet test tests/nativeweb.forms.tests.unit
 dotnet test tests/nativeweb.scaffold.tests.unit
@@ -95,13 +96,14 @@ The full set, and what each returned on the verification run:
 
 | Project | Facts |
 |---|---|
+| `tests/nativeweb.repo.tests.unit` | 51 |
 | `tests/nativeweb.render.tests.unit` | 157 |
 | `tests/nativeweb.forms.tests.unit` | 85 |
 | `tests/nativeweb.scaffold.tests.unit` | 64 |
 | `tests/nativeweb.scaffold.tests.integration` | 38 |
 | `tests/nativeweb.scaffold.tests.e2e` | 13 |
 | `tests/nativeweb.sample.tests.unit` | 36 |
-| **Total** | **393 — 0 failed, 0 skipped** |
+| **Total** | **444 — 0 failed, 0 skipped** |
 
 Measured 2026-08-31, `dotnet build NativeWeb.slnx` and `dotnet test NativeWeb.slnx` from a clean
 tree, after `apps/web` and the seven test projects that covered it left the repository — see

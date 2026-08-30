@@ -2,9 +2,8 @@
 
 ```
 sample/           the scaffolding demo's schema and queries; see sample/README.md
-migrate.sh        applies a migrations/ directory in order, tracking them in schema_migrations
-test-run-lock.sh  proves migrate.sh serialises itself; run it against an
-                  already-migrated database, it applies nothing
+migrate.sh        UNREACHABLE -- reference copy; the live one is skeleton/db/migrate.sh
+test-run-lock.sh  UNREACHABLE -- drives migrate.sh, so it aborts with it
 ```
 
 **`sample/` is the only schema this repository has.** `migrations/`, `queries/`, `schema/` and
@@ -14,8 +13,13 @@ provider itself; see `docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`. A 
 ship a schema, so nothing replaced them, and a new top-level schema arriving here is a scope
 question rather than a migration.
 
-`migrate.sh` and `test-run-lock.sh` stay because they are schema-agnostic tooling: `scripts/deploy/`
-runs the first against whatever schema a stamped product has, and the skeleton inherits the shape.
+**Neither `migrate.sh` nor `test-run-lock.sh` runs today.** `migrate.sh` resolves its migrations
+directory to `db/migrations/`, which went with the provider, and its one superuser step names
+`0002_extensions.sql` unconditionally; it aborts on the missing file, and `test-run-lock.sh` drives
+it, so it aborts too. They are kept as the reference the live copy was derived from — a stamped
+product gets `skeleton/db/migrate.sh`, which has its own `__PRODUCT__` text and is the one
+`scripts/deploy/` invokes. Retargeting this copy at `db/sample/migrations/` needs the extensions
+step made conditional; `work/todo.md` carries it.
 
 ## Running two migrations at once
 
@@ -25,14 +29,16 @@ already applied?" check before either records, and both apply the file: loud for
 a data migration**.
 
 The lock is per-database, so runs against different databases do not block each other.
-`bash db/test-run-lock.sh` verifies the whole behaviour in about a minute and exits non-zero if any
-part of it has regressed.
+`bash db/test-run-lock.sh` used to verify the whole behaviour in about a minute; it cannot run
+against this copy any more, for the reason above. The behaviour it covered is in
+`skeleton/db/migrate.sh` as well, where a stamped product can exercise it.
 
 ## JauntyQ flow
 
 1. Apply migrations to a local database.
-2. `jaunty schema pull` writes a `schema/jaunty.schema.json` from that database.
-3. Write queries as `.sql` files under `queries/` (auto-CRUD needs no file).
+2. `jaunty schema pull` writes a schema snapshot JSON from that database, into the schema
+   directory beside the migrations — `db/sample/schema/` here.
+3. Write queries as `.sql` files under the queries directory (auto-CRUD needs no file).
 4. The JauntyQ source generator turns `queries/*.sql` plus the schema snapshot into typed C# at
    build time, in whichever project declares them as `AdditionalFiles`.
 

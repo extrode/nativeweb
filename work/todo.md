@@ -1004,7 +1004,7 @@ unstruck line by line because the measurements in it are still true about the co
 and because the `002-epass-cutover-capability-gap.md` note it feeds is the record of why the answer
 went the other way.
 
-Four follow-ups the removal itself created, and these ARE live:
+Seven follow-ups the removal itself created, and these ARE live:
 
 - **The framework has no password-policy primitives any more.** `LockoutPolicy`,
   `CommonPasswordChecker`, `HibpBreachChecker` and `BreachChecking` went out with
@@ -1022,6 +1022,21 @@ Four follow-ups the removal itself created, and these ARE live:
 - **`libs/epass.auth`, `epass.data`, `epass.mail`, `epass.security` are untracked `obj/`-only
   leftovers** of the 2026-08-19 neutral-naming rename, sitting in `libs/` looking like projects.
   Listed in `scripts/cleanup/extract-idp.ps1`, not removed.
+- **`db/migrate.sh` and `db/test-run-lock.sh` are unreachable.** `MIGRATIONS_DIR` resolves to the
+  deleted `db/migrations/`, and the one superuser step names `0002_extensions.sql` unconditionally,
+  so the runner aborts and the lock test aborts with it. Both say so in their own headers now.
+  Either retarget at `db/sample/migrations/` — which means making the extensions step conditional,
+  a change to the runner — or retire them and let `skeleton/db/migrate.sh` be the only copy.
+- **The OTel-under-AOT gate stopped gating.** `scripts/ci/check-publish-budgets.ps1` sets
+  `NativeWeb__Telemetry__Enabled=true` and was the only place the OpenTelemetry registration path
+  ran inside a real NativeAOT image. `apps/sample` registers no telemetry and no surviving library
+  does, so the variable is inert and an AOT-hostile change to that path would now ship unnoticed.
+  Restoring the coverage means giving `apps/sample` a telemetry registration.
+- **The `Fido2` and `NSec.Cryptography` pins in `Directory.Packages.props` have no consumer.**
+  WebAuthn was IdP functionality; no project references either package now. The `NSec` pin exists
+  only to resolve a libsodium conflict `Fido2` introduced, so the two go together. Removing a
+  dependency needs a decision, hence the note rather than the deletion — the `Fido2` comment's
+  reference to `apps/web Program.cs` is stale either way.
 
 ## epass.io cutover readiness, probed 2026-08-24
 

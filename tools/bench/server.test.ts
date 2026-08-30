@@ -88,6 +88,9 @@ Deno.test("the bench environment silences telemetry and forces the in-memory sto
   const env = benchEnv("http://localhost:5997");
 
   assertEquals(env.ASPNETCORE_URLS, "http://localhost:5997");
+  // Inert against apps/sample, which registers no telemetry -- it was live when the target was
+  // apps/web. Kept because the harness measures whatever it is pointed at, and an exporter
+  // waking up mid-run is the kind of thing that moves a number without explaining itself.
   assertEquals(env.NativeWeb__Telemetry__Enabled, "false");
   // Warning and above: at default level the app writes an info line per request and draining
   // it cost 14% of measured throughput, measured on apps/web before it left the repo.

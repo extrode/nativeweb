@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 #
 # Applies db/migrations/*.sql to a database in order, tracking applied
-# versions in schema_migrations so re-runs skip what's already there. This is
-# the primary way to bring a database up to date.
+# versions in schema_migrations so re-runs skip what's already there.
+#
+# UNREACHABLE AS IT STANDS, since 2026-08-31. MIGRATIONS_DIR below resolves to
+# db/migrations/, which left with the identity provider
+# (docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md), and the superuser step
+# near the bottom names 0002_extensions.sql unconditionally. Run it and it aborts
+# on the missing file; db/test-run-lock.sh, which drives it, aborts with it.
+#
+# It is kept, not deleted, because the locking design below is the part worth
+# having and skeleton/db/migrate.sh -- the copy a stamped product actually gets,
+# and the only live one -- was derived from it. Retargeting this copy at
+# db/sample/migrations/ means making the extensions step conditional, which is a
+# change to the runner rather than a correction to this branch: work/todo.md
+# carries it.
 #
 # Env (all optional; the defaults are the local dev setup):
 #   PGHOST            default 127.0.0.1

@@ -385,8 +385,11 @@ frozen and also unreproducible**, for the same class of reason: it measured the 
 (decision `2026-08-31-007`). Those figures — bench-host, 16 cpu, win-x64: `/healthz` 18,067.2 req/s,
 0.83 ms p50, 74.4 MB peak RSS; `GET /` 6,998.0 req/s, 2.11 ms p50, 60.9 MB, zero errors — are
 kept here as a record and are **not** a target for anything now in the tree. The harness itself
-survives, retargeted at `apps/sample`, and its baseline was reset to null rather than carried
-over: a smaller app measured against a larger one's ceiling passes for the wrong reason.
+survives, retargeted at `apps/sample`, and its baseline was re-measured rather than carried
+over: a smaller app measured against a larger one's ceiling passes for the wrong reason. The
+figures `--check` compares against now, recorded 2026-08-31 on the same bench-host: `/healthz` 23,068.6
+req/s, 0.60 ms p50, 45.0 MB peak RSS; `/articles` 19,937.6 req/s, 0.61 ms p50, 40.3 MB, zero
+errors. `/articles`, not `/`, because `/` on `apps/sample` is a 302 and would measure the router.
 Tolerances stay 20% down on throughput and 25% up on RSS, sized from a measured 16.3%
 run-to-run spread. `tools/bench/README.md` has the rest.
 

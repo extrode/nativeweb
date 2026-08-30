@@ -29,9 +29,11 @@ $bytes = (Get-Item $ExePath).Length
 Write-Host ("{0}: binary size {1:N0} bytes ({2:N1} MB)" -f $Name, $bytes, ($bytes / 1MB))
 
 # --- 2. Time to /healthz ----------------------------------------------------
-# The app boots without any configuration (missing conn string degrades to
-# /readyz not-ready by design), so a bare launch is enough for liveness. http,
-# not https: no cert exists here and liveness has no cookie in play.
+# The app boots without any configuration (apps/sample degrades to its in-memory
+# store when ConnectionStrings:Sample is empty), so a bare launch is enough for
+# liveness. http, not https: no cert exists here and liveness has no cookie in
+# play. This read "/readyz not-ready by design" while the target was apps/web;
+# apps/sample has only /healthz.
 $baseUrl = "http://127.0.0.1:$Port"
 $startInfo = New-Object System.Diagnostics.ProcessStartInfo
 $startInfo.FileName = (Resolve-Path $ExePath).Path
@@ -39,12 +41,14 @@ $startInfo.WorkingDirectory = (Split-Path (Resolve-Path $ExePath).Path)
 $startInfo.UseShellExecute = $false
 $startInfo.EnvironmentVariables['ASPNETCORE_URLS'] = $baseUrl
 $startInfo.EnvironmentVariables['ASPNETCORE_ENVIRONMENT'] = 'Development'
-# Telemetry ON for this launch. Redundant since 2026-08-17, when the flag became
-# opt-out and a bare launch would enable it anyway -- kept explicit because this
-# is the ONLY place the OTel registration path runs inside the actual NativeAOT
-# image (TelemetryTests is a CoreCLR host), so the intent should not depend on a
-# default that could move again. No collector exists here; export failures are
-# background warnings.
+# Telemetry ON for this launch. THIS GATE STOPPED GATING on 2026-08-31: it was
+# the only place the OTel registration path ran inside a real NativeAOT image,
+# and it ran because the target was apps/web, which registered OpenTelemetry.
+# apps/sample does not, and no surviving library does, so the variable is inert
+# and an AOT-hostile change to the registration path would now ship unnoticed.
+# Kept set so the intent survives the gap; restoring the coverage means giving
+# apps/sample a telemetry registration, which work/todo.md carries. No collector
+# exists here; export failures are background warnings.
 $startInfo.EnvironmentVariables['NativeWeb__Telemetry__Enabled'] = 'true'
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()

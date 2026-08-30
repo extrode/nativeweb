@@ -196,6 +196,12 @@ jobs:
       # being discovered fails by name instead of vanishing quietly from the run.
       # The web and sign-in tiers that used to head this list left with the
       # identity provider (decision 2026-08-31-007).
+      # First, because it is the tier that asserts about this file. It guards the workflow's own
+      # action pinning, nuget.config, the solution, Directory.Build.props, .editorconfig, the pack
+      # metadata and the skeleton's framework resolution -- none of which any other suite reads.
+      - name: Repository guards
+        run: dotnet test tests/nativeweb.repo.tests.unit --no-build $DOTNET_BUILD_ARGS
+
       - name: Render unit tests
         run: dotnet test tests/nativeweb.render.tests.unit --no-build $DOTNET_BUILD_ARGS
 
