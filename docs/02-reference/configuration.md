@@ -1,10 +1,16 @@
 # Configuration reference — apps/web
 
-Every setting `apps/web` reads, what it defaults to, and what a wrong or absent value actually
-costs. Until this file existed, all of it was discoverable only by reading `Program.cs`.
+> **This documents an application that is no longer in this repository.** `apps/web` left on
+> 2026-08-31 with the identity provider (`../decisions/2026-08-31-007-idp-leaves-nativeweb.md`),
+> and `tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs`, which used to fail when
+> this file drifted from the source, went with it. **Nothing enforces this page now.** It is kept
+> because `skeleton/` reads a subset of the same keys under its own `__PRODUCT__:` prefix with the
+> same shape and defaults, so a stamped product's settings are still described here — but a key
+> below may or may not exist in any code you can read today. Verify against `skeleton/` before
+> relying on a row.
 
-The skeleton (`skeleton/`) reads a smaller subset under its own `__PRODUCT__:` prefix; the shape
-and the defaults are the same, and the section names line up one for one.
+Every setting `apps/web` read, what it defaulted to, and what a wrong or absent value cost. Until
+this file existed, all of it was discoverable only by reading `Program.cs`.
 
 ## How settings are supplied
 
@@ -277,6 +283,7 @@ Worth knowing which keys will tell you they are wrong and which will not.
 | **Silently defaulted** | every other numeric key — `Db:*`, all six `RateLimit:*`, `DeviceGrant:*`, `BreachCheck:RecheckAfterHours`, `PassphraseReset:MaxCodesPerDay` |
 | **Silently ignored** | unparseable entries in `ForwardedHeaders:KnownProxies` and `WebAuthn:Origins` |
 
-`tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs` asserts this file lists every
-`NativeWeb:` key the source actually reads, and lists no key it does not — so a new setting cannot
-land undocumented.
+`tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs` used to assert that this file
+listed every `NativeWeb:` key the source read and no key it did not, so a new setting could not
+land undocumented. That test was deleted on 2026-08-31 with the application it read. **The
+guarantee is gone**; re-establishing it against `skeleton/` is an open item in `work/todo.md`.

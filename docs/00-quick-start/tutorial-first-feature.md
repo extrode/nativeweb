@@ -17,7 +17,8 @@ then open `http://localhost:5399/articles`. You are looking at the result of eve
 **Follow along in your own product, not here.** If you came through
 [Path A of the getting-started guide](getting-started.md), you have a stamped product with its own
 table; build the equivalent page against that, and read this repository's files as the worked
-answer. If you are here on Path B, working on `apps/web`, read rather than type — the layering is
+answer. There used to be a second path here, for the identity provider this repository held; it
+left on 2026-08-31, so there is one path. Read rather than type if you only want the layering — it is
 identical and `apps/sample` is the smaller place to see it whole.
 
 The files, in the order this page covers them:
@@ -105,10 +106,10 @@ JauntyQ query is a `.sql` file that the source generator turns into a typed meth
 step where you write the C# for it. Drop the file in `db/sample/queries/Articles/`, build, and
 `db.Articles.ListPublishedAsync` exists.
 
-The generator, the schema snapshot it reads, and why `apps/sample` hosts it directly instead of
-referencing `libs/nativeweb.data`, are in [`db/sample/README.md`](../../db/sample/README.md) and
-[`libs/nativeweb.data/README.md`](../../libs/nativeweb.data/README.md). Read the first one now if you
-have not: it also has the two `CREATE DATABASE` lines this feature's tests need.
+The generator, the schema snapshot it reads, and why `apps/sample` hosts it directly rather than
+through a data library of its own, are in [`db/sample/README.md`](../../db/sample/README.md) and
+[`db/README.md`](../../db/README.md). Read the first one now if you have not: it also has the two
+`CREATE DATABASE` lines this feature's tests need.
 
 ```sql
 -- @params take:int
@@ -135,7 +136,7 @@ You have two honest answers and you must pick one:
 
 | Answer | When it is right |
 |---|---|
-| Add an index on `created_at` in a migration | The table grows. This is the usual answer — `db/migrations/0023`, `0033`, `0034` and `0048` are all exactly this. |
+| Add an index on `created_at` in a migration | The table grows. This is the usual answer. |
 | Accept the sort and say why | The table does not grow. |
 
 This table is three seeded rows in a demo, where PostgreSQL would ignore the index anyway, so the
