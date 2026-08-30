@@ -21,7 +21,10 @@ public sealed class PipelineOrderTests
 
     [Theory]
     // The rewrite runs before route matching (spec 003 R38) and both run inside the
-    // error shell, so the four have exactly one valid order.
+    // error shell, so the four have exactly one valid order. Only row 2 fails on a
+    // revert of the 2026-08-19 reorder -- rows 1 and 3 held before it and are here as
+    // the invariants that keep a future "tidy" from restoring the old shape by
+    // moving a different pair.
     [InlineData("app.UseMiddleware<ErrorPageMiddleware>", "app.UseMiddleware<SecurityHeadersMiddleware>")]
     [InlineData("app.UseMiddleware<SecurityHeadersMiddleware>", "app.UseMiddleware<StaticPagesMiddleware>")]
     [InlineData("app.UseMiddleware<StaticPagesMiddleware>", "app.UseRouting()")]
@@ -49,7 +52,11 @@ public sealed class PipelineOrderTests
         int errorAt = Program.IndexOf("app.UseMiddleware<ErrorPageMiddleware>", StringComparison.Ordinal);
 
         Assert.True(forwardedAt >= 0, "app.UseForwardedHeaders() is not registered in Program.cs at all.");
-        Assert.True(forwardedAt < errorAt);
+        Assert.True(errorAt >= 0, "app.UseMiddleware<ErrorPageMiddleware> is not registered in Program.cs at all.");
+        Assert.True(
+            forwardedAt < errorAt,
+            "app.UseForwardedHeaders() must stay outside the error shell: every middleware below it, "
+            + "the error path included, reads the client address and scheme it corrects.");
     }
 
     private static string RepoRoot()
