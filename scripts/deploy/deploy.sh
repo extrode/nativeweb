@@ -116,33 +116,48 @@ if [[ "$LOCAL" -ne 1 ]]; then
 		# succeeds -- it writes straight into the filesystem -- so without this the
 		# artifact lands, `incus exec` fails with a message about the instance not
 		# running, and a full release tarball is left inside a stopped guest.
-		instance_state="$(incus info "$INSTANCE" 2>/dev/null | awk '$1 == "Status:" { print $2; exit }')"
+		# The trailing `|| true` is what makes the next line reachable. Under
+		# `set -euo pipefail` a command substitution whose pipeline fails takes the
+		# whole script down at the assignment, so on a mistyped instance name this
+		# died at exit 127 with zero bytes of output -- incus's own error eaten by
+		# 2>/dev/null and the message below never printed. Measured, not reasoned:
+		# the same shape in a scratch script exits 127 silently without it, and
+		# prints the die with it.
+		instance_state="$(incus info "$INSTANCE" 2>/dev/null | awk '$1 == "Status:" { print $2; exit }' || true)"
 		[[ -n "$instance_state" ]] || die "no such Incus instance: $INSTANCE"
 		[[ "$instance_state" == "RUNNING" ]] ||
 			die "Incus instance $INSTANCE is $instance_state, not RUNNING"
 
-		remote_dir="$(incus exec "$INSTANCE" -- mktemp -d /tmp/nativeweb-deploy.XXXXXXXX)"
+		remote_dir="$(incus exec "$INSTANCE" -- mktemp -d /tmp/nativeweb-deploy.XXXXXXXX || true)"
+		# One trailing CR, because the guest's mktemp may emit CRLF through
+		# `incus exec`. There is no matching `%$'\n'` strip: `$(...)` already
+		# removes every trailing newline, so that line was dead and its presence
+		# implied a case that cannot arise.
 		remote_dir="${remote_dir%$'\r'}"
-		remote_dir="${remote_dir%$'\n'}"
 		[[ -n "$remote_dir" ]] || die "could not create a staging directory in $INSTANCE"
 		remote_artifact="$remote_dir/$(basename "$ARTIFACT")"
 
 		echo "deploy.sh: pushing $(basename "$ARTIFACT") into $INSTANCE:$remote_dir"
-		# `incus file push <src> <instance>/<abs-path>` -- the instance name and the
-		# path are one argument, and $remote_dir already begins with a slash.
-		incus file push "$ARTIFACT" "$INSTANCE$remote_artifact"
-		incus file push "${BASH_SOURCE[0]}" "$INSTANCE$remote_dir/deploy.sh"
 
-		# `|| status=$?` rather than a bare call followed by `status=$?`: under
-		# `set -e` the bare form never reaches the assignment on a failed deploy,
-		# so the staging directory survives with a full artifact in it -- on
-		# exactly the runs where someone re-runs and leaves another. The `||`
-		# suppresses the errexit and lets the cleanup below happen either way.
+		# Everything from the first push onward runs under one status capture, not
+		# just the deploy step. A failed push -- guest disk full part-way through a
+		# multi-hundred-MB artifact is the realistic mode -- used to exit through
+		# errexit BETWEEN mktemp and the cleanup, leaving a partial artifact in the
+		# staging directory: precisely the leak this block was written to prevent,
+		# reachable on exactly the runs where the operator retries and leaves
+		# another. `|| status=$?` rather than a bare call followed by `status=$?`,
+		# because under `set -e` the bare form never reaches the assignment.
 		status=0
-		incus exec "$INSTANCE" \
-			--env READY_TIMEOUT="$READY_TIMEOUT" \
-			--env RELEASES_KEEP="$RELEASES_KEEP" \
-			-- bash "$remote_dir/deploy.sh" --local --artifact "$remote_artifact" || status=$?
+		{
+			# `incus file push <src> <instance>/<abs-path>` -- the instance name and
+			# the path are one argument, and $remote_dir already begins with a slash.
+			incus file push "$ARTIFACT" "$INSTANCE$remote_artifact" &&
+				incus file push "${BASH_SOURCE[0]}" "$INSTANCE$remote_dir/deploy.sh" &&
+				incus exec "$INSTANCE" \
+					--env READY_TIMEOUT="$READY_TIMEOUT" \
+					--env RELEASES_KEEP="$RELEASES_KEEP" \
+					-- bash "$remote_dir/deploy.sh" --local --artifact "$remote_artifact"
+		} || status=$?
 		incus exec "$INSTANCE" -- rm -rf "$remote_dir" || true
 		exit $status
 	fi
