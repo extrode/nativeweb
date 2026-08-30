@@ -98,11 +98,14 @@ public sealed class MissingAntiforgeryAnalyzer : DiagnosticAnalyzer
             || receiver.AllInterfaces.Any(i => i.ToDisplayString() == EndpointRouteBuilder);
     }
 
-    // Extension methods are the whole surface here, and a reduced call carries its
-    // receiver as an argument rather than as Instance -- so `app.MapPost(...)` has a
-    // null Instance and ReducedFrom's first parameter is the `this`. The unreduced
-    // spelling `EndpointRouteBuilderExtensions.MapPost(app, ...)` has neither, and
-    // takes the first declared parameter instead.
+    // Extension methods are the whole surface here, and IOperation hands an analyzer
+    // the UNREDUCED symbol for both spellings: `app.MapPost(...)` and
+    // `EndpointRouteBuilderExtensions.MapPost(app, ...)` both arrive with a null
+    // Instance, a null ReducedFrom, and the `this` as Parameters[0]. Measured
+    // 2026-08-31 -- a first cut read ReducedFrom first, and removing that branch
+    // changed nothing because it never ran. The instance branch below is not dead:
+    // WebApplication itself implements IEndpointRouteBuilder, so a Map* declared on
+    // a builder rather than as an extension arrives with Instance set.
     private static ITypeSymbol? ReceiverType(IInvocationOperation invocation)
     {
         if (invocation.Instance is not null)
@@ -111,18 +114,9 @@ public sealed class MissingAntiforgeryAnalyzer : DiagnosticAnalyzer
         }
 
         IMethodSymbol method = invocation.TargetMethod;
-        if (!method.IsExtensionMethod)
-        {
-            return null;
-        }
-
-        IMethodSymbol? unreduced = method.ReducedFrom;
-        if (unreduced is not null && unreduced.Parameters.Length > 0)
-        {
-            return unreduced.Parameters[0].Type;
-        }
-
-        return method.Parameters.Length > 0 ? method.Parameters[0].Type : null;
+        return method.IsExtensionMethod && method.Parameters.Length > 0
+            ? method.Parameters[0].Type
+            : null;
     }
 
     // The first parameter of the handler delegate whose type carries [Form].

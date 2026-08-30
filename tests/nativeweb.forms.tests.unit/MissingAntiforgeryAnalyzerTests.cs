@@ -52,6 +52,13 @@ public sealed class MissingAntiforgeryAnalyzerTests
 
             public class RouteHandlerBuilder { }
 
+            // A builder that maps through an instance method rather than an
+            // extension, which is the other way the receiver can arrive.
+            public sealed class RouteGroup : IEndpointRouteBuilder
+            {
+                public RouteHandlerBuilder Map(string pattern, System.Delegate handler) => new();
+            }
+
             public static class EndpointRouteBuilderExtensions
             {
                 public static RouteHandlerBuilder MapPost(this IEndpointRouteBuilder e, string pattern, System.Delegate handler) => new();
@@ -302,6 +309,21 @@ public sealed class MissingAntiforgeryAnalyzerTests
     {
         Assert.Single(await AnalyzeAsync("""
             EndpointRouteBuilderExtensions.MapPost(app, "/auth/register", (Demo.RegisterForm form) => 0);
+            """));
+    }
+
+    /// <summary>
+    /// The receiver can also arrive as an instance rather than an extension method's
+    /// first argument — <c>WebApplication</c> and a route group both implement
+    /// <c>IEndpointRouteBuilder</c>, so a <c>Map*</c> declared on the builder itself
+    /// maps a real endpoint and the rule has to reach it.
+    /// </summary>
+    [Fact]
+    public async Task A_map_declared_on_the_builder_itself_is_a_route()
+    {
+        Assert.Single(await AnalyzeAsync("""
+            RouteGroup group = new();
+            group.Map("/auth/register", (Demo.RegisterForm form) => 0);
             """));
     }
 
