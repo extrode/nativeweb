@@ -74,8 +74,16 @@ Deno.test("repoRoot fails rather than looping when there is no solution above", 
 });
 
 Deno.test("both section 14 shapes are measured: the render and the floor", () => {
-  assertEquals(SCENARIOS.home, "/");
+  assertEquals(SCENARIOS.articles, "/articles");
   assertEquals(SCENARIOS.healthz, "/healthz");
+});
+
+// "/" on apps/sample is a 302 to /admin, so a scenario pointed at it would measure the router
+// and report a redirect as a successful request. The render scenario was "/" while apps/web was
+// the target and that app rendered its home page; this pins the swap rather than leaving the two
+// facts to look interchangeable.
+Deno.test("the render scenario is not the redirect at the root", () => {
+  assertEquals(Object.values(SCENARIOS).includes("/"), false);
 });
 
 function measurement(over: Partial<ScenarioMeasurement> = {}): ScenarioMeasurement {
