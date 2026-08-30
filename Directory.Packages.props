@@ -21,21 +21,14 @@
          after a new jauntyq v* tag publishes. -->
     <PackageVersion Include="JauntyQ.Generator" Version="0.4.0" />
     <PackageVersion Include="JauntyQ.Runtime" Version="0.4.0" />
-    <!-- WebAuthn/FIDO2 attestation+assertion verification (passkeys). Verified
-         NativeAOT-clean via a standalone publish spike (TreatWarningsAsErrors +
-         trim/AOT analyzers, zero warnings; native .exe runs incl. NSec/libsodium
-         interop). Fido2.AspNet's AddFido2() DI helper is intentionally not used
-         so Fido2.Models was the only transitive pull. NO CONSUMER since 2026-08-31: WebAuthn
-         left with the identity provider and no project references this package now. Kept
-         pending a decision (work/todo.md); the NSec pin below exists only for it. -->
-    <PackageVersion Include="Fido2" Version="4.0.1" />
-    <!-- Fido2 4.0.1 floats a minimum on NSec.Cryptography 25.4.0 (libsodium
-         [1.0.20.1, 1.0.21)), which conflicts with Geralt's exact libsodium
-         [1.0.22, 1.0.23) pin (NU1107). NSec.Cryptography 26.4.0 moved to the same
-         [1.0.22, 1.0.23) libsodium range, so pinning it here directly resolves
-         both to the one native asset. Bump only after checking NSec's libsodium
-         range still matches Geralt's. -->
-    <PackageVersion Include="NSec.Cryptography" Version="26.4.0" />
+    <!-- Fido2 4.0.1 and NSec.Cryptography 26.4.0 were pinned here and were removed
+         on 2026-08-31: WebAuthn left with the identity provider
+         (docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md) and neither had a
+         PackageReference anywhere afterwards. Anything reintroducing Fido2 needs the
+         NSec pin back with it: Fido2 floats a minimum on NSec 25.4.0, whose libsodium
+         range [1.0.20.1, 1.0.21) conflicts with Geralt's exact [1.0.22, 1.0.23) pin
+         and fails restore with NU1107. NSec 26.4.0 shares Geralt's range, which is what
+         resolved both to one native asset. -->
     <!-- Telemetry (spec 003 R33): metrics + traces, exported over OTLP, gated
          behind NativeWeb:Telemetry:Enabled=false. All four move in
          lockstep; bump together. -->

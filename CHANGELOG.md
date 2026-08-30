@@ -31,6 +31,11 @@ Merged into `dev`, not yet tagged.
   only deployable project. Solution builds 0 warnings / 0 errors and 444 tests pass afterwards,
   across seven suites — the seventh being `tests/nativeweb.repo.tests.unit`, a new home for the
   repository-level guards that had been living in the deleted tier and would have gone with it.
+- **The `Fido2` and `NSec.Cryptography` central pins**, which the extraction left without a single
+  `PackageReference`. WebAuthn is an identity-provider concern and lives in epass.io. A comment
+  stands where they were: reintroducing `Fido2` means reintroducing the `NSec` pin with it, since
+  `Fido2` floats a minimum on NSec 25.4.0 whose libsodium range conflicts with Geralt's exact
+  `[1.0.22, 1.0.23)` and fails restore with NU1107.
 
 ### Added
 - **Declarative form binding for hand-written endpoints** (spec 014). A `[Form]`-annotated

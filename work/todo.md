@@ -1004,7 +1004,7 @@ unstruck line by line because the measurements in it are still true about the co
 and because the `002-epass-cutover-capability-gap.md` note it feeds is the record of why the answer
 went the other way.
 
-Seven follow-ups the removal itself created, and these ARE live:
+Seven follow-ups the removal itself created, six of them still live:
 
 - **The framework has no password-policy primitives any more.** `LockoutPolicy`,
   `CommonPasswordChecker`, `HibpBreachChecker` and `BreachChecking` went out with
@@ -1032,11 +1032,10 @@ Seven follow-ups the removal itself created, and these ARE live:
   ran inside a real NativeAOT image. `apps/sample` registers no telemetry and no surviving library
   does, so the variable is inert and an AOT-hostile change to that path would now ship unnoticed.
   Restoring the coverage means giving `apps/sample` a telemetry registration.
-- **The `Fido2` and `NSec.Cryptography` pins in `Directory.Packages.props` have no consumer.**
-  WebAuthn was IdP functionality; no project references either package now. The `NSec` pin exists
-  only to resolve a libsodium conflict `Fido2` introduced, so the two go together. Removing a
-  dependency needs a decision, hence the note rather than the deletion — the `Fido2` comment's
-  reference to `apps/web Program.cs` is stale either way.
+- ~~**The `Fido2` and `NSec.Cryptography` pins in `Directory.Packages.props` have no consumer.**~~
+  **Removed 2026-08-31** on the user's decision, in `chore/drop-webauthn-pins`. Both pins are gone;
+  a comment in their place records why the two travel together, so a future reintroduction of
+  `Fido2` does not hit the NU1107 libsodium conflict from scratch. Build stayed 0 warnings, 0 errors.
 
 ## epass.io cutover readiness, probed 2026-08-24
 
