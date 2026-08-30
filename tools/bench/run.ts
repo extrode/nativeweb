@@ -119,6 +119,20 @@ export function fingerprint(): Machine {
   };
 }
 
+/**
+ * Today, in the machine's own timezone, as YYYY-MM-DD.
+ *
+ * Not `new Date().toISOString().slice(0, 10)`, which is the UTC date: west of UTC it stamps
+ * tomorrow's baseline with today's date, and east of it the reverse. Measured 2026-08-31 on a
+ * UTC+8 machine -- a run made on the 31st recorded itself as the 30th, and `--check` then
+ * reported being "within tolerance of the baseline recorded 2026-08-30" about a file written
+ * minutes earlier. Every other date in this repository is local, so this one is too.
+ */
+export function localDate(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 export function repoRoot(from: string = dirname(fromFileUrl(import.meta.url))): string {
   let dir = from;
   while (true) {
@@ -434,9 +448,10 @@ export async function main(args: string[]): Promise<number> {
   const record = {
     _comment: "Spec 012 R16. Recorded by tools/bench/run.ts --baseline; compared by --check on "
       + "the same machine and the same harness settings, 20% down on req/s and 25% up on RSS. "
-      + "Not comparable to the section 14 figures in docs/01-architecture -- different apps, "
-      + "different tool, hardware that no longer exists. See tools/bench/README.md.",
-    recorded: new Date().toISOString().slice(0, 10),
+      + "Measures apps/sample. Not comparable to the section 14 figures in "
+      + "docs/01-architecture, nor to this file's own pre-2026-08-31 figures, which measured "
+      + "apps/web before it left the repository. See tools/bench/README.md.",
+    recorded: localDate(),
     machine,
     harness: options.harness,
     scenarios: measurements,
