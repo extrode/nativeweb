@@ -23,6 +23,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\libs\nativeweb.forms\nativeweb.forms.csproj" />
+    <!-- ReferenceOutputAssembly=true so the generator and the analyzer types are
+         callable from the driver tests, same as the scaffold and render suites. -->
+    <ProjectReference Include="..\..\libs\nativeweb.forms.generator\nativeweb.forms.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="true" />
   </ItemGroup>
 
 </Project>

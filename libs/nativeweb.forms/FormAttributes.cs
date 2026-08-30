@@ -29,7 +29,10 @@ namespace NativeWeb.Forms;
 /// that fail silently — which is what the generator exists to stop.
 /// </para>
 /// </remarks>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false, Inherited = false)]
+// Class only, and not by preference: IBindableFromHttpContext<TSelf> constrains
+// TSelf to a reference type, so a struct form model could not implement the binder
+// the generator emits.
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class FormAttribute : Attribute
 {
 }

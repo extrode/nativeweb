@@ -46,7 +46,7 @@ public static class FormRouteBuilderExtensions
     /// </summary>
     /// <remarks>
     /// Omitting this call is a build error, not a runtime surprise:
-    /// <c>NW014</c> (MissingAntiforgeryAnalyzer) reports any <c>Map*</c> whose
+    /// <c>NWF010</c> (MissingAntiforgeryAnalyzer) reports any <c>Map*</c> whose
     /// parameter type is a form model and whose chain does not reach here. The
     /// analyzer is the reason this method is safe to make ordinary application code
     /// rather than something the framework applies invisibly — a guard you can see

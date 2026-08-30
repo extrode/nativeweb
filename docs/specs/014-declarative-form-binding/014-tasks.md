@@ -7,12 +7,12 @@ mutation-checked per global `AGENTS.md` — **commit before mutating**, because 
 `git checkout --` reverts to the parent branch and loses the work (cost that once already on
 2026-08-30).
 
-- [ ] T1 The runtime library skeleton — files: `libs/nativeweb.forms/nativeweb.forms.csproj`,
+- [x] T1 The runtime library skeleton — files: `libs/nativeweb.forms/nativeweb.forms.csproj`,
       `FormAttributes.cs` — covers: R1, R4 — done when: `[Form]` and `[FormField]` exist, the
       project builds with zero warnings under `TreatWarningsAsErrors`, and it is referenced from
       the solution.
 
-- [ ] T2 The 415 and the metadata — files: `libs/nativeweb.forms/FormBinding.cs`,
+- [x] T2 The 415 and the metadata — files: `libs/nativeweb.forms/FormBinding.cs`,
       `libs/nativeweb.forms/RequiresAntiforgery.cs` — covers: R2, R3 — done when: the throw helper
       produces a `BadHttpRequestException` at 415, `RequiresAntiforgery` implements
       `IAntiforgeryMetadata` with `RequiresValidation => true`, and `.RequireFormAntiforgery()`
