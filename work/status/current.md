@@ -6,13 +6,39 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 014 — declarative form binding** — `feat/014-declarative-form-binding`, started 2026-08-30.
-  Brainstorm 001 T1.2, built to `docs/specs/014-declarative-form-binding/014-tasks.md` (T1–T10).
-  A `[Form]` record plus a source-generated `BindAsync`, because §12 measured that complex-type
-  `[FromForm]` is not AOT-compatible and `[AsParameters]` binds every field to null in silence.
-  The two guards a hand-written binder drops — the 415 and the antiforgery metadata — are what the
-  generator exists to attach, and T6's analyzer is what makes forgetting the metadata a build error
-  rather than a route that answers 200 to a tokenless POST.
+- **Spec 014 — declarative form binding** — `feat/014-declarative-form-binding`, 2026-08-30,
+  **all ten tasks ticked and `014-spec.md` is `done`**. Brainstorm 001 T1.2 closed. A `[Form]`
+  record gets a generated binder; `MapFormPost<TForm>` attaches the 415, the antiforgery metadata
+  and the accepts metadata by construction; `NWF010` makes any other shape a build error. Both
+  `/auth/register` POSTs are converted. **699 unit / 339 integration / 73 e2e, 0 failed, and no
+  existing assertion edited**; `dotnet publish -c Release -r win-x64` of `apps/sample` and
+  `apps/web` both 0 warnings.
+  - **The plan's mechanism was disproved by measurement and replaced mid-build.** It assumed the
+    Request Delegate Generator would resolve an `IBindableFromHttpContext` that this generator
+    emits. It cannot: both generators run in the **same** pass over the same input compilation, so
+    RDG never sees a partial another generator added — it recorded `hasBindAsync: false`, treated
+    the model as a JSON body, and `ConsumesMatcherPolicy` answered every form POST **415 at
+    routing**, before a line of this feature ran. Five of seven integration tests were red on that
+    and nothing else said a word. `IFormModel<TSelf>` + `MapFormPost` replaced it; the correction
+    is at the top of `014-plan.md`. This is §14's rule from the other direction, and the second
+    time this repo has paid for the same fact.
+  - **The route is a `RequestDelegate` because the alternative does not build.** The
+    `Map*(…, Delegate)` overloads carry `RequiresDynamicCode`, and RDG cannot rewrite a call inside
+    a generic method, so the first `MapFormPost` failed the AOT publish with IL2026 + IL3050. The
+    `RequestDelegate` overloads carry neither attribute, and return `IEndpointConventionBuilder`
+    rather than `RouteHandlerBuilder` — which is why `RequireServices<T1,T2,T3>` gained an overload
+    on the interface beside the existing one. No existing call site changed.
+  - **`AcceptsMetadata` is what decides which rejection wins**, and it was found by three existing
+    assertions going red. RDG attached it for `[FromForm]` routes; without it,
+    `ConsumesMatcherPolicy` no longer answers a tokenless JSON POST 415 at routing and the
+    antiforgery middleware answers 400 first. `MapForm` attaches it.
+  - **Recorded rather than chosen:** `IFormCollection` is keyed case-insensitively, so a field
+    posted as `ConfirmPassphrase` binds a member whose wire name is `confirmPassphrase`. A form
+    model cannot declare two members whose wire names differ only in case. Found by an assertion
+    written the other way.
+  - Nine mutations run across the branch, each killing the facts it should: the analyzer's matched
+    verbs, the antiforgery attach, the accepts attach, the emitted content-type guard, the emitted
+    wire names, the 503-degrade, and the sample's page-size ceiling and case-insensitive query.
 
 - **Audit sweep and its fixes** — `chore/backlog-audit-2026-08-30`, 2026-08-30. Find-what-is-wrong
   rather than build-the-next-thing: two `audit` lanes over `scripts/deploy/**` and `skeleton/`,

@@ -61,7 +61,7 @@ mutation-checked per global `AGENTS.md` — **commit before mutating**, because 
       route with a gated service absent are each asserted on the converted routes and each
       mutation-checked.
 
-- [ ] T10 Records and close-out — files: `docs/specs/014-declarative-form-binding/014-spec.md`
+- [x] T10 Records and close-out — files: `docs/specs/014-declarative-form-binding/014-spec.md`
       (Status), `docs/brainstorms/001-framework-direction.md` (T1.2 resolved),
       `work/status/current.md`, `CHANGELOG.md`, `scripts/cleanup/014-declarative-form-binding.ps1`
       — done when: acceptance criteria are re-read against what was built, `structure-audit`

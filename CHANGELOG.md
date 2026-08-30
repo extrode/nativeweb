@@ -14,6 +14,14 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Declarative form binding for hand-written endpoints** (spec 014). A `[Form]`-annotated
+  partial record gets a source-generated binder, and `MapFormPost<TForm>` (with `Put`, `Patch`
+  and `Delete` siblings) maps the route with the 415 content-type guard, the antiforgery metadata
+  and the accepts metadata attached by construction. A field the model does not declare cannot
+  reach the handler. `NWF010` makes a `[Form]` model on a plain `Map*` a build error, because that
+  shape does not merely lose the guards — the Request Delegate Generator cannot see a binder
+  another generator emitted, so it binds the model as a JSON body and routing answers every form
+  POST 415. Both `/auth/register` POSTs are converted with no assertion edited.
 - **Deploying behind a TLS-terminating edge.** `provision.sh --edge <addr>` installs
   `scripts/deploy/caddy/Caddyfile.edge` — `auto_https off`, listening on `:80`, trusting the edge
   for `X-Forwarded-*` — instead of the variant that holds `:443` and runs its own ACME. The

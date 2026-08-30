@@ -246,7 +246,21 @@ consumer forces immediately, so it is also the natural first ring-1 deliverable 
 "blocked on nothing". It is blocked — a clean clone needs either a JauntyQ checkout or a working
 package mode, and package mode does not restore (§5). Q1 gates this.
 
-**T1.2 Kill the endpoint preamble — but measure the stock platform first.** The repo has **zero**
+**T1.2 — RESOLVED 2026-08-30, shipped as [spec 014](../specs/014-declarative-form-binding/014-spec.md).**
+`libs/nativeweb.forms` + `libs/nativeweb.forms.generator`: a `[Form]` record gets a generated
+binder, and `MapFormPost<TForm>` attaches the content-type guard, the antiforgery metadata and
+the accepts metadata by construction. `NWF010` makes the old shape a build error. Both
+`/auth/register` POSTs are converted, and 699 unit / 339 integration / 73 e2e pass with no
+existing assertion edited.
+
+§12's conclusion — "emit variant 5b" — held for the binder body and **failed** for how the route
+reaches it: `IBindableFromHttpContext` is invisible to the Request Delegate Generator when a
+generator is what implemented it, because both run in the same pass. That is §14's rule from the
+other direction, and it is written up at the top of `014-plan.md`.
+
+The original framing follows, unedited:
+
+**Kill the endpoint preamble — but measure the stock platform first.** The repo has **zero**
 uses of `[AsParameters]`, `IEndpointFilter` or `AddEndpointFilter`. Before writing a generator,
 rewrite `RegisterEndpoints.cs` using only stock ASP.NET: `[AsParameters]` binding plus an
 endpoint filter carrying antiforgery, 415 and the 503-degrade. Measure the line count. **If that

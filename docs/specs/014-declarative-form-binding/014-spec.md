@@ -1,7 +1,8 @@
 # 014 — Declarative form binding for hand-written endpoints
 
-Status: draft
+Status: done
 Created: 2026-08-30
+Completed: 2026-08-30
 
 Implements **T1.2** from [brainstorm 001](../../brainstorms/001-framework-direction.md), whose two
 measurement spikes (§12, 2026-08-19; §14, same day) settled the design and are the input to this
@@ -28,8 +29,17 @@ declarative binding paths are the ones that forget them.** Measured, §12:
 | `[FromForm] ComplexType` | **No** — RDG003 + IL2026 + IL3050 | — | — | — |
 | `[AsParameters]` + `[FromForm]` members | Yes | **No — silently all null** | **No — 200 OK** | **No — 200 OK** |
 | `[FromForm]` scalars + `RequireForm()` | Yes | Yes | Yes | **No — 500, not 400** |
-| `BindAsync` / `IBindableFromHttpContext<T>` | Yes | Yes | **No — 500** | **No — 200 OK** |
+| `BindAsync` / `IBindableFromHttpContext<T>`, hand-written | Yes | Yes | **No — 500** | **No — 200 OK** |
 | `BindAsync` + reattached guards (**variant 5b**) | Yes | Yes | Yes | Yes |
+| **generated** `IBindableFromHttpContext<T>` + plain `MapPost` | Yes | **No — bound as a JSON body** | **No — 415 at routing, always** | — |
+
+The last row is the one this spec discovered, on 2026-08-30, and it is why the shipped mechanism
+is not the one `014-plan.md` approved. The Request Delegate Generator runs in the **same** pass as
+any generator this repo adds, over the same input compilation, so it never sees a partial another
+generator emitted: it recorded `hasBindAsync: false` and treated the model as a JSON body, and
+`ConsumesMatcherPolicy` then rejected every form POST with 415 before a line of this feature ran.
+`IFormModel<TSelf>` + `MapFormPost<TForm>` replaced it. Requirements below are unchanged; the
+correction, and what it cost, is at the top of `014-plan.md`.
 
 A form POST with **no antiforgery token returned 200 OK** under two of those shapes. Nothing
 warned. The declared-model API the framework wants is reachable under NativeAOT only through
@@ -99,8 +109,10 @@ Three facts constrain any fix, all measured rather than argued:
   the repo's existing `TreatWarningsAsErrors`.
 - **R6** Generated endpoints are emitted as `RequestDelegate`s, never as route handlers, so the
   Request Delegate Generator's absence from generated trees cannot reintroduce IL2026/IL3050.
-- **R7** A hand-written route that binds a form without antiforgery metadata **fails the build**
-  with a diagnostic naming the route and the missing metadata.
+- **R7** A hand-written route that binds a form the wrong way **fails the build** with a
+  diagnostic naming the route and the fix. Widened during implementation from "without antiforgery
+  metadata": the missing metadata turned out not to be the whole defect, so any plain `Map*` with a
+  `[Form]` parameter is the error, whatever is chained onto it.
 - **R8** The generator reports a diagnostic, rather than emitting broken code, when a declared
   form model is malformed (unsupported member type, no accessible constructor, duplicate binding
   name).
@@ -131,6 +143,27 @@ Three facts constrain any fix, all measured rather than argued:
   then they pass with no assertion changed. A test whose assertion had to be edited to
   accommodate the new shape is a behaviour change and fails this criterion.
 - **R10** The three measured statuses are asserted directly, and each is mutation-checked.
+
+## Outcome
+
+Met, measured on 2026-08-30. Every figure below is from a run on this machine, not an estimate.
+
+| | |
+| --- | --- |
+| R1–R4 | `tests/nativeweb.forms.tests.unit` 73 pass; `DeclarativeFormTests` 7 pass; `DeclarativeRegisterBindingTests` 6 pass |
+| R2 | 415 asserted at three tiers, and `The_content_type_check_precedes_the_form_read` fails if the guard moves behind the read |
+| R3 | mutation-checked: dropping `.RequireFormAntiforgery()` from `MapForm` turns 3 integration assertions red |
+| R5 | `dotnet publish -c Release -r win-x64` of **both** `apps/sample` and `apps/web`: 0 warnings, 0 errors |
+| R6 | nothing emitted registers a route; asserted on the emitted text with comments stripped |
+| R7 | measured in a real build — removing the correct mapping gives `error NWF010` at the call site |
+| R8 | five diagnostics, one test each |
+| R9 | 699 unit, 339 integration, 73 e2e pass. **No existing assertion was edited**; the 6 new integration facts are additions |
+| R10 | 415 / 400 / 503 each asserted on the converted routes and each mutation-checked separately |
+
+One behaviour is recorded rather than chosen: `IFormCollection` is keyed case-insensitively, so a
+field posted as `ConfirmPassphrase` binds to a member whose wire name is `confirmPassphrase`. A
+form model therefore cannot declare two members whose wire names differ only in case. Found by an
+assertion written the other way, which failed.
 
 ## Open questions
 
