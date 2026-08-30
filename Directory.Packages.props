@@ -25,7 +25,9 @@
          NativeAOT-clean via a standalone publish spike (TreatWarningsAsErrors +
          trim/AOT analyzers, zero warnings; native .exe runs incl. NSec/libsodium
          interop). Fido2.AspNet's AddFido2() DI helper is intentionally not used
-         (see apps/web Program.cs) so Fido2.Models is the only transitive pull. -->
+         so Fido2.Models was the only transitive pull. NO CONSUMER since 2026-08-31: WebAuthn
+         left with the identity provider and no project references this package now. Kept
+         pending a decision (work/todo.md); the NSec pin below exists only for it. -->
     <PackageVersion Include="Fido2" Version="4.0.1" />
     <!-- Fido2 4.0.1 floats a minimum on NSec.Cryptography 25.4.0 (libsodium
          [1.0.20.1, 1.0.21)), which conflicts with Geralt's exact libsodium

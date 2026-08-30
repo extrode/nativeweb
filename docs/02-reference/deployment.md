@@ -1,5 +1,12 @@
 # Deployment runbook — apps/web
 
+> **The application this runbook deploys left the repository on 2026-08-31**
+> (`../decisions/2026-08-31-007-idp-leaves-nativeweb.md`). `scripts/deploy/` still names
+> `apps/web` and has NOT been retargeted; combined with the warning below — that nothing in it has
+> ever been run on a real host — this is a procedure for an artifact that no longer builds here.
+> It is kept as the shape a stamped product inherits, not as a runbook you can execute today.
+> Retargeting it at `apps/sample` is an open item in `work/todo.md`.
+
 Spec: `../specs/011-production-deployment/011-spec.md`
 Scripts: `../../scripts/deploy/`
 
@@ -120,7 +127,7 @@ Then, in order:
    unix socket as either `nativeweb` or `postgres`. That is how `deploy.sh`,
    `backup.sh` and `restore.sh` authenticate with **no password in any file**.
    Migrations need both: they create objects (and whoever creates them owns them
-   — nothing in `db/migrations` issues a `GRANT`), and migration `0002` needs a
+   — nothing in the migrations issued a `GRANT`), and migration `0002` needed a
    superuser for the citext extension.
 5. **Apply migrations** — the first deploy does this, but a fresh database needs
    the citext extension created by a superuser (migration `0002`). See

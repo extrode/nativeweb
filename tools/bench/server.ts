@@ -1,19 +1,15 @@
-// Publish apps/web, launch the published binary, wait for it to answer, stop it again.
+// Publish apps/sample, launch the published binary, wait for it to answer, stop it again.
 //
 // The published Release output, not `dotnet run`: that is the binary a deployment runs, and
 // it is the only one whose figures mean anything -- a Debug host is a different JIT, a
 // different static-file provider and a different startup path. Same choice, for overlapping
-// reasons, as tests/nativeweb.web.tests.e2e/AppProcessFixture.cs.
+// reasons, as tests/nativeweb.scaffold.tests.e2e/SampleProcessFixture.cs.
 //
-// https on loopback, with a throwaway cert from cert.ts, because http is not an option: the
-// antiforgery cookie is Secure-always and every rendered page throws a 500 over http. Measured
-// on the published binary -- see the comment at the top of cert.ts. The TLS cost is paid once
-// per connection and the driver keeps connections alive, so it does not dominate the numbers,
-// and production serves https anyway.
+// http, not https. apps/sample uses default antiforgery with no __Host- cookie prefix and no
+// CookieSecurePolicy.Always, so nothing here forces TLS -- see SampleProcessFixture's own
+// remarks on the same point. No throwaway cert to mint or trust.
 
 import { dirname, join } from "@std/path";
-
-import { type Cert, ensureCert } from "./cert.ts";
 
 export const DEFAULT_PORT = 5997;
 
@@ -21,15 +17,12 @@ export interface StartOptions {
   repoRoot: string;
   port?: number;
   exePath?: string;
-  cert?: Cert;
   env?: Record<string, string>;
 }
 
 export interface RunningApp {
   pid: number;
   baseUrl: string;
-  /** The certificate it is listening with, for the driver's caCerts. */
-  cert: Cert;
   /** The app's last few log lines, oldest first. Empty until it writes something. */
   logTail(): string;
   /** Its exit code once it has exited, null while it is still running. */
@@ -68,12 +61,12 @@ export function assertPortFree(port: number, listen = Deno.listen): void {
  * Where this harness publishes, relative to the repo root.
  *
  * Its own directory, and not the default output path, because the default is
- * `apps/web/bin/Release/net10.0/<rid>/publish` -- which is the directory
- * `tests/nativeweb.web.tests.e2e/AppProcessFixture.cs` also publishes into and launches from.
- * A bench run interleaved with the e2e tier had the two writing one directory, and the
- * quieter half of that bug is `--skip-publish`: it would happily benchmark whatever binary
- * the e2e tier last put there and report the number as this harness's own.
- * `scripts/ci/check-publish-budgets.ps1` avoids the same collision by pinning `-o publish/web`.
+ * `apps/sample/bin/Release/net10.0/<rid>/publish` -- which is the directory
+ * `tests/nativeweb.scaffold.tests.e2e/SampleProcessFixture.cs` also publishes into and
+ * launches from. A bench run interleaved with the e2e tier had the two writing one
+ * directory, and the quieter half of that bug is `--skip-publish`: it would happily
+ * benchmark whatever binary the e2e tier last put there and report the number as this
+ * harness's own.
  *
  * Under `tmp/` rather than the repo-root `publish/`, which is deliberately NOT gitignored
  * (see .gitignore: justsmtp commits a top-level publish/, so this repo does not blanket-ignore
@@ -92,7 +85,7 @@ export const PUBLISH_DIR = join("tmp", "bench", "publish");
  * published into should say so, not benchmark something else.
  */
 export async function findPublishedExe(repoRoot: string): Promise<string> {
-  const exeName = Deno.build.os === "windows" ? "nativeweb.web.exe" : "nativeweb.web";
+  const exeName = Deno.build.os === "windows" ? "nativeweb.sample.exe" : "nativeweb.sample";
   const candidate = join(repoRoot, PUBLISH_DIR, exeName);
 
   try {
@@ -104,14 +97,14 @@ export async function findPublishedExe(repoRoot: string): Promise<string> {
 
   throw new Error(
     `No published ${exeName} at ${candidate}. Run the harness without --skip-publish, or `
-      + `\`dotnet publish apps/web -c Release -o ${PUBLISH_DIR}\` first. Note this is the `
-      + `harness's own publish directory, not apps/web/bin/Release/*/publish -- that one `
+      + `\`dotnet publish apps/sample -c Release -o ${PUBLISH_DIR}\` first. Note this is the `
+      + `harness's own publish directory, not apps/sample/bin/Release/*/publish -- that one `
       + `belongs to the e2e fixture.`,
   );
 }
 
 export async function publish(repoRoot: string): Promise<void> {
-  const csproj = join(repoRoot, "apps", "web", "nativeweb.web.csproj");
+  const csproj = join(repoRoot, "apps", "sample", "nativeweb.sample.csproj");
   const command = new Deno.Command("dotnet", {
     args: ["publish", csproj, "-c", "Release", "-o", PUBLISH_DIR, "-v", "q", "--nologo"],
     cwd: repoRoot,
@@ -158,52 +151,52 @@ export async function waitForHealthz(
 /**
  * Environment for a benchmark launch.
  *
- * The page rate limiter is the one knob that has to move: GET / is behind
- * RequireRateLimiting("page") (apps/web/Program.cs:831) at a limit sized for one human per
- * minute, so a load run would measure 429s. Raised the same way AppProcessFixture raises the
- * auth limiters for the same reason. Telemetry off: an OTLP exporter pointed at a collector
- * that is not there is background retry work on the process being measured.
+ * No rate-limit override: apps/sample has no page limiter to raise (grepped for RateLimit /
+ * AddRateLimiter, neither appears). ConnectionStrings__Sample is left unset, same as
+ * InMemorySampleFixture -- an unset connection string selects the in-memory store, so the
+ * harness needs no database. Telemetry off: an OTLP exporter pointed at a collector that is
+ * not there is background retry work on the process being measured.
  */
-export function benchEnv(baseUrl: string, cert: Cert): Record<string, string> {
+export function benchEnv(baseUrl: string): Record<string, string> {
   return {
     ASPNETCORE_URLS: baseUrl,
-    // Development, and it has to be: outside it the app refuses to start without the contact,
-    // store and pairwise secrets (Program.cs:565) and without an SMTP host (Program.cs:613),
-    // so a configuration-free launch is only possible here. It measures a slightly different
-    // pipeline -- no HSTS header, the /dev/inbox route present, user secrets layered into
-    // configuration -- which is a real caveat on the numbers and is recorded in the README.
+    // Development: /signin (the demo sign-in) is gated to it, same reason
+    // SampleProcessFixture sets it. Not required for the two scenarios this harness drives --
+    // /healthz and the unauthenticated /articles -- but keeping the launch environment the
+    // same as the e2e fixture's is one fewer variable between what is measured and what is
+    // tested.
     ASPNETCORE_ENVIRONMENT: "Development",
-    ASPNETCORE_Kestrel__Certificates__Default__Path: cert.certPath,
-    ASPNETCORE_Kestrel__Certificates__Default__KeyPath: cert.keyPath,
+    // Deno.Command's env option adds to the inherited environment rather than replacing it,
+    // so a harness invocation whose own shell exports ConnectionStrings__Sample (set for the
+    // JauntyQ tiers, say) would otherwise hand it straight to the child. Empty, not absent, so
+    // this always wins: string.IsNullOrWhiteSpace treats it the same as unset and Program.cs
+    // selects the in-memory store, same as InMemorySampleFixture.
+    ConnectionStrings__Sample: "",
     // Warning and above. RequestLoggingMiddleware writes an info line per request, and this
     // harness drains the app's output rather than discarding it (below), so at default level
     // the run measures the harness draining its own log: 8,020 req/s on `home` became 6,900,
-    // a 14% cut, measured. Startup failures are logged at error or higher and still reach the
-    // tail. The cost of formatting an info line per request is therefore NOT in these numbers;
-    // a production deployment at default level pays it.
+    // a 14% cut, measured on apps/web before it left the repo. The cost of formatting an info
+    // line per request is therefore NOT in these numbers; a production deployment at default
+    // level pays it.
     Logging__LogLevel__Default: "Warning",
     NativeWeb__Telemetry__Enabled: "false",
-    NativeWeb__RateLimit__Page__PermitLimit: "1000000000",
   };
 }
 
 export async function startApp(options: StartOptions): Promise<RunningApp> {
   const port = options.port ?? DEFAULT_PORT;
-  // "localhost", not 127.0.0.1: the cert's SAN carries both, but a name the client can verify
-  // keeps the TLS handshake off the list of things a failed run could be blamed on.
-  const baseUrl = `https://localhost:${port}`;
+  const baseUrl = `http://localhost:${port}`;
   assertPortFree(port);
   const exePath = options.exePath ?? await findPublishedExe(options.repoRoot);
-  const cert = options.cert ?? await ensureCert(join(options.repoRoot, "tmp", "bench"));
 
   // From inside its own publish folder, as a deployment runs it: ContentRootPath-relative
   // lookups (wwwroot, appsettings.json) resolve against the CWD otherwise.
   const command = new Deno.Command(exePath, {
     cwd: dirname(exePath),
-    env: { ...benchEnv(baseUrl, cert), ...options.env },
-    // Piped and drained into a bounded tail rather than discarded. A port already in use, an
-    // unreadable cert or a startup guard refusing to boot are all silent otherwise, and the
-    // only symptom is waitForHealthz timing out sixty seconds later with no cause.
+    env: { ...benchEnv(baseUrl), ...options.env },
+    // Piped and drained into a bounded tail rather than discarded. A port already in use or a
+    // startup guard refusing to boot are otherwise silent, and the only symptom is
+    // waitForHealthz timing out sixty seconds later with no cause.
     stdout: "piped",
     stderr: "piped",
   });
@@ -223,7 +216,6 @@ export async function startApp(options: StartOptions): Promise<RunningApp> {
   return {
     pid: child.pid,
     baseUrl,
-    cert,
     logTail: () => tail.join("\n"),
     exitCode: () => exitCode,
     async stop(): Promise<void> {

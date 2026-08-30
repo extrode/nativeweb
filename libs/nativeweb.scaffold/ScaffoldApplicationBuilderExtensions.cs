@@ -56,12 +56,13 @@ public static class ScaffoldApplicationBuilderExtensions
     /// <para>Must be registered after <c>UseAntiforgery()</c> and before the
     /// endpoints. Safe to register unconditionally: with no antiforgery middleware
     /// ahead of it the feature is absent and this is a no-op.</para>
-    /// <para><b>A twin lives at <c>apps/web/Middleware/AntiforgeryValidationMiddleware.cs</c></b>,
-    /// and it is kept separate on purpose (reviewed 2026-08-25): the identity provider
-    /// would otherwise have to reference this CRUD-scaffolding library for one
-    /// extension method. That file carries the full reasoning. Behaviour changes —
-    /// a response body, a log entry, problem-details — belong in both, because nothing
-    /// fails when they drift.</para>
+    /// <para><b>A twin used to live at <c>apps/web/Middleware/AntiforgeryValidationMiddleware.cs</c></b>,
+    /// kept separate on purpose (reviewed 2026-08-25) so the identity provider need not
+    /// reference this CRUD-scaffolding library for one extension method. It left with that
+    /// provider on 2026-08-31 (decision 2026-08-31-007), so this is the only copy in the
+    /// repository and there is nothing left to keep in sync. Recorded because the split was a
+    /// reviewed decision rather than an accident: anything reintroducing a second copy takes
+    /// on the drift problem again, and nothing fails when two copies drift.</para>
     /// </remarks>
     public static IApplicationBuilder UseAntiforgeryRejection(this IApplicationBuilder app)
     {

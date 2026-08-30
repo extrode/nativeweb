@@ -9,7 +9,7 @@ and is not written to be read straight through.
 
 | Read | What you get |
 | --- | --- |
-| [Getting started](getting-started.md) | A clean clone to a running application and a green suite. Forks into two paths: stamping your own product from `skeleton/`, or maintaining `apps/web`. |
+| [Getting started](getting-started.md) | A clean clone to a running application and a green suite, then stamping your own product from `skeleton/`. |
 | [Tutorial: your first feature](tutorial-first-feature.md) | One feature through every layer it touches — a read model, a JauntyQ query, a renderer, an endpoint, and a test at each of the three tiers. |
 
 ## Then, as you need it

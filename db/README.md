@@ -1,50 +1,46 @@
 # db
 
-PostgreSQL schema and the inline SQL consumed by JauntyQ.
-
 ```
-migrations/   ordered PostgreSQL schema migrations (DDL)
-queries/      inline .sql query files; JauntyQ generates typed C# from these
-schema/       jaunty.schema.json — the committed schema snapshot JauntyQ reads
-seed/         sample data for local/dev databases (not production);
-              apply with `psql -f db/seed/0001_dev_seed.sql`
-
-migrate.sh        applies migrations/ in order, tracking them in schema_migrations
-test-run-lock.sh  proves migrate.sh serialises itself; run it against an
-                  already-migrated database, it applies nothing
+sample/           the scaffolding demo's schema and queries; see sample/README.md
+migrate.sh        UNREACHABLE -- reference copy; the live one is skeleton/db/migrate.sh
+test-run-lock.sh  UNREACHABLE -- drives migrate.sh, so it aborts with it
 ```
+
+**`sample/` is the only schema this repository has.** `migrations/`, `queries/`, `schema/` and
+`seed/` used to sit beside it and held an identity provider's tables — users, realms, tokens,
+authenticator devices — feeding `libs/nativeweb.data`. All of it left on 2026-08-31 with the
+provider itself; see `docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`. A framework does not
+ship a schema, so nothing replaced them, and a new top-level schema arriving here is a scope
+question rather than a migration.
+
+**Neither `migrate.sh` nor `test-run-lock.sh` runs today.** `migrate.sh` resolves its migrations
+directory to `db/migrations/`, which went with the provider, and its one superuser step names
+`0002_extensions.sql` unconditionally; it aborts on the missing file, and `test-run-lock.sh` drives
+it, so it aborts too. They are kept as the reference the live copy was derived from — a stamped
+product gets `skeleton/db/migrate.sh`, which has its own `__PRODUCT__` text and is the one
+`scripts/deploy/` invokes. Retargeting this copy at `db/sample/migrations/` needs the extensions
+step made conditional; `work/todo.md` carries it.
 
 ## Running two migrations at once
 
-`migrate.sh` takes a PostgreSQL advisory lock for the whole run, so a second
-runner against the same database announces that it is queuing and waits. Without
-it both runners pass the "is this already applied?" check before either records,
-and both apply the file: loud for DDL, **silent for a data migration**.
+`migrate.sh` takes a PostgreSQL advisory lock for the whole run, so a second runner against the
+same database announces that it is queuing and waits. Without it both runners pass the "is this
+already applied?" check before either records, and both apply the file: loud for DDL, **silent for
+a data migration**.
 
-The lock is per-database, so runs against different databases do not block each
-other. `bash db/test-run-lock.sh` verifies the whole behaviour in about a minute
-and exits non-zero if any part of it has regressed.
+The lock is per-database, so runs against different databases do not block each other.
+`bash db/test-run-lock.sh` used to verify the whole behaviour in about a minute; it cannot run
+against this copy any more, for the reason above. The behaviour it covered is in
+`skeleton/db/migrate.sh` as well, where a stamped product can exercise it.
 
 ## JauntyQ flow
 
 1. Apply migrations to a local database.
-2. `jaunty schema pull` writes `schema/jaunty.schema.json` from that database.
-3. Write queries as `.sql` files under `queries/` (auto-CRUD needs no file).
-4. The JauntyQ source generator turns `queries/*.sql` + the schema snapshot into
-   typed C# at build time in `apps/api`.
+2. `jaunty schema pull` writes a schema snapshot JSON from that database, into the schema
+   directory beside the migrations — `db/sample/schema/` here.
+3. Write queries as `.sql` files under the queries directory (auto-CRUD needs no file).
+4. The JauntyQ source generator turns `queries/*.sql` plus the schema snapshot into typed C# at
+   build time, in whichever project declares them as `AdditionalFiles`.
 
-Legacy reference: the old app's ~80 stored procedures live in
-`99-archives/2.-/.../db`. They are being translated to inline `.sql` here (no
-stored procedures in the rewrite).
-
-## Phase 1
-
-The Phase 1 migrations (0002–0012) port the legacy SQL Server tables to
-PostgreSQL. Notable deviations from the legacy schema:
-
-- The legacy `Errors` table is NOT ported; the rewrite uses structured logging.
-- Legacy `value_encrypted VARBINARY(128)` columns are dropped (unused remnants).
-- Tokens, codes, and secrets are hashed at rest (`token_hash` / `secret_hash` /
-  `code_hash`, CHAR(64) SHA-256 hex); no plaintext token material is stored.
-- Refresh tokens gain rotation columns (`rotated_at`, `replaced_by_id`) and a
-  mandatory `expires_at` (legacy refresh tokens never expired).
+`db/sample/` is that flow worked through end to end at the smallest scale that proves it, and
+`apps/sample/nativeweb.sample.csproj` is the project that consumes it.

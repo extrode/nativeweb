@@ -17,32 +17,22 @@ when you need a specific answer.**
 
 ## Which path is yours
 
-The two audiences share the clone and the build and diverge after it. Everything before "The
-fork" in `00-quick-start/getting-started.md` applies to both.
+There used to be two audiences here, and one of them has gone: this repository held an identity
+provider as well as the framework, and maintaining it was a whole reading path of its own. It left
+on 2026-08-31 ([decision 007](decisions/2026-08-31-007-idp-leaves-nativeweb.md)), so **there is one
+path now** — you are building your own application on the framework.
 
-**Stamping a new product** from `skeleton/` — your goal is your own application, and `apps/web`
-is a worked example you read rather than code you maintain.
-
-- [`00-quick-start/getting-started.md` § Path A](00-quick-start/getting-started.md) — `tools/new-product.ps1`, your own role and
-  database, and the two environment variables the stamped product's own suite needs.
+- [`00-quick-start/getting-started.md`](00-quick-start/getting-started.md) — clone, build, green
+  suite, then `tools/new-product.ps1` for your own product, role and database.
 - [`../libs/nativeweb.scaffold/README.md`](../libs/nativeweb.scaffold/README.md) — decorate a
   model, get an admin UI. The fastest route from a table to a working screen.
-- [`../libs/nativeweb.signin.epass/README.md`](../libs/nativeweb.signin.epass/README.md) — add
-  "sign in with epass.io" rather than building authentication.
-- [`02-reference/configuration.md`](02-reference/configuration.md) — written against `apps/web`, but the settings your
-  stamped product reads are the same ones.
+- [`02-reference/template-diagnostics.md`](02-reference/template-diagnostics.md) — `NWT001`-`NWT016`,
+  what each template build error means and how to fix it.
+- [`02-reference/configuration.md`](02-reference/configuration.md) — every setting, its default,
+  and what a wrong or absent value costs.
 
-**Maintaining `apps/web`**, the epass.io IdP — your goal is the identity provider itself.
-
-- [`00-quick-start/getting-started.md` § Path B](00-quick-start/getting-started.md) — the real database, `db/migrate.sh`, and
-  the reading order for the rest of this list.
-- [`02-reference/configuration.md`](02-reference/configuration.md) — every setting `apps/web` reads, its default, and what
-  a wrong or absent value costs.
-- [`02-reference/security-baseline.md`](02-reference/security-baseline.md) — the ASVS-derived checklist the IdP is held to.
-- [`02-reference/deployment.md`](02-reference/deployment.md) — how it gets to a host and back off one. Read
-  before touching production; two of its procedures have never been run.
-- [`architecture/002-epass-cutover-capability-gap.md`](architecture/002-epass-cutover-capability-gap.md)
-  — what `apps/web` does not yet do that the live epass.io does.
+`apps/sample` is the worked example you read: a real application, small enough to hold in your
+head, exercising the scaffolding, forms and render libraries through a real entry point.
 
 ## Reference
 
@@ -54,7 +44,7 @@ Answers to specific questions. Not written to be read in order.
 | [`02-reference/configuration.md`](02-reference/configuration.md) | Every setting, default, and failure mode. |
 | [`01-architecture/progressive-enhancement.md`](01-architecture/progressive-enhancement.md) | HTMX and Alpine conventions. Mandatory for every browser-facing page. |
 | [`02-reference/template-diagnostics.md`](02-reference/template-diagnostics.md) | `NWT001`–`NWT016`: what each template build error means and how to fix it. |
-| [`02-reference/security-baseline.md`](02-reference/security-baseline.md) | The security checklist and what has been verified against it. |
+| [`02-reference/security-baseline.md`](02-reference/security-baseline.md) | The security checklist and what has been verified against it. Written against the identity provider that has since left; read it as the posture a stamped product inherits. |
 | [`02-reference/migration-lock-review.md`](02-reference/migration-lock-review.md) | How long `db/migrate.sh` holds its locks. Read before pointing it at a live database. |
 | [`02-reference/deployment.md`](02-reference/deployment.md) | The production runbook: provisioning, blue/green release, rollback, backups, restore, disaster recovery. Carries its own list of what has never been executed. |
 | [`handovers/admin-cms-handoff.md`](handovers/admin-cms-handoff.md) | The admin panel and CMS module design. |
@@ -65,9 +55,11 @@ Answers to specific questions. Not written to be read in order.
 Each library documents itself. These are reference, not tutorial.
 
 - [`../libs/nativeweb.scaffold/README.md`](../libs/nativeweb.scaffold/README.md) — declarative CRUD scaffolding.
-- [`../libs/nativeweb.signin.epass/README.md`](../libs/nativeweb.signin.epass/README.md) — the epass.io relying party.
-- [`../libs/nativeweb.data/README.md`](../libs/nativeweb.data/README.md) — the JauntyQ data layer.
 - [`../libs/nativeweb.assets/README.md`](../libs/nativeweb.assets/README.md) — vendored HTMX and Alpine. Not a .NET project.
+
+`libs/nativeweb.forms`, `.render`, `.security`, `.mail` and the generators have no README of their
+own yet. Their reference is `02-reference/template-diagnostics.md` and the worked usage in
+`apps/sample`.
 
 ## Rules
 

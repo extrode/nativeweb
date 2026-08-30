@@ -84,22 +84,20 @@ Deno.test("a process that died on startup is reported by its exit code, not as a
   assertEquals(polls, 2);
 });
 
-Deno.test("the bench environment raises the page limiter, silences telemetry and serves TLS", () => {
-  const cert = { certPath: "/tmp/c.pem", keyPath: "/tmp/k.pem", pem: "" };
-  const env = benchEnv("https://localhost:5997", cert);
+Deno.test("the bench environment silences telemetry and forces the in-memory store", () => {
+  const env = benchEnv("http://localhost:5997");
 
-  assertEquals(env.ASPNETCORE_URLS, "https://localhost:5997");
-  // Without a cert Kestrel would not serve https at all, and over http every rendered page
-  // 500s on the Secure-always antiforgery cookie.
-  assertEquals(env.ASPNETCORE_Kestrel__Certificates__Default__Path, "/tmp/c.pem");
-  assertEquals(env.ASPNETCORE_Kestrel__Certificates__Default__KeyPath, "/tmp/k.pem");
+  assertEquals(env.ASPNETCORE_URLS, "http://localhost:5997");
+  // Inert against apps/sample, which registers no telemetry -- it was live when the target was
+  // apps/web. Kept because the harness measures whatever it is pointed at, and an exporter
+  // waking up mid-run is the kind of thing that moves a number without explaining itself.
   assertEquals(env.NativeWeb__Telemetry__Enabled, "false");
   // Warning and above: at default level the app writes an info line per request and draining
-  // it cost 14% of measured throughput.
+  // it cost 14% of measured throughput, measured on apps/web before it left the repo.
   assertEquals(env.Logging__LogLevel__Default, "Warning");
-  // GET / is behind RequireRateLimiting("page"); at the shipped limit a load run measures
-  // 429s rather than the server.
-  assert(Number(env.NativeWeb__RateLimit__Page__PermitLimit) > 1_000_000);
+  // Empty, not absent: Deno.Command adds to the inherited environment rather than replacing
+  // it, so this is the one value that reliably wins over whatever the invoking shell exports.
+  assertEquals(env.ConnectionStrings__Sample, "");
 });
 
 Deno.test("findPublishedExe names the directory it looked in when nothing is published", async () => {
@@ -116,7 +114,7 @@ Deno.test("findPublishedExe names the directory it looked in when nothing is pub
 Deno.test("findPublishedExe finds the binary in the harness's own publish directory", async () => {
   const root = await scratchDir();
   try {
-    const exeName = Deno.build.os === "windows" ? "nativeweb.web.exe" : "nativeweb.web";
+    const exeName = Deno.build.os === "windows" ? "nativeweb.sample.exe" : "nativeweb.sample";
     const dir = `${root}/${PUBLISH_DIR}`;
     await Deno.mkdir(dir, { recursive: true });
     await Deno.writeTextFile(`${dir}/${exeName}`, "");
@@ -128,14 +126,14 @@ Deno.test("findPublishedExe finds the binary in the harness's own publish direct
 });
 
 // The regression this whole change exists to stop. Before it, findPublishedExe scanned
-// apps/web/bin/Release/net10.0/*/publish -- which is the e2e fixture's output directory --
+// apps/sample/bin/Release/net10.0/*/publish -- which is the e2e fixture's output directory --
 // so a --skip-publish run would silently benchmark whatever binary that tier last built and
 // report the number as the harness's own. It must now refuse.
 Deno.test("the e2e fixture's publish output is not mistaken for the harness's", async () => {
   const root = await scratchDir();
   try {
-    const exeName = Deno.build.os === "windows" ? "nativeweb.web.exe" : "nativeweb.web";
-    const e2eDir = `${root}/apps/web/bin/Release/net10.0/win-x64/publish`;
+    const exeName = Deno.build.os === "windows" ? "nativeweb.sample.exe" : "nativeweb.sample";
+    const e2eDir = `${root}/apps/sample/bin/Release/net10.0/win-x64/publish`;
     await Deno.mkdir(e2eDir, { recursive: true });
     await Deno.writeTextFile(`${e2eDir}/${exeName}`, "");
 

@@ -6,6 +6,7 @@ import {
   baselineObjection,
   DEFAULTS,
   fingerprint,
+  localDate,
   overwriteObjection,
   parseArgs,
   repoRoot,
@@ -74,8 +75,16 @@ Deno.test("repoRoot fails rather than looping when there is no solution above", 
 });
 
 Deno.test("both section 14 shapes are measured: the render and the floor", () => {
-  assertEquals(SCENARIOS.home, "/");
+  assertEquals(SCENARIOS.articles, "/articles");
   assertEquals(SCENARIOS.healthz, "/healthz");
+});
+
+// "/" on apps/sample is a 302 to /admin, so a scenario pointed at it would measure the router
+// and report a redirect as a successful request. The render scenario was "/" while apps/web was
+// the target and that app rendered its home page; this pins the swap rather than leaving the two
+// facts to look interchangeable.
+Deno.test("the render scenario is not the redirect at the root", () => {
+  assertEquals(Object.values(SCENARIOS).includes("/"), false);
 });
 
 function measurement(over: Partial<ScenarioMeasurement> = {}): ScenarioMeasurement {
@@ -83,23 +92,23 @@ function measurement(over: Partial<ScenarioMeasurement> = {}): ScenarioMeasureme
 }
 
 Deno.test("a clean measurement may become a baseline", () => {
-  assertEquals(baselineObjection({ home: measurement() }), null);
+  assertEquals(baselineObjection({ articles: measurement() }), null);
 });
 
 Deno.test("a measurement with failed requests is refused as a baseline", () => {
   // The first real run of this harness recorded 0 req/s and 245,106 errors as a baseline,
   // because every GET / answered 500 over http. Nothing stopped it.
-  const objection = baselineObjection({ home: measurement({ rps: 0, errors: 245_106 }) });
+  const objection = baselineObjection({ articles: measurement({ rps: 0, errors: 245_106 }) });
   assert(objection !== null);
   assert(objection.includes("245106"), objection);
 });
 
 Deno.test("a measurement that served nothing is refused even with no errors recorded", () => {
-  assert(baselineObjection({ home: measurement({ rps: 0 }) }) !== null);
+  assert(baselineObjection({ articles: measurement({ rps: 0 }) }) !== null);
 });
 
 Deno.test("a measurement whose RSS never read is refused", () => {
-  assert(baselineObjection({ home: measurement({ maxRssBytes: 0 }) }) !== null);
+  assert(baselineObjection({ articles: measurement({ maxRssBytes: 0 }) }) !== null);
 });
 
 Deno.test("an empty measurement is refused rather than written as an empty baseline", () => {
@@ -117,7 +126,7 @@ Deno.test("--baseline refuses to replace another machine's committed baseline", 
       recorded: "2026-08-29",
       machine: { hostname: "bench-host", cpus: 16, os: "windows", arch: "x86_64" },
       harness: DEFAULTS.harness,
-      scenarios: { home: measurement() },
+      scenarios: { articles: measurement() },
     },
     { hostname: "runner-7", cpus: 4, os: "linux", arch: "x86_64" },
     false,
@@ -137,11 +146,29 @@ Deno.test("--baseline on the recording machine, and --force anywhere, are allowe
     recorded: "2026-08-29",
     machine,
     harness: DEFAULTS.harness,
-    scenarios: { home: measurement() },
+    scenarios: { articles: measurement() },
   };
 
   assertEquals(overwriteObjection(existing, { ...machine }, false), null);
   assertEquals(overwriteObjection(existing, { hostname: "other", cpus: 4, os: "linux", arch: "x86_64" }, true), null);
   // Nothing committed yet: the first baseline is always allowed.
   assertEquals(overwriteObjection(null, machine, false), null);
+});
+
+// The baseline's own date stamp. It was new Date().toISOString().slice(0, 10) -- the UTC date --
+// and on a UTC+8 machine a run made on 2026-08-31 stamped itself 2026-08-30, so --check reported
+// "within tolerance of the baseline recorded 2026-08-30" about a file written minutes before.
+// The three cases below are the ones that separate a local date from a UTC one.
+Deno.test("the baseline is stamped with the local date, not the UTC one", () => {
+  // 2026-08-31 07:00 local on a UTC+8 machine is 2026-08-30T23:00Z. Constructed from local
+  // components so the test asserts the same thing whatever timezone it runs in.
+  const earlyMorning = new Date(2026, 7, 31, 7, 0, 0);
+  assertEquals(localDate(earlyMorning), "2026-08-31");
+
+  // Late evening, which is where a machine WEST of UTC crosses the other way.
+  const lateEvening = new Date(2026, 7, 31, 23, 30, 0);
+  assertEquals(localDate(lateEvening), "2026-08-31");
+
+  // Zero-padding: a single-digit month and day must not emit "2026-1-5".
+  assertEquals(localDate(new Date(2026, 0, 5, 12, 0, 0)), "2026-01-05");
 });

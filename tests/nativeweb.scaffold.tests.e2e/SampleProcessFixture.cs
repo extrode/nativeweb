@@ -158,9 +158,10 @@ public abstract class SampleProcessFixture : IAsyncLifetime
             _process.BeginOutputReadLine();
             _process.BeginErrorReadLine();
 
-            // The sample has no /healthz, so readiness is "/ answers at all". It
-            // redirects to /admin, which then redirects to /signin, so the status is not
-            // the interesting part — being listening is.
+            // /healthz, which apps/sample gained on 2026-08-31 so the bench harness had a
+            // no-render floor to measure. It is outside the IsDevelopment() block and returns
+            // 200 with no body. Readiness is still "it answered at all" rather than the status
+            // code: this only needs to know the listener is up.
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
             DateTime deadline = DateTime.UtcNow.AddSeconds(60);
             while (DateTime.UtcNow < deadline)
@@ -168,7 +169,7 @@ public abstract class SampleProcessFixture : IAsyncLifetime
                 try
                 {
                     using HttpResponseMessage response =
-                        await client.GetAsync(new Uri($"{BaseUrl}/")).ConfigureAwait(false);
+                        await client.GetAsync(new Uri($"{BaseUrl}/healthz")).ConfigureAwait(false);
                     return;
                 }
                 catch (Exception e) when (e is HttpRequestException or TaskCanceledException)

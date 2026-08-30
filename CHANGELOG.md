@@ -13,6 +13,25 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Removed
+- **The identity provider left NativeWeb.** `apps/web`, `libs/nativeweb.auth`,
+  `libs/nativeweb.data`, `libs/nativeweb.signin.epass`, `.signin.epass.testing`, `db/migrations`,
+  `db/queries`, `db/schema`, `db/seed` and seven test projects are gone: 622 files, 69,322 lines.
+  NativeWeb's charter said it was "both a reusable reference template and the full ground-up
+  redesign of epass.io", and that second half is how a token issuer, a consent screen, realms, SSO
+  modes and a users-and-tokens schema came to live here under framework names — the 2026-08-19
+  neutral-naming rename turned `libs/epass.auth` into `libs/nativeweb.auth` without one line of it
+  becoming framework code. **epass.io is its own repository and owns epass**; the copy here was a
+  diverged fork and was not ported anywhere. What each side had that the other did not — nine
+  migrations, one source file, eighteen server-rendered pages — is tabled in
+  `docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`, which is the index for anyone
+  cherry-picking from history later. `libs/nativeweb.security` kept its framework primitives and
+  lost `Pkce` and `PairwiseSubject`; `libs/nativeweb.mail` kept its SMTP transport and lost the two
+  senders that implemented auth interfaces. `apps/sample` is now the reference application and the
+  only deployable project. Solution builds 0 warnings / 0 errors and 444 tests pass afterwards,
+  across seven suites — the seventh being `tests/nativeweb.repo.tests.unit`, a new home for the
+  repository-level guards that had been living in the deleted tier and would have gone with it.
+
 ### Added
 - **Declarative form binding for hand-written endpoints** (spec 014). A `[Form]`-annotated
   partial record gets a source-generated binder, and `MapFormPost<TForm>` (with `Put`, `Patch`

@@ -1,36 +1,25 @@
 <Solution>
   <Folder Name="/apps/">
-    <Project Path="apps/web/nativeweb.web.csproj" />
     <Project Path="apps/sample/nativeweb.sample.csproj" />
   </Folder>
   <Folder Name="/libs/">
-    <Project Path="libs/nativeweb.data/nativeweb.data.csproj" />
     <Project Path="libs/nativeweb.render.generator/nativeweb.render.generator.csproj" />
     <Project Path="libs/nativeweb.render/nativeweb.render.csproj" />
     <Project Path="libs/nativeweb.security/nativeweb.security.csproj" />
-    <Project Path="libs/nativeweb.auth/nativeweb.auth.csproj" />
     <Project Path="libs/nativeweb.mail/nativeweb.mail.csproj" />
     <Project Path="libs/nativeweb.forms/nativeweb.forms.csproj" />
     <Project Path="libs/nativeweb.forms.generator/nativeweb.forms.generator.csproj" />
     <Project Path="libs/nativeweb.scaffold/nativeweb.scaffold.csproj" />
     <Project Path="libs/nativeweb.scaffold.generator/nativeweb.scaffold.generator.csproj" />
-    <Project Path="libs/nativeweb.signin.epass/nativeweb.signin.epass.csproj" />
-    <Project Path="libs/nativeweb.signin.epass.testing/nativeweb.signin.epass.testing.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/nativeweb.web.tests.unit/nativeweb.web.tests.unit.csproj" />
-    <Project Path="tests/nativeweb.web.tests.integration/nativeweb.web.tests.integration.csproj" />
+    <Project Path="tests/nativeweb.repo.tests.unit/nativeweb.repo.tests.unit.csproj" />
     <Project Path="tests/nativeweb.render.tests.unit/nativeweb.render.tests.unit.csproj" />
-    <Project Path="tests/nativeweb.web.tests.e2e/nativeweb.web.tests.e2e.csproj" />
     <Project Path="tests/nativeweb.forms.tests.unit/nativeweb.forms.tests.unit.csproj" />
     <Project Path="tests/nativeweb.scaffold.tests.unit/nativeweb.scaffold.tests.unit.csproj" />
     <Project Path="tests/nativeweb.scaffold.tests.integration/nativeweb.scaffold.tests.integration.csproj" />
     <Project Path="tests/nativeweb.scaffold.tests.e2e/nativeweb.scaffold.tests.e2e.csproj" />
     <Project Path="tests/nativeweb.sample.tests.unit/nativeweb.sample.tests.unit.csproj" />
-    <Project Path="tests/nativeweb.signin.epass.tests.unit/nativeweb.signin.epass.tests.unit.csproj" />
-    <Project Path="tests/nativeweb.signin.epass.tests.integration/nativeweb.signin.epass.tests.integration.csproj" />
-    <Project Path="tests/nativeweb.signin.epass.tests.aot/nativeweb.signin.epass.tests.aot.csproj" />
-    <Project Path="tests/nativeweb.signin.epass.tests.e2e/nativeweb.signin.epass.tests.e2e.csproj" />
   </Folder>
   <Project Path="../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj" />
   <Project Path="../jauntyq/src/JauntyQ.Runtime/JauntyQ.Runtime.csproj" />

@@ -1,6 +1,13 @@
 # 002 — The epass.io cutover capability gap
 
-Status: current — measured 2026-08-25
+> **Closed, 2026-08-31, by not doing the cutover.** This document measured whether NativeWeb's
+> `apps/web` could replace epass.io and concluded it could not. The answer taken was the other
+> one available: **epass.io stays, and `apps/web` left this repository** rather than growing the
+> API surface this gap analysis costed out. See
+> `docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`. The measurements below stand; the work
+> they were sizing is cancelled.
+
+Status: superseded — measured 2026-08-25, closed 2026-08-31
 Companion: `../../work/todo.md` ("epass.io cutover readiness"), `001-relying-party-extraction.md`
 
 Promoted out of `work/todo.md` on 2026-08-25 because it outlives the backlog it was written in:

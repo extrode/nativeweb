@@ -30,9 +30,11 @@ export const SCENARIOS: Record<string, string> = {
   // The floor: routed, but renders nothing and touches no database. Section 14's
   // "C# JSON API direct" column served the same purpose.
   healthz: "/healthz",
-  // The full page render -- Layout, CSP nonce, antiforgery mint. Section 14's
-  // "HTMX + ASP.NET Core -- GET /" row, and the one an upgrade could move.
-  home: "/",
+  // The full page render: template, antiforgery mint, a list of rows out of the
+  // store. Section 14's "HTMX + ASP.NET Core -- GET /" row, and the one an upgrade
+  // could move. NOT "/" on apps/sample, which is a 302 to /admin and measures the
+  // router rather than a render.
+  articles: "/articles",
 };
 
 export interface Options {
@@ -117,6 +119,20 @@ export function fingerprint(): Machine {
   };
 }
 
+/**
+ * Today, in the machine's own timezone, as YYYY-MM-DD.
+ *
+ * Not `new Date().toISOString().slice(0, 10)`, which is the UTC date: west of UTC it stamps
+ * tomorrow's baseline with today's date, and east of it the reverse. Measured 2026-08-31 on a
+ * UTC+8 machine -- a run made on the 31st recorded itself as the 30th, and `--check` then
+ * reported being "within tolerance of the baseline recorded 2026-08-30" about a file written
+ * minutes earlier. Every other date in this repository is local, so this one is too.
+ */
+export function localDate(now: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 export function repoRoot(from: string = dirname(fromFileUrl(import.meta.url))): string {
   let dir = from;
   while (true) {
@@ -139,7 +155,7 @@ async function measure(options: Options): Promise<Record<string, ScenarioMeasure
   const root = repoRoot();
 
   if (!options.skipPublish) {
-    console.log("Publishing apps/web (Release)...");
+    console.log("Publishing apps/sample (Release)...");
     await publish(root);
   }
 
@@ -149,18 +165,15 @@ async function measure(options: Options): Promise<Record<string, ScenarioMeasure
   const app = await startApp({ repoRoot: root, port: options.port, exePath });
   const measurements: Record<string, ScenarioMeasurement> = {};
 
-  // Everything after the spawn is inside the try, the client included: a throw between the two
-  // would otherwise orphan the app on the port, and the next run would die waiting for a
-  // /healthz that a stale process is already answering.
-  let client: Deno.HttpClient | undefined;
+  // Everything after the spawn is inside the try: a throw between the two would otherwise
+  // orphan the app on the port, and the next run would die waiting for a /healthz that a
+  // stale process is already answering.
   try {
-    // The app's listener presents a cert this run just minted, so the driver has to trust that
-    // one specifically. Not a global "ignore certificate errors": the harness talks to loopback
-    // and to nothing else, and a client that accepts anything is a habit worth not forming.
-    client = Deno.createHttpClient({ caCerts: [app.cert.pem] });
-    const trusting = client;
-    const fetchImpl: typeof fetch = (input, init) =>
-      fetch(input as string, { ...init, client: trusting } as unknown as RequestInit);
+    // Plain HTTP, so no client of our own and nothing to trust. The harness used to mint a
+    // loopback certificate because apps/web set CookieSecurePolicy.Always and a __Host-
+    // antiforgery cookie, which forces TLS or a 500 on every page carrying a form.
+    // apps/sample does neither, so cert.ts is gone and the driver uses global fetch.
+    const fetchImpl: typeof fetch = fetch;
 
     let readyMs: number;
     try {
@@ -173,8 +186,8 @@ async function measure(options: Options): Promise<Record<string, ScenarioMeasure
         app.exitCode,
       );
     } catch (error) {
-      // A port already in use, an unreadable cert, a startup guard refusing to boot: all of
-      // them look identical from out here, and all of them say so in the app's own log.
+      // A port already in use or a startup guard refusing to boot: both look identical from
+      // out here, and both say so in the app's own log.
       const tail = app.logTail();
       throw new Error(
         `${error instanceof Error ? error.message : String(error)}\n`
@@ -214,7 +227,6 @@ async function measure(options: Options): Promise<Record<string, ScenarioMeasure
       console.log("");
     }
   } finally {
-    client?.close();
     await app.stop();
   }
 
@@ -436,9 +448,10 @@ export async function main(args: string[]): Promise<number> {
   const record = {
     _comment: "Spec 012 R16. Recorded by tools/bench/run.ts --baseline; compared by --check on "
       + "the same machine and the same harness settings, 20% down on req/s and 25% up on RSS. "
-      + "Not comparable to the section 14 figures in docs/01-architecture -- different apps, "
-      + "different tool, hardware that no longer exists. See tools/bench/README.md.",
-    recorded: new Date().toISOString().slice(0, 10),
+      + "Measures apps/sample. Not comparable to the section 14 figures in "
+      + "docs/01-architecture, nor to this file's own pre-2026-08-31 figures, which measured "
+      + "apps/web before it left the repository. See tools/bench/README.md.",
+    recorded: localDate(),
     machine,
     harness: options.harness,
     scenarios: measurements,

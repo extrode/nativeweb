@@ -1,6 +1,6 @@
 {
-  "_comment": "Spec 012 R16. Recorded by tools/bench/run.ts --baseline; compared by --check on the same machine and the same harness settings, 20% down on req/s and 25% up on RSS. Not comparable to the section 14 figures in docs/01-architecture -- different apps, different tool, hardware that no longer exists. See tools/bench/README.md.",
-  "recorded": "2026-08-29",
+  "_comment": "Spec 012 R16. Recorded by tools/bench/run.ts --baseline; compared by --check on the same machine and the same harness settings, 20% down on req/s and 25% up on RSS. Measures apps/sample. Not comparable to the section 14 figures in docs/01-architecture, nor to this file's own pre-2026-08-31 figures, which measured apps/web before it left the repository. See tools/bench/README.md.",
+  "recorded": "2026-08-31",
   "machine": {
     "hostname": "bench-host",
     "cpus": 16,
@@ -14,18 +14,18 @@
   },
   "scenarios": {
     "healthz": {
-      "rps": 18067.2,
-      "p50Ms": 0.83,
-      "p99Ms": 2.22,
+      "rps": 23068.6,
+      "p50Ms": 0.6,
+      "p99Ms": 2.1,
       "errors": 0,
-      "maxRssBytes": 77971456
+      "maxRssBytes": 47165440
     },
-    "home": {
-      "rps": 6998,
-      "p50Ms": 2.11,
-      "p99Ms": 7.75,
+    "articles": {
+      "rps": 19937.6,
+      "p50Ms": 0.61,
+      "p99Ms": 2.27,
       "errors": 0,
-      "maxRssBytes": 63881216
+      "maxRssBytes": 42274816
     }
   }
 }

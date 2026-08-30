@@ -1,10 +1,19 @@
 # Security baseline (spec 003, R29)
 
+> **Read this as inherited posture, not as a checklist over code in this repository.** It was
+> written against `apps/web`, the identity provider, which left on 2026-08-31
+> (`../decisions/2026-08-31-007-idp-leaves-nativeweb.md`). **Every row citing `apps/web/Auth/*`,
+> `db/queries/*` or a migration number describes code that is no longer here**, and those controls
+> were verified against it rather than against the framework. What survives in this repository is
+> the primitives layer — `libs/nativeweb.security` (`Passphrases`, `OpaqueTokens`, `Sha256Hex`,
+> `BotTraps`, `ContactProtector`, `StoreDataProtector`) and the response hardening in
+> `skeleton/`'s middleware — plus whatever a stamped product builds on it. Deciding which rows are
+> framework posture and which left with the application is an open item in `work/todo.md`.
+
 ASVS-derived checklist for the NativeWeb reference architecture, written as part of V6
-(`feat/security-baseline`). Scope: `apps/web`, the IdP. The first product (DevMarks) was
-extracted to the manzil.my repo in V10 and carries its own copy of this checklist; rows that
-named its implementation now describe the IdP only.
-Each row names where the control lives so a reviewer can verify it rather than trust
+(`feat/security-baseline`). Scope as written: `apps/web`, the IdP. The first product (DevMarks) was
+extracted to the manzil.my repo in V10 and carries its own copy of this checklist.
+Each row names where the control lived so a reviewer could verify it rather than trust
 this document. Items marked ☐ are known-open, with the reason.
 
 ## V2 — Authentication

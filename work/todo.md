@@ -995,6 +995,49 @@ early now pays the same hash.
   and it was exporting `Platform=x64` into the publish path. Both workflows are now node24
   throughout and use no third-party action at all.
 
+## ~~epass.io cutover readiness, probed 2026-08-24~~ — CANCELLED 2026-08-31
+
+**There is no cutover.** `apps/web` and the rest of the identity provider left this repository on
+2026-08-31 (`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`); epass.io keeps its own IdP,
+which had diverged from this one anyway. Every blocker below is moot as a NativeWeb item. Left
+unstruck line by line because the measurements in it are still true about the code that was here,
+and because the `002-epass-cutover-capability-gap.md` note it feeds is the record of why the answer
+went the other way.
+
+Seven follow-ups the removal itself created, and these ARE live:
+
+- **The framework has no password-policy primitives any more.** `LockoutPolicy`,
+  `CommonPasswordChecker`, `HibpBreachChecker` and `BreachChecking` went out with
+  `libs/nativeweb.auth`. The skeleton's csproj referenced that library for them and no skeleton C#
+  ever used it, so nothing broke — but Django ships password validators and a stamped product will
+  want them. Decide whether they come back as a framework lib on the `contrib.auth` side of the
+  line, or stay out.
+- **`scripts/deploy/` still targets `apps/web`.** It was never run on a real host (spec 011 T15),
+  so nothing in production is affected, but the toolchain now names a project that does not exist.
+  Retarget at `apps/sample`, or accept that it is only exercised by whatever a stamped product does
+  with its own copy.
+- **`docs/02-reference/security-baseline.md` was an ASVS checklist for the IdP.** Reframed rather
+  than deleted; someone should decide which of its items are framework posture and which left with
+  the application.
+- **`libs/epass.auth`, `epass.data`, `epass.mail`, `epass.security` are untracked `obj/`-only
+  leftovers** of the 2026-08-19 neutral-naming rename, sitting in `libs/` looking like projects.
+  Listed in `scripts/cleanup/extract-idp.ps1`, not removed.
+- **`db/migrate.sh` and `db/test-run-lock.sh` are unreachable.** `MIGRATIONS_DIR` resolves to the
+  deleted `db/migrations/`, and the one superuser step names `0002_extensions.sql` unconditionally,
+  so the runner aborts and the lock test aborts with it. Both say so in their own headers now.
+  Either retarget at `db/sample/migrations/` — which means making the extensions step conditional,
+  a change to the runner — or retire them and let `skeleton/db/migrate.sh` be the only copy.
+- **The OTel-under-AOT gate stopped gating.** `scripts/ci/check-publish-budgets.ps1` sets
+  `NativeWeb__Telemetry__Enabled=true` and was the only place the OpenTelemetry registration path
+  ran inside a real NativeAOT image. `apps/sample` registers no telemetry and no surviving library
+  does, so the variable is inert and an AOT-hostile change to that path would now ship unnoticed.
+  Restoring the coverage means giving `apps/sample` a telemetry registration.
+- **The `Fido2` and `NSec.Cryptography` pins in `Directory.Packages.props` have no consumer.**
+  WebAuthn was IdP functionality; no project references either package now. The `NSec` pin exists
+  only to resolve a libsodium conflict `Fido2` introduced, so the two go together. Removing a
+  dependency needs a decision, hence the note rather than the deletion — the `Fido2` comment's
+  reference to `apps/web Program.cs` is stale either way.
+
 ## epass.io cutover readiness, probed 2026-08-24
 
 Probed before scheduling the cutover, on the reasoning that finding unfinished work afterwards is

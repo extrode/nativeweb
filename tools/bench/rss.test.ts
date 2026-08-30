@@ -3,7 +3,7 @@ import { assert, assertEquals } from "@std/assert";
 import { parsePs, parseTasklist, startRssSampler } from "./rss.ts";
 
 Deno.test("tasklist CSV parses to bytes, thousands separator and all", () => {
-  const line = '"nativeweb.web.exe","12345","Console","1","51,234 K"\r\n';
+  const line = '"nativeweb.sample.exe","12345","Console","1","51,234 K"\r\n';
   assertEquals(parseTasklist(line), 51234 * 1024);
 });
 

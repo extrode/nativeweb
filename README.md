@@ -33,7 +33,7 @@ be redistributed (`AGENTS.md`). Three things follow, each verified rather than a
   agree with `NativeWeb.slnx`, which has always named `../jauntyq/...` relatively. Until
   2026-08-26 they instead hard-coded an ancestor literally named `extrode-legacy-org.com`, so a renamed
   source root broke every per-project build while the solution build kept working — the fix, and
-  the tests that pin it, are in `tests/nativeweb.web.tests.unit/JauntyQRootProbeTests.cs`.
+  the fix is in `Directory.Build.props`.
   `-p:JauntyQRoot=<path>` remains the override for a checkout that is not a sibling.
 - **With no checkout anywhere, the build stops with a clear message** rather than a wall of
   `CS0246`: *"JauntyQ checkout not found at '…'. Pass `-p:JauntyQRoot=<path>` or build with
@@ -53,25 +53,24 @@ standing in for the feed, and the same command fails on a clean machine.
 
 ## Run it
 
-Neither application needs a database to start: a missing connection string selects an in-memory
-store rather than failing, which makes this the fastest way to see the thing work.
+`apps/sample` needs no database to start: a missing connection string selects an in-memory store
+rather than failing, which makes this the fastest way to see the thing work.
 
 ```
-dotnet run --project apps/sample                                  # http://localhost:5399
-dotnet run --project apps/web                                     # https://localhost:5444
+dotnet run --project apps/sample                # http://localhost:5399
 ```
 
-`apps/web` must be served over **HTTPS**. Its session and antiforgery cookies are `Secure`-always,
-so over plain HTTP every page carrying a form returns 500 (`/healthz` still answers 200, which
-makes the failure easy to misread). Its launch profile is HTTPS, so no flag is needed; run
-`dotnet dev-certs https --trust` once if your browser objects to the certificate.
+It is the framework's reference application and the only deployable project here. `apps/web`, an
+identity provider, used to sit beside it and left on 2026-08-31 —
+[decision 007](docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md) says why, and epass.io owns
+epass now.
 
 ## Build and test
 
 ```
 dotnet build                                    # solution; needs the sibling jauntyq checkout
-dotnet build apps/web                           # one project; two-depth probe, no sibling needed
-dotnet test tests/nativeweb.web.tests.unit      # one tier; the full list is in getting-started
+dotnet build apps/sample                        # one project; two-depth probe, no sibling needed
+dotnet test tests/nativeweb.render.tests.unit   # one tier; the full list is in getting-started
 ```
 
 Every command on this page was executed in the form written, from a fresh clone, on
@@ -85,9 +84,9 @@ never writes to this repository. Provisioning, reading a digest and triaging are
 
 | Path | What |
 |---|---|
-| `apps/` | Deployable services. `apps/web` is the epass.io IdP |
-| `libs/` | Shared libraries: render, auth, data, mail, security, assets |
-| `tests/` | Three tiers per app: `*.tests.unit`, `*.tests.integration`, `*.tests.e2e` |
+| `apps/` | Deployable services. `apps/sample` is the reference application |
+| `libs/` | Framework libraries: render, forms, scaffold and their generators, security, mail, assets |
+| `tests/` | Up to three tiers per library: `*.tests.unit`, `*.tests.integration`, `*.tests.e2e` |
 | `work/` | Current work: tasklist, status window, backlog, milestones |
 | `docs/` | Specs, plans, architecture, decisions, conventions, lessons, and [`configuration.md`](docs/02-reference/configuration.md) |
 | `scripts/` | Operational scripts. `scripts/cleanup/` is written but never run |

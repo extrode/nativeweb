@@ -6,6 +6,45 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **The identity provider leaves NativeWeb** — `refactor/extract-idp`, 2026-08-31. NativeWeb is a
+  framework and holds no product. `apps/web`, `libs/nativeweb.{auth,data}`, the two sign-in
+  libraries, `db/{migrations,queries,schema,seed}` and seven test projects are gone: **622 files,
+  69,322 lines**. Nothing was ported — epass.io has its own IdP, which had diverged from this one
+  in content and not only in count. Decision and the full divergence table:
+  `docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`.
+  - **The line, and why it was crossed.** Django ships `contrib.auth` and leaves the OAuth2/OIDC
+    server to a third-party package. `TokenIssuer`, `SilentConsent`, `RealmResolver` and `SsoModes`
+    are the far side of it. The only justification anywhere was a stale sentence in `AGENTS.md`
+    calling this repo "the full ground-up redesign of epass.io", and the 2026-08-19 neutral-naming
+    rename made IdP code *look* like framework code without one line becoming it.
+  - **The highest-value find was coverage that would have vanished silently.**
+    `tests/nativeweb.web.tests.unit` was this repo's only unit tier, so seven repository-level
+    guards with nothing to do with the IdP lived in it — the workflow's action pinning,
+    `nuget.config`, the solution, `Directory.Build.props`, `.editorconfig`, pack metadata and the
+    skeleton's framework resolution. CI's own comments cite two of them as the reason its steps
+    exist. Rehomed as `tests/nativeweb.repo.tests.unit`, **51 facts**, with a CI step of its own.
+  - **Suites after: 444 facts across seven projects, 0 failed, 0 skipped**; solution build 0
+    warnings / 0 errors; `tools/bench` 87 Deno facts; structure-audit 0 errors.
+  - **The bench harness was retargeted at `apps/sample` and re-baselined**, not carried over — a
+    smaller app measured against a larger one's ceiling passes for the wrong reason. bench-host,
+    2026-08-31: `/healthz` 23,068.6 req/s, 0.60 ms p50, 45.0 MB; `/articles` 19,937.6 req/s,
+    0.61 ms p50, 40.3 MB, zero errors. `/articles` and not `/`, because `/` on `apps/sample` is a
+    302 and would measure the router; `run.test.ts` pins that. It also serves http now, so
+    `cert.ts` went with `apps/web`.
+  - **A real bug fell out of the re-baseline**: `--check` reported "within tolerance of the
+    baseline recorded 2026-08-30" about a file written minutes earlier.
+    `new Date().toISOString().slice(0,10)` is the UTC date, and this machine is UTC+8. `localDate()`
+    now, with three mutation-checked cases.
+  - **The correctness review found eleven things, and a grep sweep found three more the second
+    lens did not live to find** (it hit its turn cap and returned nothing, $3.18). All fixed except
+    three logged as decisions: `db/migrate.sh` and `db/test-run-lock.sh` are unreachable and now
+    say so in their own headers; the OTel-under-AOT gate in `check-publish-budgets.ps1` stopped
+    gating because `apps/sample` registers no telemetry; and the `Fido2`/`NSec` pins have no
+    consumer. All three are in `work/todo.md`.
+  - **Cleanup candidates in `scripts/cleanup/extract-idp.ps1`, not run** — the four untracked
+    `libs/epass.*` obj-only leftovers, and ~1.6 GB of `bin/obj` behind a second `-DeleteBuildOutput`
+    flag. It refuses to touch anything git tracks.
+
 - **Audit sweep and its fixes** — `chore/backlog-audit-2026-08-30`, 2026-08-30. Find-what-is-wrong
   rather than build-the-next-thing: two `audit` lanes over `scripts/deploy/**` and `skeleton/`,
   every claim then handed to a `review-deep` (Fable) worker prompted to refute it. **18 claims, 18
