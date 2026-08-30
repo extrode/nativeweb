@@ -10,6 +10,7 @@
     <Project Path="libs/nativeweb.security/nativeweb.security.csproj" />
     <Project Path="libs/nativeweb.auth/nativeweb.auth.csproj" />
     <Project Path="libs/nativeweb.mail/nativeweb.mail.csproj" />
+    <Project Path="libs/nativeweb.forms/nativeweb.forms.csproj" />
     <Project Path="libs/nativeweb.scaffold/nativeweb.scaffold.csproj" />
     <Project Path="libs/nativeweb.scaffold.generator/nativeweb.scaffold.generator.csproj" />
     <Project Path="libs/nativeweb.signin.epass/nativeweb.signin.epass.csproj" />

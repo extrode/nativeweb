@@ -6,6 +6,14 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Spec 014 — declarative form binding** — `feat/014-declarative-form-binding`, started 2026-08-30.
+  Brainstorm 001 T1.2, built to `docs/specs/014-declarative-form-binding/014-tasks.md` (T1–T10).
+  A `[Form]` record plus a source-generated `BindAsync`, because §12 measured that complex-type
+  `[FromForm]` is not AOT-compatible and `[AsParameters]` binds every field to null in silence.
+  The two guards a hand-written binder drops — the 415 and the antiforgery metadata — are what the
+  generator exists to attach, and T6's analyzer is what makes forgetting the metadata a build error
+  rather than a route that answers 200 to a tokenless POST.
+
 - **Audit sweep and its fixes** — `chore/backlog-audit-2026-08-30`, 2026-08-30. Find-what-is-wrong
   rather than build-the-next-thing: two `audit` lanes over `scripts/deploy/**` and `skeleton/`,
   every claim then handed to a `review-deep` (Fable) worker prompted to refute it. **18 claims, 18
