@@ -560,6 +560,18 @@ correct rejections, so this is an ordering preference, not a hole.
   with the ordering caveat in finding 4: `RequireForm()` is a genuine 415 guard on a route whose
   binder does not check, and `RequireServices<T>()` needs moving upstream before it can be
   trusted for the same reason antiforgery was.
+
+  **Corrected 2026-08-30** (`fix/require-services-coverage`): the two routes carrying these
+  filters are not routes whose binder fails to check. They take scalar `[FromForm]` parameters —
+  variant 4 — and the RDG binds those with its own `HasFormContentType` check, upstream of the
+  filter pipeline. Measured: with all three gated services removed, a JSON POST to
+  `/auth/register` answers **415, not 503**, so the bind rejects before `RequireServices` is
+  reached; and with `.RequireForm()` removed from both routes, all six `ContentTypeGuardTests`
+  cases still pass. **`RequireForm()` is dead on both of its call sites** and is kept only as
+  defence in depth for the shapes §12 measured as unchecked (variants 2 and 5), which is where
+  the generator will put a route. `RequireServices<T>()`'s ordering is likewise real but benign
+  here for the same reason — the bind, not the filter, is what rejects a malformed request. Both
+  are now covered by `RequireServicesFilterTests` (10 facts); before this they had none.
 - **This is the first hard evidence for the whole thesis.** Every ergonomic gain here is a
   source generator not because we prefer generators, but because the platform's reflective path
   is closed by AOT. The spike is what turned that from an argument into a measurement.
