@@ -13,7 +13,23 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Added
+- **Deploying behind a TLS-terminating edge.** `provision.sh --edge <addr>` installs
+  `scripts/deploy/caddy/Caddyfile.edge` — `auto_https off`, listening on `:80`, trusting the edge
+  for `X-Forwarded-*` — instead of the variant that holds `:443` and runs its own ACME. The
+  blue/green promotion is unchanged: both configs import the same `/etc/caddy/upstream.caddy`,
+  so `deploy.sh` and `rollback.sh` do not know which mode they are running under.
+- **`deploy.sh --incus <instance>`**, a transport for a guest that runs no sshd because it is
+  managed through `incus exec`. `incus file push` for the artifact and this script, `incus exec`
+  to re-enter as `--local`. The `--host` ssh path is untouched.
+
 ### Fixed
+- **Client IPs survive two proxy hops.** `ForwardedHeadersOptions.ForwardLimit` was never set, so
+  it defaulted to one hop. Behind an edge, `X-Forwarded-For` arrives as `<client>, <edge>` and one
+  hop leaves `RemoteIpAddress` on the edge — collapsing every client in the world into a single
+  rate-limit partition, shared with the health probe, with nothing logged. Configurable as
+  `NativeWeb:ForwardedHeaders:ForwardLimit`; the default is unchanged at 1, and `provision.sh`
+  seeds it together with `KnownProxies` because neither setting does anything without the other.
 - **The host firewall no longer hardcodes SSH port 22.** `scripts/deploy/nftables/nativeweb.nft`
   now carries `define ssh_ports`, and `provision.sh` rewrites it from `sshd -T` before installing,
   so the ruleset opens whatever sshd is bound to. Found on `web-host`, where sshd listens on

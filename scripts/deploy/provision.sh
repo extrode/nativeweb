@@ -4,6 +4,11 @@
 # (R1, R2, R5, R6, R7).
 #
 #   sudo scripts/deploy/provision.sh
+#   sudo scripts/deploy/provision.sh --edge 10.0.0.1
+#
+# --edge <addr> provisions a host that sits BEHIND a TLS-terminating proxy at
+# <addr> instead of holding :443 itself -- an Incus guest on a fleet host, where
+# one host-level Caddy fronts every site. Decision 006.
 #
 # Idempotent by construction: every step either creates something that does not
 # exist or asserts something that does. Running it twice changes nothing the
@@ -33,6 +38,29 @@ die() {
 	exit 1
 }
 step() { echo "provision.sh: $*"; }
+
+# --edge <addr>: this host sits behind a TLS-terminating proxy at <addr> rather
+# than holding :443 itself. Decision 006. It changes three things and nothing
+# else -- which Caddyfile is installed, the trusted-proxy address Caddy is given,
+# and the forwarded-headers settings seeded into app.env -- so the two modes share
+# every other step, including the whole blue/green release layout.
+EDGE_PROXY=""
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--edge)
+		# Same `shift 2` trap deploy.sh's need_value documents: with one argument
+		# left, shift 2 returns 1 and `set -e` exits with no message at all.
+		[[ $# -ge 2 && -n "$2" ]] || die "--edge needs the edge proxy's address, e.g. --edge 10.0.0.1"
+		EDGE_PROXY="$2"
+		shift 2
+		;;
+	-h | --help)
+		sed -n '2,23p' "${BASH_SOURCE[0]}"
+		exit 0
+		;;
+	*) die "unknown argument '$1'" ;;
+	esac
+done
 
 [[ "$(id -u)" -eq 0 ]] || die "must run as root"
 command -v apt-get >/dev/null || die "this script targets Debian/Ubuntu (apt-get not found)"
@@ -120,15 +148,32 @@ seed_config() {
 	chmod "$mode" "$path"
 }
 
-seed_config "$CONFIG_ROOT/app.env" 0644 "root:$SERVICE_GROUP" \
-	'# Non-secret application settings. Read by nativeweb@.service.
-ASPNETCORE_ENVIRONMENT=Production
-
-# REQUIRED. Unset means every client in the world shares one rate-limit
+# The forwarded-headers stanza differs by mode, and the two settings in it have to
+# agree with each other: ForwardLimit is how many X-Forwarded-For entries are
+# popped, and a pop only counts while the address it lands on is in KnownProxies.
+# Seeded together here so a host cannot end up with one and not the other.
+if [[ -n "$EDGE_PROXY" ]]; then
+	FORWARDED_STANZA="# REQUIRED. Unset means every client in the world shares one rate-limit
 # partition and nothing says so. deploy.sh refuses to promote without it.
-NativeWeb__ForwardedHeaders__KnownProxies=127.0.0.1,::1
+#
+# Two hops, because --edge was used: the edge proxy at $EDGE_PROXY terminates TLS
+# and the Caddy on this host owns the blue/green swap. Both must be trusted, and
+# ForwardLimit must match the chain length -- at the default of 1 the app unwinds
+# only the local hop and every request appears to come from $EDGE_PROXY.
+NativeWeb__ForwardedHeaders__KnownProxies=127.0.0.1,::1,$EDGE_PROXY
+NativeWeb__ForwardedHeaders__ForwardLimit=2"
+else
+	FORWARDED_STANZA='# REQUIRED. Unset means every client in the world shares one rate-limit
+# partition and nothing says so. deploy.sh refuses to promote without it.
+NativeWeb__ForwardedHeaders__KnownProxies=127.0.0.1,::1'
+fi
 
-# REQUIRED. This deployment public origin, emitted by robots.txt and sitemap.xml.
+seed_config "$CONFIG_ROOT/app.env" 0644 "root:$SERVICE_GROUP" \
+	"$(printf '%s\n\n%s\n\n%s\n' \
+		'# Non-secret application settings. Read by nativeweb@.service.
+ASPNETCORE_ENVIRONMENT=Production' \
+		"$FORWARDED_STANZA" \
+		'# REQUIRED. This deployment public origin, emitted by robots.txt and sitemap.xml.
 NativeWeb__CanonicalBaseUrl=
 
 # Must persist across releases. Do not point this inside a release directory.
@@ -144,7 +189,7 @@ NativeWeb__WebAuthn__ServerDomain=
 NativeWeb__WebAuthn__Origins=
 
 # The default is https://localhost/device and is wrong for any real deployment.
-NativeWeb__DeviceGrant__VerificationUri='
+NativeWeb__DeviceGrant__VerificationUri=')"
 
 # 0640 root:nativeweb. The service reads it; no other account can. Asserted on
 # every run, because this is the file whose mode silently drifting matters most.
@@ -294,12 +339,35 @@ systemctl enable nativeweb@blue nativeweb@green >/dev/null
 
 # --- Caddy (R4, R6) ----------------------------------------------------------
 step "installing the Caddy configuration"
-install -o root -g root -m 0644 "$REPO_ROOT/scripts/deploy/caddy/Caddyfile" /etc/caddy/Caddyfile
+# One or the other, never both: the edge variant turns auto_https off and listens
+# on :80, the standalone one holds :443 and gets its own certificates. Installing
+# the wrong one on a fleet guest means Caddy retrying an ACME order that can never
+# complete, because the HTTP-01 challenge cannot reach a private bridge address.
+if [[ -n "$EDGE_PROXY" ]]; then
+	step "  edge mode: behind the proxy at $EDGE_PROXY, no ACME, listening on :80"
+	install -o root -g root -m 0644 "$REPO_ROOT/scripts/deploy/caddy/Caddyfile.edge" /etc/caddy/Caddyfile
+else
+	install -o root -g root -m 0644 "$REPO_ROOT/scripts/deploy/caddy/Caddyfile" /etc/caddy/Caddyfile
+fi
 if [[ ! -f /etc/caddy/upstream.caddy ]]; then
 	install -o root -g root -m 0644 \
 		"$REPO_ROOT/scripts/deploy/caddy/upstream.caddy.example" /etc/caddy/upstream.caddy
 fi
-if [[ ! -f /etc/default/caddy ]] || ! grep -q NATIVEWEB_HOST /etc/default/caddy; then
+if [[ -n "$EDGE_PROXY" ]]; then
+	# Edge mode needs neither the hostname nor the ACME address -- Caddy here asks
+	# for no certificate and matches no hostname -- but it does need the one
+	# address it will trust X-Forwarded-* from. Written rather than left blank,
+	# because unlike the other two it is known at provision time: it is the
+	# argument that put this host in edge mode.
+	if ! grep -q NATIVEWEB_EDGE_PROXY /etc/default/caddy 2>/dev/null; then
+		cat >>/etc/default/caddy <<EOF
+# The TLS-terminating proxy in front of this host. Caddy preserves the
+# X-Forwarded-* headers set by this address and replaces any others, so a wrong
+# value here means the app sees scheme http and the bridge gateway as the client.
+NATIVEWEB_EDGE_PROXY=$EDGE_PROXY
+EOF
+	fi
+elif [[ ! -f /etc/default/caddy ]] || ! grep -q NATIVEWEB_HOST /etc/default/caddy; then
 	cat >>/etc/default/caddy <<'EOF'
 # Set both before starting Caddy. NATIVEWEB_HOST is the public hostname and is
 # what Caddy requests a certificate for; NATIVEWEB_ACME_EMAIL is where Let's
@@ -427,21 +495,31 @@ EOF
 systemctl enable --now unattended-upgrades
 
 # --- Done --------------------------------------------------------------------
+if [[ -n "$EDGE_PROXY" ]]; then
+	CADDY_NEXT_STEP="2. Caddy needs no hostname or ACME address in edge mode; NATIVEWEB_EDGE_PROXY is
+     already set to $EDGE_PROXY. Add the firewall rule that lets the edge reach :80, then:
+       systemctl restart caddy"
+	DEPLOY_NEXT_STEP="5. Then:                       scripts/deploy/deploy.sh --artifact dist/... --incus <instance>"
+else
+	CADDY_NEXT_STEP="2. Set NATIVEWEB_HOST and NATIVEWEB_ACME_EMAIL in /etc/default/caddy, then:
+       systemctl restart caddy"
+	DEPLOY_NEXT_STEP="5. Then:                       scripts/deploy/deploy.sh --artifact dist/... --host <this host>"
+fi
+
 cat <<EOF
 
 provision.sh: host is provisioned. Nothing is serving yet -- there is no release on disk.
 
 Next, in order:
   1. Fill in $CONFIG_ROOT/secrets.env and the blank values in $CONFIG_ROOT/app.env.
-  2. Set NATIVEWEB_HOST and NATIVEWEB_ACME_EMAIL in /etc/default/caddy, then:
-       systemctl restart caddy
+  $CADDY_NEXT_STEP
   3. Generate the backup key and STORE THE PRIVATE HALF OFF THIS HOST:
        age-keygen -o $CONFIG_ROOT/backup-age.key
        chmod 0600 $CONFIG_ROOT/backup-age.key
      Put its public half in BACKUP_AGE_RECIPIENT in $CONFIG_ROOT/backup.env.
      If this key is lost, every backup in the bucket is unreadable noise.
   4. From a WSL/Linux checkout:  scripts/deploy/build.sh
-  5. Then:                       scripts/deploy/deploy.sh --artifact dist/... --host <this host>
+  $DEPLOY_NEXT_STEP
 
 Full walkthrough: docs/02-reference/deployment.md
 EOF
