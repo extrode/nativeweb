@@ -30,17 +30,22 @@ mutation-checked per global `AGENTS.md` — **commit before mutating**, because 
       diagnostic rather than an emit. One test per diagnostic.
 
 - [x] T5 Emit `BindAsync` — files: `libs/nativeweb.forms.generator/FormEmitter.cs` — covers: R1,
-      R2, R6 — done when: the emitted partial implements `IBindableFromHttpContext<TSelf>`, the
+      R2, R6 — done when: the emitted partial implements `IFormModel<TSelf>` (**not**
+      `IBindableFromHttpContext<TSelf>`, which the plan named: measured 2026-08-30, RDG runs in the
+      same pass and cannot see this partial, so it bound the model as a JSON body and routing
+      answered a form POST 415 — see `014-plan.md`), the
       `HasFormContentType` check is the **first** statement, only declared members are read, and
       the emitted text contains no `Map` call. Snapshot-tested.
 
 - [x] T6 The analyzer — files:
       `libs/nativeweb.forms.generator/MissingAntiforgeryAnalyzer.cs` — covers: R7 — done when: a
-      `Map*` call whose parameter type is `[Form]`-annotated and whose chain lacks the metadata
-      reports an **error** naming the route, and the same call with it reports nothing. This is
-      the task that closes §12's foot-gun; without it the feature is net-negative.
+      `Map*` call whose parameter type is `[Form]`-annotated reports an **error** naming the
+      route and the fix, and `MapFormPost` reports nothing. Widened from the plan's wording after
+      the T5 measurement: `.RequireFormAntiforgery()` no longer excuses a plain `Map*`, because the
+      missing metadata was never the whole defect. This is the task that closes §12's foot-gun;
+      without it the feature is net-negative.
 
-- [ ] T7 Prove it end to end in the sample — files: `apps/sample/**` — covers: R5 — done when:
+- [x] T7 Prove it end to end in the sample — files: `apps/sample/**` — covers: R5 — done when:
       `apps/sample` declares one `[Form]` record on a real route and
       `dotnet publish -c Release -r win-x64` completes with **zero** warnings. This is the gate
       §14's failure was invisible to `dotnet build` for.
