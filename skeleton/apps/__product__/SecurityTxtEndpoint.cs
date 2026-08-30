@@ -101,7 +101,15 @@ internal static class SecurityTxtEndpoint
 
         // The canonical location is /.well-known/security.txt; the RFC also
         // permits a top-level /security.txt for legacy scanners.
-        app.MapGet("/.well-known/security.txt", () => Results.Text(body, "text/plain"));
-        app.MapGet("/security.txt", () => Results.Text(body, "text/plain"));
+        //
+        // Rate-limited like every other non-probe route. Two unauthenticated GETs
+        // with no ceiling in an app that attaches a policy everywhere else is not a
+        // deliberate exemption, it is the one place the policy was forgotten -- and
+        // the framework app attaches one to both of these. /healthz and /readyz are
+        // the routes that are exempt on purpose, and they say so where they are.
+        app.MapGet("/.well-known/security.txt", () => Results.Text(body, "text/plain"))
+            .RequireRateLimiting("general");
+        app.MapGet("/security.txt", () => Results.Text(body, "text/plain"))
+            .RequireRateLimiting("general");
     }
 }

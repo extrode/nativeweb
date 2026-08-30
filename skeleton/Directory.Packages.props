@@ -25,8 +25,8 @@
        path; these pins are here so package mode is a version bump away once
        the feed lands. -->
   <ItemGroup>
-    <PackageVersion Include="JauntyQ.Generator" Version="0.2.0" />
-    <PackageVersion Include="JauntyQ.Runtime" Version="0.2.0" />
+    <PackageVersion Include="JauntyQ.Generator" Version="0.4.0" />
+    <PackageVersion Include="JauntyQ.Runtime" Version="0.4.0" />
     <PackageVersion Include="NativeWeb.Security" Version="0.1.0" />
     <PackageVersion Include="NativeWeb.Auth" Version="0.1.0" />
     <PackageVersion Include="NativeWeb.Render" Version="0.1.0" />

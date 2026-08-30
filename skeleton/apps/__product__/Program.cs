@@ -153,7 +153,28 @@ public sealed class Program
             .SetApplicationName("__PRODUCT__")
             .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
 
-        builder.Services.AddAntiforgery();
+        builder.Services.AddAntiforgery(static options =>
+        {
+            options.HeaderName = "RequestVerificationToken";
+
+            // The CSRF cookie gets the same treatment as every other cookie this
+            // app sets: __Host- (host-locked, path /, no Domain, Secure enforced by
+            // the browser) and Secure pinned unconditionally rather than left at
+            // SameAsRequest. Unconditional because browsers treat http://localhost
+            // as a secure context, so an environment gate buys nothing and only
+            // creates a way to lose the flag.
+            //
+            // This was bare AddAntiforgery() until 2026-08-30. On framework
+            // defaults the cookie is named .AspNetCore.Antiforgery.<hash>, carries
+            // no __Host- prefix -- so a sibling subdomain can plant it -- and rides
+            // plain http. The framework app fixed this in its 2026-08-19 audit and
+            // the template never took the fix, which meant every product stamped
+            // from it inherited the defaults.
+            options.Cookie.Name = "__Host-__PRODUCT__-antiforgery";
+            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.Path = "/";
+        });
 
         // Bot-trap timing (R21). MinAge trips on sub-3s submits, so the test
         // tiers set __PRODUCT__:BotTraps:MinAgeSeconds=0 -- their submits are
