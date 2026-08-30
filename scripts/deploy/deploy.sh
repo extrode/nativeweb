@@ -13,6 +13,9 @@
 # Three modes:
 #   --host <name>    run from a workstation: copies the artifact and this script
 #                    to <name> and re-executes there under sudo. The normal way.
+#                    --port <n> when sshd is not on 22; ssh_config's Port for the
+#                    host is used when this is omitted, so a Host alias already
+#                    carrying a Port needs nothing here.
 #   --incus <inst>   run on an Incus host: pushes both into the guest <inst> and
 #                    re-executes there. For a guest that runs no sshd because it
 #                    is managed by `incus exec` -- decision 006.
@@ -38,6 +41,7 @@ ARTIFACT=""
 HOST=""
 INSTANCE=""
 LOCAL=0
+SSH_PORT=""
 
 die() {
 	echo "deploy.sh: $*" >&2
@@ -69,12 +73,17 @@ while [[ $# -gt 0 ]]; do
 		INSTANCE="$2"
 		shift 2
 		;;
+	--port | -p)
+		need_value "$@"
+		SSH_PORT="$2"
+		shift 2
+		;;
 	--local)
 		LOCAL=1
 		shift
 		;;
 	-h | --help)
-		sed -n '2,25p' "${BASH_SOURCE[0]}"
+		sed -n '2,28p' "${BASH_SOURCE[0]}"
 		exit 0
 		;;
 	*) die "unknown argument '$1'" ;;
@@ -96,6 +105,26 @@ if [[ "$LOCAL" -ne 1 ]]; then
 	[[ -n "$HOST" || -n "$INSTANCE" ]] ||
 		die "pass --host <name> to deploy over ssh, --incus <instance> to deploy into an Incus guest, or --local if already on the target"
 	[[ -f "$ARTIFACT" ]] || die "artifact not found: $ARTIFACT"
+
+	# --- SSH port ------------------------------------------------------------
+	#
+	# ssh takes -p, scp takes -P, and both must agree or the artifact and the
+	# re-execution go to different places -- which on a host with a second sshd is
+	# a deploy that half-happens. Built once here as two arrays rather than
+	# interpolated at three call sites.
+	#
+	# Refused with --incus, which speaks the Incus control socket and opens no
+	# connection a port could apply to. Silently ignoring it would let someone
+	# believe they had targeted a port that was never consulted.
+	ssh_port_args=()
+	scp_port_args=()
+	if [[ -n "$SSH_PORT" ]]; then
+		[[ -n "$HOST" ]] || die "--port applies to the ssh transport; --incus takes no port"
+		[[ "$SSH_PORT" =~ ^[0-9]+$ ]] && ((SSH_PORT >= 1 && SSH_PORT <= 65535)) ||
+			die "--port takes a TCP port between 1 and 65535, got '$SSH_PORT'"
+		ssh_port_args=(-p "$SSH_PORT")
+		scp_port_args=(-P "$SSH_PORT")
+	fi
 
 	# --- Incus transport -----------------------------------------------------
 	#
@@ -169,13 +198,13 @@ if [[ "$LOCAL" -ne 1 ]]; then
 	# directory is an arbitrary-root-execution window for any local user who wins
 	# the race between the scp and the sudo -- or who pre-creates the name as a
 	# symlink and redirects the write. mktemp -d is 0700 and unguessable.
-	remote_dir="$(ssh "$HOST" 'mktemp -d /tmp/nativeweb-deploy.XXXXXXXX')"
+	remote_dir="$(ssh "${ssh_port_args[@]}" "$HOST" 'mktemp -d /tmp/nativeweb-deploy.XXXXXXXX')"
 	[[ -n "$remote_dir" ]] || die "could not create a staging directory on $HOST"
 	remote_artifact="$remote_dir/$(basename "$ARTIFACT")"
 
 	echo "deploy.sh: copying $(basename "$ARTIFACT") to $HOST:$remote_dir"
-	scp -q "$ARTIFACT" "$HOST:$remote_artifact"
-	scp -q "${BASH_SOURCE[0]}" "$HOST:$remote_dir/deploy.sh"
+	scp -q "${scp_port_args[@]}" "$ARTIFACT" "$HOST:$remote_artifact"
+	scp -q "${scp_port_args[@]}" "${BASH_SOURCE[0]}" "$HOST:$remote_dir/deploy.sh"
 
 	# The script ships with the artifact rather than living on the host, so the
 	# deploy procedure and the release it deploys are always the same version.
@@ -191,7 +220,7 @@ if [[ "$LOCAL" -ne 1 ]]; then
 	# documented path, not an edge case. `sudo env VAR=value cmd` is the portable
 	# form: sudo sees only `env` as the command, and env does the assigning on the
 	# far side of the privilege boundary.
-	exec ssh -t "$HOST" \
+	exec ssh -t "${ssh_port_args[@]}" "$HOST" \
 		"sudo env READY_TIMEOUT=$(printf %q "$READY_TIMEOUT") RELEASES_KEEP=$(printf %q "$RELEASES_KEEP") \
 		 bash $(printf %q "$remote_dir/deploy.sh") --local --artifact $(printf %q "$remote_artifact"); \
 		 status=\$?; rm -rf $(printf %q "$remote_dir"); exit \$status"

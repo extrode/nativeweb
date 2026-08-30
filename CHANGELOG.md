@@ -27,11 +27,25 @@ Merged into `dev`, not yet tagged.
   for `X-Forwarded-*` — instead of the variant that holds `:443` and runs its own ACME. The
   blue/green promotion is unchanged: both configs import the same `/etc/caddy/upstream.caddy`,
   so `deploy.sh` and `rollback.sh` do not know which mode they are running under.
+- **`deploy.sh --port <n>`** for a host whose sshd is not on 22. Validated before anything is
+  copied, and reaching both `ssh` calls as `-p` and both `scp` calls as `-P` — the two spellings
+  differ, and a deploy where they disagree ships the artifact to one host and re-executes on
+  another. Refused with `--incus`, which opens no connection a port could apply to. Omitted,
+  `ssh_config`'s `Port` for the host still applies.
 - **`deploy.sh --incus <instance>`**, a transport for a guest that runs no sshd because it is
   managed through `incus exec`. `incus file push` for the artifact and this script, `incus exec`
   to re-enter as `--local`. The `--host` ssh path is untouched.
 
 ### Fixed
+- **`NWF010` no longer fires on somebody else's `MapPost`.** It matched by method name alone, so a
+  project's own routing table — a message bus, a CLI verb table — registering a handler that
+  happened to take a `[Form]`-annotated record was a build error with no available fix. The
+  receiver must now be, or implement, `Microsoft.AspNetCore.Routing.IEndpointRouteBuilder`.
+- **The Deno-tooling guard no longer races the tests running beside it.** Its walk used lazy
+  enumeration, which throws when a directory is removed mid-iteration, and it descended into
+  `tmp/`, which is where every other test in the tier writes scratch. It failed once in a
+  full-suite run and passed on the immediate re-run — the shape of flake that gets a real rule
+  muted.
 - **Three silent deaths in the deploy scripts.** Under `set -euo pipefail` a command substitution
   whose pipeline fails ends the script at the assignment, before the `die` written to explain it.
   A mistyped `--incus <instance>` exited 127 with no output at all; a guest with no sshd — the

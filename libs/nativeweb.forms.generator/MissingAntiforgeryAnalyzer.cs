@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -45,6 +44,13 @@ public sealed class MissingAntiforgeryAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableHashSet<string> MapMethods = ImmutableHashSet.Create(
         "MapGet", "MapPost", "MapPut", "MapPatch", "MapDelete", "MapMethods", "Map", "MapFallback");
 
+    // Matching on the method name alone reports any `MapPost` anywhere. A codebase
+    // is free to define its own on its own builder type -- a message bus, a CLI verb
+    // table -- and one that happens to take a [Form]-attributed record as a handler
+    // parameter is doing nothing this rule is about. The receiver has to be ASP.NET's
+    // route builder for the two failures in the remarks above to be possible at all.
+    private const string EndpointRouteBuilder = "Microsoft.AspNetCore.Routing.IEndpointRouteBuilder";
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(FormDiagnostics.MissingAntiforgery);
 
@@ -59,7 +65,7 @@ public sealed class MissingAntiforgeryAnalyzer : DiagnosticAnalyzer
     {
         var invocation = (IInvocationOperation)context.Operation;
 
-        if (!MapMethods.Contains(invocation.TargetMethod.Name))
+        if (!MapMethods.Contains(invocation.TargetMethod.Name) || !MapsAnEndpoint(invocation))
         {
             return;
         }
@@ -76,6 +82,41 @@ public sealed class MissingAntiforgeryAnalyzer : DiagnosticAnalyzer
             RouteName(invocation),
             form.ToDisplayString(),
             invocation.TargetMethod.Name));
+    }
+
+    // Whether this call maps an ASP.NET endpoint, as opposed to being some other
+    // method that shares a name with one.
+    private static bool MapsAnEndpoint(IInvocationOperation invocation)
+    {
+        ITypeSymbol? receiver = ReceiverType(invocation);
+        if (receiver is null)
+        {
+            return false;
+        }
+
+        return receiver.ToDisplayString() == EndpointRouteBuilder
+            || receiver.AllInterfaces.Any(i => i.ToDisplayString() == EndpointRouteBuilder);
+    }
+
+    // Extension methods are the whole surface here, and IOperation hands an analyzer
+    // the UNREDUCED symbol for both spellings: `app.MapPost(...)` and
+    // `EndpointRouteBuilderExtensions.MapPost(app, ...)` both arrive with a null
+    // Instance, a null ReducedFrom, and the `this` as Parameters[0]. Measured
+    // 2026-08-31 -- a first cut read ReducedFrom first, and removing that branch
+    // changed nothing because it never ran. The instance branch below is not dead:
+    // WebApplication itself implements IEndpointRouteBuilder, so a Map* declared on
+    // a builder rather than as an extension arrives with Instance set.
+    private static ITypeSymbol? ReceiverType(IInvocationOperation invocation)
+    {
+        if (invocation.Instance is not null)
+        {
+            return invocation.Instance.Type;
+        }
+
+        IMethodSymbol method = invocation.TargetMethod;
+        return method.IsExtensionMethod && method.Parameters.Length > 0
+            ? method.Parameters[0].Type
+            : null;
     }
 
     // The first parameter of the handler delegate whose type carries [Form].
