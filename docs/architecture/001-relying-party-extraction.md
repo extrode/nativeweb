@@ -1,5 +1,12 @@
 # 001 — T1.0, the relying-party library, by example
 
+> **Historical, 2026-08-31.** The library this doc designed, `libs/nativeweb.signin.epass`, was
+> built and has since left the repository along with the identity provider it signed into. See
+> `docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`. Two claims below are now false: that
+> "the identity provider is `apps/web` in this same repository", and that a sign-in library
+> belongs in a framework at all. The three-bucket classification method in §2 is the part still
+> worth reading; the destination it sorts into is not.
+
 What "extract the OIDC relying-party library" actually means, using the code that already exists.
 
 The source is `justsmtp.com/apps/web/Auth/` — **1,329 lines across nine files**, working, tested,

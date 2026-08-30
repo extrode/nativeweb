@@ -3,15 +3,11 @@
 From a clean clone to a running application and a green suite. Every command below was executed in
 the form written before it was written down; the verification block at the end says on what.
 
-**Two readers use this repository and they want different things.** Steps 1–4 are shared. After
-that the guide forks once, explicitly, and you follow one path and ignore the other:
-
-- **Path A — you want your own product.** NativeWeb is a template; you will stamp a new product out
-  of `skeleton/` and work in that, not here.
-- **Path B — you want to work on `apps/web`.** That is the epass.io identity provider, the
-  reference implementation itself.
-
-If you do not know which, read Path A first: most people arriving here want the template.
+**There is one path here now.** Until 2026-08-31 this guide forked between stamping your own
+product and maintaining `apps/web`, the epass.io identity provider that lived in this repository.
+It left, permanently, and was not ported anywhere in this tree — see
+[`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`](../decisions/2026-08-31-007-idp-leaves-nativeweb.md).
+NativeWeb is a template; you stamp a new product out of `skeleton/` and work in that, not here.
 
 ## Before you start
 
@@ -45,7 +41,7 @@ dotnet build
 Roughly a minute cold. If it fails immediately with two `error MSB3202` lines naming
 `../jauntyq/src/...`, your checkout is not beside `jauntyq` — that is the prerequisite above, and
 `-p:JauntyQUsePackages=true` will **not** work around it. Build one project instead
-(`dotnet build apps/web`) while you sort the layout out.
+(`dotnet build apps/sample`) while you sort the layout out.
 
 ## 3. Run it, with no database at all
 
@@ -63,18 +59,8 @@ statement, not a supported deployment mode; the moment you configure `Connection
 the same code paths run against PostgreSQL through JauntyQ instead. `apps/sample/Program.cs`
 carries the comment explaining why the choice is made in the application rather than in a library.
 
-And `apps/web`:
-
-```
-dotnet run --project apps/web
-```
-
-It comes up on `https://localhost:5444`. **It must be HTTPS.** The session and antiforgery cookies
-are `Secure`-always, so over plain HTTP every page carrying a form returns 500 while `/healthz`
-still returns 200 — which reads like one broken page rather than a wrong scheme. That is why the
-single profile in `apps/web/Properties/launchSettings.json` is HTTPS, and why there is no HTTP one
-beside it to pick by mistake. Run `dotnet dev-certs https --trust` once if the browser objects to
-the certificate.
+`apps/sample` is the only deployable project in the tree, runs over plain HTTP, and has no
+`Secure`-always cookie policy, so there is no HTTPS step here.
 
 ## 4. Run the tests
 
@@ -90,54 +76,45 @@ Three tiers per app, and the project requires all three for every feature — se
 Install the browser once:
 
 ```
-pwsh tests/nativeweb.web.tests.e2e/bin/Debug/net10.0/playwright.ps1 install chromium
+pwsh tests/nativeweb.scaffold.tests.e2e/bin/Debug/net10.0/playwright.ps1 install chromium
 ```
 
 Then run a tier at a time. Naming a tier rather than globbing is deliberate: a suite that stops
 being discovered fails by name instead of vanishing from the run.
 
 ```
-dotnet test tests/nativeweb.web.tests.unit
-dotnet test tests/nativeweb.web.tests.integration
-dotnet test tests/nativeweb.web.tests.e2e
+dotnet test tests/nativeweb.render.tests.unit
+dotnet test tests/nativeweb.forms.tests.unit
+dotnet test tests/nativeweb.scaffold.tests.unit
+dotnet test tests/nativeweb.scaffold.tests.integration
+dotnet test tests/nativeweb.scaffold.tests.e2e
+dotnet test tests/nativeweb.sample.tests.unit
 ```
 
 The full set, and what each returned on the verification run:
 
 | Project | Facts |
 |---|---|
-| `tests/nativeweb.web.tests.unit` | 509 |
-| `tests/nativeweb.web.tests.integration` | 298 |
-| `tests/nativeweb.web.tests.e2e` | 64 |
 | `tests/nativeweb.render.tests.unit` | 157 |
+| `tests/nativeweb.forms.tests.unit` | 85 |
 | `tests/nativeweb.scaffold.tests.unit` | 64 |
-| `tests/nativeweb.scaffold.tests.integration` | 31 |
+| `tests/nativeweb.scaffold.tests.integration` | 38 |
 | `tests/nativeweb.scaffold.tests.e2e` | 13 |
-| `tests/nativeweb.sample.tests.unit` | 16 |
-| `tests/nativeweb.signin.epass.tests.unit` | 184 |
-| `tests/nativeweb.signin.epass.tests.integration` | 34 |
-| `tests/nativeweb.signin.epass.tests.e2e` | 3 |
-| **Total** | **1,360 — 0 failed, 0 skipped** |
+| `tests/nativeweb.sample.tests.unit` | 36 |
+| **Total** | **393 — 0 failed, 0 skipped** |
 
-Re-measured 2026-08-27, every project run from a clean tree; the `.unit` row had drifted from 496.
+Measured 2026-08-31, `dotnet build NativeWeb.slnx` and `dotnet test NativeWeb.slnx` from a clean
+tree, after `apps/web` and the seven test projects that covered it left the repository — see
+[`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`](../decisions/2026-08-31-007-idp-leaves-nativeweb.md).
 
 A count that has drifted from this table is not automatically a problem; a *failure* is.
 
 **Run one tier at a time, as written above.** Running several e2e projects back-to-back in a
-single shell makes them contend, and the whole run fails: measured 2026-08-27, `web.tests.e2e`
-and `scaffold.tests.e2e` reported 64 and 13 failures batched, then 64 and 13 *passes* run
-individually a few minutes later, on the same commit. A wholly-failing e2e tier is much more
-likely to be that than a real break — check it alone before believing it.
+single shell can make them contend. Check a wholly-failing e2e tier alone before believing it.
 
 ---
 
-# The fork
-
-Everything above was shared. From here the two readers diverge, and the divergence is real rather
-than cosmetic: **Path A never edits this repository again**, while Path B never runs
-`new-product.ps1`. Pick one.
-
-## Path A — build your own product
+# Build your own product
 
 `skeleton/` is a tokenized product shell: app pipeline, templates, static pages, migration runner,
 three test tiers, CI, deploy units and the repo operating files, with `__PRODUCT__`/`__product__`
@@ -210,40 +187,9 @@ A freshly stamped product on the verification run: **47 unit, 7 integration, 2 e
 in — the one-sentence placeholder at the top of its README is addressed to you. Come back to this
 repository only to pick up framework changes.
 
-## Path B — work on `apps/web`
-
-`apps/web` is the epass.io identity provider. Unlike the sample it is a real application with a
-real schema, so the database is no longer optional once you go past `/healthz`.
-
-**1. Create the role and database.** Details, including the migration runner's advisory-lock
-behaviour, are in [`db/README.md`](../../db/README.md).
-
-```sql
-CREATE ROLE nativeweb_app LOGIN PASSWORD '...';
-CREATE DATABASE nativeweb_dev OWNER nativeweb_app;
-```
-
-**2. Apply the schema.**
-
-```
-bash db/migrate.sh
-```
-
-**3. Configure the connection string.** It belongs in user-secrets, never in `appsettings.json`:
-
-```
-dotnet user-secrets --project apps/web set "ConnectionStrings:NativeWeb" "Host=127.0.0.1;Database=nativeweb_dev;Username=nativeweb_app;Password=..."
-```
-
-Every other setting, what it defaults to, and which ones fail loudly versus silently, is in
-[`docs/02-reference/configuration.md`](../02-reference/configuration.md). Note the environment-variable spelling there:
-`ConnectionStrings__NativeWeb`, double underscores, which is what the integration tier reads in CI.
-
-**4. Run and test** as in steps 3 and 4 above, remembering the HTTPS flag.
-
 **Then read these, in this order**, rather than discovering them by directory listing:
 [the architecture](../01-architecture/native-web-architecture.md) for why any of this is shaped as it is,
-[the security baseline](../02-reference/security-baseline.md) before touching auth or headers, and
+[the security baseline](../02-reference/security-baseline.md) for the posture your product inherits, and
 [progressive enhancement](../01-architecture/progressive-enhancement.md) before touching a template. The full index is
 [`docs/README.md`](../README.md).
 
@@ -258,13 +204,12 @@ Every other setting, what it defaults to, and which ones fail loudly versus sile
 **2026-08-25** — Windows 11 (10.0.26200.8457), .NET SDK 10.0.203, PostgreSQL 18.2, PowerShell
 7.6.4, Playwright's bundled Chromium.
 
-Both paths were walked end to end, not read: Path A by stamping a product into `../probe` with its
-own role and database and running its three tiers (47 unit, 7 integration, 2 e2e — 56 facts, 0
-failed), Path B against `nativeweb_dev`. The two Path A footnotes — the
-`<Product>__Db__ConnectionString` requirement and environment variables rather than `-p:` flags —
-are both findings from that run rather than inferences from the build files.
+The product-stamping path was walked end to end, not read: stamping a product into `../probe` with
+its own role and database and running its three tiers (47 unit, 7 integration, 2 e2e — 56 facts, 0
+failed). The two footnotes — the `<Product>__Db__ConnectionString` requirement and environment
+variables rather than `-p:` flags — are both findings from that run rather than inferences from the
+build files.
 
-The counts table was measured across all eleven projects on that date. The three tiers the
-tutorial's own feature touches (`nativeweb.sample.tests.unit`,
-`nativeweb.scaffold.tests.integration`, `nativeweb.scaffold.tests.e2e`) were re-run after it landed
-and the table carries the later numbers.
+The counts table for this repository's own six suites was re-measured on **2026-08-31**, after
+`apps/web` and the seven test projects that covered it left — see
+[`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`](../decisions/2026-08-31-007-idp-leaves-nativeweb.md).

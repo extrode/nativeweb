@@ -96,6 +96,10 @@ public sealed class Program
 
         app.MapGet("/", () => Results.Redirect("/admin"));
 
+        // Liveness only: routed, renders nothing, touches no store. Not gated to
+        // Development -- a health check restricted to a mode nothing deploys in is not one.
+        app.MapGet("/healthz", () => Results.Ok());
+
         // Demo sign-in. Gated to Development because it grants the admin role for the
         // asking, which is only acceptable in something nobody deploys.
         if (app.Environment.IsDevelopment())

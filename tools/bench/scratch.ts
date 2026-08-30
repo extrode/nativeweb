@@ -1,9 +1,9 @@
 // Test scratch directories, repo-local.
 //
 // `Deno.makeTempDir()` with no `dir` lands in the OS temp directory, which every project on the
-// machine shares and none owns -- and cert.test.ts mints real RSA private keys into it. Under
-// the repo's own `tmp/` instead, so a killed test run leaves its debris where the project's
-// cleanup script can see it. Same rule as tools/audit/scripts.test.ts.
+// machine shares and none owns. Under the repo's own `tmp/` instead, so a killed test run
+// leaves its debris where the project's cleanup script can see it. Same rule as
+// tools/audit/scripts.test.ts.
 
 import { join } from "@std/path";
 

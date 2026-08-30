@@ -995,6 +995,34 @@ early now pays the same hash.
   and it was exporting `Platform=x64` into the publish path. Both workflows are now node24
   throughout and use no third-party action at all.
 
+## ~~epass.io cutover readiness, probed 2026-08-24~~ — CANCELLED 2026-08-31
+
+**There is no cutover.** `apps/web` and the rest of the identity provider left this repository on
+2026-08-31 (`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`); epass.io keeps its own IdP,
+which had diverged from this one anyway. Every blocker below is moot as a NativeWeb item. Left
+unstruck line by line because the measurements in it are still true about the code that was here,
+and because the `002-epass-cutover-capability-gap.md` note it feeds is the record of why the answer
+went the other way.
+
+Four follow-ups the removal itself created, and these ARE live:
+
+- **The framework has no password-policy primitives any more.** `LockoutPolicy`,
+  `CommonPasswordChecker`, `HibpBreachChecker` and `BreachChecking` went out with
+  `libs/nativeweb.auth`. The skeleton's csproj referenced that library for them and no skeleton C#
+  ever used it, so nothing broke — but Django ships password validators and a stamped product will
+  want them. Decide whether they come back as a framework lib on the `contrib.auth` side of the
+  line, or stay out.
+- **`scripts/deploy/` still targets `apps/web`.** It was never run on a real host (spec 011 T15),
+  so nothing in production is affected, but the toolchain now names a project that does not exist.
+  Retarget at `apps/sample`, or accept that it is only exercised by whatever a stamped product does
+  with its own copy.
+- **`docs/02-reference/security-baseline.md` was an ASVS checklist for the IdP.** Reframed rather
+  than deleted; someone should decide which of its items are framework posture and which left with
+  the application.
+- **`libs/epass.auth`, `epass.data`, `epass.mail`, `epass.security` are untracked `obj/`-only
+  leftovers** of the 2026-08-19 neutral-naming rename, sitting in `libs/` looking like projects.
+  Listed in `scripts/cleanup/extract-idp.ps1`, not removed.
+
 ## epass.io cutover readiness, probed 2026-08-24
 
 Probed before scheduling the cutover, on the reasoning that finding unfinished work afterwards is

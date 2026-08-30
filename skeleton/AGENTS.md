@@ -30,7 +30,7 @@ over PostgreSQL. It was stamped from the NativeWeb skeleton (spec 003).
 - JauntyQ for ALL data access. No EF Core, no Dapper, no hand-written ADO.NET.
 - HTMX + Alpine.js, vendored into the repo. No CDN references.
 - PostgreSQL only.
-- The NativeWeb framework libs (security, auth, render + render generator) resolve dual-mode:
+- The NativeWeb framework libs (security, render + render generator) resolve dual-mode:
   local checkout (`$(NativeWebRoot)`, probed in `Directory.Build.props`) for co-development, or
   pinned `NativeWeb.*` packages via `-p:NativeWebUsePackages=true`.
 - JauntyQ resolves dual-mode the same way: local checkout (`$(JauntyQRoot)`) or pinned
