@@ -102,8 +102,14 @@ if [[ "$LOCAL" -ne 1 ]]; then
 	# to split into two arguments there, and the staging directory is generated
 	# rather than chosen. The directory is removed afterwards -- each deploy used
 	# to leave a full artifact in /tmp for ever.
+	# `sudo VAR=value cmd` is not a way to pass configuration: Debian's default
+	# sudoers runs with `env_reset` and no `SETENV` tag, so sudo refuses the
+	# assignment and exits before anything is staged -- on every run of the
+	# documented path, not an edge case. `sudo env VAR=value cmd` is the portable
+	# form: sudo sees only `env` as the command, and env does the assigning on the
+	# far side of the privilege boundary.
 	exec ssh -t "$HOST" \
-		"sudo READY_TIMEOUT=$(printf %q "$READY_TIMEOUT") RELEASES_KEEP=$(printf %q "$RELEASES_KEEP") \
+		"sudo env READY_TIMEOUT=$(printf %q "$READY_TIMEOUT") RELEASES_KEEP=$(printf %q "$RELEASES_KEEP") \
 		 bash $(printf %q "$remote_dir/deploy.sh") --local --artifact $(printf %q "$remote_artifact"); \
 		 status=\$?; rm -rf $(printf %q "$remote_dir"); exit \$status"
 fi
@@ -268,6 +274,18 @@ cp -a "$STAGE/." "$RELEASE_DIR/"
 chown -R root:nativeweb "$RELEASE_DIR"
 chmod -R g-w,o-rwx "$RELEASE_DIR"
 chmod 0755 "$RELEASE_DIR/nativeweb.web"
+# db/migrate.sh is executed as ./db/migrate.sh below. It is mode 100644 in the git
+# index, and `cp -a` preserves that, so on any build host that reports real file
+# modes -- which is every Linux one, including the disaster-recovery clone -- the
+# release could be staged and then never promoted. It only looked fine because the
+# development checkout is on drvfs, where everything reads 0777.
+#
+# if/fi rather than `[[ ... ]] && chmod`: under `set -e` a false test as the whole
+# command is a failing command, and the deploy would abort here on the very case
+# the test exists to tolerate.
+if [[ -f "$RELEASE_DIR/db/migrate.sh" ]]; then
+	chmod 0755 "$RELEASE_DIR/db/migrate.sh"
+fi
 
 ln -sfn "$RELEASE_DIR" "/opt/nativeweb/$IDLE"
 

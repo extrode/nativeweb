@@ -90,7 +90,14 @@ install -d -o root -g "$SERVICE_GROUP" -m 0750 "$CONFIG_ROOT"
 # here so they survive a blue/green swap -- under the release directory they
 # would move out from under every issued antiforgery token on every deploy.
 install -d -o "$SERVICE_USER" -g "$SERVICE_GROUP" -m 0750 "$DATA_ROOT" "$DATA_ROOT/keys"
-install -d -o root -g root -m 0755 /var/log/caddy
+# Owned by the Caddy user, not root: the global `log { output file }` block in our
+# Caddyfile is opened by the server process, which the Debian package runs as
+# `caddy`. root:root 0755 here means Caddy cannot create access.log and refuses to
+# start -- and `install -d` re-applies owner and mode to a directory that already
+# exists, so this line could also break one the package had got right.
+CADDY_LOG_OWNER=root
+id -u caddy >/dev/null 2>&1 && CADDY_LOG_OWNER=caddy
+install -d -o "$CADDY_LOG_OWNER" -g "$CADDY_LOG_OWNER" -m 0755 /var/log/caddy
 
 # Operator scripts live on the host so the timer units and a human in an
 # emergency can reach them without a checkout.
@@ -249,11 +256,20 @@ fi
 if ! grep -qF "$MARKER" "$PG_HBA"; then
 	# Prepended, because pg_hba is first-match-wins and Debian's default
 	# `local all all peer` would otherwise answer first and refuse root.
+	#
+	# Database field is `all`, not `nativeweb`. Scoping it to the one database read
+	# as though it were the tighter choice, and was not: the ident map already
+	# restricts this line to two roles, while the narrow database field broke both
+	# halves of the restore drill. `createdb` connects to the `postgres` maintenance
+	# database, and the drill target is `nativeweb_drill` by the runbook's own
+	# instruction -- neither is `nativeweb`, so both fell through to
+	# `local all all peer`, where OS root matches no role of that name. The drill
+	# failed and the production overwrite worked, which is the wrong way round.
 	step "allowing local mapped access to the nativeweb database"
 	tmp_hba="$(mktemp)"
 	cat >"$tmp_hba" <<EOF
 $MARKER -- see scripts/deploy/provision.sh
-local   nativeweb       $SERVICE_USER,postgres          peer map=nativeweb
+local   all             $SERVICE_USER,postgres          peer map=nativeweb
 
 EOF
 	cat "$PG_HBA" >>"$tmp_hba"
@@ -294,6 +310,23 @@ EOF
 	step "NOTE: set NATIVEWEB_HOST and NATIVEWEB_ACME_EMAIL in /etc/default/caddy before starting Caddy"
 fi
 
+# Nothing else makes Caddy read that file. The Debian package's own caddy.service
+# has no EnvironmentFile line, so without this drop-in `{$NATIVEWEB_HOST}` in the
+# Caddyfile expands to nothing, the site block has an empty address, and
+# `systemctl restart caddy` fails to load the config -- with the file we just
+# wrote sitting there looking like it was read.
+#
+# No leading `-` on the path on purpose: the file is written immediately above, so
+# its absence is a bug worth hearing about rather than an empty hostname to debug.
+step "pointing caddy.service at /etc/default/caddy"
+install -d -o root -g root -m 0755 /etc/systemd/system/caddy.service.d
+cat >/etc/systemd/system/caddy.service.d/nativeweb-environment.conf <<'EOF'
+# Installed by scripts/deploy/provision.sh (spec 011).
+[Service]
+EnvironmentFile=/etc/default/caddy
+EOF
+systemctl daemon-reload
+
 # --- Firewall (R5) -----------------------------------------------------------
 step "installing the nftables ruleset"
 # NOT unconditional. nativeweb.nft opens with `flush ruleset`, which drops every
@@ -301,8 +334,20 @@ step "installing the nftables ruleset"
 # destroys anything added since provisioning: another table, a fail2ban chain, a
 # hand-added allow. The header claims running this twice changes nothing, and
 # this was the line that made that false.
+#
+# The first version of this guard was absent-or-ours, which never fires on a real
+# host: line 49 above installs Debian's `nftables` package, and that package ships
+# /etc/nftables.conf as a conffile. So every FIRST provision took the "not ours"
+# branch and left R5 unmet, on a fresh host, silently -- the opposite of what the
+# guard was for. A conffile the package installed and nobody has edited is ours to
+# replace; `dpkg --verify` is what distinguishes that from an operator's ruleset.
 NFT_MARKER='# NativeWeb spec 011 ruleset'
-if [[ ! -f /etc/nftables.conf ]] || grep -qF "$NFT_MARKER" /etc/nftables.conf; then
+nft_conf_is_untouched_package_default() {
+	dpkg --verify nftables 2>/dev/null | grep -qE '[[:space:]]/etc/nftables\.conf$' && return 1
+	dpkg -S /etc/nftables.conf >/dev/null 2>&1
+}
+if [[ ! -f /etc/nftables.conf ]] || grep -qF "$NFT_MARKER" /etc/nftables.conf \
+	|| nft_conf_is_untouched_package_default; then
 	install -o root -g root -m 0644 "$REPO_ROOT/scripts/deploy/nftables/nativeweb.nft" /etc/nftables.conf
 	systemctl enable --now nftables
 	nft -f /etc/nftables.conf

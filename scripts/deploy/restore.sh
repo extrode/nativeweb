@@ -5,6 +5,11 @@
 #   sudo scripts/deploy/restore.sh --target nativeweb_drill                    # dry run
 #   sudo scripts/deploy/restore.sh --target nativeweb_drill --execute
 #   sudo scripts/deploy/restore.sh --target nativeweb_drill --object 2026-08-27T031700Z.dump.age --execute
+#   sudo scripts/deploy/restore.sh --target nativeweb --from-host old-host --overwrite-production --execute
+#
+# --from-host names the host whose backups to read, defaulting to this one. On a
+# rebuilt machine that default is wrong: backup.sh writes under the writing host's
+# name, so a new name means "no backups found" against a full bucket.
 #
 # Restoring over production additionally needs --overwrite-production, which is
 # the second flag the repo-wide script interface requires for anything
@@ -26,6 +31,7 @@ set -euo pipefail
 CONFIG="${BACKUP_CONFIG:-/etc/nativeweb/backup.env}"
 TARGET=""
 OBJECT=""
+FROM_HOST=""
 EXECUTE=0
 OVERWRITE_PRODUCTION=0
 # Set AFTER the config is sourced, below: the guard has to name the database this
@@ -58,6 +64,11 @@ while [[ $# -gt 0 ]]; do
 		OBJECT="$2"
 		shift 2
 		;;
+	--from-host)
+		need_value "$@"
+		FROM_HOST="$2"
+		shift 2
+		;;
 	--execute | -e)
 		EXECUTE=1
 		shift
@@ -67,7 +78,10 @@ while [[ $# -gt 0 ]]; do
 		shift
 		;;
 	-h | --help)
-		sed -n '2,22p' "${BASH_SOURCE[0]}"
+		# To the line before `set -euo pipefail`, rather than a hardcoded range: the
+		# range was 2,22 and the header grew past it, so --help silently stopped
+		# printing the config section it exists to show.
+		sed -n "2,$(($(grep -n '^set -euo pipefail' "${BASH_SOURCE[0]}" | cut -d: -f1) - 2))p" "${BASH_SOURCE[0]}"
 		exit 0
 		;;
 	*) die "unknown argument '$1'" ;;
@@ -98,8 +112,17 @@ s3() { aws --endpoint-url "$BACKUP_S3_ENDPOINT" "$@"; }
 # unit tier drives both scripts under git-bash. If these two ever disagree,
 # restore.sh looks in a prefix backup.sh never wrote to and reports "no backups
 # found" for a bucket that is full of them.
-HOST_LABEL="$(hostname 2>/dev/null || echo unknown)"
-HOST_LABEL="${HOST_LABEL%%.*}"
+#
+# --from-host overrides it, and disaster recovery is why. The prefix is the name of
+# the host that WROTE the backups, and the whole point of a restore is often that
+# that host is gone: rebuild, get a new name, and the derived prefix names an empty
+# path in a bucket that is full. Every other input to this script could be
+# recovered by reading the config; this one could not be supplied at all.
+HOST_LABEL="${FROM_HOST:-}"
+if [[ -z "$HOST_LABEL" ]]; then
+	HOST_LABEL="$(hostname 2>/dev/null || echo unknown)"
+	HOST_LABEL="${HOST_LABEL%%.*}"
+fi
 PREFIX="$BACKUP_S3_BUCKET/$HOST_LABEL"
 
 # --- The production guard ----------------------------------------------------
@@ -122,8 +145,9 @@ if [[ -z "$OBJECT" ]]; then
 	# printed at all.
 	OBJECT="$(s3 s3 ls "$PREFIX/" | awk '{print $4}' | grep -E '\.dump\.age$' | sort | tail -1 || true)"
 	[[ -n "$OBJECT" ]] || die "no backups found under $PREFIX/.
-       If this host was renamed, the chain before the rename is under the old prefix and this
-       will not find it -- backup.sh derives the prefix from hostname at run time."
+       If this host was renamed or rebuilt, the chain is under the OLD host's prefix:
+       re-run with --from-host <old-name>. backup.sh derives the prefix from the writing
+       host's name at run time, so a new name looks like an empty bucket."
 fi
 
 echo "restore.sh: object    $PREFIX/$OBJECT"
