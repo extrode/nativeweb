@@ -776,6 +776,18 @@ after argument binding**, so `RequireForm()` and `RequireServices<>()` cannot gu
 bind. That is why the antiforgery fix is middleware. `RequireServices<>()`'s 503-degrade has the
 same ordering flaw and is still unaddressed.
 
+**Measured 2026-08-30** (`fix/require-services-coverage`), which narrows that last sentence: the
+503-degrade's ordering is real but benign on both routes carrying it, because argument binding
+rejects first. A JSON POST to `/auth/register` with all three gated services removed answers
+**415, not 503** — the RDG's own `HasFormContentType` check fires during the scalar `[FromForm]`
+bind, upstream of every filter. Two consequences, both now pinned by
+`RequireServicesFilterTests` (10 facts; the filter had none):
+- `RequireForm()` is **redundant on both routes it is applied to** — removing it left all six
+  `ContentTypeGuardTests` cases passing. Kept as defence in depth for a route bound in a shape
+  whose binder does not check; the comment claiming it produced the 415 is corrected.
+- The degrade cannot mask the antiforgery check: `AntiforgeryValidationMiddleware` is upstream of
+  binding, so an unconfigured box still answers 400 to a tokenless form POST, asserted directly.
+
 **Converged (both audits):**
 - `apps/web/Auth/SignInEndpoints.cs:39` — `POST /auth/signout` is the only auth-surface form POST
   with no `.RequireRateLimiting()` and no content-type guard, reachable unauthenticated, and does

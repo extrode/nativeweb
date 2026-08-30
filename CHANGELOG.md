@@ -24,6 +24,13 @@ Merged into `dev`, not yet tagged.
   to re-enter as `--local`. The `--host` ssh path is untouched.
 
 ### Fixed
+- **The 503-degrade is tested, and a comment about it corrected.** `RequireServicesFilter` — the
+  filter that keeps a fresh checkout runnable before any secrets exist — had no test in either
+  tier. Ten now cover it, including that an unconfigured box still rejects a form POST with no
+  antiforgery token. Measurement while writing them showed the filter's own comment was wrong:
+  the 415 on both register routes comes from the Request Delegate Generator's content-type check
+  during binding, not from `RequireForm()`, which is redundant on both its call sites and kept
+  only as defence in depth.
 - **Client IPs survive two proxy hops.** `ForwardedHeadersOptions.ForwardLimit` was never set, so
   it defaulted to one hop. Behind an edge, `X-Forwarded-For` arrives as `<client>, <edge>` and one
   hop leaves `RemoteIpAddress` on the edge — collapsing every client in the world into a single
