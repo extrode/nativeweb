@@ -314,6 +314,18 @@ public sealed class Program
         // request logging) so those see the real client, not the proxy hop.
         app.UseForwardedHeaders();
 
+        // Error rendering wraps everything below so it can catch exceptions and
+        // fill bodiless non-2xx responses; security headers come next so error
+        // pages carry the full header set (spec 003 R39). Both sit ABOVE the
+        // rewrite and the router, so a throw from either is answered with the
+        // error shell and the security headers rather than escaping to Kestrel as
+        // a bare 500 (2026-08-19 audit). The headers survive being registered this
+        // high because they are written from an OnStarting callback rather than on
+        // the way in, so the static-page marker set downstream is still readable
+        // when the callback runs.
+        app.UseMiddleware<ErrorPageMiddleware>(StaticErrorShell.Load(app.Environment));
+        app.UseMiddleware<SecurityHeadersMiddleware>();
+
         // Clean-URL rewrites for wwwroot/pages (spec 003 R38) must precede route
         // matching, and WebApplication only auto-inserts UseRouting at the front
         // of the pipeline when it is never called explicitly -- so routing is
@@ -321,12 +333,6 @@ public sealed class Program
         // routing and the terminal endpoint dispatch as before.
         app.UseMiddleware<StaticPagesMiddleware>();
         app.UseRouting();
-
-        // Error rendering wraps everything below so it can catch exceptions and
-        // fill bodiless non-2xx responses; security headers come next so error
-        // pages carry the full header set (spec 003 R39).
-        app.UseMiddleware<ErrorPageMiddleware>(StaticErrorShell.Load(app.Environment));
-        app.UseMiddleware<SecurityHeadersMiddleware>();
         // Inside the headers middleware so compressed responses still carry the
         // full header set; only text/html is on the mime list. Static pages
         // (V8) are text/html and DO pass through here: in a published build

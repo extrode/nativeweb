@@ -80,8 +80,13 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvir
             // both landing on POST /csp-report. base-uri and form-action do NOT
             // fall back to default-src: without them an HTML-injection foothold
             // can rebase relative URLs via <base href> or exfiltrate credentials
-            // through an injected <form action=...>. Every form in this app posts
-            // to its own origin, so form-action 'self' costs nothing.
+            // through an injected <form action=...>. form-action is 'self' because
+            // every form a stamped product starts with posts to its own origin. If
+            // one ever submits somewhere else -- an OAuth consent screen whose
+            // decision POST 303s to a client's redirect_uri is the case that found
+            // this -- 'self' will block it, because the directive is enforced
+            // against a submission's whole redirect chain and not only its first
+            // hop. Widen it for that response, not globally.
             headers["Content-Security-Policy"] = staticPage
                 ? StaticPageCsp
                 : publicCsp
