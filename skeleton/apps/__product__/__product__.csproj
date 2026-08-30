@@ -66,8 +66,6 @@
   <ItemGroup Condition="'$(NativeWebUsePackages)' != 'true'">
     <!-- Passphrases (Argon2id), OpaqueTokens, Sha256Hex, BotTraps. -->
     <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.security\nativeweb.security.csproj" />
-    <!-- LockoutPolicy, breach/common-passphrase checkers. -->
-    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.auth\nativeweb.auth.csproj" />
     <!-- Compiled-template render engine: runtime + the source generator that
          turns templates/**/*.html and locales/*.json below into C#. -->
     <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj" />
@@ -78,7 +76,6 @@
 
   <ItemGroup Condition="'$(NativeWebUsePackages)' == 'true'">
     <PackageReference Include="NativeWeb.Security" />
-    <PackageReference Include="NativeWeb.Auth" />
     <PackageReference Include="NativeWeb.Render" />
     <!-- The package ships under analyzers/dotnet/cs, which is what makes it a
          generator; OutputItemType/ReferenceOutputAssembly are ProjectReference

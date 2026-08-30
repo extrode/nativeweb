@@ -9,13 +9,8 @@
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Mail</PackageId>
     <Version>0.1.0</Version>
-    <Description>NativeWeb framework: AOT-safe SMTP transport for login links and codes.</Description>
+    <Description>NativeWeb framework: AOT-safe SMTP transport and email templating.</Description>
   </PropertyGroup>
-
-  <ItemGroup>
-    <!-- ILoginLinkSender / ICodeSender abstractions and CodeChannel. -->
-    <ProjectReference Include="..\nativeweb.auth\nativeweb.auth.csproj" />
-  </ItemGroup>
 
   <ItemGroup>
     <!-- AOT-guaranteed SMTP submission (Lite variants). -->
