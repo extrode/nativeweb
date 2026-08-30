@@ -252,6 +252,32 @@ Deno.test("an xUnit fact that asserts, in any of the supported styles, is not re
   }
 });
 
+// The false positive that made this rule unreadable on its own repository: a suite of protocol
+// facts whose assertion lives in a helper. Both spellings below are real -- OAuthTokenEndpointsTests
+// and GeneratorDiagnosticsTests -- and between them accounted for 52 of 124 candidates on a
+// whole-repo sweep. The expression-bodied form matters separately: it has no brace block, so it
+// exercises a different path through the rule.
+Deno.test("a fact whose assertion is in a project-local Assert* helper is not reported", async () => {
+  const bodies = [
+    'AssertRfcError(call, HttpStatusCode.BadRequest, "invalid_grant");',
+    'AssertSingleDiagnostic("NWT001", ("templates/broken.html", "<!--#template"));',
+    "AssertNoDiagnostics(compilation);",
+  ];
+  for (const body of bodies) {
+    const text = `public class T {\n  [Fact]\n  public void M() {\n    ${body}\n  }\n}`;
+    const found = await assertionlessTest.run(ctx([{ path: "tests/web/T.cs", text }]));
+    assertEquals(found.length, 0, `should count as an assertion: ${body}`);
+  }
+});
+
+// The rule still has to report the thing it exists for. A helper that does not claim to assert
+// is not an assertion, however much work it does.
+Deno.test("a helper that is not named Assert* does not silence the rule", async () => {
+  const text = `public class T {\n  [Fact]\n  public void M() {\n    CheckRfcError(call, "invalid_grant");\n  }\n}`;
+  const found = await assertionlessTest.run(ctx([{ path: "tests/web/T.cs", text }]));
+  assertEquals(found.length, 1);
+});
+
 Deno.test("an assertion that only appears in a comment does not count", async () => {
   const text = `public class T {
     [Fact]
