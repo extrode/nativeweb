@@ -13,13 +13,23 @@ namespace __PRODUCT__.Middleware;
 // product owns this file after stamping.
 internal sealed partial class ErrorPageMiddleware(RequestDelegate next, StaticErrorShell shell, ILogger<ErrorPageMiddleware> logger)
 {
+    // Opt-out for an endpoint whose non-2xx IS its answer rather than a failure to
+    // write one. The HasStarted check below cannot tell the two apart: a bare
+    // Results.StatusCode(415) starts no body, so this middleware fills it with the
+    // full HTML shell -- right for a browser that navigated to a form, wrong for
+    // POST /csp-report, whose caller is a browser's reporting agent and whose whole
+    // contract is a status code. An endpoint has to say so; silence still gets a page.
+    public const string SuppressItemKey = "error-page-suppressed";
+
     public async Task InvokeAsync(HttpContext context)
     {
         try
         {
             await next(context).ConfigureAwait(false);
 
-            if (!context.Response.HasStarted && context.Response.StatusCode >= 400)
+            if (!context.Response.HasStarted
+                && context.Response.StatusCode >= 400
+                && !context.Items.ContainsKey(SuppressItemKey))
             {
                 await WriteErrorAsync(context, context.Response.StatusCode).ConfigureAwait(false);
             }
@@ -82,6 +92,7 @@ internal sealed partial class ErrorPageMiddleware(RequestDelegate next, StaticEr
         StatusCodes.Status403Forbidden => ("Forbidden", "You don't have permission to view this page."),
         StatusCodes.Status429TooManyRequests => ("Too many requests", "Slow down and try again in a moment."),
         StatusCodes.Status413PayloadTooLarge => ("Request too large", "What you sent exceeds the size limit. Trim it down and try again."),
+        StatusCodes.Status415UnsupportedMediaType => ("Unsupported format", "That was sent in a format this page doesn't accept."),
         _ => ("Something went wrong", "An unexpected error occurred. Please try again."),
     };
 

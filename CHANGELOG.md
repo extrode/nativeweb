@@ -102,6 +102,72 @@ Merged into `dev`, not yet tagged.
   refutation budget on them; the mechanical sweep now yields 83 candidates across 130 slices
   instead of 124.
 
+### Security
+- **The 2026-08-19 audit backlog on `apps/web` is worked through.** Seven fixes, each with tests
+  and a mutation that kills its own fact; six more findings turned out to have been fixed by
+  earlier sessions and were verified rather than re-fixed. One is left open on `work/todo.md`
+  because every fix for it is a design change: `GET /oauth/authorize` is a state-changing GET
+  under a `SameSite=Lax` session cookie.
+  - **CSP `form-action` is widened for the OAuth consent screen**, to the origin of the
+    `redirect_uri` it has already matched against the application's registered list. The directive
+    is enforced against a form submission's whole redirect chain rather than its first hop, so
+    `'self'` was blocking the no-JS consent path whose decision POST 303s to the client. The
+    header names an origin, never a path, and every other page stays at `'self'`.
+  - **The passphrase-reset masked destination is signed** rather than round-tripped through the
+    client, on the one unauthenticated page whose job is telling a user where a takeover code
+    went. An `ITimeLimitedDataProtector` over the code's own 24h window carries it; a token that
+    does not verify drops both the displayed text and the hidden field. Signed rather than
+    server-derived on purpose — deriving it from `temp_codes.sent_to` would have built a new
+    enumeration oracle, since a real account's mask would change once its code expired and an
+    unknown identifier's never would.
+  - **Application `imageUri`, `website` and `companyWebsite` are parsed as URLs**, not just
+    length-checked. Absolute, http or https only, cleartext accepted for a loopback host and
+    nowhere else, no `user:pass@`. `imageUri` is rendered as `<img src>` on the public consent
+    screen, where `default-src 'self'` was the only thing making stored `javascript:` inert.
+  - **`POST /csp-report` requires `application/csp-report` or `application/reports+json`** and
+    answers 415 otherwise. No origin check, deliberately: `report-uri` sends no `Origin` and
+    `report-to` sends the violating document's, which is `null` under a sandbox.
+  - **`ErrorPageMiddleware` and `SecurityHeadersMiddleware` now wrap the clean-URL rewrite and the
+    router.** An exception thrown in either previously escaped both the error shell and the
+    security headers. The headers survive the move because they are written from an `OnStarting`
+    callback, so the static-page marker set downstream is still readable when it runs.
+  - **The antiforgery token in `<meta content>` goes through `HtmlEncoder`** like every other
+    interpolation in the Render layer. It changes no byte of today's output — the token is
+    base64url — which is the point: it was the one request-derived value held safe by a
+    framework's choice of alphabet rather than by the encoder.
+  - **Fido2NetLib's HTML escaping is pinned by a test**, not by a comment. Three pages interpolate
+    its options JSON raw into a `<script type="application/json">` block carrying a user-chosen
+    username; a release switching to the relaxed encoder would have turned that username into
+    markup with every suite still green.
+
+- **The two-lens review of that branch found seven more, all fixed on it.** Four were holes in
+    the fixes themselves: the `POST /csp-report` 415 was body-less, so `ErrorPageMiddleware`
+    filled it with the 849-byte HTML error page on the one route whose caller is a browser's
+    reporting agent (`ErrorPageMiddleware.SuppressItemKey` is the opt-out, and 415 gained a
+    `Describe` arm for the form routes that do want a page); the `form-action` widening was
+    interpolated into the header with no validation, so the middleware now validates the one
+    value another component may contribute and refuses anything that is not a bare http(s)
+    origin, IPv6 literals included, because CSP3's host-source grammar has no case for a
+    bracketed literal and a browser drops the whole expression; the consent screen's
+    `redirect_uri` was parsed with an unguarded `new Uri`, which would turn a page that used to
+    render into a 500 for a row no admin form ever validated; and the masked-destination token
+    borrowed the codes-per-day rate-limit window for its lifetime, coupling two policies that
+    mean nothing alike.
+  - **An application's logo is now checked at render as well as at write.** `ValidateHttpUrl`
+    closed the create form and nothing backfills the rows already in the table, so the consent
+    screen refuses to emit a `src` it cannot vouch for rather than resting on `default-src
+    'self'` staying exactly as it is.
+  - **The same fixes are propagated into `skeleton/`**, which had the old pipeline order, no
+    content-type guard on its report sink, and the same false comment about `form-action 'self'`
+    costing nothing. Three parity facts, three mutations; a stamped product builds with 0
+    warnings.
+  - **One review finding was refuted by measurement and the fix backed out.** `ValidateHttpUrl`
+    was said to admit an empty authority, since `Uri.IsLoopback` is true for an empty host --
+    true of `file:///c:/x`, and unreachable here: `Uri.TryCreate(UriKind.Absolute)` refuses
+    every empty-authority http(s) form on .NET 10.0.7, so the check would have been dead code.
+    The inputs are pinned as refused anyway, because the reason they are safe lives in someone
+    else's parser.
+
 ### Changed
 - **Re-synced to ISL-NETC 1.1**, SPDX `LicenseRef-ISL-NETC-1.1`. The point of 1.1 is that §1.2 is a
   `[LICENSOR]` placeholder the adopter completes, and its *Notice on Reproducing This License* says

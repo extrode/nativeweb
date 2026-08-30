@@ -2,6 +2,50 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Security audit backlog** — `fix/security-audit-2026-08-19`, 2026-08-31. The whole 2026-08-19
+  `apps/web` audit worked through in one branch, seven commits. **744 web-unit / 346
+  web-integration / 157 render / 64 scaffold-unit / 38 scaffold-integration / 85 forms / 184
+  signin / 36 sample, 0 failed, 0 skipped**; solution build 0 warnings, 0 errors; structure-audit
+  0 errors and the same 3 pre-existing warnings. Nine mutations, each killing its own fact.
+  - **The backlog was stale and that is the finding worth keeping.** Six of its thirteen items had
+    already been fixed by earlier sessions and never struck through — the antiforgery cookie, the
+    `Secure = !IsDevelopment()` gates, `/auth/signout` rate limiting, the three register
+    enumeration oracles, the bare `Results.Redirect("/")`, and the whole rate-limit route list,
+    which `RateLimitCoverageTests` now enforces as a property rather than a list. Verifying each
+    against the code first was most of the branch's value; fixing what was already fixed would
+    have been the rest of it wasted.
+  - **`form-action` is enforced against a submission's whole redirect chain, not its first hop.**
+    That is why `'self'` was blocking the no-JS OAuth consent path, and why the fix is a
+    per-response widening to the client's already-registered origin rather than a blanket
+    allowance or an honest-comment retreat.
+  - **The masked destination is signed rather than server-derived**, and the reason is a second
+    oracle: derived from `temp_codes.sent_to`, a real account's mask would change the moment its
+    code expired while an unknown identifier's never would. The first cut of the signing fix
+    still failed its own test — the display fell back to "your email" but the hidden field kept
+    echoing the attacker's string, so an unverifiable token now drops both.
+  - **Two of the four WebAuthn assertions were wrong on the first run and the code was right.**
+    System.Text.Json escapes as `<`, not as a literal `<`, and inert text like `onerror`
+    survives verbatim inside the JSON string. A test failing is not evidence the code is.
+  - **The two-lens review then found seven more, and the second lens earned its cost.** Four
+    were holes in the fixes themselves rather than in the code they fixed -- the body-less 415
+    coming back as an HTML page, the unvalidated form-action contribution, the unguarded
+    `new Uri`, and a mask lifetime borrowed from an unrelated rate-limit window. The consequence
+    lens alone found the three the correctness lens could not see from the diff: the IPv6
+    literal that CSP's grammar has no production for, the application rows written before
+    `ValidateHttpUrl` that nothing backfills, and the skeleton carrying all three drifts into
+    every product stamped from it. **787 web-unit / 347 web-integration after the fixes.**
+  - **One finding was refuted by measurement and its fix backed out.** `Uri.IsLoopback` really
+    is true for an empty host, and no http(s) input reaches that gate with one --
+    `Uri.TryCreate(UriKind.Absolute)` refuses `https:///logo.png`, `http://`, `http:////x` and
+    every other empty-authority form on .NET 10.0.7. The check was dead code; the inputs are
+    pinned as refused regardless, because what makes them safe is someone else's parser.
+
+  - **One item left open, needing a decision:** `GET /oauth/authorize` is a state-changing GET
+    under a `SameSite=Lax` session cookie, so where silent-SSO conditions hold a cross-site link
+    can drive a signed-in user into a grant with no consent interaction. Every fix is a design
+    change. The register username-taken message stays as it is — a registration form that cannot
+    say a username is taken cannot complete a registration, and the timing half is already closed.
+
 - **Backlog leftovers** — `fix/014-leftovers`, 2026-08-31. Five `work/todo.md` items closed, none
   of them needing a host or a decision: the `NWF010` false positive, the two fixture-arithmetic
   assertions in `DeclarativeFormTests`, the `DenoToolingPolicyTests` race, `deploy.sh --port`, and
