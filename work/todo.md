@@ -1200,21 +1200,27 @@ gone with the host change. What is left is code, not infrastructure:
 - **Guest firewall rule.** The golden image's default-deny `inet filter` needs
   `ip saddr 10.0.0.1 tcp dport 80 accept` — the bridge gateway only, per the fleet convention
   epass follows. Waiting on the sidecar port above.
-- **`deploy.sh` still has no SSH port flag** (`:89`, `:94`, `:95`, `:111` — no `-p`/`-P`). Not
-  blocking on the fleet, but not for the reason first written here: the original note said a
-  `ProxyJump` alias carries the port, which presumed an sshd in the guest that does not exist.
-  What makes it non-blocking is the `--incus` transport added on 2026-08-30, which does not use
-  ssh at all. It stays wrong for any standalone host, which is what `nativeweb.nft` and spec
-  011's provisioning path still target.
+- ~~**`deploy.sh` still has no SSH port flag**~~ — **done 2026-08-31** (`fix/014-leftovers`).
+  `--port` / `-p`, validated before anything is copied, reaching both the `ssh` calls as `-p` and
+  both `scp` calls as `-P` from one pair of arrays — the two spellings differ, and a deploy where
+  they disagree ships the artifact to one host and re-executes on another. Refused outright with
+  `--incus`, which opens no connection a port could apply to. Omitted, `ssh_config`'s `Port` for
+  the host still applies, so a `Host` alias that already carries one needs nothing. Five facts
+  (three rejected spellings, the `--incus` refusal, and a structural one that no bare `ssh "$HOST"`
+  or `scp ... "$HOST"` is left behind); the mutation that makes `scp` take `-p` kills it.
+  Adding three lines to the header comment also silently truncated `--help`, which
+  `AssertHelpRangeIsIntact` caught — the `sed -n '2,25p'` range is now `2,28p`.
 
 - **Both Caddyfiles trip `caddy fmt`** on the blank line between the header comment and the
   global options block (`caddy validate` still passes; it is a formatting warning, not an
   error). Left alone rather than fixed in one file, which would make the pair inconsistent.
 
-- **`DenoToolingPolicyTests.Repo_HasNoNodePackageManifestOrLockfile` failed once in a full-suite
-  run on 2026-08-30 and passed in isolation and on the immediate re-run.** Ordering-dependent, so
-  something else in the tier is creating and removing a scanned path while it walks. A guard that
-  fails at random gets muted eventually; worth pinning the scan to a snapshot.
+- ~~**`DenoToolingPolicyTests.Repo_HasNoNodePackageManifestOrLockfile` failed once in a full-suite
+  run on 2026-08-30**~~ — **fixed 2026-08-31** (`fix/014-leftovers`). Two causes, both in the walk
+  rather than the rule: `Directory.Enumerate*` is lazy and throws `DirectoryNotFoundException`
+  when a directory is removed mid-iteration, and `tmp/` — where every other test in the tier puts
+  its scratch — was being walked at all. `tmp` joins the skip list, and each directory's children
+  are taken as a snapshot inside a guard. Two facts, both killed by the matching mutation.
 
 - **`nativeweb-prod` has no sidecar firewall rule and no provisioning.** `nativeweb-dev` has
   both. Deliberate: prod waits until dev has served a real release.
@@ -1230,26 +1236,47 @@ another project's deployment and runbook, not to this repo.
 
 ## Spec 014 leftovers — noted during the pre-merge review, out of that branch's scope
 
-- **The `NWF010` analyzer has three blind spots**, all of them a route it cannot see rather than
-  one it misreads. A handler delegate held in a local or a field and passed by name; a
-  user-defined `MapPost` on some other receiver type, which it matches by method name alone and
-  would report as a false positive; and a plain route whose handler calls
-  `MyForm.BindFormAsync(ctx)` by hand, which binds a form the analyzer never inspects. A
-  receiver-type check fixes the second and would narrow the first.
+- ~~**The `NWF010` analyzer has three blind spots**~~ — **the false positive is closed
+  2026-08-31** (`fix/014-leftovers`). The analyzer now checks that the receiver is or implements
+  `Microsoft.AspNetCore.Routing.IEndpointRouteBuilder`, so a user-defined `MapPost` on somebody
+  else's builder is left alone. Two facts pin it and a third pins the instance receiver, since
+  `WebApplication` implements the interface itself. **Measured while doing it:** IOperation hands
+  an analyzer the UNREDUCED symbol for both call spellings — `app.MapPost(...)` and
+  `EndpointRouteBuilderExtensions.MapPost(app, ...)` both arrive with a null `Instance`, a null
+  `ReducedFrom`, and the `this` as `Parameters[0]`. A first cut read `ReducedFrom` first and the
+  branch never ran. The test stub also had `IEndpointRouteBuilder` in
+  `Microsoft.AspNetCore.Builder`, one namespace off from the real one, so it would have passed a
+  test the framework fails.
+
+  **Two blind spots remain and are still open**, both a route the analyzer cannot see rather than
+  one it misreads: a handler delegate held in a local or a field and passed by name, and a plain
+  route whose handler calls `MyForm.BindFormAsync(ctx)` by hand. Neither is a false positive —
+  both are a real defect going unreported, which is the safer direction to be wrong in.
 
 - **`PublicArticleEndpoints.Matching` filters within the already-taken page**, not the feed, so
   `?q=` searches the first N articles rather than all of them. Right for the R5 publish gate it
   exists to serve; wrong as an example anyone copies.
 
-- **`DeclarativeFormTests` asserts exact article counts**, which is fixture arithmetic: adding a
-  seed article breaks the test without breaking anything it is about.
+- ~~**`DeclarativeFormTests` asserts exact article counts**~~ — **done 2026-08-31**. Both facts
+  now measure against the unfiltered feed rather than a literal, so seeding another article no
+  longer fails a test it has nothing to do with. `A_renamed_field_binds_under_its_wire_name` also
+  asserts the unfiltered feed is longer than the cap, because a cap of 1 against a feed of 1
+  proves nothing. Two mutations, each killing both facts.
 
-- **The `NativeWeb.Forms` package does not reference `NativeWeb.Forms.Generator`.** A consumer
-  installing the runtime package gets `IFormModel` and `MapFormPost` and neither the generator
-  nor the analyzer, so `[Form]` does nothing and no diagnostic says why.
+- **The runtime packages do not reference their generators — all three families, not just
+  Forms.** `NativeWeb.Forms`, `NativeWeb.Scaffold` and `NativeWeb.Render` each ship the attributes
+  and the runtime contract with no path to the generator that reads them, so `[Form]`, `[Scaffold]`
+  and the render attributes would do nothing for a consumer installing the runtime package, with
+  no diagnostic saying why. **Left for a decision rather than fixed**, because there are two
+  defensible shapes — the runtime package taking a `PackageReference` on the
+  `DevelopmentDependency` generator package, or the generator DLL being bundled into the runtime
+  package's `analyzers/dotnet/cs` and the split PackageIds dropped — and picking one is picking a
+  publishing model, which is the open question this list already carries. No consumer exists
+  today: nothing installs these from a feed.
 
-- **`FormModel.FullyQualifiedName` is dead code**, and `MissingAntiforgeryAnalyzer.cs` carries an
-  unused `using System.Collections.Generic;`.
+- ~~**`FormModel.FullyQualifiedName` is dead code**~~ — already gone; the property does not exist.
+  The unused `using System.Collections.Generic;` in `MissingAntiforgeryAnalyzer.cs` is **removed
+  2026-08-31**.
 
-- **`DeployScriptTests.cs:727` points the wrong way** — "See The_ssh_allowance_is_not_hardcoded
-  below" when that fact is above it. Found by Fable during the spec 011 review.
+- ~~**`DeployScriptTests.cs:727` points the wrong way**~~ — **fixed 2026-08-31**; the reference
+  reads "above", which is where `The_ssh_allowance_is_not_hardcoded` is.
