@@ -425,11 +425,12 @@ Publish `NativeWeb.*` to the private feed and fix the feed gap, or require every
 hold a checkout and accept lockstep upgrades? Package mode additionally needs a semver and
 deprecation policy that does not exist.
 
-**Q1b — Does the framework inherit `AGENTS.md`'s PostgreSQL-only binding?** *New.* JauntyQ
-supports four dialects (§8); `AGENTS.md` binds this repo to PostgreSQL. That is coherent while
-NativeWeb is one product, and incoherent once it is a framework other products consume. Proposed
-split: **epass.io stays PostgreSQL-only; ring 0 and ring 1 must not require a feature absent from
-any JauntyQ dialect.** Needs confirming, because it changes what "PostgreSQL only" governs.
+**Q1b — Does the framework inherit `AGENTS.md`'s PostgreSQL-only binding? RESOLVED 2026-08-30:
+the question does not arise.** NativeWeb does not deal with the data layer — all data access goes
+through JauntyQ, so NativeWeb supports whatever JauntyQ supports and has nothing of its own to
+declare. `AGENTS.md`'s "PostgreSQL only" binds the epass.io product built in this repo, not the
+framework other products consume. The proposed ring-by-ring split drafted here was more
+complicated than the answer and is withdrawn.
 
 **Q2 — Minimal splits now, or defer?** §4 shows the reference-direction check needs
 `nativeweb.security` split and the OAuth-client primitives extracted first. Both reviewers say
