@@ -16,6 +16,14 @@ import { type Check, type CheckContext, excerptAt, lineAt } from "./types.ts";
 /** Anything on this list means the test checks something. Deliberately generous. */
 const ASSERTION = [
   /\bAssert\s*\./, //                   xUnit
+  // A project-local assertion helper: AssertRfcError(call, ...), AssertSingleDiagnostic(...).
+  // Without this the rule reported 52 of this repository's own tests, every one of them a test
+  // that delegates its assertion to a helper one scroll up in the same file -- which is the
+  // normal way to write a suite of near-identical protocol facts, not a defect. A rule whose
+  // output is 42% noise is a rule whose output stops being read, and the daily run was spending
+  // its refutation budget on it. Prefixing a method `Assert` and having it assert nothing is a
+  // lie the rule is entitled to believe.
+  /\bAssert\w*\s*\(/,
   /\bassert[A-Z_]?\w*\s*\(/, //         @std/assert: assertEquals, assert(, assertThrows
   /\bassert\s*\(/,
   /\.Should\s*\(\s*\)/, //              FluentAssertions

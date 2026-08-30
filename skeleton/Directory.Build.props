@@ -29,14 +29,26 @@
   </PropertyGroup>
 
   <!-- Local checkout of JauntyQ (data-access source generator), referenced by
-       project until JauntyQ ships on NuGet — same wiring as epass.io / reader.
+       project until JauntyQ ships on NuGet.
        Probed as a SIBLING of the stamped product, exactly like NativeWebRoot
        below, and naming no parent directory. It used to hard-code an ancestor
-       called `extrode-legacy-org.com`; that broke on 2026-08-26 when the org directory was
-       renamed and jauntyq moved with it, and a stamped product would have
-       inherited the same break. Relative probes survive the next rename.
+       by name; that broke on 2026-08-26 when the org directory was renamed and
+       jauntyq moved with it, and a stamped product would have inherited the same
+       break. Relative probes survive the next rename.
+
+       Two probes, both guarded, for the reason the framework repo's own copy
+       gives: a build from `.worktrees/<branch>` sits three directories deeper, so
+       a single sibling probe resolves to a path that does not exist and every
+       restore fails. The NativeWebRoot block below was already written this way;
+       this one was not, and a stamped product adopting the same worktree layout
+       would have inherited the break. Found in the 2026-08-30 audit sweep.
        Override with -p:JauntyQRoot=... if your checkout lives elsewhere. -->
   <PropertyGroup>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\jauntyq')">$(MSBuildThisFileDirectory)..\jauntyq</JauntyQRoot>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\..\jauntyq')">$(MSBuildThisFileDirectory)..\..\..\jauntyq</JauntyQRoot>
+
+    <!-- Neither probe matched. Assign the single-depth path anyway, so whatever
+         reports the failure names a concrete path rather than an empty string. -->
     <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\jauntyq</JauntyQRoot>
   </PropertyGroup>
 

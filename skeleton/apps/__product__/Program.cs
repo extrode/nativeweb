@@ -18,6 +18,7 @@ using NativeWeb.Security;
 using Npgsql;
 
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace __PRODUCT__;
@@ -53,7 +54,22 @@ public sealed class Program
 
         // Local dev reads the connection string from user-secrets; CI and
         // production supply it as a real environment variable.
-        builder.Configuration.AddUserSecrets<Program>(optional: true);
+        //
+        // Development only, and inserted BELOW the environment-variables source
+        // rather than appended above it. Appending is what AddUserSecrets does by
+        // default, and it makes the store outrank a real environment variable --
+        // which is backwards, and was measured to bite in the framework repo: with
+        // the connection string exported, the integration tier's fixture wrote its
+        // rows to the database the variable named while the app under test read the
+        // one in user-secrets, and no failure said why. Unconditional registration
+        // also means any production box that has ever run `dotnet user-secrets set`
+        // silently overrides its own deployment configuration.
+        if (builder.Environment.IsDevelopment())
+        {
+            int before = builder.Configuration.Sources.Count;
+            builder.Configuration.AddUserSecrets<Program>(optional: true);
+            StartupConfigGuards.DemoteBelowEnvironmentVariables(builder.Configuration.Sources, before);
+        }
 
         // Shared, pooled NpgsqlDataSource. A box without the connection string still
         // builds and boots -- no data source is registered, /readyz reports not-ready,
@@ -119,6 +135,13 @@ public sealed class Program
             options.MimeTypes = ["text/html"];
         });
 
+        // Spec 005 R2: which build is this instance. InformationalVersion is
+        // Version+shortsha, stamped by the csproj's StampSourceRevision target;
+        // read once here — the assembly-level attribute survives NativeAOT. Read
+        // before the telemetry block because the service resource carries it.
+        string informationalVersion = typeof(Program).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
+
         // R33: metrics + traces, off by default and enabled by flipping
         // __PRODUCT__:Telemetry:Enabled. OTLP endpoint/protocol come from the
         // standard OTEL_EXPORTER_OTLP_* env vars. Npgsql's ActivitySource and
@@ -126,7 +149,21 @@ public sealed class Program
         // integration.
         if (string.Equals(builder.Configuration["__PRODUCT__:Telemetry:Enabled"], "true", StringComparison.OrdinalIgnoreCase))
         {
+            // Without a service resource the collector sees
+            // "unknown_service:<host process>", which makes two instances -- or
+            // this app beside any other -- indistinguishable. Measured on the
+            // framework app before the change. OTEL_SERVICE_NAME is honoured
+            // rather than overridden: an operator running staging and production
+            // off one binary reaches for it first, and silently losing it would
+            // be worse than having no default at all.
+            string serviceName = builder.Configuration["OTEL_SERVICE_NAME"] is { Length: > 0 } configuredServiceName
+                ? configuredServiceName
+                : "__PRODUCT__";
+
             builder.Services.AddOpenTelemetry()
+                .ConfigureResource(resource => resource.AddService(
+                    serviceName: serviceName,
+                    serviceVersion: informationalVersion))
                 .WithMetrics(static metrics => metrics
                     .AddAspNetCoreInstrumentation()
                     .AddRuntimeInstrumentation()
@@ -135,6 +172,17 @@ public sealed class Program
                 .WithTracing(static tracing => tracing
                     .AddAspNetCoreInstrumentation()
                     .AddSource("Npgsql")
+                    // Ours, in front of the exporter, because the package's own
+                    // redaction is switchable from outside the app:
+                    // OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION
+                    // exists in 1.17.0 (verified in the assembly), and the
+                    // matching option is internal so it cannot be pinned in
+                    // code. "A token in a query string never leaves this
+                    // process" should not be revocable by an environment
+                    // variable on the host, nor by a package bump. Registered
+                    // before AddOtlpExporter so it runs before the batch
+                    // processor the exporter installs.
+                    .AddProcessor(new QueryRedactingProcessor())
                     .AddOtlpExporter());
         }
 
@@ -153,7 +201,28 @@ public sealed class Program
             .SetApplicationName("__PRODUCT__")
             .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
 
-        builder.Services.AddAntiforgery();
+        builder.Services.AddAntiforgery(static options =>
+        {
+            options.HeaderName = "RequestVerificationToken";
+
+            // The CSRF cookie gets the same treatment as every other cookie this
+            // app sets: __Host- (host-locked, path /, no Domain, Secure enforced by
+            // the browser) and Secure pinned unconditionally rather than left at
+            // SameAsRequest. Unconditional because browsers treat http://localhost
+            // as a secure context, so an environment gate buys nothing and only
+            // creates a way to lose the flag.
+            //
+            // This was bare AddAntiforgery() until 2026-08-30. On framework
+            // defaults the cookie is named .AspNetCore.Antiforgery.<hash>, carries
+            // no __Host- prefix -- so a sibling subdomain can plant it -- and rides
+            // plain http. The framework app fixed this in its 2026-08-19 audit and
+            // the template never took the fix, which meant every product stamped
+            // from it inherited the defaults.
+            options.Cookie.Name = "__Host-__PRODUCT__-antiforgery";
+            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.Path = "/";
+        });
 
         // Bot-trap timing (R21). MinAge trips on sub-3s submits, so the test
         // tiers set __PRODUCT__:BotTraps:MinAgeSeconds=0 -- their submits are
@@ -165,7 +234,10 @@ public sealed class Program
             // throw mid-request or silently disable the timing trap.
             if (!double.TryParse(minAgeRaw, NumberStyles.Float, CultureInfo.InvariantCulture, out double minAgeSeconds) || minAgeSeconds < 0)
             {
-                throw new InvalidOperationException($"__PRODUCT__:BotTraps:MinAgeSeconds must be a non-negative number; got '{minAgeRaw}'.");
+                // Not `throw`: an exception out of Main fail-fasts under
+                // NativeAOT and hangs the service on a modal error box on
+                // Windows. See StartupConfigGuards.FailStartup.
+                StartupConfigGuards.FailStartup($"__PRODUCT__:BotTraps:MinAgeSeconds must be a non-negative number; got '{minAgeRaw}'.");
             }
 
             botTrapOptions.MinAge = TimeSpan.FromSeconds(minAgeSeconds);
@@ -276,6 +348,11 @@ public sealed class Program
         app.UseOutputCache();
         app.UseRequestTimeouts();
         app.UseAntiforgery();
+        // Must sit immediately after UseAntiforgery: that middleware records a
+        // failed check on IAntiforgeryValidationFeature and continues rather than
+        // rejecting, so without this the endpoint binds the form anyway and dies
+        // as a 500. See AntiforgeryValidationMiddleware.
+        app.UseMiddleware<AntiforgeryValidationMiddleware>();
 
         app.MapStaticAssets();
 
@@ -323,7 +400,9 @@ public sealed class Program
                 builder.Configuration[SecurityTxtEndpoint.ConfigurationKey],
                 out string? securityContact))
         {
-            throw new InvalidOperationException(
+            // Same reason as the BotTraps guard above: report and exit, do not
+            // throw out of Main. See StartupConfigGuards.FailStartup.
+            StartupConfigGuards.FailStartup(
                 $"{SecurityTxtEndpoint.ConfigurationKey} must be a bare email address or a mailto:, "
                 + "https: or tel: URI on a single line -- for example security@example.com. Leave it "
                 + "unset to serve no security.txt.");
@@ -334,34 +413,70 @@ public sealed class Program
         // Liveness: process is up. Readiness: the database answers.
         app.MapGet("/healthz", () => Results.Text("ok"));
 
-        // Spec 005 R2: which build is this instance. InformationalVersion is
-        // Version+shortsha, stamped by the csproj's StampSourceRevision target;
-        // read once here — the assembly-level attribute survives NativeAOT.
-        string informationalVersion = typeof(Program).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
+        // Read where the telemetry block is, above.
         app.MapGet("/version", () => Results.Text(informationalVersion));
-        app.MapGet("/readyz", async Task<IResult> (IServiceProvider services, CancellationToken ct) =>
-        {
-            NpgsqlDataSource? dataSource = services.GetService<NpgsqlDataSource>();
 
-            if (dataSource is null)
-                return Results.Text("not ready", "text/plain", statusCode: StatusCodes.Status503ServiceUnavailable);
+        // /readyz is bounded by a cache rather than a rate limit -- see
+        // ReadinessCache for why a 429 on a readiness probe is the wrong tool.
+        // Configurable so a deployment that wants a tighter outage-detection
+        // window can pay for it in database round trips.
+        // Clamped, not merely validated as positive: readiness is what a balancer
+        // uses to notice an outage, so a fat-fingered value must not be able to
+        // make the app claim health for minutes after its database has gone.
+        double readinessCacheSeconds = double.TryParse(builder.Configuration["__PRODUCT__:Readiness:CacheSeconds"], NumberStyles.Float, CultureInfo.InvariantCulture, out double readinessSeconds) && readinessSeconds > 0
+            ? Math.Min(readinessSeconds, 30.0)
+            : 1.0;
 
-            try
+        // Built once, outside the handler: the cache has to outlive a request to
+        // be a cache at all. The data source is resolved per probe rather than
+        // captured, because it is absent until a connection string is configured
+        // and "not ready" is the correct answer in that state (see the builder
+        // block above), not a startup failure.
+        var readiness = new ReadinessCache(
+            TimeSpan.FromSeconds(readinessCacheSeconds),
+            async () =>
             {
-                await using NpgsqlCommand cmd = dataSource.CreateCommand("SELECT 1");
-                await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
-                return Results.Text("ready");
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-                return Results.Text("not ready", "text/plain", statusCode: StatusCodes.Status503ServiceUnavailable);
-            }
-        });
+                try
+                {
+                    // Resolve inside the try, not above it. GetService throws
+                    // ObjectDisposedException once the host has begun shutting
+                    // down, and an escaping exception here faults the task the
+                    // whole burst is sharing -- so every one of them would get a
+                    // 500 from /readyz where "not ready" is both true and the
+                    // answer a balancer knows what to do with.
+                    NpgsqlDataSource? dataSource = app.Services.GetService<NpgsqlDataSource>();
+                    if (dataSource is null)
+                    {
+                        return false;
+                    }
+
+                    await using NpgsqlCommand cmd = dataSource.CreateCommand("SELECT 1");
+                    await cmd.ExecuteScalarAsync(CancellationToken.None).ConfigureAwait(false);
+                    return true;
+                }
+                catch (Exception)
+                {
+                    // Every failure is "not ready". There is deliberately no
+                    // request token in scope here (see ReadinessCache): a probe
+                    // shared by a burst must not observe one caller's lifetime.
+                    // Npgsql's command timeout is what bounds this instead.
+                    return false;
+                }
+            },
+            // Monotonic, deliberately: a wall clock stepping backwards would
+            // extend the window by the size of the step and keep reporting a
+            // dead database as ready. See ReadinessCache's clock param.
+            () => TimeSpan.FromMilliseconds(Environment.TickCount64));
+
+        // Readiness: can we reach Postgres? 503 "not ready" when the data source is
+        // unconfigured (no connection string yet) or unreachable; gates load-balancer
+        // traffic. Deliberately NOT rate limited -- a 429 here reads as unhealthy and
+        // would take a working instance out of rotation; the cache is what bounds the
+        // cost instead.
+        app.MapGet("/readyz", async Task<IResult> () =>
+            await readiness.IsReadyAsync().ConfigureAwait(false)
+                ? Results.Text("ready")
+                : Results.Text("not ready", "text/plain", statusCode: StatusCodes.Status503ServiceUnavailable));
 
         app.Run();
     }

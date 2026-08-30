@@ -9,6 +9,72 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **Audit sweep 2026-08-30, `chore/backlog-audit-2026-08-30`: 18 defects found and verified.**
+  Two lanes on the `audit` class, each finding independently, then every claim handed to a
+  `review-deep` (Fable) worker prompted to **refute** it. **18 claims, 18 confirmed, 0 refuted** —
+  an unusually clean pass, and the reason to trust the list rather than a reason to relax about
+  it. The evidence tables are `tmp/audit/{deploy,skeleton}.md` and the verdicts
+  `tmp/audit/fable-{deploy,skeleton}.md`; both are scratch, so the durable record is here and in
+  the fixes themselves.
+
+  **Lane 1 — `scripts/deploy/**`, which has never run against a real host.** Eight defects, and
+  the first four each stop the runbook dead on a clean Debian:
+  1. `Caddyfile:34` uses `{$NATIVEWEB_HOST}`, but nothing makes `caddy.service` read the
+     `/etc/default/caddy` that `provision.sh:286-293` writes — the site block gets an empty
+     address and Caddy will not load the config.
+  2. `provision.sh:93` creates `/var/log/caddy` as `root:root 0755` while packaged Caddy runs as
+     `caddy`, so the global access log cannot open its file.
+  3. `provision.sh:305` installs the firewall only if `/etc/nftables.conf` is absent or carries
+     our marker — but line 49 of the same script installs Debian's `nftables`, which ships that
+     file as a conffile. **The skip branch fires on every first provision, so R5 is unmet.**
+  4. `deploy.sh:106` passes `READY_TIMEOUT=… RELEASES_KEEP=…` on the `sudo` command line, which
+     Debian's default `env_reset` sudoers rejects outright.
+  5. `restore.sh:101-103` derives the bucket prefix from the *current* hostname with no override,
+     so the disaster-recovery path — rebuild the host, then restore — cannot find the backups.
+  6. `restore.sh:161,170`: `provision.sh:256` scopes the `pg_hba` peer map to database `nativeweb`
+     only, so the documented `nativeweb_drill` restore falls through to `local all all peer` and
+     cannot authenticate. Only the production overwrite works, which is the wrong way round.
+  7. `deploy.sh:321` runs `./db/migrate.sh`, which is mode 100644 in the index; nothing in
+     `build.sh` or `deploy.sh` adds an exec bit, so a release cannot be promoted from any build
+     host that is not a drvfs checkout.
+  8. `provision.sh:277` enables both colours before either exists, so a host rebooted before its
+     first deploy burns the units' start limit and sits failed.
+
+  **Lane 2 — `skeleton/` against `apps/web`.** Ten drifts, every one a fix the real app made and
+  the template never took, so each is inherited by every product generated from it. Worst first:
+  bare `AddAntiforgery()` (no `__Host-` prefix, `SameAsRequest`, plantable from a subdomain);
+  `UseAntiforgery()` with no rejection middleware, so the first form POST is a 500 rather than a
+  400; `AddUserSecrets` unguarded *and* outranking environment variables in production;
+  `/readyz` with a per-request `SELECT 1`, no cache and no policy; OTel with no
+  `QueryRedactingProcessor` and no resource attributes; startup errors thrown rather than
+  `FailStartup`'s `Environment.Exit(78)`, which under NativeAOT on Windows hangs a service instead
+  of exiting; `security.txt` routes with no rate-limit policy; JauntyQ pinned at 0.2.0 against the
+  root's 0.4.0; a single unguarded `JauntyQRoot` probe that breaks every worktree build; and a
+  comment naming epass.io. Fable added one correction of its own: the finding claimed the comment
+  was the only surviving real-name leak, and `wwwroot/css/{tokens,components}.css` name `epass.zip`
+  too.
+
+  **Also found, and separate:** the repo's own `assertionless-test` check has no notion of a
+  project-local assertion helper, so `AssertRfcError(...)` and `AssertSingleDiagnostic(...)` read
+  as no assertion at all. Running every mechanical check over all 130 slices produced 124
+  candidates, of which **52 are that one false positive** — the daily audit spends its refutation
+  budget on them. One line in `checks/assertionless-test.ts` fixes it.
+
+  **All 19 are fixed on the same branch, 2026-08-30.** Deploy lane: eight fixes plus ten new
+  `DeployScriptTests` facts. Skeleton lane: ten drifts closed — five mechanical, five behavioural
+  (four new files: `Middleware/AntiforgeryValidationMiddleware.cs`, `StartupConfigGuards.cs`,
+  `ReadinessCache.cs`, `QueryRedactingProcessor.cs`) — plus `SkeletonParityTests`, **14 facts, and
+  the first parity coverage this repo has had**: nothing in `NativeWeb.slnx` builds `skeleton/`, so
+  every one of these ten was a thing a stamped product would do WRONG rather than fail to compile.
+  Six mutations, six distinct failures. `assertionless-test` fixed and the sweep re-run: **124 →
+  83 candidates**. Suites after: 676 web-unit (+14), 157 render, 64 scaffold, 184 signin, 16
+  sample; `tools/audit` 255; structure-audit 0 errors.
+
+- **`nativeweb.signin.epass.tests.unit` failed 1 of 184 once on 2026-08-30 and has passed 5 runs
+  since**, in `.worktrees/audit-sweep`. The failing test's name was lost to a shell loop that
+  filtered it out, so there is nothing here to act on beyond knowing that tier has produced one
+  unexplained red. Worth capturing the name if it recurs.
+
 - **CI is red on every push, and the cause is a missing package grant — not a missing package.**
   Measured on run `33259408524` (2026-08-29): `NU1301` … `403 (Forbidden)` against
   `https://nuget.pkg.github.com/extrode/download/jauntyq.runtime/index.json`, killing Restore in

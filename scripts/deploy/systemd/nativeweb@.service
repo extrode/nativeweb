@@ -44,6 +44,15 @@ User=nativeweb
 Group=nativeweb
 WorkingDirectory=/opt/nativeweb/%i
 
+# A colour with no release on disk must be SKIPPED, not attempted. provision.sh
+# enables both colours before either exists so that the first deploy has nothing
+# left to arrange -- and WantedBy=multi-user.target below means a host rebooted
+# between provisioning and the first deploy tries to start both, fails on the
+# missing WorkingDirectory, and burns StartLimitBurst=5 getting there. A unit
+# whose condition is false is inactive and clean; a unit that failed five times
+# needs `systemctl reset-failed` from someone who knows that.
+ConditionPathExists=/opt/nativeweb/%i/nativeweb.web
+
 # Shared non-secret settings, then secrets, then this colour's port. Later files
 # win, so a colour file can override anything above it.
 #

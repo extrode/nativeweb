@@ -1,4 +1,4 @@
-/* v2 component styles ported from docs/design-prototypes/epass.zip (v2/shared.jsx
+/* v2 component styles ported from the v2 design prototype (shared.jsx
    Btn/Input/Field/AuthCard primitives), rebuilt as real form markup + CSS classes
    instead of the prototype's decorative JSX divs. Built entirely on tokens.css's
    custom properties -- no new colors introduced here. */

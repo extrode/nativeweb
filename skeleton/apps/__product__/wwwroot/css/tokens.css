@@ -1,4 +1,4 @@
-/* Design tokens ported from docs/design-prototypes/epass.zip (v2 direction).
+/* Design tokens ported from the v2 design prototype.
    Source values: v2/shared.jsx lines 2, 5-8. Do not hand-tune these without
    updating the prototype too -- they're the single source of truth for the
    brand's color/radius scale in both themes.
