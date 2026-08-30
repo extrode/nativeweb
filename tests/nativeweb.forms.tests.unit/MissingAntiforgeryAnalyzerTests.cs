@@ -37,9 +37,18 @@ public sealed class MissingAntiforgeryAnalyzerTests
     // The routing surface the analyzer matches on, by name. Stubbed rather than
     // referenced so the test compilation needs nothing but the BCL.
     private const string Routing = """
+        namespace Microsoft.AspNetCore.Routing
+        {
+            // In Microsoft.AspNetCore.Routing, not .Builder, where the extensions
+            // live. The analyzer matches this fully-qualified name, so a stub that
+            // put it in the same namespace as the extensions would pass a test the
+            // real framework fails.
+            public interface IEndpointRouteBuilder { }
+        }
+
         namespace Microsoft.AspNetCore.Builder
         {
-            public interface IEndpointRouteBuilder { }
+            using Microsoft.AspNetCore.Routing;
 
             public class RouteHandlerBuilder { }
 
@@ -58,6 +67,18 @@ public sealed class MissingAntiforgeryAnalyzerTests
             }
         }
 
+        namespace Other
+        {
+            // Somebody else's routing table that happens to spell its registration
+            // method MapPost. Nothing here can produce either failure NWF010 is about.
+            public sealed class MessageBus { }
+
+            public static class MessageBusExtensions
+            {
+                public static MessageBus MapPost(this MessageBus b, string topic, System.Delegate handler) => b;
+            }
+        }
+
         namespace NativeWeb.Forms
         {
             [System.AttributeUsage(System.AttributeTargets.Class)]
@@ -72,7 +93,7 @@ public sealed class MissingAntiforgeryAnalyzerTests
             public static class FormEndpointRouteBuilderExtensions
             {
                 public static Microsoft.AspNetCore.Builder.RouteHandlerBuilder MapFormPost<TForm>(
-                    this Microsoft.AspNetCore.Builder.IEndpointRouteBuilder e,
+                    this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder e,
                     string pattern,
                     System.Func<TForm, object, object> handler) => new();
             }
@@ -254,13 +275,45 @@ public sealed class MissingAntiforgeryAnalyzerTests
         Assert.Contains("/bad", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// <b>The name alone is not the rule.</b> Until 2026-08-31 the analyzer matched
+    /// any invocation called <c>MapPost</c>, so somebody else's builder — a message
+    /// bus, a CLI verb table — registering a handler that happens to take a
+    /// <c>[Form]</c>-attributed record was reported as a build error it had no way to
+    /// fix. Neither failure NWF010 exists to catch is reachable from a receiver that
+    /// is not ASP.NET's route builder.
+    /// </summary>
+    [Fact]
+    public async Task A_map_method_on_somebody_elses_builder_is_left_alone()
+    {
+        Assert.Empty(await AnalyzeAsync("""
+            Other.MessageBus bus = new();
+            bus.MapPost("/auth/register", (Demo.RegisterForm form) => 0);
+            """));
+    }
+
+    /// <summary>
+    /// And the receiver is found in the unreduced spelling too, where the builder is
+    /// an ordinary first argument rather than the <c>this</c> of a reduced call. It is
+    /// the same route registration, so it is the same error.
+    /// </summary>
+    [Fact]
+    public async Task The_unreduced_call_spelling_is_still_a_route()
+    {
+        Assert.Single(await AnalyzeAsync("""
+            EndpointRouteBuilderExtensions.MapPost(app, "/auth/register", (Demo.RegisterForm form) => 0);
+            """));
+    }
+
     private static async Task<ImmutableArray<Diagnostic>> AnalyzeAsync(
         string body,
         string extraMembers = "")
     {
         string program = $$"""
             using Microsoft.AspNetCore.Builder;
+            using Microsoft.AspNetCore.Routing;
             using NativeWeb.Forms;
+            using Other;
 
             namespace Consumer
             {
