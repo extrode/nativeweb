@@ -91,7 +91,10 @@ public static class FormEndpointRouteBuilderExtensions
     /// <typeparam name="TForm">The <see cref="FormAttribute"/> model to bind.</typeparam>
     /// <param name="endpoints">The route builder.</param>
     /// <param name="pattern">The route pattern.</param>
-    /// <param name="method">The HTTP method.</param>
+    /// <param name="method">The HTTP method. Public and unconstrained so a form can be
+    /// mapped on a verb this class does not name, with one caveat worth stating: the
+    /// antiforgery middleware validates only unsafe methods, so on a GET the metadata
+    /// this attaches is inert and only the 415 applies.</param>
     /// <param name="handler">What to do with the bound form.</param>
     /// <returns>The route, for further configuration.</returns>
     public static IEndpointConventionBuilder MapForm<TForm>(
@@ -102,6 +105,8 @@ public static class FormEndpointRouteBuilderExtensions
         where TForm : class, IFormModel<TForm>
     {
         ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(pattern);
+        ArgumentNullException.ThrowIfNull(method);
         ArgumentNullException.ThrowIfNull(handler);
 
         RequestDelegate route = async context =>

@@ -36,7 +36,13 @@ public sealed class FormBindingTests
         DefaultHttpContext context = new();
         context.Request.ContentType = contentType;
 
-        FormBinding.RequireFormContentType(context);
+        // Passing means it does not throw, and the assertion has to say that: a bare
+        // call is green whether the guard ran or not, so it asserts nothing about the
+        // guard and everything about the test having been written.
+        Exception? thrown = Record.Exception(() => FormBinding.RequireFormContentType(context));
+
+        Assert.Null(thrown);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
     }
 
     [Theory]

@@ -1,5 +1,7 @@
 using System.Text;
 
+using Microsoft.CodeAnalysis.CSharp;
+
 namespace NativeWeb.Forms.Generator;
 
 // Emits variant 5b from brainstorm 001 §12 -- a static binder carrying its own
@@ -34,11 +36,13 @@ internal static class FormEmitter
             sb.AppendLine();
         }
 
-        sb.AppendLine("partial " + model.TypeKeyword + " " + model.TypeName
-            + " : global::NativeWeb.Forms.IFormModel<" + model.TypeName + ">");
+        string typeName = Identifier(model.TypeName);
+
+        sb.AppendLine("partial " + model.TypeKeyword + " " + typeName
+            + " : global::NativeWeb.Forms.IFormModel<" + typeName + ">");
         sb.AppendLine("{");
         sb.AppendLine("    /// <summary>Binds this form from the request. Called by MapFormPost, not by hand.</summary>");
-        sb.AppendLine("    public static async global::System.Threading.Tasks.ValueTask<" + model.TypeName + "> BindFormAsync(");
+        sb.AppendLine("    public static async global::System.Threading.Tasks.ValueTask<" + typeName + "> BindFormAsync(");
         sb.AppendLine("        global::Microsoft.AspNetCore.Http.HttpContext context)");
         sb.AppendLine("    {");
         sb.AppendLine("        // FIRST, and it has to be: argument binding runs upstream of the whole");
@@ -51,18 +55,18 @@ internal static class FormEmitter
 
         if (model.Fields.Count == 0)
         {
-            sb.AppendLine("        return new " + model.TypeName + "();");
+            sb.AppendLine("        return new " + typeName + "();");
         }
         else
         {
             sb.AppendLine("        // Only the declared members are read. A field the model does not name");
             sb.AppendLine("        // cannot reach the handler, which is the whole of R4.");
-            sb.AppendLine("        return new " + model.TypeName + "(");
+            sb.AppendLine("        return new " + typeName + "(");
             for (int i = 0; i < model.Fields.Count; i++)
             {
                 FormFieldModel field = model.Fields[i];
                 sb.AppendLine("            "
-                    + field.ParameterName + ": global::NativeWeb.Forms.FormBinding.Field(form, \""
+                    + Identifier(field.ParameterName) + ": global::NativeWeb.Forms.FormBinding.Field(form, \""
                     + Escape(field.WireName) + "\")"
                     + (i < model.Fields.Count - 1 ? "," : ");"));
             }
@@ -80,6 +84,18 @@ internal static class FormEmitter
         (model.Namespace.Length == 0 ? model.TypeName : model.Namespace + "." + model.TypeName)
         + ".Form.g.cs";
 
+    // A [FormField] name is an arbitrary string constant, so escaping only the
+    // backslash and the quote is not enough: a name carrying a newline or any other
+    // control character would be emitted verbatim into a "..." literal and the
+    // generated file would not compile -- which is the R8 failure the model
+    // validation exists to prevent, arriving through the emitter instead.
+    // Roslyn already knows how; FormatLiteral is the compiler's own routine.
     private static string Escape(string value) =>
-        value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(value, quote: false);
+
+    // A symbol's Name drops the verbatim prefix, so a type or parameter written
+    // `@class` or `@event` comes back as a bare keyword and emits code that does not
+    // parse. Put it back.
+    private static string Identifier(string name) =>
+        SyntaxFacts.GetKeywordKind(name) == SyntaxKind.None ? name : "@" + name;
 }

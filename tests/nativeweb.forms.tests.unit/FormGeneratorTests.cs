@@ -151,6 +151,180 @@ public sealed class FormGeneratorTests
         Assert.DoesNotContain("IEndpointRouteBuilder", code, StringComparison.Ordinal);
     }
 
+    // ---- Review findings, 2026-08-30. Each of these is a defect a two-lens review
+    // ---- found in code that was already green; the fix and the fact landed together.
+
+    /// <summary>
+    /// A <c>[FormField]</c> name is an arbitrary string constant. Escaping only the
+    /// backslash and the quote let a name carrying a newline through verbatim, and the
+    /// generated file then did not compile — the R8 failure the model validation
+    /// exists to prevent, arriving through the emitter instead.
+    /// </summary>
+    [Fact]
+    public void A_wire_name_carrying_a_control_character_is_escaped()
+    {
+        // Backslash-n inside the raw string is two characters here and an escape in the
+        // model source, so the attribute argument the generator reads carries a real
+        // newline.
+        (_, string emitted) = Run(Attributes, """
+            using NativeWeb.Forms;
+
+            namespace Demo
+            {
+                [Form]
+                public sealed partial record Odd([FormField("a\nb")] string? Field);
+            }
+            """);
+
+        // The escape the emitter wrote, not the character it was handed.
+        Assert.Contains(@"Field(form, ""a\nb"")", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"a\nb", emitted, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A symbol's <c>Name</c> drops the verbatim prefix, so a model written
+    /// <c>@class</c> came back as the bare keyword and emitted
+    /// <c>partial record class</c>, which does not parse.
+    /// </summary>
+    [Fact]
+    public void A_keyword_named_type_and_member_are_emitted_verbatim()
+    {
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, """
+            using NativeWeb.Forms;
+
+            namespace Demo
+            {
+                [Form]
+                public sealed partial record @class(string? @event);
+            }
+            """);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("partial record @class :", emitted, StringComparison.Ordinal);
+        Assert.Contains("@event: global::NativeWeb.Forms.FormBinding.Field", emitted, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// <c>IFormCollection</c> is keyed case-insensitively (measured 2026-08-30), so
+    /// two members whose wire names differ only in case read the same posted field.
+    /// An ordinal duplicate check called that fine.
+    /// </summary>
+    [Fact]
+    public void Two_wire_names_differing_only_in_case_are_a_duplicate()
+    {
+        (ImmutableArray<Diagnostic> diagnostics, _) = Run(Attributes, """
+            using NativeWeb.Forms;
+
+            namespace Demo
+            {
+                [Form]
+                public sealed partial record Clash(
+                    string? Email,
+                    [FormField("Email")] string? Other);
+            }
+            """);
+
+        Assert.Equal("NWF004", Assert.Single(diagnostics).Id);
+    }
+
+    /// <summary>
+    /// <c>[property: FormField]</c> on a record's primary-constructor parameter is
+    /// legal C# and is what <c>014-plan.md</c>'s own example wrote. Reading only the
+    /// parameter's attributes ignored it, renaming nothing and saying nothing.
+    /// </summary>
+    [Fact]
+    public void A_form_field_attribute_on_the_property_target_is_honoured()
+    {
+        (_, string emitted) = Run(Attributes, """
+            using NativeWeb.Forms;
+
+            namespace Demo
+            {
+                [Form]
+                public sealed partial record Renamed(
+                    [property: FormField("max")] string? Take);
+            }
+            """);
+
+        Assert.Contains(@"Field(form, ""max"")", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"Field(form, ""take"")", emitted, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A member declared in a nullable-disabled file reports
+    /// <c>NullableAnnotation.None</c>, which "not NotAnnotated" accepted — so the
+    /// binder assigned null into a member the author wrote as a plain
+    /// <c>string</c>, silently.
+    /// </summary>
+    [Fact]
+    public void A_plain_string_in_a_nullable_disabled_file_is_rejected()
+    {
+        (ImmutableArray<Diagnostic> diagnostics, _) = Run(Attributes, """
+            #nullable disable
+            using NativeWeb.Forms;
+
+            namespace Demo
+            {
+                [Form]
+                public sealed partial record Loose(string Name);
+            }
+            """);
+
+        Assert.Equal("NWF003", Assert.Single(diagnostics).Id);
+    }
+
+    /// <summary>
+    /// A file-local type cannot be extended from another file, and the generated
+    /// partial is always another file.
+    /// </summary>
+    [Fact]
+    public void A_file_local_model_is_rejected()
+    {
+        (ImmutableArray<Diagnostic> diagnostics, _) = Run(Attributes, """
+            using NativeWeb.Forms;
+
+            namespace Demo
+            {
+                [Form]
+                file partial record Hidden(string? Name);
+            }
+            """);
+
+        Assert.Equal("NWF005", Assert.Single(diagnostics).Id);
+    }
+
+    /// <summary>
+    /// The incremental pipeline caches on the parsed model, and a reference-equality
+    /// model compares unequal on every keystroke — so the generator would re-emit for
+    /// an edit that changed nothing about the form, doing the work of a
+    /// non-incremental one. Asserted on the model rather than through the driver,
+    /// because that is where the defect was: <c>Equals</c> and <c>GetHashCode</c>.
+    /// </summary>
+    [Fact]
+    public void Two_models_of_the_same_shape_compare_equal()
+    {
+        Assert.Equal(SampleModel(), SampleModel());
+        Assert.Equal(SampleModel().GetHashCode(), SampleModel().GetHashCode());
+
+        FormModel renamed = SampleModel();
+        renamed.Fields[1].WireName = "e-mail";
+
+        Assert.NotEqual(SampleModel(), renamed);
+
+        FormModel shorter = SampleModel();
+        shorter.Fields.RemoveAt(1);
+
+        Assert.NotEqual(SampleModel(), shorter);
+    }
+
+    private static FormModel SampleModel()
+    {
+        var model = new FormModel { Namespace = "Demo", TypeName = "RegisterForm" };
+        model.Fields.Add(new FormFieldModel { ParameterName = "FirstName", WireName = "firstName" });
+        model.Fields.Add(new FormFieldModel { ParameterName = "Email", WireName = "email" });
+        return model;
+    }
+
     private static string WithoutComments(string emitted) =>
         string.Join(
             "\n",

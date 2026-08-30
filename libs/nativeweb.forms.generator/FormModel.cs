@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Microsoft.CodeAnalysis;
@@ -7,18 +9,28 @@ namespace NativeWeb.Forms.Generator;
 
 // One field of a declared form: the constructor parameter the emitted binder
 // fills, and the wire name it reads from.
-internal sealed class FormFieldModel
+internal sealed class FormFieldModel : IEquatable<FormFieldModel>
 {
     public string ParameterName { get; set; } = "";
 
     public string WireName { get; set; } = "";
+
+    public bool Equals(FormFieldModel? other) =>
+        other is not null
+        && ParameterName == other.ParameterName
+        && WireName == other.WireName;
+
+    public override bool Equals(object? obj) => Equals(obj as FormFieldModel);
+
+    public override int GetHashCode() =>
+        unchecked((ParameterName.GetHashCode() * 397) ^ WireName.GetHashCode());
 }
 
 // A [Form]-decorated type, parsed into the shape the emitter needs. Built only
 // when the declaration is usable; every rejection is a diagnostic instead, which
 // is R8 -- a malformed model must not produce code that fails to compile with a
 // message pointing at generated source the author never wrote.
-internal sealed class FormModel
+internal sealed class FormModel : IEquatable<FormModel>
 {
     public string Namespace { get; set; } = "";
 
@@ -28,8 +40,48 @@ internal sealed class FormModel
 
     public List<FormFieldModel> Fields { get; } = new();
 
-    public string FullyQualifiedName =>
-        Namespace.Length == 0 ? TypeName : Namespace + "." + TypeName;
+    // Structural, and it is what makes the incremental pipeline's cache work. A
+    // reference-equality model compares unequal on every keystroke, so
+    // RegisterSourceOutput re-runs and re-emits for an edit that changed nothing
+    // about the form -- the generator would still be correct and would still be
+    // doing the work of a non-incremental one.
+    public bool Equals(FormModel? other)
+    {
+        if (other is null
+            || Namespace != other.Namespace
+            || TypeName != other.TypeName
+            || TypeKeyword != other.TypeKeyword
+            || Fields.Count != other.Fields.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < Fields.Count; i++)
+        {
+            if (!Fields[i].Equals(other.Fields[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public override bool Equals(object? obj) => Equals(obj as FormModel);
+
+    public override int GetHashCode()
+    {
+        int hash = Namespace.GetHashCode();
+        hash = unchecked((hash * 397) ^ TypeName.GetHashCode());
+        hash = unchecked((hash * 397) ^ TypeKeyword.GetHashCode());
+
+        foreach (FormFieldModel field in Fields)
+        {
+            hash = unchecked((hash * 397) ^ field.GetHashCode());
+        }
+
+        return hash;
+    }
 
     // Returns null and reports, or returns a model and reports nothing. The
     // caller emits for exactly the non-null results.
@@ -37,19 +89,21 @@ internal sealed class FormModel
     {
         if (type.TypeKind != TypeKind.Class || type.IsStatic)
         {
-            // IBindableFromHttpContext<TSelf> is constrained to reference types, so a
-            // struct cannot implement it at all. [Form]'s AttributeUsage already
+            // IFormModel<TSelf> is constrained to reference types, so a struct cannot
+            // implement it at all. [Form]'s AttributeUsage already
             // blocks the obvious cases; this catches what it cannot.
             diagnostics.Add(Diagnostic.Create(FormDiagnostics.UnsupportedDeclaration, location, type.Name));
             return null;
         }
 
-        if (type.ContainingType is not null || type.IsGenericType)
+        if (type.ContainingType is not null || type.IsGenericType || type.IsFileLocal)
         {
             // A nested type would need every containing declaration emitted as
             // partial too, and a generic one would need the binder instantiated per
-            // construction. Both are diagnosable now and supportable later; emitting
-            // code that does not compile is neither.
+            // construction. A file-local one cannot be extended from another file at
+            // all, and the generated partial is always another file. All three are
+            // diagnosable now and the first two supportable later; emitting code that
+            // does not compile is neither.
             diagnostics.Add(Diagnostic.Create(FormDiagnostics.UnsupportedDeclaration, location, type.Name));
             return null;
         }
@@ -86,7 +140,12 @@ internal sealed class FormModel
         };
 
         bool usable = true;
-        var seen = new Dictionary<string, string>();
+        // Case-insensitively, because that is how the lookup behaves: IFormCollection
+        // is keyed with OrdinalIgnoreCase, so two members whose wire names differ only
+        // in case read the same posted field and the second silently shadows nothing.
+        // Measured 2026-08-30 on /auth/register: a field posted as ConfirmPassphrase
+        // bound a member whose wire name is confirmPassphrase.
+        var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (IParameterSymbol parameter in candidates[0].Parameters)
         {
@@ -126,9 +185,39 @@ internal sealed class FormModel
 
     // [FormField("...")] wins; otherwise the parameter name with its first letter
     // lowercased, which is what the hand-written endpoints already post.
+    //
+    // Both attribute targets are read. On a record's primary constructor the
+    // attribute lands on the parameter by default, but `[property: FormField("x")]`
+    // is legal, reads naturally, and is what 014-plan.md's own example wrote --
+    // ignoring it would rename nothing and say nothing, which is the whole class of
+    // failure this feature exists to remove.
     private static string WireName(IParameterSymbol parameter)
     {
-        foreach (AttributeData attribute in parameter.GetAttributes())
+        string? given = FormFieldName(parameter.GetAttributes());
+        if (given is not null)
+        {
+            return given;
+        }
+
+        foreach (ISymbol member in parameter.ContainingType.GetMembers(parameter.Name))
+        {
+            if (member is IPropertySymbol property)
+            {
+                given = FormFieldName(property.GetAttributes());
+                if (given is not null)
+                {
+                    return given;
+                }
+            }
+        }
+
+        string name = parameter.Name;
+        return name.Length == 0 ? name : char.ToLowerInvariant(name[0]) + name.Substring(1);
+    }
+
+    private static string? FormFieldName(ImmutableArray<AttributeData> attributes)
+    {
+        foreach (AttributeData attribute in attributes)
         {
             if (attribute.AttributeClass?.ToDisplayString() == FormGenerator.FormFieldAttribute
                 && attribute.ConstructorArguments.Length == 1
@@ -139,13 +228,16 @@ internal sealed class FormModel
             }
         }
 
-        string name = parameter.Name;
-        return name.Length == 0 ? name : char.ToLowerInvariant(name[0]) + name.Substring(1);
+        return null;
     }
 
+    // Annotated, not merely "not NotAnnotated". None is what a member declared in a
+    // nullable-disabled file reports, and binding null into a member the author wrote
+    // as a plain `string` is the silent version of the failure NWF003 exists to make
+    // loud.
     private static bool IsNullableString(ITypeSymbol type) =>
         type.SpecialType == SpecialType.System_String
-        && type.NullableAnnotation != NullableAnnotation.NotAnnotated;
+        && type.NullableAnnotation == NullableAnnotation.Annotated;
 
     private static bool IsPartial(INamedTypeSymbol type)
     {
@@ -191,7 +283,7 @@ internal static class FormDiagnostics
     internal static readonly DiagnosticDescriptor DuplicateWireName = new(
         id: "NWF004",
         title: "Two form members bind the same field",
-        messageFormat: "The form field '{0}' is bound by both '{1}' and '{2}'. Give one of them a distinct [FormField] name.",
+        messageFormat: "The form field '{0}' is bound by both '{1}' and '{2}'. Give one of them a distinct [FormField] name -- distinct in more than case, because the form collection is keyed case-insensitively.",
         category: "NativeWeb.Forms",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -199,7 +291,7 @@ internal static class FormDiagnostics
     internal static readonly DiagnosticDescriptor UnsupportedDeclaration = new(
         id: "NWF005",
         title: "Form model declaration is not supported",
-        messageFormat: "'{0}' cannot carry a generated binder. A form model must be a non-generic, non-nested, non-static reference type, because IBindableFromHttpContext<TSelf> is constrained to reference types and the binder is emitted as a partial of the type itself.",
+        messageFormat: "'{0}' cannot carry a generated binder. A form model must be a non-generic, non-nested, non-file-local, non-static reference type, because IFormModel<TSelf> is constrained to reference types and the binder is emitted as a partial of the type itself, in another file.",
         category: "NativeWeb.Forms",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);

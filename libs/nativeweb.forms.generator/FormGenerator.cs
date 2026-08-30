@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -35,7 +36,8 @@ public sealed class FormGenerator : IIncrementalGenerator
 
     // Parsing and validation happen in the transform so the pipeline caches on the
     // result rather than re-running per output; the diagnostics ride along because
-    // only RegisterSourceOutput may report them.
+    // only RegisterSourceOutput may report them. Parsed and FormModel are structurally
+    // equatable for that to mean anything -- see the note on Parsed.
     private static Parsed Parse(GeneratorAttributeSyntaxContext ctx)
     {
         var diagnostics = new List<Diagnostic>();
@@ -66,7 +68,10 @@ public sealed class FormGenerator : IIncrementalGenerator
             SourceText.From(FormEmitter.Emit(result.Model), Encoding.UTF8));
     }
 
-    private sealed class Parsed
+    // Equatable, because the pipeline caches on this type and a reference-equality
+    // one never compares equal. The diagnostics are compared by their descriptor and
+    // location rather than by identity for the same reason.
+    private sealed class Parsed : IEquatable<Parsed>
     {
         public Parsed(FormModel? model, List<Diagnostic> diagnostics)
         {
@@ -77,5 +82,29 @@ public sealed class FormGenerator : IIncrementalGenerator
         public FormModel? Model { get; }
 
         public List<Diagnostic> Diagnostics { get; }
+
+        public bool Equals(Parsed? other)
+        {
+            if (other is null
+                || !Equals(Model, other.Model)
+                || Diagnostics.Count != other.Diagnostics.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < Diagnostics.Count; i++)
+            {
+                if (!Diagnostics[i].Equals(other.Diagnostics[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object? obj) => Equals(obj as Parsed);
+
+        public override int GetHashCode() => Model?.GetHashCode() ?? Diagnostics.Count;
     }
 }

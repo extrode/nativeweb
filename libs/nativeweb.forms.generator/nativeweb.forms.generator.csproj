@@ -31,6 +31,14 @@
           Visible="false" />
   </ItemGroup>
   <ItemGroup>
+    <!-- FormModel's structural equality is what makes the incremental cache hit, and
+         a reference-equality regression is invisible from the emitted source: the
+         generator stays correct and does the work of a non-incremental one. The unit
+         tests assert Equals/GetHashCode directly, which needs the internals. -->
+    <InternalsVisibleTo Include="nativeweb.forms.tests.unit" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
   </ItemGroup>

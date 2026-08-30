@@ -61,11 +61,22 @@ public static class FormBinding
     /// One declared field, or <see langword="null"/> when the form does not carry it.
     /// </summary>
     /// <remarks>
-    /// Absent and empty are deliberately NOT distinguished here, and the existing
-    /// endpoints are why: they treat a missing field and a blank one the same way,
-    /// reporting "this is required" for both. A generated binder that returned
-    /// <c>""</c> for one and <see langword="null"/> for the other would push that
-    /// distinction into every handler for no caller that wants it.
+    /// <para>
+    /// Absent is <see langword="null"/> and present-but-blank is <c>""</c>, which is
+    /// the distinction the form itself makes. No handler in this repo acts on it —
+    /// they treat a missing field and a blank one the same way, reporting "this is
+    /// required" for both — so it is preserved rather than flattened: throwing the
+    /// distinction away here would put it beyond reach of a caller that later wants
+    /// it, while keeping it costs a caller that does not want it a `?? ""`.
+    /// </para>
+    /// <para>
+    /// <b>A field the request repeats arrives joined by commas</b>, because that is
+    /// what <c>StringValues.ToString()</c> does: <c>a=1&amp;a=2</c> binds
+    /// <c>"1,2"</c>. This matches how the framework binds a scalar
+    /// <c>[FromForm] string</c>, so the conversion did not change it — but a handler
+    /// treating a bound value as one user-supplied token should know that the client
+    /// chooses how many it sends.
+    /// </para>
     /// </remarks>
     /// <param name="form">The already-read form collection.</param>
     /// <param name="name">The wire name of the field.</param>

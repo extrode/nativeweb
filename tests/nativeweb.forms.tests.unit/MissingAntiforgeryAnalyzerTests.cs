@@ -48,6 +48,11 @@ public sealed class MissingAntiforgeryAnalyzerTests
                 public static RouteHandlerBuilder MapPost(this IEndpointRouteBuilder e, string pattern, System.Delegate handler) => new();
                 public static RouteHandlerBuilder MapPut(this IEndpointRouteBuilder e, string pattern, System.Delegate handler) => new();
                 public static RouteHandlerBuilder MapGet(this IEndpointRouteBuilder e, string pattern, System.Delegate handler) => new();
+                public static RouteHandlerBuilder MapPatch(this IEndpointRouteBuilder e, string pattern, System.Delegate handler) => new();
+                public static RouteHandlerBuilder MapDelete(this IEndpointRouteBuilder e, string pattern, System.Delegate handler) => new();
+                public static RouteHandlerBuilder MapMethods(this IEndpointRouteBuilder e, string pattern, string[] methods, System.Delegate handler) => new();
+                public static RouteHandlerBuilder Map(this IEndpointRouteBuilder e, string pattern, System.Delegate handler) => new();
+                public static RouteHandlerBuilder MapFallback(this IEndpointRouteBuilder e, System.Delegate handler) => new();
                 public static RouteHandlerBuilder RequireAuthorization(this RouteHandlerBuilder b) => b;
                 public static RouteHandlerBuilder WithName(this RouteHandlerBuilder b, string name) => b;
             }
@@ -179,13 +184,37 @@ public sealed class MissingAntiforgeryAnalyzerTests
             """));
     }
 
+    /// <summary>
+    /// Every mapping method the platform offers, including the three the first cut of
+    /// the rule missed: <c>MapMethods</c>, the untyped <c>Map</c>, and
+    /// <c>MapFallback</c>. A route the analyzer does not match is a route that binds
+    /// the model as a JSON body and carries no antiforgery metadata, silently — which
+    /// is the whole reason the rule is an error rather than a warning.
+    /// </summary>
     [Fact]
-    public async Task Every_verb_is_covered()
+    public async Task Every_mapping_method_is_covered()
     {
-        Assert.Equal(2, (await AnalyzeAsync("""
+        Assert.Equal(7, (await AnalyzeAsync("""
             app.MapPost("/a", (Demo.RegisterForm form) => 0);
             app.MapPut("/b", (Demo.RegisterForm form) => 0);
+            app.MapPatch("/c", (Demo.RegisterForm form) => 0);
+            app.MapDelete("/d", (Demo.RegisterForm form) => 0);
+            app.MapGet("/e", (Demo.RegisterForm form) => 0);
+            app.MapMethods("/f", new[] { "POST" }, (Demo.RegisterForm form) => 0);
+            app.Map("/g", (Demo.RegisterForm form) => 0);
             """)).Length);
+    }
+
+    /// <summary>
+    /// <c>MapFallback</c> takes no pattern, so the message has no route to name. It is
+    /// still a route that binds the model, and the rule still fires.
+    /// </summary>
+    [Fact]
+    public async Task A_fallback_route_is_reported_too()
+    {
+        Assert.Single(await AnalyzeAsync("""
+            app.MapFallback((Demo.RegisterForm form) => 0);
+            """));
     }
 
     /// <summary>

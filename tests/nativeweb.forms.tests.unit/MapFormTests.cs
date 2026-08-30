@@ -51,12 +51,39 @@ public sealed class MapFormTests
                 bound = form;
                 return Task.FromResult(Results.Text("ok"));
             }),
-            Form(("Name", "Ada"), ("email", "ada@example.com")));
+            Form(("name", "Ada"), ("email", "ada@example.com")));
 
         Assert.NotNull(bound);
         Assert.Equal("Ada", bound.Name);
         Assert.Equal("ada@example.com", bound.Address);
         Assert.Equal(200, context.Response.StatusCode);
+    }
+
+    /// <summary>
+    /// The wire name is the convention-derived <c>name</c>, and the fact above posts
+    /// it that way so the convention is what is under test. Casing, though, is the
+    /// framework's rule rather than ours: <c>IFormCollection</c> is keyed
+    /// case-insensitively, so <c>NAME</c> reaches the same member. Recorded here
+    /// because it bounds what <c>[FormField]</c> can distinguish — two members whose
+    /// wire names differ only in case read the same posted field, which is what
+    /// NWF004 now rejects.
+    /// </summary>
+    [Fact]
+    public async Task A_field_posted_under_a_different_casing_still_binds()
+    {
+        Contact? bound = null;
+
+        await InvokeAsync(
+            app => app.MapFormPost<Contact>("/c", (form, _) =>
+            {
+                bound = form;
+                return Task.FromResult(Results.Text("ok"));
+            }),
+            Form(("NAME", "Ada"), ("EMAIL", "ada@example.com")));
+
+        Assert.NotNull(bound);
+        Assert.Equal("Ada", bound.Name);
+        Assert.Equal("ada@example.com", bound.Address);
     }
 
     /// <summary>
@@ -75,7 +102,7 @@ public sealed class MapFormTests
                 bound = form;
                 return Task.FromResult(Results.Text("ok"));
             }),
-            Form(("Name", "Ada"), ("isAdmin", "true")));
+            Form(("name", "Ada"), ("isAdmin", "true")));
 
         Assert.NotNull(bound);
         Assert.Equal("Ada", bound.Name);
@@ -98,7 +125,7 @@ public sealed class MapFormTests
                 bound = form;
                 return Task.FromResult(Results.Text("ok"));
             }),
-            Form(("Name", "Ada")));
+            Form(("name", "Ada")));
 
         Assert.NotNull(bound);
         Assert.Null(bound.Address);
@@ -195,7 +222,7 @@ public sealed class MapFormTests
     [Fact]
     public void A_null_handler_is_a_programming_error()
     {
-        WebApplication app = WebApplication.CreateBuilder().Build();
+        using WebApplication app = WebApplication.CreateBuilder().Build();
 
         Assert.Throws<ArgumentNullException>(() => app.MapFormPost<Contact>("/c", null!));
     }
@@ -218,9 +245,12 @@ public sealed class MapFormTests
         };
     }
 
+    // Disposed here rather than leaked: each fact builds its own host, and an
+    // undisposed one keeps a service provider (and its logger factory) alive for the
+    // rest of the run.
     private static Endpoint Map(Action<IEndpointRouteBuilder> configure)
     {
-        WebApplication app = WebApplication.CreateBuilder().Build();
+        using WebApplication app = WebApplication.CreateBuilder().Build();
         configure(app);
 
         EndpointDataSource source = Assert.Single(((IEndpointRouteBuilder)app).DataSources);
@@ -231,7 +261,9 @@ public sealed class MapFormTests
         Action<IEndpointRouteBuilder> configure,
         Action<HttpContext> request)
     {
-        WebApplication app = WebApplication.CreateBuilder().Build();
+        // Disposed only after the delegate has run -- the request resolves services
+        // out of this provider.
+        await using WebApplication app = WebApplication.CreateBuilder().Build();
         configure(app);
 
         EndpointDataSource source = Assert.Single(((IEndpointRouteBuilder)app).DataSources);

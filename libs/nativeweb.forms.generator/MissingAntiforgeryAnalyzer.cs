@@ -43,7 +43,7 @@ public sealed class MissingAntiforgeryAnalyzer : DiagnosticAnalyzer
     // specific to a mutating request, but the "bound as a JSON body" half is not:
     // a [Form] model on a MapGet is broken too, just differently.
     private static readonly ImmutableHashSet<string> MapMethods = ImmutableHashSet.Create(
-        "MapGet", "MapPost", "MapPut", "MapPatch", "MapDelete", "MapMethods");
+        "MapGet", "MapPost", "MapPut", "MapPatch", "MapDelete", "MapMethods", "Map", "MapFallback");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(FormDiagnostics.MissingAntiforgery);
