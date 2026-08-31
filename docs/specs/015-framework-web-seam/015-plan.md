@@ -171,3 +171,34 @@ the skeleton's.
 Verified by publishing `apps/sample`: `wwwroot/_nativeweb/` in the publish output carries
 `boot.js`, `css/{base,components,tokens}.css` and a `.br` and `.gz` beside each, and the
 endpoint manifest carries a fingerprinted route per asset.
+
+## Two findings from T8, both fixed in it
+
+**The pipeline needed an authentication slot.** `UseNativeWebPipeline` ended with
+`UseAntiforgery` and the validation guard, so a product's `UseAuthentication` could only be
+registered after the whole pipeline — which is after antiforgery has already compared the
+token against `HttpContext.User`. Anonymous at that point, so every authenticated form post
+is a 400. Measured: ten create/update/delete facts in the scaffold integration tier failed
+with BadRequest and nothing else. `UseNativeWebPipeline` now takes an optional
+`Action<IApplicationBuilder>` invoked between `UseRequestTimeouts` and `UseAntiforgery`, and
+`tests/nativeweb.web.tests.unit/AuthenticationSlotTests.cs` asserts the position by reading
+`IAntiforgeryValidationFeature` from inside the callback.
+
+**The scaffolded admin was not CSP-clean.** `ScaffoldEmitter` emits a self-contained page —
+an inline `<style>` for its CSS and `onsubmit="return confirm(…)"` on each delete form — a
+design that predates any of these pages being served behind a Content-Security-Policy. Under
+the framework's nonce CSP the stylesheet is dropped and the handler never runs, which the
+Playwright tier reported as "the delete form did not raise a confirm dialog at all" and
+nothing cheaper reported at all. Both inline elements now carry the request's nonce, read
+from `HttpContext.Items["csp-nonce"]` by its literal key so the generator takes no dependency
+on `nativeweb.web`, and the confirmation moved to a `data-nws-confirm` attribute handled by
+one delegated listener in the same nonced script.
+
+**`SecurePolicy.Always` is now `SameAsRequest` under Development**, with the `__Host-` prefix
+dropped alongside it — the prefix and the attribute travel together, and a browser rejects a
+`__Host-` cookie that is not Secure outright. Driven by `IHostEnvironment` rather than
+configuration on purpose: the environment is the one input that cannot be set to the weak
+value in production by editing a settings file. Behind TLS, which is every deployment
+`scripts/deploy` describes, the two policies are identical; over plain http
+`GetAndStoreTokens` throws, so `dotnet run`, the Playwright tier and every loopback host
+answered 500 on the first page carrying a form.

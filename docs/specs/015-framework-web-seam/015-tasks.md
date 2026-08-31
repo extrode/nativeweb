@@ -28,7 +28,7 @@ T1 gates everything after it. Nothing moves until the invariants are asserted an
 - [x] **T7** The asset `.targets` — files: `libs/nativeweb.web/build/*.targets` — covers: R7 —
   done when: a consumer referencing the library gets the physical files in its output and
   `AssetUrls` fingerprints them.
-- [ ] **T8** `apps/sample` adopts the seam — files: `apps/sample/Program.cs`,
+- [x] **T8** `apps/sample` adopts the seam — files: `apps/sample/Program.cs`,
   `apps/sample/nativeweb.sample.csproj` — covers: R9 — done when: the sample serves through the
   framework pipeline and its 468-fact suite is still green.
 - [ ] **T9** Shrink `skeleton/apps/__product__/Program.cs` to ≤ 60 lines — files: that file —
