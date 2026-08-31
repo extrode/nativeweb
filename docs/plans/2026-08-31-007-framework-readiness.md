@@ -105,7 +105,19 @@ flagged it as off the critical path.
 
 ## Phase 3 — the things Phase 1 and 2 do not produce
 
-**T11. The scaffold defects.** From the qwen audit, in severity order: the admin index emitted with
+**T11. The scaffold defects.** *Done 2026-08-31 on `fix/017-scaffold-defects`.* All five, plus the
+two the 015 review added (`?page` overflow, the discarded created key) and the update race. Two
+things the audit did not name turned up with them: nullable `double` and nullable `Guid` failed to
+compile the same way `short` and `float` did, and the generated files relied on `ImplicitUsings`, so
+a consumer with it disabled got source that would not build. Found by compiling the generator's
+output rather than reading it. The two-lens review of the batch added five more, all fixed in the
+same branch: a nullable `bool` emitted `bool? && bool`; a rejected form was redisplayed from the
+converted item and under the Edit heading; an empty key redirected to the list; `SearchFields` used
+a C# 12 collection expression compiled with the consumer's `LangVersion`; and the reference store's
+update was check-then-act. Four observations went to `work/todo.md` instead of the diff — the `new`
+route-segment key collision, `JauntyArticleStore` ignoring `searchFields`, unencoded labels in
+emitted markup, and a repeat delete answering 404. D2 below is untouched and still open. From the qwen audit, in
+severity order: the admin index emitted with
 no authorization metadata (`ScaffoldEmitter.cs:468-479`); `short`/`float` generating code that does
 not compile (`ScaffoldEmitter.cs:402-427`); `[ScaffoldSearch]` never reaching the store
 (`IScaffoldStore.cs:26`); silent coercion of malformed numeric, `Guid` and `DateTime` input

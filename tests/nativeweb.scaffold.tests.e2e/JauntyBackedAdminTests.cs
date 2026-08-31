@@ -54,6 +54,13 @@ public sealed class JauntyBackedAdminTests(JauntySampleFixture app, BrowserFixtu
         await page.FillAsync("textarea[name=body]", "Created through the generated form.");
         await page.ClickAsync("form.nws-form button[type=submit]");
 
+        // Create redirects to the key the store returned, so the browser is now on
+        // the new row's page. Asserted here rather than in each caller, and then the
+        // browser goes back to the list the callers expect.
+        Assert.Matches($"{ListPath}/[^/]+$", new Uri(page.Url).AbsolutePath);
+
+        await page.GotoAsync(ListPath);
+
         return title;
     }
 

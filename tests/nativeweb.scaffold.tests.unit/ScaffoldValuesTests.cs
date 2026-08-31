@@ -151,4 +151,119 @@ public sealed class ScaffoldValuesTests
     [Fact]
     public void RequiresAntiforgery_AlwaysValidates() =>
         Assert.True(RequiresAntiforgery.Instance.RequiresValidation);
+
+    // The four converters that did not exist, on which the emitter fell through to
+    // the string case and generated `short x = "abc" ?? ""` -- CS0029, on a model
+    // that had declared nothing unusual.
+    [Fact]
+    public void Int16_ParsesAndFallsBack()
+    {
+        Assert.Equal((short)42, ScaffoldValues.Int16("42"));
+        Assert.Equal((short)0, ScaffoldValues.Int16("70000"));
+        Assert.Null(ScaffoldValues.NullableInt16("70000"));
+        Assert.Equal((short)-7, ScaffoldValues.NullableInt16("-7"));
+    }
+
+    [Fact]
+    public void Single_IsInvariantAndFallsBack()
+    {
+        Assert.Equal(1.5f, ScaffoldValues.Single("1.5"));
+        Assert.Equal(0f, ScaffoldValues.Single("x"));
+        Assert.Null(ScaffoldValues.NullableSingle(""));
+        Assert.Equal(2.25f, ScaffoldValues.NullableSingle("2.25"));
+    }
+
+    [Fact]
+    public void NullableDouble_DistinguishesAbsentFromZero()
+    {
+        Assert.Null(ScaffoldValues.NullableDouble(""));
+        Assert.Null(ScaffoldValues.NullableDouble("rubbish"));
+        Assert.Equal(0d, ScaffoldValues.NullableDouble("0"));
+    }
+
+    [Fact]
+    public void NullableGuid_DistinguishesAbsentFromEmpty()
+    {
+        Assert.Null(ScaffoldValues.NullableGuid(""));
+        Assert.Null(ScaffoldValues.NullableGuid("not-a-guid"));
+
+        // The distinction the nullable form exists for: GuidValue cannot tell "the
+        // field was left blank" from "the user typed the all-zero guid".
+        Assert.Equal(Guid.Empty, ScaffoldValues.NullableGuid(Guid.Empty.ToString()));
+        Assert.Equal(Guid.Empty, ScaffoldValues.GuidValue(""));
+    }
+
+    // The validators. Blank is valid -- an absent field takes the documented
+    // fallback -- and a submitted value that cannot be read as its type is not.
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("", true)]
+    [InlineData("   ", true)]
+    [InlineData("42", true)]
+    [InlineData(" -7 ", true)]
+    [InlineData("4.2", false)]
+    [InlineData("abc", false)]
+    [InlineData("9999999999", false)]
+    public void IsInt32_AcceptsBlankAndRejectsMalformed(string? raw, bool expected) =>
+        Assert.Equal(expected, ScaffoldValues.IsInt32(raw));
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("42", true)]
+    [InlineData("70000", false)]
+    public void IsInt16_IsBoundedByTheType(string? raw, bool expected) =>
+        Assert.Equal(expected, ScaffoldValues.IsInt16(raw));
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("9000000000", true)]
+    [InlineData("x", false)]
+    public void IsInt64_AcceptsWhatInt64Parses(string? raw, bool expected) =>
+        Assert.Equal(expected, ScaffoldValues.IsInt64(raw));
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("1.5", true)]
+    [InlineData("abc", false)]
+    public void IsDecimalAndFriends_AgreeOnTheOrdinaryCases(string? raw, bool expected)
+    {
+        Assert.Equal(expected, ScaffoldValues.IsDecimal(raw));
+        Assert.Equal(expected, ScaffoldValues.IsDouble(raw));
+        Assert.Equal(expected, ScaffoldValues.IsSingle(raw));
+    }
+
+    // Where they do NOT agree, and each validator matches its own converter, which
+    // is the property that matters: a value the validator accepts must be one the
+    // converter can read.
+    //
+    // Decimal parses with NumberStyles.Number, which allows a group separator, so
+    // "1,5" is one thousand five hundred to it. Double and Single parse with
+    // NumberStyles.Float, which does not, so the same string is malformed. That
+    // asymmetry predates this batch and is noted in work/todo.md rather than
+    // changed here -- silently narrowing Decimal would reject strings that have
+    // been accepted and stored since the converter was written.
+    [Fact]
+    public void AGroupSeparator_IsDecimalOnlyAndTheValidatorsSayTheSame()
+    {
+        Assert.True(ScaffoldValues.IsDecimal("1,5"));
+        Assert.Equal(15m, ScaffoldValues.Decimal("1,5"));
+
+        Assert.False(ScaffoldValues.IsDouble("1,5"));
+        Assert.False(ScaffoldValues.IsSingle("1,5"));
+    }
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("2026-03-04T09:30", true)]
+    [InlineData("2026-13-04", false)]
+    [InlineData("tomorrow", false)]
+    public void IsDateTime_RejectsWhatWouldHaveBecomeNow(string? raw, bool expected) =>
+        Assert.Equal(expected, ScaffoldValues.IsDateTime(raw));
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("0f8fad5b-d9cb-469f-a165-70867728950e", true)]
+    [InlineData("xyz", false)]
+    public void IsGuid_RejectsWhatWouldHaveBecomeEmpty(string? raw, bool expected) =>
+        Assert.Equal(expected, ScaffoldValues.IsGuid(raw));
 }
