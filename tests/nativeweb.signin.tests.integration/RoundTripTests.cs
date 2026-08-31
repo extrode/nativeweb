@@ -45,7 +45,10 @@ public sealed class RoundTripTests
 
         await browser.GetAsync("/signin");
 
-        string cookie = Assert.Single(browser.SetCookies, c => c.StartsWith("__Host-", StringComparison.Ordinal));
+        // The session cookie by name: the flow correlator is also a __Host- cookie on this
+        // exchange, written when the flow started and deleted when the callback took it.
+        string cookie = Assert.Single(
+            browser.SetCookies, c => c.StartsWith("__Host-signin=", StringComparison.Ordinal));
         Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("secure", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=lax", cookie, StringComparison.OrdinalIgnoreCase);
@@ -61,9 +64,13 @@ public sealed class RoundTripTests
 
         await browser.GetAsync("/signin");
 
-        string cookie = Assert.Single(browser.SetCookies, c => c.StartsWith("__Host-", StringComparison.Ordinal));
-        Assert.DoesNotContain("provider-subject", cookie, StringComparison.Ordinal);
-        Assert.DoesNotContain("access", cookie, StringComparison.Ordinal);
+        Assert.All(
+            browser.SetCookies.Where(c => c.StartsWith("__Host-", StringComparison.Ordinal)),
+            cookie =>
+            {
+                Assert.DoesNotContain("provider-subject", cookie, StringComparison.Ordinal);
+                Assert.DoesNotContain("access", cookie, StringComparison.Ordinal);
+            });
     }
 
     [Fact]
@@ -138,9 +145,12 @@ public sealed class RoundTripTests
         using HttpResponseMessage first = await browser.GetOnceAsync(callback);
         using HttpResponseMessage second = await browser.GetOnceAsync(callback);
 
+        // state_mismatch, not state_used: the first callback deleted this browser's correlator, so
+        // the replay is refused before the flow store is consulted at all. That the STORE also
+        // refuses a second take is pinned in the unit tier, where the cookie can be supplied twice.
         Assert.DoesNotContain("error=", first.Headers.Location!.ToString(), StringComparison.Ordinal);
         Assert.Contains(
-            "error=state_used", second.Headers.Location!.ToString(), StringComparison.Ordinal);
+            "error=state_mismatch", second.Headers.Location!.ToString(), StringComparison.Ordinal);
         Assert.Equal(1, host.Provider.TokenRequests);
     }
 

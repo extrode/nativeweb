@@ -174,8 +174,12 @@ public sealed class SignInPolicyTests
     {
         Fixture fixture = await Signed((_, _, _, _) => ValueTask.FromResult<string?>(null));
 
+        // The refused callback still deletes the flow correlator, so the assertion is that NO
+        // SESSION cookie was written rather than that no cookie header exists at all.
         Assert.Equal(0, fixture.Sessions.Count);
-        Assert.False(fixture.Context.Response.Headers.ContainsKey("Set-Cookie"));
+        Assert.DoesNotContain(
+            fixture.Context.Response.Headers.SetCookie!,
+            header => header!.StartsWith(fixture.Options.CookieName + "=", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -333,6 +337,7 @@ public sealed class SignInPolicyTests
 
         DefaultHttpContext callback = new DefaultHttpContext().Executable();
         callback.Request.QueryString = new QueryString($"?code=code-1&state={state}");
+        callback.Request.Headers.Cookie = $"{SessionManager.FlowCookieName(options)}={state}";
 
         IResult result = await SignInEndpoints.GetCallbackAsync(
             callback, client, flows, manager, options, NullLoggerFactory.Instance, resolver);
@@ -349,7 +354,11 @@ public sealed class SignInPolicyTests
     {
         internal Task<SessionState> Read()
         {
-            string cookie = Assert.Single(Context.Response.Headers.SetCookie!)!;
+            // The flow correlator's deletion is also a Set-Cookie header on this response, so the
+            // session's is picked out by name rather than by being the only one.
+            string cookie = Assert.Single(
+                Context.Response.Headers.SetCookie!,
+                header => header!.StartsWith(Options.CookieName + "=", StringComparison.Ordinal))!;
             string value = cookie[(cookie.IndexOf('=', StringComparison.Ordinal) + 1)..]
                 .Split(';')[0];
 

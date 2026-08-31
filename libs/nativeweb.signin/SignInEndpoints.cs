@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -175,12 +178,18 @@ public static partial class SignInEndpoints
         // The expiry is computed HERE, from the configured lifetime and the application's clock,
         // rather than being left to the store. One lifetime then governs every implementation, and
         // a store never has to reach into this library's options to discover what it is.
+        DateTimeOffset expiresAt = time.GetUtcNow() + options.FlowLifetime;
+
         await flows.StartAsync(
             state,
             verifier,
             returnTo,
-            time.GetUtcNow() + options.FlowLifetime,
+            expiresAt,
             context.RequestAborted).ConfigureAwait(false);
+
+        // The state goes to the browser as well as to the store. Without the browser's copy the
+        // callback trusts a query parameter anyone can supply; see SessionManager.WriteFlowCookie.
+        SessionManager.WriteFlowCookie(context, options, state, expiresAt);
 
         return Results.Redirect(AuthorizationUrl(options, state, OAuthClient.Challenge(verifier)));
     }
@@ -215,9 +224,25 @@ public static partial class SignInEndpoints
             return Results.Redirect(Failure(options, SignInFailureCode.SignInFailed));
         }
 
+        // Cleared on every exit below, taken or refused: one abandoned attempt must not leave a
+        // correlator lying about for the next callback to match against.
+        string expected = context.Request.Cookies[SessionManager.FlowCookieName(options)] ?? "";
+        SessionManager.ClearFlowCookie(context, options);
+
         if (code.Length == 0 || state.Length == 0)
         {
             return Results.Redirect(Failure(options, SignInFailureCode.CallbackIncomplete));
+        }
+
+        // The browser that finishes the flow must be the browser that started it. A callback
+        // carrying somebody else's state - the whole shape of login CSRF - has no matching cookie
+        // here and never reaches the token endpoint.
+        if (expected.Length == 0
+            || !CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(state)))
+        {
+            LogFlowCookieMismatch(logger);
+            return Results.Redirect(Failure(options, SignInFailureCode.StateMismatch));
         }
 
         // Bounded before either value reaches the consumer's store or the provider. A query string
@@ -449,6 +474,9 @@ public static partial class SignInEndpoints
 
     [LoggerMessage(6, LogLevel.Error, "The registered SignInPolicy threw. The attempt was refused; a policy that throws must not be read as acceptance.")]
     private static partial void LogPolicyThrew(ILogger logger, Exception ex);
+
+    [LoggerMessage(7, LogLevel.Warning, "A callback arrived whose state did not match the browser's own. The attempt was refused.")]
+    private static partial void LogFlowCookieMismatch(ILogger logger);
 }
 
 /// <summary>
@@ -486,6 +514,12 @@ public static class SignInFailureCode
 
     /// <summary>The consumer's own policy refused. No session was minted.</summary>
     public const string Refused = "refused";
+
+    /// <summary>
+    /// The callback's <c>state</c> did not match the one this browser started the flow with, or
+    /// this browser started no flow. A sign-in begun in one browser cannot be finished in another.
+    /// </summary>
+    public const string StateMismatch = "state_mismatch";
 }
 
 /// <summary>

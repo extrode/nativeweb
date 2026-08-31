@@ -477,6 +477,63 @@ public sealed partial class SessionManager(
         context.Response.Cookies.Append(options.CookieName, value, CookieOptionsFor(expiresAt));
 
     /// <summary>
+    /// The name of the short-lived cookie that ties a started flow to the browser that started it.
+    /// </summary>
+    /// <param name="options">The scheme's options, for the session cookie's name.</param>
+    /// <returns>The session cookie's name with a suffix, so it keeps the <c>__Host-</c> prefix.</returns>
+    internal static string FlowCookieName(SignInOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        return options.CookieName + "-flow";
+    }
+
+    /// <summary>
+    /// Records <paramref name="state"/> in the browser that is starting the flow.
+    /// </summary>
+    /// <remarks>
+    /// Without this the <c>state</c> parameter defends nothing that matters. It lives server-side
+    /// in <see cref="ILoginFlowStore"/> and the callback recovers a flow from the query string
+    /// alone, so an attacker can start a flow in their OWN browser, keep the callback URL it
+    /// produces — state and code, both valid, both for the attacker's account at the provider —
+    /// and get a victim to open it. The victim's browser then holds a session for the attacker's
+    /// identity, and everything the victim does next is done in the attacker's account, visible to
+    /// them. That is login CSRF, and binding the state to the initiating browser is the defence
+    /// the parameter is named for.
+    /// <para>
+    /// It carries the same fixed attributes as the session cookie, for the same reasons, and
+    /// <c>SameSite=Lax</c> rather than <c>Strict</c> because the browser arrives at the callback
+    /// through the provider's cross-site redirect.
+    /// </para>
+    /// </remarks>
+    /// <param name="context">The response to write the cookie onto.</param>
+    /// <param name="options">The scheme's options.</param>
+    /// <param name="state">The state minted for this flow.</param>
+    /// <param name="expiresAt">When the flow itself expires.</param>
+    internal static void WriteFlowCookie(
+        HttpContext context, SignInOptions options, string state, DateTimeOffset expiresAt)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(options);
+
+        context.Response.Cookies.Append(FlowCookieName(options), state, CookieOptionsFor(expiresAt));
+    }
+
+    /// <summary>
+    /// Deletes the flow cookie. Called on EVERY exit from the callback, taken or refused, so one
+    /// abandoned attempt cannot supply the correlator for the next.
+    /// </summary>
+    /// <param name="context">The response to write the deletion onto.</param>
+    /// <param name="options">The scheme's options.</param>
+    internal static void ClearFlowCookie(HttpContext context, SignInOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(options);
+
+        context.Response.Cookies.Delete(FlowCookieName(options), CookieOptionsFor(null));
+    }
+
+    /// <summary>
     /// The cookie's attributes, fixed. <c>Path</c> is <c>/</c> and there is no <c>Domain</c>
     /// because the <c>__Host-</c> prefix requires both, and a browser silently ignores a
     /// <c>__Host-</c> cookie that carries either wrong.

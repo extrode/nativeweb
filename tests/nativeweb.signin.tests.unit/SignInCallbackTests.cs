@@ -38,11 +38,13 @@ public sealed class SignInCallbackTests
 
         DefaultHttpContext context = await fixture.Callback();
 
+        // Two Set-Cookie headers now: the flow correlator being deleted, and the session being
+        // written. The session cookie is the one this is about.
         Assert.Equal(1, fixture.Sessions.Count);
         Assert.Contains(
-            fixture.Options.CookieName,
-            Assert.Single(context.Response.Headers.SetCookie!)!,
-            StringComparison.Ordinal);
+            context.Response.Headers.SetCookie!,
+            header => header!.StartsWith(fixture.Options.CookieName + "=", StringComparison.Ordinal)
+                && header.Length > fixture.Options.CookieName.Length + 1);
     }
 
     [Fact]
@@ -84,7 +86,10 @@ public sealed class SignInCallbackTests
     {
         Fixture fixture = await Started();
 
-        DefaultHttpContext context = await fixture.Callback(state: "never-minted");
+        // The browser's own cookie carries the fabricated state too, so what refuses here is the
+        // FLOW STORE having no such row -- not the correlation check upstream of it.
+        DefaultHttpContext context = await fixture.Callback(
+            "code-1", "never-minted", error: null, flowCookie: "never-minted");
 
         Assert.Empty(fixture.Provider.Exchanges);
         Assert.Equal("/signin-failed?error=state_used", context.Response.Headers.Location.ToString());
@@ -210,6 +215,70 @@ public sealed class SignInCallbackTests
     }
 
     [Fact]
+    public async Task Callback_WithNoFlowCookie_IsRefusedWithoutATokenRequest()
+    {
+        Fixture fixture = await Started();
+
+        DefaultHttpContext context = await fixture.Callback(
+            "code-1", state: null, error: null, flowCookie: null);
+
+        Assert.Empty(fixture.Provider.Exchanges);
+        Assert.Equal(0, fixture.Sessions.Count);
+        Assert.Equal("/signin-failed?error=state_mismatch", context.Response.Headers.Location.ToString());
+    }
+
+    [Fact]
+    public async Task Callback_WithAnotherBrowsersState_IsRefusedWithoutATokenRequest()
+    {
+        // Login CSRF, made concrete: the attacker started the flow, so the state and code in this
+        // callback are theirs and both are valid. The victim's browser holds no matching cookie.
+        Fixture attacker = await Started();
+        Fixture victim = await Started();
+
+        DefaultHttpContext context = await victim.Callback(
+            "code-1", attacker.State, error: null, flowCookie: victim.State);
+
+        Assert.Empty(victim.Provider.Exchanges);
+        Assert.Equal(0, victim.Sessions.Count);
+        Assert.Equal("/signin-failed?error=state_mismatch", context.Response.Headers.Location.ToString());
+    }
+
+    [Fact]
+    public async Task GetLogin_RecordsTheStateInTheBrowserToo()
+    {
+        Fixture fixture = await Started();
+
+        Assert.Equal(fixture.State, fixture.FlowCookieOnTheWayOut);
+    }
+
+    [Fact]
+    public async Task Callback_Refused_StillClearsTheFlowCookie()
+    {
+        Fixture fixture = await Started();
+
+        DefaultHttpContext context = await fixture.Callback(
+            "code-1", state: null, error: null, flowCookie: null);
+
+        Assert.Contains(
+            context.Response.Headers.SetCookie!,
+            header => header!.StartsWith(
+                SessionManager.FlowCookieName(fixture.Options) + "=;", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Callback_Taken_ClearsTheFlowCookie()
+    {
+        Fixture fixture = await Started();
+
+        DefaultHttpContext context = await fixture.Callback();
+
+        Assert.Contains(
+            context.Response.Headers.SetCookie!,
+            header => header!.StartsWith(
+                SessionManager.FlowCookieName(fixture.Options) + "=;", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Callback_MarksTheResponseNoStore()
     {
         Fixture fixture = await Started();
@@ -261,7 +330,15 @@ public sealed class SignInCallbackTests
 
         string verifier = flowStore is InMemoryLoginFlowStore ? await VerifierFor(flowStore, state) : "";
 
-        return new Fixture(client, flowStore, manager, sessions, provider, options, clock, state, verifier);
+        string flowCookie = begin.Response.Headers.SetCookie!
+            .Select(header => header!)
+            .Where(header => header.StartsWith(
+                SessionManager.FlowCookieName(options) + "=", StringComparison.Ordinal))
+            .Select(header => header[(header.IndexOf('=', StringComparison.Ordinal) + 1)..].Split(';')[0])
+            .SingleOrDefault() ?? "";
+
+        return new Fixture(
+            client, flowStore, manager, sessions, provider, options, clock, state, verifier, flowCookie);
     }
 
     /// <summary>
@@ -287,12 +364,24 @@ public sealed class SignInCallbackTests
         SignInOptions Options,
         MovableClock Clock,
         string State,
-        string Verifier)
+        string Verifier,
+        string FlowCookieOnTheWayOut)
     {
+        internal Task<DefaultHttpContext> Callback(
+            string code = "code-1", string? state = null, string? error = null) =>
+            Callback(code, state, error, flowCookie: State);
+
         internal async Task<DefaultHttpContext> Callback(
-            string code = "code-1", string? state = null, string? error = null)
+            string code, string? state, string? error, string? flowCookie)
         {
             DefaultHttpContext context = new DefaultHttpContext().Executable();
+
+            if (flowCookie is not null)
+            {
+                context.Request.Headers.Cookie =
+                    $"{SessionManager.FlowCookieName(Options)}={flowCookie}";
+            }
+
             var query = new List<string>();
 
             if (code.Length > 0)

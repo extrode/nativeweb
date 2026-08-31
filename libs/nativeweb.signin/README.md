@@ -124,7 +124,7 @@ that acts.
 `DefaultReturnPath`, so the endpoint is not an open redirect.
 
 A failed sign-in lands at `FailurePath` as `?error=<code>`, one of
-`callback_incomplete`, `state_used`, `state_expired`, `state_unknown`, `signin_failed`,
+`callback_incomplete`, `state_used`, `state_expired`, `state_unknown`, `state_mismatch`, `signin_failed`,
 `provider_unavailable`, `refused` (`SignInFailureCode`). **No provider-supplied string is ever
 rendered**: the provider's own `error` and `error_description` are upstream text, and a page that
 echoes them is a page that renders whatever the provider felt like sending. Render your own copy
