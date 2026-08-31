@@ -55,7 +55,14 @@ Merged into `dev`, not yet tagged.
 - **The key-directory guard did not fire on the host it was written for.** A system account
   records a home in `passwd` that was never created, so `UserProfile` comes back non-empty and the
   emptiness test passed; the ring resolved under a directory nothing can write, which is the
-  silent 400 the guard exists to prevent. The fallback is probed rather than inferred.
+  silent 400 the guard exists to prevent. The fallback is probed rather than inferred — and the
+  probe requires the home directory to already exist, because a process with enough privilege
+  creates `/nonexistent` happily and would have passed a probe that created what it tested.
+- **A second extensions migration would have been applied as the app role.** Discovering the
+  superuser step by pattern fixed the wrong-number case but took the first match, so a schema that
+  adds an extension after launch hit the same failure with a later number on it. That directory is
+  refused with a message; `EXT_VERSION` holds one version, and half-supporting two is worse than
+  saying so.
 - **Five tests whose comments claimed more than their assertions proved.** Each asserted that a
   substring appeared somewhere in a file, which stays true when the branch containing it is
   deleted. They now parse the structure they name — branch slices, line-by-line parity, a derived

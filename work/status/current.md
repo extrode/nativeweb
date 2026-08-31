@@ -34,7 +34,12 @@ worth seeing here rather than hiding, but it is the exception.
   for `0002_extensions.sql` while the skeleton ships `0001`, so every fresh stamped product would
   have failed its first migration as the app role; and the key-directory guard tested for an empty
   home, which the system account it was written for does not produce. All fixed and
-  mutation-checked. 645 tests green across the eight suites in `NativeWeb.slnx`.
+  mutation-checked. **A third pass over those** found five more, including two the second pass
+  introduced: the new probe created the directory it tested, which a privileged process does
+  happily, and taking the first glob match reinstated the app-role failure for a second extensions
+  migration. 648 tests green across the eight suites in `NativeWeb.slnx`. Three review rounds on
+  one branch is the record worth keeping: each round's fixes carried defects of their own, and
+  only the third came back with nothing that breaks a deploy.
 
 - **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
   not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has
