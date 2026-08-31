@@ -76,6 +76,14 @@ public sealed class DeployTargetTests
     [Fact]
     public void NothingDownstreamOfTheBuild_NamesAProject()
     {
+        // Read out of build.sh rather than written here. The two literals below are
+        // historical: this test never learned what the project name IS, so
+        // retargeting build.sh at a third project would have left that third name
+        // free to leak downstream with the assertion still green.
+        string current = Path.GetDirectoryName(
+            Defaulted(Read("scripts", "deploy", "build.sh"), "PROJECT=\"${PROJECT:-").Replace('\\', '/'))!
+            .Replace('\\', '/');
+
         foreach (string file in Directory.EnumerateFiles(
             Path.Combine(RepoRoot(), "scripts", "deploy"),
             "*",
@@ -89,7 +97,67 @@ public sealed class DeployTargetTests
             string text = File.ReadAllText(file);
 
             Assert.DoesNotContain("apps/web", text, StringComparison.Ordinal);
-            Assert.DoesNotContain("apps/sample", text, StringComparison.Ordinal);
+            Assert.DoesNotContain(current, text, StringComparison.Ordinal);
+
+            Assert.DoesNotContain("NativeWeb__", text, StringComparison.Ordinal);
         }
+    }
+
+    // The configuration prefix is the class of coupling the test above misses: a
+    // key name is not a project name, so ten NativeWeb__* keys sat in deploy.sh
+    // and provision.sh while apps/sample bound Sample:. The preflight hard-failed
+    // on nine keys nothing reads, and passed on the two that mattered while they
+    // stayed unset. Derived from the parsed PROJECT rather than hardcoded, so
+    // retargeting the default project moves this assertion with it.
+    [Fact]
+    public void BuildScript_StampsThePrefixTheDefaultProjectReads()
+    {
+        string build = Read("scripts", "deploy", "build.sh");
+
+        string project = Defaulted(build, "PROJECT=\"${PROJECT:-");
+        string stamped = Defaulted(build, "CONFIG_PREFIX=\"${CONFIG_PREFIX:-");
+
+        string programPath = Path.Combine(
+            RepoRoot(),
+            Path.GetDirectoryName(project.Replace('/', Path.DirectorySeparatorChar))!,
+            "Program.cs");
+
+        Assert.True(File.Exists(programPath), $"build.sh publishes {project}, which has no Program.cs beside it.");
+
+        const string call = "NativeWebOptions.FromConfiguration(builder.Configuration, \"";
+        string program = File.ReadAllText(programPath);
+        int start = program.IndexOf(call, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"{programPath} does not call NativeWebOptions.FromConfiguration with a literal section.");
+
+        start += call.Length;
+        string bound = program[start..program.IndexOf('"', start)];
+
+        Assert.True(
+            string.Equals(stamped, bound, StringComparison.Ordinal),
+            $"build.sh stamps config_prefix={stamped} but the binary it publishes binds '{bound}'. "
+                + "deploy.sh preflights the stamped prefix, so it would demand keys this binary never reads "
+                + "and pass while the ones it does read stayed unset.");
+    }
+
+    [Fact]
+    public void TheDeployScript_TakesTheMigrationsDirectoryFromTheArtifact()
+    {
+        string deploy = Read("scripts", "deploy", "deploy.sh");
+
+        Assert.Contains("sed -n 's/^config_prefix=//p' \"$STAGE/RELEASE\"", deploy, StringComparison.Ordinal);
+        Assert.Contains("sed -n 's/^migrations_dir=//p' \"$STAGE/RELEASE\"", deploy, StringComparison.Ordinal);
+
+        string build = Read("scripts", "deploy", "build.sh");
+        Assert.Contains("config_prefix=$CONFIG_PREFIX", build, StringComparison.Ordinal);
+        Assert.Contains("migrations_dir=$MIGRATIONS_DIR", build, StringComparison.Ordinal);
+    }
+
+    private static string Defaulted(string script, string marker)
+    {
+        int start = script.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"scripts/deploy/build.sh has no line matching `{marker}`.");
+
+        start += marker.Length;
+        return script[start..script.IndexOf('}', start)];
     }
 }

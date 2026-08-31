@@ -601,8 +601,29 @@ public sealed class ScaffoldGeneratorTests
     {
         (_, string source) = Run(Attributes, ArticleModel);
 
-        Assert.Contains("if (!await store.DeleteAsync(id, ct).ConfigureAwait(false))", source, StringComparison.Ordinal);
-        Assert.Contains("if (!await store.UpdateAsync(id, item, ct).ConfigureAwait(false))", source, StringComparison.Ordinal);
+        // The branch BODY, not only that the boolean is read. Both assertions used
+        // to stop at the `if`, so a branch that redirected to the list -- the very
+        // thing the fix removed -- passed.
+        AssertBranchBody(
+            source,
+            "if (!await store.DeleteAsync(id, ct).ConfigureAwait(false))",
+            "return Results.NotFound();");
+
+        AssertBranchBody(
+            source,
+            "if (!await store.UpdateAsync(id, item, ct).ConfigureAwait(false))",
+            "return Results.NotFound();");
+    }
+
+    private static void AssertBranchBody(string source, string condition, string expected)
+    {
+        int start = source.IndexOf(condition, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"the emitted source has no `{condition}`.");
+
+        int close = source.IndexOf("\n        }", start, StringComparison.Ordinal);
+        Assert.True(close > start, $"`{condition}` has no closing brace.");
+
+        Assert.Contains(expected, source[start..close], StringComparison.Ordinal);
     }
 
     [Fact]

@@ -37,11 +37,7 @@ internal static class PublicArticleEndpoints
 
     public static IEndpointRouteBuilder MapPublicArticles(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/articles", async (
-            IAntiforgery antiforgery,
-            HttpContext http,
-            IPublishedArticles articles,
-            CancellationToken ct) =>
+        endpoints.MapGet("/articles", async (IAntiforgery antiforgery, HttpContext http, IPublishedArticles articles, CancellationToken ct) =>
         {
             IReadOnlyList<PublishedArticle> recent = await articles.RecentAsync(PageSize, ct).ConfigureAwait(false);
             AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
@@ -108,10 +104,7 @@ internal static class PublicArticleEndpoints
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
 
-        return Templates.Articles.Index.Result(
-            locale: locale,
-            Title: locale["title.articles"],
-            AntiforgeryToken: tokens.RequestToken ?? "",
+        return Templates.Articles.Index.Result(locale: locale, Title: locale["title.articles"], AntiforgeryToken: tokens.RequestToken ?? "",
             Query: query ?? "",
             Take: take,
             AntiforgeryFieldName: tokens.FormFieldName,
@@ -130,12 +123,9 @@ internal static class PublicArticleEndpoints
         IReadOnlyList<PublishedArticle> articles,
         string? query)
     {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return articles;
-        }
-
-        return articles
+        return string.IsNullOrWhiteSpace(query)
+            ? articles
+            : articles
             .Where(a => a.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || (a.Author?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
             .ToList();
@@ -146,11 +136,8 @@ internal static class PublicArticleEndpoints
     // ceiling is what stops it being a denial-of-service lever.
     internal static int ParseTake(string? raw)
     {
-        if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out int take) || take <= 0)
-        {
-            return PageSize;
-        }
-
-        return Math.Min(take, MaxPageSize);
+        return !int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out int take) || take <= 0
+            ? PageSize
+            : Math.Min(take, MaxPageSize);
     }
 }

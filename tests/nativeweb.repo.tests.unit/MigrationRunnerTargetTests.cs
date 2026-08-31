@@ -65,12 +65,25 @@ public sealed class MigrationRunnerTargetTests
     {
         string runner = Runner();
 
-        Assert.Contains("if [ ! -f \"$EXT_FILE\" ]; then", runner, StringComparison.Ordinal);
-
         // And when it is absent the loop must skip nothing: EXT_VERSION is what
         // the apply loop compares against, so leaving it at "0002" would silently
         // drop a 0002 that is some other migration.
-        Assert.Contains("EXT_VERSION=\"none\"", runner, StringComparison.Ordinal);
+        //
+        // The assignment has to sit INSIDE the missing-file branch. Asserting the
+        // two strings exist somewhere in the file proved neither, and the branch
+        // could be deleted with both still present.
+        const string branch = "if [ ! -f \"$EXT_FILE\" ]; then";
+        int start = runner.IndexOf(branch, StringComparison.Ordinal);
+        Assert.True(start >= 0, "db/migrate.sh no longer guards the extensions file with an -f test.");
+
+        int elif = runner.IndexOf("\nelif ", start, StringComparison.Ordinal);
+        Assert.True(elif > start, "the extensions branch has no elif arm; this test is reading the wrong block.");
+
+        Assert.Contains("EXT_VERSION=\"none\"", runner[start..elif], StringComparison.Ordinal);
+
+        // And the apply loop compares against it, which is what makes "none"
+        // matching nothing the right value.
+        Assert.Contains("[ \"$version\" = \"$EXT_VERSION\" ] && continue", runner, StringComparison.Ordinal);
     }
 
     // The runner's default is the scaffolding demo's schema, so a deploy that
@@ -130,12 +143,21 @@ public sealed class MigrationRunnerTargetTests
         return runner[start..].Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 
+    // Refused, not merely detected. The substring alone passed with the guard
+    // commented out or its result discarded, so it asserted the presence of a line
+    // rather than an exit.
     [Fact]
     public void AnEmptyMigrationsDirectory_IsRefusedRatherThanGlobbed()
     {
-        Assert.Contains(
-            "compgen -G \"$MIGRATIONS_DIR/[0-9][0-9][0-9][0-9]_*.sql\"",
-            Runner(),
-            StringComparison.Ordinal);
+        string runner = Runner();
+
+        const string guard = "if ! compgen -G \"$MIGRATIONS_DIR/[0-9][0-9][0-9][0-9]_*.sql\" >/dev/null; then";
+        int start = runner.IndexOf(guard, StringComparison.Ordinal);
+        Assert.True(start >= 0, "db/migrate.sh no longer guards an empty migrations directory with compgen.");
+
+        int end = runner.IndexOf("\nfi", start, StringComparison.Ordinal);
+        Assert.True(end > start, "the compgen guard has no closing fi.");
+
+        Assert.Contains("exit 1", runner[start..end], StringComparison.Ordinal);
     }
 }

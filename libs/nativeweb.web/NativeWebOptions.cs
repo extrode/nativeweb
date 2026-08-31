@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
 
@@ -136,6 +137,33 @@ public sealed record NativeWebOptions
     /// cannot be unit tested. <see cref="FromConfiguration"/> is the caller that
     /// turns a false here into that exit.
     /// </remarks>
+    // `home` is a parameter rather than read inside, because the branch that
+    // matters is the one where it is empty and that cannot be produced on a
+    // developer's machine: it is what a systemd unit created --system
+    // --no-create-home gets. An untestable guard against a silent failure is two
+    // silent failures.
+    internal static bool TryResolveKeyDirectory(
+        string? configured,
+        string home,
+        string applicationName,
+        [NotNullWhen(true)] out string? directory)
+    {
+        if (configured is { Length: > 0 })
+        {
+            directory = configured;
+            return true;
+        }
+
+        if (home.Length == 0)
+        {
+            directory = null;
+            return false;
+        }
+
+        directory = Path.Combine(home, "." + applicationName.ToLowerInvariant(), "keys");
+        return true;
+    }
+
     public static bool TryFromConfiguration(
         IConfiguration configuration,
         string applicationName,
@@ -215,6 +243,28 @@ public sealed record NativeWebOptions
             return false;
         }
 
+        // The dev default is a directory under the user's home, which is right for
+        // every environment that has one. A systemd unit created --system
+        // --no-create-home does not: UserProfile comes back empty, Path.Combine
+        // drops it, and the key ring lands relative to the working directory —
+        // which ProtectSystem=strict makes read-only. Persistence then fails, every
+        // restart remints the antiforgery keys, and every form POST answers 400
+        // while /readyz stays green. Supplied-but-unusable stops the app here for
+        // the same reason the security contact does, three checks up.
+        if (!TryResolveKeyDirectory(
+            configuration[Key("DataProtection:KeyDirectory")],
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            applicationName,
+            out string? keyDirectory))
+        {
+            error = $"{Key("DataProtection:KeyDirectory")} is not set and this process has no home directory "
+                + "to fall back to, so the data protection key ring would be written relative to the working "
+                + "directory and would not survive a restart. Every form POST would answer 400 after each "
+                + "deploy with nothing reporting it. Set it to a writable directory that outlives a release "
+                + "— /var/lib/nativeweb/keys on a host provisioned by scripts/deploy/provision.sh.";
+            return false;
+        }
+
         // Clamped rather than only validated as positive — see the property.
         var readiness = TimeSpan.FromSeconds(1);
         if (double.TryParse(configuration[Key("Readiness:CacheSeconds")], NumberStyles.Float, CultureInfo.InvariantCulture, out double readinessSeconds)
@@ -243,12 +293,7 @@ public sealed record NativeWebOptions
                 : applicationName,
             // Length check, not ??: appsettings documents the key with an empty
             // value, and DirectoryInfo("") throws at startup.
-            DataProtectionKeyDirectory = configuration[Key("DataProtection:KeyDirectory")] is { Length: > 0 } keyDirectory
-                ? keyDirectory
-                : Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    "." + applicationName.ToLowerInvariant(),
-                    "keys"),
+            DataProtectionKeyDirectory = keyDirectory,
             BotTrapMinAge = botTrapMinAge,
             GeneralPermitLimit = PermitLimit(configuration, Key("RateLimit:General:PermitLimit"), 120),
             CspReportPermitLimit = PermitLimit(configuration, Key("RateLimit:CspReport:PermitLimit"), 10),

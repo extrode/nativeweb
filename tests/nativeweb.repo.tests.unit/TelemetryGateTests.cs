@@ -74,9 +74,24 @@ public sealed class TelemetryGateTests
     public void TheSample_RegistersTheFrameworkPipelineThatCarriesTelemetry()
     {
         Assert.Contains("AddNativeWebWeb(options", Read("apps", "sample", "Program.cs"), StringComparison.Ordinal);
-        Assert.Contains(
-            "services.AddOpenTelemetry()",
-            Read("libs", "nativeweb.web", "NativeWebPipeline.cs"),
-            StringComparison.Ordinal);
+
+        // The link between the two, not two independent substrings. AddOpenTelemetry
+        // lives in AddNativeWebTelemetry, a separate public method: unhooking that
+        // call from AddNativeWebWeb left both old needles intact and this test green,
+        // which is the regression the comment above says it exists to catch.
+        string pipeline = Read("libs", "nativeweb.web", "NativeWebPipeline.cs");
+
+        int registration = pipeline.IndexOf("AddNativeWebWeb", StringComparison.Ordinal);
+        Assert.True(registration >= 0, "NativeWebPipeline.cs no longer declares AddNativeWebWeb.");
+
+        int call = pipeline.IndexOf("AddNativeWebTelemetry(options", registration, StringComparison.Ordinal);
+        Assert.True(
+            call > registration,
+            "AddNativeWebWeb does not call AddNativeWebTelemetry, so the sample turns on a switch nothing reads.");
+
+        int telemetry = pipeline.IndexOf("public static IServiceCollection AddNativeWebTelemetry", StringComparison.Ordinal);
+        Assert.True(telemetry > call, "AddNativeWebTelemetry is not declared after the call site this test located.");
+
+        Assert.Contains("services.AddOpenTelemetry()", pipeline[telemetry..], StringComparison.Ordinal);
     }
 }

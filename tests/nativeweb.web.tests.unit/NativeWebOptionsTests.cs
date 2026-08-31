@@ -218,4 +218,48 @@ public sealed class NativeWebOptionsTests
 
         Assert.Equal([IPAddress.Parse("10.0.0.1"), IPAddress.Parse("10.0.0.3")], options.KnownProxies);
     }
+
+    [Fact]
+    public void AConfiguredKeyDirectory_IsUsedVerbatim()
+    {
+        Assert.True(NativeWebOptions.TryResolveKeyDirectory("/var/lib/nativeweb/keys", "/home/dev", "Demo", out string? directory));
+        Assert.Equal("/var/lib/nativeweb/keys", directory);
+    }
+
+    [Fact]
+    public void NoConfiguredKeyDirectory_FallsBackUnderTheHomeDirectory()
+    {
+        Assert.True(NativeWebOptions.TryResolveKeyDirectory(null, "/home/dev", "Demo", out string? directory));
+        Assert.Equal(Path.Combine("/home/dev", ".demo", "keys"), directory);
+    }
+
+    // An empty home is what User=nativeweb gets: adduser --system --no-create-home.
+    // Path.Combine drops the empty segment, so the fallback used to yield a RELATIVE
+    // path, which resolves under WorkingDirectory -- read-only under
+    // ProtectSystem=strict. The key ring could not persist, every restart reminted
+    // the antiforgery keys, and every form POST answered 400 after each deploy with
+    // /readyz green.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void NoConfiguredKeyDirectory_AndNoHome_IsRefusedRatherThanResolvedRelative(string? configured)
+    {
+        Assert.False(NativeWebOptions.TryResolveKeyDirectory(configured, "", "Demo", out string? directory));
+        Assert.Null(directory);
+    }
+
+    [Fact]
+    public void NoKeyDirectoryAndNoHome_StopsStartupWithANamedError()
+    {
+        Assert.False(NativeWebOptions.TryResolveKeyDirectory(null, "", "Demo", out _));
+
+        Assert.True(NativeWebOptions.TryFromConfiguration(
+            Config(("Demo:DataProtection:KeyDirectory", "/var/lib/nativeweb/keys")),
+            "Demo",
+            out NativeWebOptions? options,
+            out string? error));
+
+        Assert.Null(error);
+        Assert.Equal("/var/lib/nativeweb/keys", options?.DataProtectionKeyDirectory);
+    }
 }

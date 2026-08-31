@@ -24,6 +24,15 @@
   <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
        IsAotCompatible and analyzer settings come from Directory.Build.props. -->
 
+  <!-- TryResolveKeyDirectory takes the home directory as a parameter so the
+       empty-home case can be tested, and an empty home is what a systemd unit
+       created as a system account with no home directory gets. Making it public
+       to test it would put a helper nobody calls on the framework's API
+       surface. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="nativeweb.web.tests.unit" />
+  </ItemGroup>
+
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\nativeweb.render\nativeweb.render.csproj" />
