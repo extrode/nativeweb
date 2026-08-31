@@ -106,6 +106,7 @@ being discovered fails by name instead of vanishing from the run.
 ```
 dotnet test tests/nativeweb.repo.tests.unit
 dotnet test tests/nativeweb.render.tests.unit
+dotnet test tests/nativeweb.web.tests.unit
 dotnet test tests/nativeweb.forms.tests.unit
 dotnet test tests/nativeweb.scaffold.tests.unit
 dotnet test tests/nativeweb.scaffold.tests.integration
@@ -115,20 +116,27 @@ dotnet test tests/nativeweb.sample.tests.unit
 
 The full set, and what each returned on the verification run:
 
-| Project | Facts |
-|---|---|
-| `tests/nativeweb.repo.tests.unit` | 51 |
-| `tests/nativeweb.render.tests.unit` | 157 |
-| `tests/nativeweb.forms.tests.unit` | 85 |
-| `tests/nativeweb.scaffold.tests.unit` | 64 |
-| `tests/nativeweb.scaffold.tests.integration` | 38 |
-| `tests/nativeweb.scaffold.tests.e2e` | 13 |
-| `tests/nativeweb.sample.tests.unit` | 36 |
-| **Total** | **444 — 0 failed, 0 skipped** |
+| Project | Facts | Covers |
+|---|---|---|
+| `tests/nativeweb.repo.tests.unit` | 87 | the repository's own build, CI and deploy files |
+| `tests/nativeweb.render.tests.unit` | 161 | the template generator and its runtime |
+| `tests/nativeweb.web.tests.unit` | 94 | the pipeline, middleware and startup guards |
+| `tests/nativeweb.forms.tests.unit` | 85 | form binding and the antiforgery analyzer |
+| `tests/nativeweb.scaffold.tests.unit` | 109 | the CRUD generator |
+| `tests/nativeweb.scaffold.tests.integration` | 60 | the generated admin through a real pipeline |
+| `tests/nativeweb.scaffold.tests.e2e` | 14 | a real browser, including the no-JavaScript path |
+| `tests/nativeweb.sample.tests.unit` | 47 | the reference application |
+| **Total** | **657 — 0 failed, 0 skipped** | |
 
-Measured 2026-08-31, `dotnet build NativeWeb.slnx` and `dotnet test NativeWeb.slnx` from a clean
-tree, after `apps/web` and the seven test projects that covered it left the repository — see
-[`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`](../decisions/2026-08-31-007-idp-leaves-nativeweb.md).
+Measured 2026-08-31 from a clean tree, one tier at a time. The eight projects above are every test
+project in `NativeWeb.slnx`; nothing else under `tests/` is real.
+
+**Two libraries have no tier here, and that is a gap rather than a decision.**
+`libs/nativeweb.security` (Argon2id passphrases, an AES-GCM store protector, opaque tokens, blind
+indexes, bot traps) and `libs/nativeweb.mail` are covered by none of the 657 facts — their suites
+left the repository with the identity provider on 2026-08-31. `libs/nativeweb.security` is one of
+the two projects an outside consumer already builds against, so treat its behaviour as unproven
+until that is fixed; it is tracked in `work/todo.md`.
 
 A count that has drifted from this table is not automatically a problem; a *failure* is.
 
