@@ -52,7 +52,28 @@ that can be wrong.
 dotnet run --project apps/sample
 ```
 
-Then open `http://localhost:5399/admin/articles`. **A missing connection string is not an error
+Then open `http://localhost:5399/articles` — the public feed, rendered through the framework's own
+compiled templates, with the filter posting over htmx and swapping only the list.
+`http://localhost:5399/admin/articles` is the scaffolded CRUD behind the demo sign-in.
+
+**To edit and see the change without restarting**, one command:
+
+```
+dotnet watch run --project apps/sample --no-hot-reload
+```
+
+Both halves of that line were measured on 2026-08-31 and neither is decoration:
+
+| | Without it |
+|---|---|
+| `--no-hot-reload` | The watcher logs nothing on any change, template or `.cs`, and the app keeps serving the previous markup. A scratch console app in the same tree rebuilt on both, so the cause is this project rather than the machine. |
+| `<Watch Include="templates\**\*.html" />` in `nativeweb.sample.csproj` | Templates are `AdditionalFiles`, which `dotnet watch`'s default globs do not cover. Editing one produced no file-change line at all. |
+
+A template edit is a source-generator re-run, so the loop is a rebuild and a restart — a few
+seconds, not the sub-second swap hot reload advertises. The alternative is not a faster loop; it
+is a loop that silently does nothing.
+
+**A missing connection string is not an error
 here** — it selects an in-memory store, deliberately, so that the demo, the integration tier and
 the browser tier all work with no database. That is a development convenience and a design
 statement, not a supported deployment mode; the moment you configure `ConnectionStrings:Sample`,

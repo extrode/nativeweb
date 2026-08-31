@@ -57,8 +57,13 @@ standing in for the feed, and the same command fails on a clean machine.
 rather than failing, which makes this the fastest way to see the thing work.
 
 ```
-dotnet run --project apps/sample                # http://localhost:5399
+dotnet run --project apps/sample                          # http://localhost:5399/articles
+dotnet watch run --project apps/sample --no-hot-reload    # the edit-and-see-it loop
 ```
+
+`--no-hot-reload` is required, not a preference: under the default hot-reload session this project
+detects no change at all. `getting-started.md` has the measurement and the matching csproj `Watch`
+items that templates need.
 
 It is the framework's reference application and the only deployable project here. `apps/web`, an
 identity provider, used to sit beside it and left on 2026-08-31 —
