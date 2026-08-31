@@ -307,4 +307,28 @@ public sealed class NativeWebOptionsTests
         Assert.Null(error);
         Assert.Equal("/var/lib/nativeweb/keys", options?.DataProtectionKeyDirectory);
     }
+    [Fact]
+    public void TheProbe_RefusesAHomeThatWasNeverCreated()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), $"nativeweb-absent-{Guid.NewGuid():N}");
+
+        Assert.False(NativeWebOptions.CanPersistKeys(missing));
+        Assert.False(Directory.Exists(missing));
+    }
+
+    [Fact]
+    public void TheProbe_AcceptsAWritableDirectoryAndLeavesNothingBehind()
+    {
+        string dir = Directory.CreateTempSubdirectory("nativeweb-probe").FullName;
+
+        try
+        {
+            Assert.True(NativeWebOptions.CanPersistKeys(dir));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(dir));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

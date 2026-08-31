@@ -36,8 +36,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/dist}"
 RUNTIME_ID="${RUNTIME_ID:-linux-x64}"
 # Captured BEFORE the defaults are applied. Once a variable has been given its
-# default it is always set, so a +x test can no longer tell an override from a
-# default and the guard below would never fire.
+# default it is always set, so a test made after the fact cannot tell an override
+# from a default and the guard below would never fire. `:+` rather than `+`: an
+# override to the empty string is not an override of anything, and deploy.sh --
+# which re-executes itself with these forwarded -- depends on that reading.
 PROJECT_SET="${PROJECT:+yes}"
 CONFIG_PREFIX_SET="${CONFIG_PREFIX:+yes}"
 DB_DIR_SET="${DB_DIR:+yes}"
@@ -81,6 +83,19 @@ fi
 # contains. deploy.sh resolves the stamp release-relative and died on the host,
 # after the whole NativeAOT publish. With the defaults the two coincide, which is
 # why nothing caught it. Found by Fable, 2026-08-31.
+# Both are repo-relative and neither keeps a trailing slash. DB_DIR=database/ is
+# an ordinary way to type a directory, and it made the case below compare against
+# `database//*`, which database/migrations does not match -- so the build refused
+# a pair that was correct, with a message saying the opposite.
+DB_DIR="${DB_DIR%/}"
+MIGRATIONS_DIR="${MIGRATIONS_DIR%/}"
+
+if [[ "$DB_DIR" = /* || "$MIGRATIONS_DIR" = /* ]]; then
+	echo "ERROR: DB_DIR and MIGRATIONS_DIR are paths inside this repository, relative to its" >&2
+	echo "       root. Got DB_DIR=$DB_DIR MIGRATIONS_DIR=$MIGRATIONS_DIR." >&2
+	exit 1
+fi
+
 if [[ ! -d "$REPO_ROOT/$MIGRATIONS_DIR" ]]; then
 	echo "ERROR: MIGRATIONS_DIR is $MIGRATIONS_DIR, which is not a directory in this repository." >&2
 	exit 1

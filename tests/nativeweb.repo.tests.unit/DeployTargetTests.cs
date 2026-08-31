@@ -177,6 +177,18 @@ public sealed class DeployTargetTests
 
         Assert.Contains("MIGRATIONS_DIR_SET=\"${MIGRATIONS_DIR:+yes}\"", deploy, StringComparison.Ordinal);
         Assert.DoesNotContain("MIGRATIONS_DIR_SET=\"${MIGRATIONS_DIR+yes}\"", deploy, StringComparison.Ordinal);
+
+        // And the capture is read where the stamp is: pinning the spelling alone
+        // stayed green with the whole `if [[ -z ... ]]` block deleted, which is the
+        // regression this test is named for.
+        const string branch = "if [[ -z \"$MIGRATIONS_DIR_SET\" ]]; then";
+        int start = deploy.IndexOf(branch, StringComparison.Ordinal);
+        Assert.True(start >= 0, "deploy.sh no longer reads MIGRATIONS_DIR_SET, so nothing decides whether to trust the stamp.");
+
+        int end = deploy.IndexOf("\nfi", start, StringComparison.Ordinal);
+        Assert.True(end > start, "the MIGRATIONS_DIR_SET branch has no closing fi.");
+
+        Assert.Contains("sed -n 's/^migrations_dir=//p' \"$STAGE/RELEASE\"", deploy[start..end], StringComparison.Ordinal);
     }
 
     private static string Defaulted(string script, string marker)

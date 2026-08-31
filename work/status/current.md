@@ -28,6 +28,13 @@ worth seeing here rather than hiding, but it is the exception.
   404 for a row a concurrent save had replaced, and `skeleton/db/migrate.sh` shipping without the
   run lock and atomic wrap this repo's runner has. Five tests that asserted a substring existed
   somewhere in a file were rewritten to parse the structure they name, each mutation-checked.
+  **A second Fable pass over those fixes found six more**, three of which were breaks rather than
+  overstatements: the remote deploy path never read the stamp the first fix added, so every
+  `--host` and `--incus` deploy would have failed at the migrate step; the migration runner looked
+  for `0002_extensions.sql` while the skeleton ships `0001`, so every fresh stamped product would
+  have failed its first migration as the app role; and the key-directory guard tested for an empty
+  home, which the system account it was written for does not produce. All fixed and
+  mutation-checked. 645 tests green across the eight suites in `NativeWeb.slnx`.
 
 - **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
   not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has

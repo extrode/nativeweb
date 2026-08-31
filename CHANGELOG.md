@@ -43,6 +43,19 @@ Merged into `dev`, not yet tagged.
   missing the advisory run lock, the `is_tracked` failure guard and the atomic transaction wrap, so
   every stamped product shipped with the runner the fixes had never reached. It is now generated
   from `db/migrate.sh` and held there by line-by-line parity.
+- **The remote deploy path never read the stamp the fix above added.** `deploy.sh` re-executes
+  itself on the far side of both transports and forwards `MIGRATIONS_DIR` unconditionally, so the
+  host half always saw it set — to the empty string — and a `+` test counted that as an override.
+  Every `--host` and `--incus` deploy would have died at the migrate step; only `--local` reached
+  the stamp. Both scripts now capture with `:+`.
+- **Every fresh stamped product would have failed its first migration.** The runner named
+  `0002_extensions.sql` while `skeleton/db/migrations` ships `0001_extensions.sql`, so the file
+  fell through to the main loop and was applied as the app role, which cannot `CREATE EXTENSION`.
+  The superuser step is found by pattern now, not by number.
+- **The key-directory guard did not fire on the host it was written for.** A system account
+  records a home in `passwd` that was never created, so `UserProfile` comes back non-empty and the
+  emptiness test passed; the ring resolved under a directory nothing can write, which is the
+  silent 400 the guard exists to prevent. The fallback is probed rather than inferred.
 - **Five tests whose comments claimed more than their assertions proved.** Each asserted that a
   substring appeared somewhere in a file, which stays true when the branch containing it is
   deleted. They now parse the structure they name — branch slices, line-by-line parity, a derived

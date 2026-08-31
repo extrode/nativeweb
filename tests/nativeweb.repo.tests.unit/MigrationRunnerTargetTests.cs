@@ -151,14 +151,64 @@ public sealed class MigrationRunnerTargetTests
     public void TheSkeletonsExtensionsMigration_MatchesThePatternItsRunnerLooksFor()
     {
         string runner = File.ReadAllText(Path.Combine(RepoRoot(), "skeleton", "db", "migrate.sh"));
+        string glob = ExtensionsGlob(runner, "skeleton/db/migrate.sh");
 
-        const string marker = "EXT_FILE=\"$(compgen -G \"$MIGRATIONS_DIR/";
+        string[] extensions = ExtensionsMigrations("skeleton", "db", "migrations");
+        Assert.NotEmpty(extensions);
+
+        // One, not merely at least one. EXT_VERSION holds a single version, so a
+        // second extensions migration falls into the main loop and is applied as
+        // the app role -- the same failure with a later number on it. The runner
+        // refuses that directory; this asserts the skeleton never ships one.
+        Assert.Single(extensions);
+        Assert.Contains("Only one file may be applied as $SUPERUSER_ROLE", runner, StringComparison.Ordinal);
+
+        foreach (string? file in extensions)
+        {
+            Assert.True(
+                Regex.IsMatch(file!, GlobToRegex(glob)),
+                $"skeleton/db/migrations/{file} creates extensions, which the app role cannot do, "
+                    + $"but the runner's superuser step looks for {glob} and would apply it as the app role.");
+        }
+    }
+
+    // The same drift in this repository's own schema: db/sample has no extensions
+    // migration today, so this is a guard rather than a check. Renaming one in
+    // would otherwise fall through to the app-role loop with nothing red.
+    [Fact]
+    public void TheSampleSchemasExtensionsMigrations_MatchThePatternItsRunnerLooksFor()
+    {
+        string glob = ExtensionsGlob(Runner(), "db/migrate.sh");
+
+        foreach (string? file in ExtensionsMigrations("db", "sample", "migrations"))
+        {
+            Assert.True(
+                Regex.IsMatch(file!, GlobToRegex(glob)),
+                $"db/sample/migrations/{file} creates extensions, which the app role cannot do, "
+                    + $"but the runner's superuser step looks for {glob} and would apply it as the app role.");
+        }
+
+        Assert.True(ExtensionsMigrations("db", "sample", "migrations").Length <= 1);
+    }
+
+    private static string ExtensionsGlob(string runner, string path)
+    {
+        const string marker = "EXT_MATCHES=\"$(compgen -G \"$MIGRATIONS_DIR/";
         int start = runner.IndexOf(marker, StringComparison.Ordinal);
-        Assert.True(start >= 0, "skeleton/db/migrate.sh no longer discovers the extensions migration by pattern.");
+        Assert.True(start >= 0, $"{path} no longer discovers the extensions migration by pattern.");
 
         start += marker.Length;
-        string glob = runner[start..runner.IndexOf('"', start)];
+        return runner[start..runner.IndexOf('"', start)];
+    }
 
+    private static string[] ExtensionsMigrations(params string[] segments) =>
+        Directory
+            .EnumerateFiles(Path.Combine([RepoRoot(), .. segments]), "*_extensions.sql")
+            .Select(Path.GetFileName)
+            .ToArray()!;
+
+    private static string GlobToRegex(string glob)
+    {
         StringBuilder pattern = new("^");
         for (int i = 0; i < glob.Length; i++)
         {
@@ -173,22 +223,7 @@ public sealed class MigrationRunnerTargetTests
             }
         }
 
-        pattern.Append('$');
-
-        string[] extensions = Directory
-            .EnumerateFiles(Path.Combine(RepoRoot(), "skeleton", "db", "migrations"), "*_extensions.sql")
-            .Select(Path.GetFileName)
-            .ToArray()!;
-
-        Assert.NotEmpty(extensions);
-
-        foreach (string? file in extensions)
-        {
-            Assert.True(
-                Regex.IsMatch(file!, pattern.ToString()),
-                $"skeleton/db/migrations/{file} creates extensions, which the app role cannot do, "
-                    + $"but the runner's superuser step looks for {glob} and would apply it as the app role.");
-        }
+        return pattern.Append('$').ToString();
     }
 
     // Refused, not merely detected. The substring alone passed with the guard

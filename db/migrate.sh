@@ -578,7 +578,23 @@ fi
 # recognised as the superuser step, falls into the loop below, and is applied as
 # the app role -- which cannot CREATE EXTENSION, so every fresh product failed
 # its first migration run. Found by Fable, 2026-08-31.
-EXT_FILE="$(compgen -G "$MIGRATIONS_DIR/[0-9][0-9][0-9][0-9]_extensions.sql" | head -n 1 || true)"
+#
+# EXT_VERSION holds ONE version, so more than one extensions migration cannot be
+# handled here -- the second would fall into the loop below and be applied as the
+# app role, which is the same failure with a later number on it. Refused rather
+# than half-supported: the message says what to do, and nothing runs.
+EXT_MATCHES="$(compgen -G "$MIGRATIONS_DIR/[0-9][0-9][0-9][0-9]_extensions.sql" || true)"
+EXT_COUNT="$(printf '%s' "$EXT_MATCHES" | grep -c . || true)"
+if [ "$EXT_COUNT" -gt 1 ]; then
+  echo "ERROR: $MIGRATIONS_DIR has $EXT_COUNT extensions migrations:" >&2
+  printf '  %s
+' $EXT_MATCHES >&2
+  echo "       Only one file may be applied as $SUPERUSER_ROLE. Fold them into one," >&2
+  echo "       or move the later statements into a migration the app role can run." >&2
+  exit 1
+fi
+
+EXT_FILE="$EXT_MATCHES"
 if [ -z "$EXT_FILE" ]; then
   EXT_VERSION="none"
   echo "none  no extensions migration in this schema; no superuser step"

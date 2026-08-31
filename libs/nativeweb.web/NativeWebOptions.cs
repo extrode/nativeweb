@@ -174,35 +174,39 @@ public sealed record NativeWebOptions
             return false;
         }
 
-        string candidate = Path.Combine(home, "." + applicationName.ToLowerInvariant(), "keys");
-        if (!canPersist(candidate))
+        // The home directory itself is what gets probed, and it has to already
+        // exist. A system account's passwd entry names a home that was never
+        // created -- /nonexistent on Debian -- and a process with enough privilege
+        // simply creates it, so a probe that CREATES the candidate returns true for
+        // the very account this guard was written for and puts the key ring on an
+        // ephemeral path nothing provisions or backs up. Existing-and-writable is
+        // the question; the key ring makes its own subdirectory afterwards.
+        if (!canPersist(home))
         {
             directory = null;
             return false;
         }
 
-        directory = candidate;
+        directory = Path.Combine(home, "." + applicationName.ToLowerInvariant(), "keys");
         return true;
     }
 
-    // Creating the directory is part of the probe rather than a side effect to
-    // apologise for: the key ring creates it on first use anyway, and a path whose
-    // parent forbids the creation is the failure this exists to catch. The write
-    // is what separates "does not exist yet" from "will never be writable" --
-    // ProtectSystem=strict makes the release directory readable and not writable,
-    // which no existence check can tell apart from a fresh install.
-    //
-    // What is NOT done here is removing the directory again. An earlier version
-    // deleted it when the probe had created it, to leave a test that only binds
-    // options no litter; four test hosts binding at once then raced -- one deleted
-    // the directory while another was writing its probe into it, and the loser
-    // refused to start. The probe file carries a random name for the same reason.
-    private static bool CanPersistKeys(string directory)
+    // Existence and writability, and nothing created that outlives the call. An
+    // earlier version created the candidate directory to prove the parent allowed
+    // it; that answered a different question -- a root process creates
+    // /nonexistent happily -- and it raced when four test hosts bound options at
+    // once, one deleting the directory while another wrote its probe into it. The
+    // probe file's name is random for the same reason.
+    internal static bool CanPersistKeys(string directory)
     {
+        if (!Directory.Exists(directory))
+        {
+            return false;
+        }
+
+        string probe = Path.Combine(directory, $".nativeweb-probe-{Path.GetRandomFileName()}");
         try
         {
-            Directory.CreateDirectory(directory);
-            string probe = Path.Combine(directory, $".nativeweb-probe-{Path.GetRandomFileName()}");
             File.WriteAllBytes(probe, []);
             File.Delete(probe);
             return true;
