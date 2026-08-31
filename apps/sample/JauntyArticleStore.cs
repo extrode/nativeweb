@@ -35,7 +35,20 @@ namespace NativeWeb.Sample;
 /// </remarks>
 internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffoldStore<Article>
 {
-    public async ValueTask<IReadOnlyList<Article>> ListAsync(string? search, int skip, int take, CancellationToken ct)
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <paramref name="searchFields"/> arrives carrying Title, Author and Body --
+    /// the model's <c>[ScaffoldSearch]</c> set -- and this implementation does not
+    /// read it, because the columns are named in the SQL: <c>List.sql</c>'s WHERE
+    /// clause is <c>title ILIKE ... OR COALESCE(author, '') ILIKE ... OR body
+    /// ILIKE ...</c>, and JauntyQ compiles that text rather than composing it. The
+    /// parameter is still the right shape for the seam: a store that builds its
+    /// predicate at runtime needs the list, and one whose query is a fixed
+    /// statement has the same fact in the .sql file. Adding a fourth
+    /// <c>[ScaffoldSearch]</c> to the model means editing List.sql and Count.sql to
+    /// match; nothing here can do that for you.
+    /// </remarks>
+    public async ValueTask<IReadOnlyList<Article>> ListAsync(string? search, IReadOnlyList<string> searchFields, int skip, int take, CancellationToken ct)
     {
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);
@@ -60,7 +73,9 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         return articles;
     }
 
-    public async ValueTask<int> CountAsync(string? search, CancellationToken ct)
+    /// <inheritdoc/>
+    /// <remarks>Same fixed-SQL reasoning as <see cref="ListAsync"/>.</remarks>
+    public async ValueTask<int> CountAsync(string? search, IReadOnlyList<string> searchFields, CancellationToken ct)
     {
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);

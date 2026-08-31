@@ -77,7 +77,7 @@ public sealed class ScaffoldedCrudTests
     }
 
     [Fact]
-    public async Task Create_AddsARowAndRedirectsToTheList()
+    public async Task Create_AddsARowAndRedirectsToTheKeyTheStoreReturned()
     {
         using var factory = new SampleFactory();
         using HttpClient client = await factory.CreateSignedInAsync();
@@ -93,7 +93,17 @@ public sealed class ScaffoldedCrudTests
             new("viewCount", "3"));
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
-        Assert.Equal("/admin/articles", response.Headers.Location?.ToString());
+
+        // The redirect names the row, not the list. IScaffoldStore.CreateAsync says
+        // the store assigns the key and returns it; sending the browser there is
+        // what makes a store that returns a stale or empty key fail visibly on the
+        // next request instead of silently overwriting a row later.
+        string location = response.Headers.Location?.ToString() ?? "";
+        Assert.StartsWith("/admin/articles/", location, StringComparison.Ordinal);
+        Assert.NotEqual("/admin/articles/", location);
+
+        string edit = await BodyAsync(client, location);
+        Assert.Contains("Written by a test", edit, StringComparison.Ordinal);
 
         string html = await BodyAsync(client, "/admin/articles");
         Assert.Contains("Written by a test", html, StringComparison.Ordinal);

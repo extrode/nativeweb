@@ -23,7 +23,18 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
 
     protected abstract void AssignKey(T item, string key);
 
-    protected abstract bool Matches(T item, string search);
+    /// <summary>
+    /// One searchable property's value, by the declared property name the generator
+    /// passes down, or null for a name this model does not carry.
+    /// </summary>
+    /// <remarks>
+    /// This replaced a hand-written <c>Matches</c> that named Title, Body and Author
+    /// itself. The list it named and the list <c>[ScaffoldSearch]</c> declared were
+    /// two copies of one fact, and nothing compared them: removing the attribute
+    /// changed the search box's placeholder and left the column searchable, which is
+    /// the defect this parameter exists to make impossible.
+    /// </remarks>
+    protected abstract string? Field(T item, string name);
 
     protected virtual void OnCreate(T item)
     {
@@ -31,9 +42,9 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
 
     protected virtual string NewKey() => Guid.NewGuid().ToString("n")[..8];
 
-    public ValueTask<IReadOnlyList<T>> ListAsync(string? search, int skip, int take, CancellationToken ct)
+    public ValueTask<IReadOnlyList<T>> ListAsync(string? search, IReadOnlyList<string> searchFields, int skip, int take, CancellationToken ct)
     {
-        IReadOnlyList<T> page = Filter(search)
+        IReadOnlyList<T> page = Filter(search, searchFields)
             .OrderBy(KeyOf, StringComparer.Ordinal)
             .Skip(skip)
             .Take(take)
@@ -42,8 +53,8 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
         return ValueTask.FromResult(page);
     }
 
-    public ValueTask<int> CountAsync(string? search, CancellationToken ct) =>
-        ValueTask.FromResult(Filter(search).Count());
+    public ValueTask<int> CountAsync(string? search, IReadOnlyList<string> searchFields, CancellationToken ct) =>
+        ValueTask.FromResult(Filter(search, searchFields).Count());
 
     public ValueTask<T?> GetAsync(string id, CancellationToken ct) =>
         ValueTask.FromResult(this._items.TryGetValue(id, out T? found) ? found : null);
@@ -75,10 +86,24 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
     /// <summary>Seeds a row directly, bypassing key generation.</summary>
     internal void Seed(T item) => this._items[KeyOf(item)] = item;
 
-    private IEnumerable<T> Filter(string? search) =>
-        string.IsNullOrWhiteSpace(search)
+    private IEnumerable<T> Filter(string? search, IReadOnlyList<string> searchFields) =>
+        string.IsNullOrWhiteSpace(search) || searchFields.Count == 0
             ? this._items.Values
-            : this._items.Values.Where(i => Matches(i, search!));
+            : this._items.Values.Where(i => Matches(i, search!, searchFields));
+
+    private bool Matches(T item, string search, IReadOnlyList<string> searchFields)
+    {
+        foreach (string name in searchFields)
+        {
+            if (Field(item, name) is string value
+                && value.Contains(search, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 internal sealed class ArticleStore : MemoryStore<Article>
@@ -91,10 +116,13 @@ internal sealed class ArticleStore : MemoryStore<Article>
     // the store is the only thing that can set it. That is the intended division.
     protected override void OnCreate(Article item) => item.CreatedAt = DateTime.UtcNow;
 
-    protected override bool Matches(Article item, string search) =>
-        item.Title.Contains(search, StringComparison.OrdinalIgnoreCase)
-        || item.Body.Contains(search, StringComparison.OrdinalIgnoreCase)
-        || (item.Author?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false);
+    protected override string? Field(Article item, string name) => name switch
+    {
+        nameof(Article.Title) => item.Title,
+        nameof(Article.Author) => item.Author,
+        nameof(Article.Body) => item.Body,
+        _ => null,
+    };
 }
 
 internal sealed class TagStore : MemoryStore<Tag>
@@ -103,6 +131,6 @@ internal sealed class TagStore : MemoryStore<Tag>
 
     protected override void AssignKey(Tag item, string key) => item.Slug = key;
 
-    protected override bool Matches(Tag item, string search) =>
-        item.Name.Contains(search, StringComparison.OrdinalIgnoreCase);
+    protected override string? Field(Tag item, string name) =>
+        name == nameof(Tag.Name) ? item.Name : null;
 }

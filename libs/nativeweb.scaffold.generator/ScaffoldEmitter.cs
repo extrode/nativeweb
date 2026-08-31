@@ -53,6 +53,9 @@ internal static class ScaffoldEmitter
         sb.AppendLine($"    private const string Singular = \"{Escape(model.Singular)}\";");
         sb.AppendLine("    private const int PageSize = 20;");
         sb.AppendLine();
+        sb.AppendLine("    /// <summary>The [ScaffoldSearch] properties, as declared names, handed to the store on every list.</summary>");
+        sb.AppendLine($"    public static readonly string[] SearchFields = [{string.Join(", ", searchable.Select(p => "\"" + Escape(p.Name) + "\""))}];");
+        sb.AppendLine();
 
         EmitMap(sb, model, cls, form, route);
         EmitList(sb, model, type, listed, searchable);
@@ -186,10 +189,17 @@ internal static class ScaffoldEmitter
         sb.AppendLine("    {");
         sb.AppendLine($"        IScaffoldStore<{type}> store = http.RequestServices.GetRequiredService<IScaffoldStore<{type}>>();");
         sb.AppendLine("        string? search = ScaffoldValues.Text(http.Request.Query[\"q\"].ToString());");
-        sb.AppendLine("        int page = Math.Max(1, ScaffoldValues.Int32(http.Request.Query[\"page\"].ToString(), 1));");
+        // Clamped at both ends, not just the low one. ?page=2000000000 multiplied
+        // by PageSize overflows a signed int and lands on a NEGATIVE skip, which an
+        // unsuspecting store hands to Skip() or to OFFSET; the route is an
+        // anonymous GET on an open model, so the input costs an attacker nothing.
+        // MaxPage is int.MaxValue / PageSize, the largest page whose offset still
+        // fits, so the arithmetic below cannot overflow whatever PageSize becomes.
+        sb.AppendLine("        const int MaxPage = int.MaxValue / PageSize;");
+        sb.AppendLine("        int page = Math.Clamp(ScaffoldValues.Int32(http.Request.Query[\"page\"].ToString(), 1), 1, MaxPage);");
         sb.AppendLine();
-        sb.AppendLine($"        IReadOnlyList<{type}> rows = await store.ListAsync(search, (page - 1) * PageSize, PageSize, ct).ConfigureAwait(false);");
-        sb.AppendLine("        int total = await store.CountAsync(search, ct).ConfigureAwait(false);");
+        sb.AppendLine($"        IReadOnlyList<{type}> rows = await store.ListAsync(search, SearchFields, (page - 1) * PageSize, PageSize, ct).ConfigureAwait(false);");
+        sb.AppendLine("        int total = await store.CountAsync(search, SearchFields, ct).ConfigureAwait(false);");
         sb.AppendLine();
         sb.AppendLine("        StringBuilder sb = new(4096);");
         sb.AppendLine("        sb.Append(\"<div class=\\\"nws-head\\\"><h1>\").Append(Enc(Display)).Append(\"</h1>\");");
@@ -280,8 +290,13 @@ internal static class ScaffoldEmitter
         sb.AppendLine("            return ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, item, BasePath, \"Create\", error));");
         sb.AppendLine("        }");
         sb.AppendLine();
-        sb.AppendLine("        await store.CreateAsync(item, ct).ConfigureAwait(false);");
-        sb.AppendLine("        return Results.Redirect(BasePath);");
+        // The returned key is used rather than discarded, and the redirect goes to
+        // the new row. The store is the only party that can assign a unique key
+        // (IScaffoldStore.CreateAsync says so), and a store that returns a stale or
+        // empty one now shows it on the very next request instead of at the next
+        // silent overwrite.
+        sb.AppendLine("        string created = await store.CreateAsync(item, ct).ConfigureAwait(false);");
+        sb.AppendLine("        return Results.Redirect(BasePath + \"/\" + Uri.EscapeDataString(created));");
         sb.AppendLine("    }");
         sb.AppendLine();
     }
@@ -304,7 +319,14 @@ internal static class ScaffoldEmitter
         sb.AppendLine("            return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, item, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", error));");
         sb.AppendLine("        }");
         sb.AppendLine();
-        sb.AppendLine("        await store.UpdateAsync(id, item, ct).ConfigureAwait(false);");
+        // The row was there when GetAsync ran and may not be when UpdateAsync does:
+        // a concurrent delete between the two is one request, not a rare race. A
+        // discarded false redirected to the list as if the edit had been saved.
+        sb.AppendLine("        if (!await store.UpdateAsync(id, item, ct).ConfigureAwait(false))");
+        sb.AppendLine("        {");
+        sb.AppendLine("            return Results.NotFound();");
+        sb.AppendLine("        }");
+        sb.AppendLine();
         sb.AppendLine("        return Results.Redirect(BasePath);");
         sb.AppendLine("    }");
         sb.AppendLine();
@@ -315,7 +337,13 @@ internal static class ScaffoldEmitter
         sb.AppendLine("    private static async Task<IResult> DeleteAsync(string id, HttpContext http, CancellationToken ct)");
         sb.AppendLine("    {");
         sb.AppendLine($"        IScaffoldStore<{type}> store = http.RequestServices.GetRequiredService<IScaffoldStore<{type}>>();");
-        sb.AppendLine("        await store.DeleteAsync(id, ct).ConfigureAwait(false);");
+        // False means no such row. Redirecting anyway reported a deletion that did
+        // not happen -- indistinguishable, from the browser, from one that did.
+        sb.AppendLine("        if (!await store.DeleteAsync(id, ct).ConfigureAwait(false))");
+        sb.AppendLine("        {");
+        sb.AppendLine("            return Results.NotFound();");
+        sb.AppendLine("        }");
+        sb.AppendLine();
         sb.AppendLine("        return Results.Redirect(BasePath);");
         sb.AppendLine("    }");
         sb.AppendLine();
@@ -335,6 +363,23 @@ internal static class ScaffoldEmitter
                 sb.AppendLine($"        if (ScaffoldValues.Text(form.{p.Name}) is null)");
                 sb.AppendLine("        {");
                 sb.AppendLine($"            return (Build(form, existing), \"{Escape(p.Label)} is required.\");");
+                sb.AppendLine("        }");
+                sb.AppendLine();
+                continue;
+            }
+
+            // Malformed input is an error the user is shown, not a fallback the
+            // store keeps. Without this, "abc" in a number field was saved as 0 and
+            // "not-a-date" as this instant, and the response was the same 302 a
+            // valid submission gets -- the converters answer every failure with a
+            // fallback, by design, so nothing downstream could tell the difference.
+            // Blank still takes the fallback; only a value that cannot be read as
+            // its declared type stops here.
+            if (Validator(p) is (string check, string message))
+            {
+                sb.AppendLine($"        if (!ScaffoldValues.{check}(form.{p.Name}))");
+                sb.AppendLine("        {");
+                sb.AppendLine($"            return (Build(form, existing), \"{Escape(p.Label)} {message}\");");
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }
@@ -404,6 +449,23 @@ internal static class ScaffoldEmitter
 
     private static bool IsStringLike(PropertyModel p) => p.TypeName == "string";
 
+    // The ScaffoldValues check for a property's declared type, and the tail of the
+    // message shown when it fails. Null for string and bool: a string cannot be
+    // malformed, and an unticked checkbox submits nothing at all, so every value a
+    // bool field can carry is meaningful.
+    private static (string Check, string Message)? Validator(PropertyModel p) => p.TypeName switch
+    {
+        "short" => ("IsInt16", "must be a whole number."),
+        "int" => ("IsInt32", "must be a whole number."),
+        "long" => ("IsInt64", "must be a whole number."),
+        "decimal" => ("IsDecimal", "must be a number."),
+        "double" => ("IsDouble", "must be a number."),
+        "float" => ("IsSingle", "must be a number."),
+        "System.DateTime" => ("IsDateTime", "must be a date and time."),
+        "System.Guid" => ("IsGuid", "must be a valid id."),
+        _ => null,
+    };
+
     private static string InputType(PropertyModel p) => p.TypeName switch
     {
         "int" or "long" or "short" => "number",
@@ -419,20 +481,38 @@ internal static class ScaffoldEmitter
         {
             "string" when p.IsNullable => $"ScaffoldValues.Text({raw})",
             "string" => $"ScaffoldValues.Text({raw}) ?? string.Empty",
+            // short and float used to fall through to the string case at the
+            // bottom, which emitted `Quantity = ScaffoldValues.Text(form.Quantity)
+            // ?? string.Empty` -- a string assigned to a short, CS0029, on a model
+            // that had done nothing wrong. InputType already knew both types; only
+            // this table did not. Nullable double and nullable Guid failed the same
+            // way, and neither appeared in the audit because no test model declared
+            // one.
+            "short" when p.IsNullable => $"ScaffoldValues.NullableInt16({raw})",
+            "short" => $"ScaffoldValues.Int16({raw})",
             "int" when p.IsNullable => $"ScaffoldValues.NullableInt32({raw})",
             "int" => $"ScaffoldValues.Int32({raw})",
             "long" when p.IsNullable => $"ScaffoldValues.NullableInt64({raw})",
             "long" => $"ScaffoldValues.Int64({raw})",
             "decimal" when p.IsNullable => $"ScaffoldValues.NullableDecimal({raw})",
             "decimal" => $"ScaffoldValues.Decimal({raw})",
+            "double" when p.IsNullable => $"ScaffoldValues.NullableDouble({raw})",
             "double" => $"ScaffoldValues.Double({raw})",
+            "float" when p.IsNullable => $"ScaffoldValues.NullableSingle({raw})",
+            "float" => $"ScaffoldValues.Single({raw})",
             "bool" => $"ScaffoldValues.Boolean({raw})",
             "System.DateTime" when p.IsNullable => $"ScaffoldValues.NullableDateTime({raw})",
             "System.DateTime" => $"ScaffoldValues.DateTimeValue({raw}, DateTime.UtcNow)",
+            "System.Guid" when p.IsNullable => $"ScaffoldValues.NullableGuid({raw})",
             "System.Guid" => $"ScaffoldValues.GuidValue({raw})",
             _ => $"ScaffoldValues.Text({raw}) ?? string.Empty",
         };
     }
+
+    // A C# string literal, or the null literal. Used where the emitted call takes a
+    // string? and the model may not have supplied one.
+    private static string Literal(string? value) =>
+        value is null ? "null" : "\"" + Escape(value) + "\"";
 
     private static string Escape(string value) =>
         value.Replace("\\", "\\\\").Replace("\"", "\\\"");
@@ -472,18 +552,50 @@ internal static class ScaffoldEmitter
         }
 
         sb.AppendLine();
-        sb.AppendLine($"        endpoints.MapGet(\"{indexPath}\", ScaffoldEndpoints.Handle(http =>");
+
+        // The index carried no authorization at all and listed every model to
+        // everyone. Each per-model route was guarded, so the click failed -- but the
+        // page had already disclosed the display name, the URL and the existence of
+        // every guarded model to an anonymous visitor. Two things fix it, and both
+        // are needed: a link is emitted only when this caller would be allowed the
+        // model's read operation, and the endpoint itself demands an identity when
+        // every model does.
+        //
+        // The posture for a model with no [Auth] is unchanged -- it is open, its
+        // link is unconditional, and the index stays anonymous while any such model
+        // exists. Whether that default should invert is D2 in
+        // docs/plans/2026-08-31-007-framework-readiness.md and is not settled here.
+        bool anyGuarded = models.Any(m => m.Auth is not null);
+        bool allGuarded = models.Count > 0 && models.All(m => m.Auth is not null);
+
+        sb.AppendLine($"        endpoints.MapGet(\"{indexPath}\", ScaffoldEndpoints.Handle({(anyGuarded ? "async " : "")}http =>");
         sb.AppendLine("        {");
         sb.AppendLine("            StringBuilder sb = new(1024);");
         sb.AppendLine("            sb.Append(\"<div class=\\\"nws-head\\\"><h1>Admin</h1></div><ul class=\\\"nws-index\\\">\");");
         foreach (ScaffoldModel m in models)
         {
-            sb.AppendLine($"            sb.Append(\"<li><a href=\\\"{root}/{m.Route}\\\">{Escape(m.Display)}</a></li>\");");
+            string entry = $"            sb.Append(\"<li><a href=\\\"{root}/{m.Route}\\\">{Escape(m.Display)}</a></li>\");";
+            if (m.Auth is null)
+            {
+                sb.AppendLine(entry);
+                continue;
+            }
+
+            string policy = Literal(m.Auth.Policy);
+            string role = Literal(m.Auth.RoleFor(ScaffoldOperation.Read));
+            sb.AppendLine($"            if (await ScaffoldAccess.CanReadAsync(http, {policy}, {role}, true).ConfigureAwait(false))");
+            sb.AppendLine("            {");
+            sb.AppendLine("    " + entry);
+            sb.AppendLine("            }");
         }
 
         sb.AppendLine("            sb.Append(\"</ul>\");");
-        sb.AppendLine("            return Task.FromResult(Page(http, \"Admin\", sb.ToString()));");
-        sb.AppendLine("        }));");
+        sb.AppendLine(anyGuarded
+            ? "            return Page(http, \"Admin\", sb.ToString());"
+            : "            return Task.FromResult(Page(http, \"Admin\", sb.ToString()));");
+        sb.AppendLine(allGuarded
+            ? "        })).RequireAuthorization();"
+            : "        }));");
         sb.AppendLine();
         sb.AppendLine("        return endpoints;");
         sb.AppendLine("    }");

@@ -47,7 +47,9 @@ internal sealed class MemoryPublishedArticles(IScaffoldStore<Article> store) : I
 
     public async ValueTask<IReadOnlyList<PublishedArticle>> RecentAsync(int take, CancellationToken ct)
     {
-        IReadOnlyList<Article> all = await store.ListAsync(null, 0, ScanLimit, ct).ConfigureAwait(false);
+        // No search term, so no search fields: the empty list is what the seam takes
+        // when the caller is not filtering.
+        IReadOnlyList<Article> all = await store.ListAsync(null, [], 0, ScanLimit, ct).ConfigureAwait(false);
 
         return all
             .Where(a => a.Published)
