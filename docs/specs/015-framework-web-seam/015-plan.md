@@ -130,3 +130,44 @@ public static class NativeWebPipeline
 | R12 | every task; the build gates it |
 
 No requirement is uncovered.
+
+## Constraint found in T7: two assets at one target path is a build error
+
+R7 assumed the framework's assets could keep the paths they already had —
+`/css/base.css`, `/vendor/nativeweb/boot.js` — with the library's copy replacing each
+app's vendored one. Measured on 2026-08-31 against a scratch consumer: it cannot. The
+static web assets pipeline treats a target-path collision as an error, not a precedence
+question:
+
+```
+Microsoft.NET.Sdk.StaticWebAssets.targets(640,5): error : Conflicting assets with the
+same target path 'vendor/nativeweb/boot#[.{fingerprint}]?.js'.
+```
+
+So adopting the `.targets` at the old paths would have required deleting every app's
+vendored copy in the same commit, or the build fails outright. Two ways out:
+
+1. **Delete the copies with the change.** Correct end state, but removal in this repo is
+   a script the user runs, so the branch would sit broken between the commit and that run.
+2. **Give the framework a base path no app occupies** — chosen. Assets are served under
+   `/_nativeweb/` (`/_nativeweb/boot.js`, `/_nativeweb/css/base.css`), which is
+   underscore-prefixed the way `_framework` and `_content` are, and cannot collide with an
+   app's own `wwwroot/css/base.css`. The vendored copies become unreferenced leftovers,
+   listed for `scripts/cleanup/015-framework-web-seam.ps1`, and the build is green before
+   and after that script runs.
+
+Consequences, all landed in T7: the three stylesheets and `boot.js` moved from
+`libs/nativeweb.assets/` to `libs/nativeweb.web/wwwroot/_nativeweb/`; the sample's and the
+skeleton's markup point at the new paths; `AssetParityTests` stops asserting that N copies
+agree — there is one copy — and instead asserts the framework ships what it claims,
+that every `/_nativeweb/` URL in consumer markup resolves to a delivered file, and that any
+leftover copy has not drifted (absence passes: the copies are transitional).
+
+A `build/*.targets` is auto-imported by NuGet for a `PackageReference` and not for a
+`ProjectReference`, so the checkout mode imports it by path — one `<Import>` line in
+`apps/sample/nativeweb.sample.csproj` and one, conditioned on `NativeWebUsePackages`, in
+the skeleton's.
+
+Verified by publishing `apps/sample`: `wwwroot/_nativeweb/` in the publish output carries
+`boot.js`, `css/{base,components,tokens}.css` and a `.br` and `.gz` beside each, and the
+endpoint manifest carries a fingerprinted route per asset.

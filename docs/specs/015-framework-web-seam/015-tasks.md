@@ -18,14 +18,14 @@ T1 gates everything after it. Nothing moves until the invariants are asserted an
   `Flash`, `StartupConfigGuards`, `ReadinessCache`, `CspReportEndpoint` — files: the new library,
   `skeleton/apps/__product__/**` — covers: R2, R6 — done when: the library builds with 0 warnings
   and T1–T3 still pass against it unchanged.
-- [ ] **T5** `NativeWebOptions` and its hand-written `FromConfiguration` — files:
+- [x] **T5** `NativeWebOptions` and its hand-written `FromConfiguration` — files:
   `libs/nativeweb.web/NativeWebOptions.cs` — covers: R4 — done when: every setting the skeleton's
   `Program.cs` reads is bound, with no reflection, and a test covers a missing and a malformed
   value.
-- [ ] **T6** `AddNativeWebWeb` and `UseNativeWebPipeline`, every step public — files:
+- [x] **T6** `AddNativeWebWeb` and `UseNativeWebPipeline`, every step public — files:
   `libs/nativeweb.web/PipelineExtensions.cs` — covers: R3, R5 — done when: the ordering test from
   T2 passes against the real extension method rather than a stand-in.
-- [ ] **T7** The asset `.targets` — files: `libs/nativeweb.web/build/*.targets` — covers: R7 —
+- [x] **T7** The asset `.targets` — files: `libs/nativeweb.web/build/*.targets` — covers: R7 —
   done when: a consumer referencing the library gets the physical files in its output and
   `AssetUrls` fingerprints them.
 - [ ] **T8** `apps/sample` adopts the seam — files: `apps/sample/Program.cs`,
