@@ -12,6 +12,8 @@
     <Project Path="libs/nativeweb.forms.generator/nativeweb.forms.generator.csproj" />
     <Project Path="libs/nativeweb.scaffold/nativeweb.scaffold.csproj" />
     <Project Path="libs/nativeweb.scaffold.generator/nativeweb.scaffold.generator.csproj" />
+    <Project Path="libs/nativeweb.signin/nativeweb.signin.csproj" />
+    <Project Path="libs/nativeweb.signin.testing/nativeweb.signin.testing.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/nativeweb.repo.tests.unit/nativeweb.repo.tests.unit.csproj" />
@@ -24,6 +26,7 @@
     <Project Path="tests/nativeweb.web.tests.unit/nativeweb.web.tests.unit.csproj" />
     <Project Path="tests/nativeweb.security.tests.unit/nativeweb.security.tests.unit.csproj" />
     <Project Path="tests/nativeweb.mail.tests.unit/nativeweb.mail.tests.unit.csproj" />
+    <Project Path="tests/nativeweb.signin.tests.unit/nativeweb.signin.tests.unit.csproj" />
   </Folder>
   <Project Path="../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj" />
   <Project Path="../jauntyq/src/JauntyQ.Runtime/JauntyQ.Runtime.csproj" />

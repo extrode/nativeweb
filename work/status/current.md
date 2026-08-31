@@ -6,6 +6,14 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Spec 016 — the OAuth relying party** (`feat/016-oauth-relying-party`). Building the client half
+  of OAuth as framework: authorization-code with PKCE, a server-side session over a store the
+  product implements, silent refresh, and a bearer-introspection filter. Recovering the generic
+  three-quarters of `nativeweb.signin.epass` from `f743436^`, dropping the provider-specific
+  login-link flow, and replacing the stateless signed ticket with an opaque cookie over
+  `ISessionStore` — because the provider rotates refresh tokens and revokes the family on reuse,
+  which a stateless design has nowhere to serialize. 27 tasks in `docs/specs/016-oauth-relying-party/016-tasks.md`.
+
 - **Phase 3 of the readiness plan.** T11 (the scaffold defect batch) and T12 (deploy and database
   hygiene) are both done. T12: the deploy chain publishes `apps/sample` by default and names no
   project past `build.sh`; `db/migrate.sh` was retargeted at `db/sample/migrations` rather than

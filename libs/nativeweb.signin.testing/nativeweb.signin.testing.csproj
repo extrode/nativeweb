@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The conformance fixtures a consumer runs against their own store
+       implementations, plus the session-minting seam their integration tests
+       need (spec 016 T20, inherited from 008 T6 and 009 R3).
+
+       A SEPARATE project, not a Testing/ folder inside the library, for one
+       reason: this references xunit, and xunit has no business in the closure of
+       a package an application deploys to production. A library that drags a test
+       framework into its consumers' output is a library nobody wants to depend
+       on. -->
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.SignIn.Testing</RootNamespace>
+    <!-- Test code, never published into an app. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <!-- Test method names are sentences: TakeAsync_UnderConcurrency_TakesExactlyOnce.
+         CA1707 is right about public API and wrong about this. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.SignIn.Testing</PackageId>
+    <Version>0.1.0</Version>
+    <!-- The property that keeps this out of an application's production closure,
+         matching nativeweb.render.generator and nativeweb.scaffold.generator.
+         NuGet installs a developmentDependency with PrivateAssets=all, so a
+         consumer's TEST project gets the fixtures and xunit while nothing
+         downstream of that project does. Without it this is an ordinary
+         transitive PackageReference and both flow. IsAotCompatible=false above
+         does NOT do this — it is a per-project analyzer switch that does not
+         propagate — and carrying xunit is a deterrent, not a bound. The
+         predecessor package shipped without this line and review caught it
+         before the branch merged. -->
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <Description>Test-only fixtures for NativeWeb.SignIn: conformance suites for ILoginFlowStore and ISessionStore, and TestSession for minting sessions in a consumer's integration tests.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\nativeweb.signin\nativeweb.signin.csproj" />
+  </ItemGroup>
+
+</Project>
