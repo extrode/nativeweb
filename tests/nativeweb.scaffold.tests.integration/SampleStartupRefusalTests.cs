@@ -47,7 +47,7 @@ public sealed class SampleStartupRefusalTests
             ?? throw new InvalidOperationException($"Could not locate NativeWeb.slnx above {AppContext.BaseDirectory}.");
     }
 
-    private static Process Start(string variable, string value)
+    private static Process Start(string variable, string value, string? workingDirectory = null)
     {
         // The configuration this test itself was built in, read off its own output
         // path: hardcoding Debug passes locally and finds nothing in a Release run.
@@ -65,8 +65,9 @@ public sealed class SampleStartupRefusalTests
 
             // wwwroot is not copied beside the assembly, so the content root has to
             // be the project directory or the host dies on the static error shell
-            // instead of on the value under test.
-            WorkingDirectory = Path.Combine(RepoRoot(), "apps", "sample"),
+            // instead of on the value under test. The one test that IS about the
+            // shell passes a directory without one.
+            WorkingDirectory = workingDirectory ?? Path.Combine(RepoRoot(), "apps", "sample"),
         };
 
         start.ArgumentList.Add("exec");
@@ -78,9 +79,10 @@ public sealed class SampleStartupRefusalTests
         return Process.Start(start)!;
     }
 
-    private static (int ExitCode, string StandardError) RunToExit(string variable, string value)
+    private static (int ExitCode, string StandardError) RunToExit(
+        string variable, string value, string? workingDirectory = null)
     {
-        using Process process = Start(variable, value);
+        using Process process = Start(variable, value, workingDirectory);
         string standardError = process.StandardError.ReadToEnd();
 
         Assert.True(
@@ -102,6 +104,26 @@ public sealed class SampleStartupRefusalTests
 
         Assert.Equal(StartupConfigGuards.ConfigurationErrorExitCode, exitCode);
         Assert.Contains(expectedKey, standardError, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A missing static error shell leaves by the same door as a refused value.
+    /// </summary>
+    /// <remarks>
+    /// The value passed is one <see cref="AValueThatBinds_LeavesTheHostRunning"/>
+    /// proves keeps the host up, so the content root without a <c>wwwroot</c> is
+    /// the only thing wrong here. Before the fix this exited 0xE0434352, an
+    /// unhandled exception out of Main: the shell is loaded while the pipeline is
+    /// being built, and nothing above it catches.
+    /// </remarks>
+    [Fact]
+    public void AMissingStaticErrorShell_EndsTheProcessWithTheConfigurationExitCode()
+    {
+        (int exitCode, string standardError) =
+            RunToExit("Sample__BotTraps__MinAgeSeconds", "2", RepoRoot());
+
+        Assert.Equal(StartupConfigGuards.ConfigurationErrorExitCode, exitCode);
+        Assert.Contains("pages/error.html", standardError, StringComparison.Ordinal);
     }
 
     [Fact]
