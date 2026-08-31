@@ -73,12 +73,52 @@ public static class NativeWebPipeline
         builder.Services.AddNativeWebDataSource(options);
         builder.Services.AddNativeWebForwardedHeaders(options);
         builder.Services.AddNativeWebResponseCompression();
-        builder.Services.AddNativeWebTelemetry(options);
+        builder.Services.AddNativeWebTelemetry(options, ProductAssembly(builder.Environment));
         builder.Services.AddNativeWebDataProtection(options);
         builder.Services.AddNativeWebAntiforgery(options, builder.Environment);
         builder.Services.AddNativeWebBotTraps(options);
         builder.Services.AddNativeWebRateLimiting(options);
         builder.Services.AddNativeWebOutputCache();
+
+        return builder;
+    }
+
+    /// <summary>
+    /// User secrets in Development, inserted <b>below</b> the environment
+    /// variables rather than appended above them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Appending is what <c>AddUserSecrets</c> does by default, and it makes the
+    /// store outrank a real environment variable — which is backwards, and was
+    /// measured to bite: with a connection string exported, an integration
+    /// fixture wrote its rows to the database the variable named while the app
+    /// under test read the one in user secrets, and no failure said why.
+    /// </para>
+    /// <para>
+    /// Development-only for the same class of reason: registered
+    /// unconditionally, any production box that has ever run
+    /// <c>dotnet user-secrets set</c> silently overrides its own deployment
+    /// configuration.
+    /// </para>
+    /// </remarks>
+    /// <typeparam name="TProgram">
+    /// A type from the product's assembly — the entry-point class — which is how
+    /// the user-secrets id is found.
+    /// </typeparam>
+    public static WebApplicationBuilder AddNativeWebUserSecrets<TProgram>(this WebApplicationBuilder builder)
+        where TProgram : class
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        if (!builder.Environment.IsDevelopment())
+        {
+            return builder;
+        }
+
+        int before = builder.Configuration.Sources.Count;
+        builder.Configuration.AddUserSecrets<TProgram>(optional: true);
+        StartupConfigGuards.DemoteBelowEnvironmentVariables(builder.Configuration.Sources, before);
 
         return builder;
     }
@@ -186,8 +226,15 @@ public static class NativeWebPipeline
     /// Meter are built into the driver; subscribing by name is the whole
     /// integration.
     /// </summary>
+    /// <param name="services">The container being configured.</param>
+    /// <param name="options">Service name and whether telemetry runs at all.</param>
+    /// <param name="productAssembly">
+    /// Where the reported service version is read from; null falls back to the
+    /// entry assembly. See <see cref="InformationalVersion(Assembly?)"/> for why
+    /// the entry assembly is not always the product's.
+    /// </param>
     public static IServiceCollection AddNativeWebTelemetry(
-        this IServiceCollection services, NativeWebOptions options)
+        this IServiceCollection services, NativeWebOptions options, Assembly? productAssembly = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(options);
@@ -203,7 +250,7 @@ public static class NativeWebPipeline
             // this app beside any other — indistinguishable.
             .ConfigureResource(resource => resource.AddService(
                 serviceName: options.TelemetryServiceName,
-                serviceVersion: InformationalVersion()))
+                serviceVersion: InformationalVersion(productAssembly)))
             .WithMetrics(static metrics => metrics
                 .AddAspNetCoreInstrumentation()
                 .AddRuntimeInstrumentation()
@@ -447,12 +494,14 @@ public static class NativeWebPipeline
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(options);
 
+        Assembly? version = ProductAssembly(app.Environment);
+
         app.MapCspReportEndpoint();
         app.MapSecurityTxtEndpoint(options.SecurityContact);
 
         // Liveness: the process is up.
         app.MapGet("/healthz", () => Results.Text("ok"));
-        app.MapGet("/version", () => Results.Text(InformationalVersion()));
+        app.MapGet("/version", () => Results.Text(InformationalVersion(version)));
 
         app.MapNativeWebReadiness(options);
 
@@ -526,10 +575,37 @@ public static class NativeWebPipeline
     /// <c>Version+shortsha</c>, stamped by the csproj's <c>StampSourceRevision</c>
     /// target; the assembly-level attribute survives NativeAOT.
     /// </summary>
-    public static string InformationalVersion() =>
-        Assembly.GetEntryAssembly()
+    /// <param name="assembly">
+    /// The product's assembly, or null to fall back to the entry assembly.
+    /// </param>
+    /// <remarks>
+    /// Named rather than always taken from <see cref="Assembly.GetEntryAssembly"/>,
+    /// because under a test host the entry assembly is the test host: a stamped
+    /// product's integration tier reported <c>/version</c> as <c>18.7.0</c>,
+    /// testhost's own version, and the regex asserting <c>Version+shortsha</c>
+    /// was the only thing that noticed. Callers inside this library pass the
+    /// assembly resolved from <c>IHostEnvironment.ApplicationName</c>, which is
+    /// the product's in both cases.
+    /// </remarks>
+    public static string InformationalVersion(Assembly? assembly = null) =>
+        (assembly ?? Assembly.GetEntryAssembly())
             ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion ?? "unknown";
+
+    /// <summary>
+    /// The product's own assembly, by the name the host was configured with.
+    /// </summary>
+    private static Assembly? ProductAssembly(IHostEnvironment environment)
+    {
+        try
+        {
+            return Assembly.Load(new AssemblyName(environment.ApplicationName));
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or FileLoadException or BadImageFormatException or ArgumentException)
+        {
+            return Assembly.GetEntryAssembly();
+        }
+    }
 
     /// <summary>
     /// The rate-limit partition key. IPv6 is bucketed to its /64; IPv4 and

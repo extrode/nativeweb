@@ -31,7 +31,7 @@ T1 gates everything after it. Nothing moves until the invariants are asserted an
 - [x] **T8** `apps/sample` adopts the seam — files: `apps/sample/Program.cs`,
   `apps/sample/nativeweb.sample.csproj` — covers: R9 — done when: the sample serves through the
   framework pipeline and its 468-fact suite is still green.
-- [ ] **T9** Shrink `skeleton/apps/__product__/Program.cs` to ≤ 60 lines — files: that file —
+- [x] **T9** Shrink `skeleton/apps/__product__/Program.cs` to ≤ 60 lines — files: that file —
   covers: R8 — done when: a stamped product builds and its three tiers pass, and a repo-tier test
   asserts the line ceiling.
 - [ ] **T10** Measure and record — files: `docs/02-reference/performance.md` — covers: R11 — done
