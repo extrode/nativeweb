@@ -1474,7 +1474,16 @@ another project's deployment and runbook, not to this repo.
   that *was* deleted now shows an error page where a redirect to the list would read as success.
   Distinguishing the two needs the store to say which happened. Same review.
 
-- **`scripts/deploy/` preflight and `provision.sh` guard the wrong configuration section.**
+- ~~**`scripts/deploy/` preflight and `provision.sh` guard the wrong configuration section.**~~
+  **Fixed 2026-08-31** on `fix/021-review-findings`. `build.sh` stamps `config_prefix` and
+  `migrations_dir` into the artifact's RELEASE file, `deploy.sh` reads both and builds every key
+  from the prefix, `provision.sh` takes `--prefix`, and the ten dead keys are gone. Two facts in
+  the entry below were understated and are recorded here because the wording would have sent
+  someone debugging the wrong mechanism: the key ring does not "fall back to the app directory
+  and move on a swap" — the app directory is *unwritable* under `ProtectSystem=strict` with
+  `ReadWritePaths=/var/lib/nativeweb`, so it never persists at all; and the telemetry gate was
+  inverted, asserting an opt-out posture the binder cannot produce. `NativeWebOptions` now
+  refuses to start rather than composing a relative key path. The original entry, for the record:
   `preflight_config` requires `ConnectionStrings__NativeWeb`, `NativeWeb__WebAuthn__*`,
   `NativeWeb__DeviceGrant__VerificationUri`, `NativeWeb__ContactKey`, `NativeWeb__StoreEncryptionKey`,
   `NativeWeb__PairwiseSalt` and `NativeWeb__Smtp__*` — the departed IdP's keys — while `apps/sample`

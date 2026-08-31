@@ -18,6 +18,17 @@ worth seeing here rather than hiding, but it is the exception.
   are all built and merged, and what is left of it is the two decisions, both now taken (D1: ship
   without auth for now; D2: open by default).
 
+- **The seven review findings from the phase-3 branch are fixed** (`fix/021-review-findings`,
+  2026-08-31). The two that would have been noticed by an operator rather than a test: the deploy
+  preflight demanded ten keys under a prefix no binary binds, nine of which no code reads, so it
+  proved nothing while the settings it named stayed unset; and the data protection key ring was
+  composed relative to a working directory that is read-only under `ProtectSystem=strict`, which
+  cost every form POST a 400 after each deploy. The rest are the scaffold generator emitting
+  uncompilable assignments for unrecognised types and for read-only members, `DemoStore` reporting
+  404 for a row a concurrent save had replaced, and `skeleton/db/migrate.sh` shipping without the
+  run lock and atomic wrap this repo's runner has. Five tests that asserted a substring existed
+  somewhere in a file were rewritten to parse the structure they name, each mutation-checked.
+
 - **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
   not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has
   never been run, and every elapsed time in `docs/02-reference/deployment.md` reads
