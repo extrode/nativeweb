@@ -16,6 +16,13 @@
     <!-- Test method names are sentences: TakeAsync_UnderConcurrency_TakesExactlyOnce.
          CA1707 is right about public API and wrong about this. -->
     <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <!-- Referencing xunit is enough for `dotnet test NativeWeb.slnx` to try to run
+         this, and it fails with "Testhost process ... exited with error" because
+         there is no runner here and nothing to run: the conformance suites are
+         abstract base classes a CONSUMER derives from. The run stays green, so
+         this is one line of noise in every full-suite output rather than a
+         failure -- which is worse, because it trains the reader past it. -->
+    <IsTestProject>false</IsTestProject>
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.SignIn.Testing</PackageId>
     <Version>0.1.0</Version>

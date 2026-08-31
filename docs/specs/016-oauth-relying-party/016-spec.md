@@ -1,6 +1,6 @@
 # 016 — OAuth relying party: the client half, as framework
 
-Status: draft
+Status: done
 Created: 2026-09-01
 
 ## Problem
