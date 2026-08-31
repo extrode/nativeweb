@@ -35,6 +35,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\libs\nativeweb.signin\nativeweb.signin.csproj" />
     <ProjectReference Include="..\..\libs\nativeweb.security\nativeweb.security.csproj" />
+
+    <!-- The testing package proves itself here: the conformance suites are run
+         against the library's own in-memory stores, which is the only way to know
+         a consumer deriving them gets fixtures that can pass. -->
+    <ProjectReference Include="..\..\libs\nativeweb.signin.testing\nativeweb.signin.testing.csproj" />
   </ItemGroup>
 
 </Project>

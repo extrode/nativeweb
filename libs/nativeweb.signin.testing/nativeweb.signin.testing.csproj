@@ -41,4 +41,12 @@
     <ProjectReference Include="..\nativeweb.signin\nativeweb.signin.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- DefaultHttpContext, which TestSession hands to the library's own minting
+         code, and the keyed-service resolution that finds the scheme's manager.
+         A consumer's test host has this reference already; taking it here is what
+         lets TestSession mint without the consumer wiring anything up. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
 </Project>
