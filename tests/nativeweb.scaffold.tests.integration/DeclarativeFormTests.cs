@@ -183,15 +183,38 @@ public sealed class DeclarativeFormTests
         string html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
         // The form gained hx-post/hx-target on 2026-08-31, so the open tag is no
-        // longer one line. What this asserts is unchanged and is the thing the
-        // binder depends on: a POST form aimed at /articles. The hx- attributes are
-        // the enhancement layer and are asserted in the sample's own tier.
-        Assert.Contains("class=\"articles__filter\"", html, StringComparison.Ordinal);
-        Assert.Contains("method=\"post\"", html, StringComparison.Ordinal);
-        Assert.Contains("action=\"/articles\"", html, StringComparison.Ordinal);
+        // longer one line and the old single exact-match assertion no longer fits.
+        // Three page-wide Contains would fit and would assert less: method="post"
+        // and action="/articles" satisfied by two different elements is a page with
+        // no working form and a green test. So the tag is isolated first, and the
+        // attributes are asserted within it.
+        string openTag = FormOpenTag(html);
+        Assert.Contains("class=\"articles__filter\"", openTag, StringComparison.Ordinal);
+        Assert.Contains("method=\"post\"", openTag, StringComparison.Ordinal);
+        Assert.Contains("action=\"/articles\"", openTag, StringComparison.Ordinal);
+
         Assert.Contains("""name="query" """, html, StringComparison.Ordinal);
         Assert.Contains("""name="max" """, html, StringComparison.Ordinal);
+    }
+
+    /// <summary>The page's one <c>form</c> open tag, attributes and all.</summary>
+    /// <remarks>
+    /// Fails loudly on a second form rather than returning the first, because that
+    /// is the shape under which "the attributes are somewhere on the page" starts
+    /// being a different claim from "they are on the form the binder reads".
+    /// </remarks>
+    private static string FormOpenTag(string html)
+    {
+        int start = html.IndexOf("<form", StringComparison.Ordinal);
+        Assert.True(start >= 0, "the feed rendered no form at all");
+        Assert.Equal(-1, html.IndexOf("<form", start + 1, StringComparison.Ordinal));
+
+        int end = html.IndexOf('>', start);
+        Assert.True(end > start, "the form open tag is unterminated");
+
+        return html[start..(end + 1)];
     }
 
     private static int ArticleCount(string html)

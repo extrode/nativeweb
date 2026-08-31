@@ -200,6 +200,7 @@ public sealed class PublicArticlesTests
             locale: Locales.En,
             Title: "Articles",
             Query: "",
+            Take: 20,
             AntiforgeryFieldName: "__RequestVerificationToken",
             AntiforgeryToken: "token",
             Articles: []);
@@ -224,10 +225,88 @@ public sealed class PublicArticlesTests
             locale: Locales.En,
             Title: "Articles",
             Query: "",
+            Take: 20,
             AntiforgeryFieldName: "",
             AntiforgeryToken: "",
             Articles: []);
 
         Assert.DoesNotContain("<form", page, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The page echoes back every field the form submitted, not only the text one.
+    /// </summary>
+    /// <remarks>
+    /// <c>max</c> was hard-coded at 20 in the template until 2026-08-31, so a no-JS
+    /// POST asking for 5 answered with five rows above a box reading 20 — the
+    /// results and the control that produced them disagreeing on one page, and the
+    /// next submit silently widening back. Invisible on the htmx path, which never
+    /// re-renders the form, which is why this is asserted here rather than through
+    /// the browser.
+    /// </remarks>
+    [Fact]
+    public void IndexEchoesTheSubmittedTakeRatherThanAConstant()
+    {
+        string page = Templates.Articles.Index.ToHtmlString(
+            locale: Locales.En,
+            Title: "Articles",
+            Query: "lean",
+            Take: 5,
+            AntiforgeryFieldName: "__RequestVerificationToken",
+            AntiforgeryToken: "token",
+            Articles: []);
+
+        Assert.Contains("id=\"max\"", page, StringComparison.Ordinal);
+        Assert.Contains("value=\"5\"", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("value=\"20\"", page, StringComparison.Ordinal);
+        Assert.Contains("value=\"lean\"", page, StringComparison.Ordinal);
+    }
+
+    // ---- the filter itself ----
+
+    /// <summary>
+    /// The box says "Title or author", so it matches both.
+    /// </summary>
+    /// <remarks>
+    /// It matched titles only until 2026-08-31, while the placeholder added in the
+    /// same branch promised both. An author's name returned an empty page for
+    /// articles that plainly exist, which reads as "nothing by them" rather than as
+    /// a filter doing less than it says.
+    /// </remarks>
+    [Fact]
+    public void Matching_FindsAnAuthorAsWellAsATitle()
+    {
+        PublishedArticle[] all =
+        [
+            new("a1", "Lean Native Web", "Sy", Utc(1)),
+            new("a2", "Something else", "Ada", Utc(2)),
+        ];
+
+        Assert.Equal(["a2"], PublicArticleEndpoints.Matching(all, "ada").Select(a => a.Id));
+        Assert.Equal(["a1"], PublicArticleEndpoints.Matching(all, "lean").Select(a => a.Id));
+    }
+
+    /// <summary>An article with no author is a row, not a null reference.</summary>
+    [Fact]
+    public void Matching_WithANullAuthor_DoesNotThrowAndDoesNotMatch()
+    {
+        PublishedArticle[] all = [new("a1", "Untitled", null, Utc(1))];
+
+        Assert.Empty(PublicArticleEndpoints.Matching(all, "anything"));
+        Assert.Single(PublicArticleEndpoints.Matching(all, "untitled"));
+    }
+
+    /// <summary>A blank box means everything, not nothing.</summary>
+    [Fact]
+    public void Matching_WithABlankQuery_ReturnsEverything()
+    {
+        PublishedArticle[] all =
+        [
+            new("a1", "One", "Sy", Utc(1)),
+            new("a2", "Two", null, Utc(2)),
+        ];
+
+        Assert.Equal(2, PublicArticleEndpoints.Matching(all, "   ").Count);
+        Assert.Equal(2, PublicArticleEndpoints.Matching(all, null).Count);
     }
 }

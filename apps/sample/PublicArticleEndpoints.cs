@@ -45,7 +45,7 @@ internal static class PublicArticleEndpoints
         {
             IReadOnlyList<PublishedArticle> recent = await articles.RecentAsync(PageSize, ct).ConfigureAwait(false);
             AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
-            return Page(http, recent, query: null, tokens);
+            return Page(http, recent, query: null, take: PageSize, tokens);
         });
 
         // The declarative-binding demo (spec 014). Three things are worth reading
@@ -84,7 +84,7 @@ internal static class PublicArticleEndpoints
                         locale: Locales.Get(http.GetLocale()),
                         Articles: matching),
                     "text/html")
-                : Page(http, matching, filter.Query, tokens);
+                : Page(http, matching, filter.Query, take, tokens);
         });
 
         return endpoints;
@@ -92,21 +92,40 @@ internal static class PublicArticleEndpoints
 
     // The full page, through the compiled layout. Both handlers land here so the
     // GET and the no-JS POST cannot drift apart.
+    //
+    // Every field the form submitted comes back out, which is what "the page did
+    // not drift" has to mean. Take was hard-coded at 20 in the template until
+    // 2026-08-31, so a no-JS POST asking for 5 answered with five rows above a box
+    // reading 20 -- the results and the control that produced them disagreeing on
+    // the same page, and the next submit silently widening back to 20. The htmx
+    // path never showed it, because that path does not re-render the form.
     private static IResult Page(
         HttpContext http,
         IReadOnlyList<PublishedArticle> articles,
         string? query,
-        AntiforgeryTokenSet tokens) =>
-        Templates.Articles.Index.Result(
-            locale: Locales.Get(http.GetLocale()),
-            Title: Locales.Get(http.GetLocale())["title.articles"],
+        int take,
+        AntiforgeryTokenSet tokens)
+    {
+        LocaleCatalog locale = Locales.Get(http.GetLocale());
+
+        return Templates.Articles.Index.Result(
+            locale: locale,
+            Title: locale["title.articles"],
             AntiforgeryToken: tokens.RequestToken ?? "",
             Query: query ?? "",
+            Take: take,
             AntiforgeryFieldName: tokens.FormFieldName,
             Articles: articles);
+    }
 
     // A blank box means "everything", which is why an empty query is not a filter
     // that matches nothing.
+    //
+    // Title OR author, because the box says "Title or author". It matched titles
+    // only until 2026-08-31, while the placeholder this branch added promised both
+    // -- so an author's name returned an empty page for articles that plainly
+    // exist, which reads as "we have nothing by them" rather than as a filter that
+    // does less than it claims. A label is a contract with the person typing.
     internal static IReadOnlyList<PublishedArticle> Matching(
         IReadOnlyList<PublishedArticle> articles,
         string? query)
@@ -117,7 +136,8 @@ internal static class PublicArticleEndpoints
         }
 
         return articles
-            .Where(a => a.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Where(a => a.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || (a.Author?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
             .ToList();
     }
 

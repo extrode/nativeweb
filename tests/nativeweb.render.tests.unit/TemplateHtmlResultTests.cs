@@ -53,11 +53,14 @@ public sealed class TemplateHtmlResultTests
     /// The length is the encoded byte count, not the character count.
     /// </summary>
     /// <remarks>
-    /// Two ways to get this wrong produce a number that looks right in ASCII and
-    /// truncates or hangs the response otherwise: counting characters before
-    /// encoding, and counting them after HTML-encoding into entities. A
-    /// three-character string that is five bytes and eleven bytes of markup
-    /// separates all three.
+    /// Counting characters instead of bytes produces a number that looks right in
+    /// ASCII and truncates the response otherwise. <c>é&lt;b</c> is three
+    /// characters and seven bytes of markup: <c>é</c> ships literally as its two
+    /// UTF-8 bytes, because <see cref="TemplateWriter"/>'s encoder is
+    /// <c>HtmlEncoder.Create(UnicodeRanges.All)</c> and encodes only the
+    /// HTML-significant characters. Under <c>HtmlEncoder.Default</c> it would be
+    /// <c>&amp;#xE9;</c> instead and the body assertion below would fail first,
+    /// which is the encoder choice being pinned here as well as the count.
     /// </remarks>
     [Fact]
     public async Task Html_CountsEncodedBytesRatherThanCharacters()
@@ -66,8 +69,8 @@ public sealed class TemplateHtmlResultTests
             (ref TemplateWriter w) => w.Write("é<b"));
 
         Assert.Equal("é&lt;b", body);
-        Assert.Equal(System.Text.Encoding.UTF8.GetByteCount(body), response.ContentLength);
-        Assert.NotEqual(3, response.ContentLength);
+        Assert.Equal(7, response.ContentLength);
+        Assert.NotEqual(body.Length, response.ContentLength);
     }
 
     [Fact]
