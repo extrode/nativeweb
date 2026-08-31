@@ -9,6 +9,29 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **The security and mail tiers exist now — 227 facts, written 2026-08-31.**
+  `tests/nativeweb.security.tests.unit` (174) and `tests/nativeweb.mail.tests.unit` (53) close the
+  coverage gap recorded below; nine mutations across the two libraries were checked to confirm the
+  tests can fail. Three defects were found and fixed in the same branch: `Passphrases.Verify`
+  caught only `FormatException` where Geralt raises `ArgumentOutOfRangeException` below 45
+  characters, so a truncated stored hash threw out of a sign-in path; `Masking.IpAddress` chose
+  its separator by looking for a colon, so an IPv4 address with a port came back unmasked; and
+  `EmailTemplates.ParseRecipient` accepts a line break immediately before the `@`, which MimeKit
+  folds away — the test asserts the result carries no line break rather than a rejection that does
+  not happen. **Still open from that work:**
+  - `Passphrases.NeedsRehash` has the same unguarded Geralt call `Verify` had. It is only ever
+    called after a successful `Verify` today, so nothing reaches it with a malformed hash, but the
+    asymmetry is a trap for the next caller.
+  - `StoreDataProtector.Unprotect`'s legacy-plaintext passthrough. Fable's read (2026-08-31): for
+    a framework primitive with no legacy rows anywhere — they left with the identity provider —
+    the passthrough turns two failure modes into apparent success, and the right default is to
+    throw on a missing prefix with passthrough as an opt-in for a product that has a migration to
+    run. A behaviour change on a public API, so it needs the user's call.
+  - `ContactProtector`'s `realmId` parameter and `FakeMaskDigest`. Fable: the parameter is a
+    generic primitive wearing epass vocabulary and should be `scopeId`, and a single-tenant product
+    passing 0 gets a correct index; `FakeMaskDigest` (lines 87-97) is the identity provider's
+    enumeration-defence flow and no rename turns it into a primitive. Both need the user's call.
+
 - **Three-lens repo audit, 2026-08-31: 29 findings, none fixed yet.** Fable (`review-deep`,
   architecture-to-promise), glm-5.3 (`glm-think`, the untested security library) and qwen3.8-max
   (`qwen-review`, the three source generators), each given the repo's stated promise and asked to

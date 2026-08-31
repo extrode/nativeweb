@@ -108,6 +108,8 @@ dotnet test tests/nativeweb.repo.tests.unit
 dotnet test tests/nativeweb.render.tests.unit
 dotnet test tests/nativeweb.web.tests.unit
 dotnet test tests/nativeweb.forms.tests.unit
+dotnet test tests/nativeweb.security.tests.unit
+dotnet test tests/nativeweb.mail.tests.unit
 dotnet test tests/nativeweb.scaffold.tests.unit
 dotnet test tests/nativeweb.scaffold.tests.integration
 dotnet test tests/nativeweb.scaffold.tests.e2e
@@ -122,21 +124,24 @@ The full set, and what each returned on the verification run:
 | `tests/nativeweb.render.tests.unit` | 161 | the template generator and its runtime |
 | `tests/nativeweb.web.tests.unit` | 94 | the pipeline, middleware and startup guards |
 | `tests/nativeweb.forms.tests.unit` | 85 | form binding and the antiforgery analyzer |
+| `tests/nativeweb.security.tests.unit` | 174 | Argon2id, AES-GCM, opaque tokens, blind indexes, bot traps |
+| `tests/nativeweb.mail.tests.unit` | 53 | address parsing, header-injection defence, SMTP options |
 | `tests/nativeweb.scaffold.tests.unit` | 109 | the CRUD generator |
 | `tests/nativeweb.scaffold.tests.integration` | 60 | the generated admin through a real pipeline |
 | `tests/nativeweb.scaffold.tests.e2e` | 14 | a real browser, including the no-JavaScript path |
 | `tests/nativeweb.sample.tests.unit` | 47 | the reference application |
-| **Total** | **657 — 0 failed, 0 skipped** | |
+| **Total** | **884 — 0 failed, 0 skipped** | |
 
-Measured 2026-08-31 from a clean tree, one tier at a time. The eight projects above are every test
+Measured 2026-08-31 from a clean tree, one tier at a time. The ten projects above are every test
 project in `NativeWeb.slnx`; nothing else under `tests/` is real.
 
-**Two libraries have no tier here, and that is a gap rather than a decision.**
-`libs/nativeweb.security` (Argon2id passphrases, an AES-GCM store protector, opaque tokens, blind
-indexes, bot traps) and `libs/nativeweb.mail` are covered by none of the 657 facts — their suites
-left the repository with the identity provider on 2026-08-31. `libs/nativeweb.security` is one of
-the two projects an outside consumer already builds against, so treat its behaviour as unproven
-until that is fixed; it is tracked in `work/todo.md`.
+The security and mail tiers were written on 2026-08-31 and are new: those two libraries had no
+coverage at all between the identity provider taking their old suites with it and that date. Three
+defects turned up in the writing and are fixed in the same branch — `Passphrases.Verify` throwing
+instead of returning false for a stored hash under 45 characters, `Masking.IpAddress` returning
+an IPv4 address unmasked when it carried a port, and `EmailTemplates.ParseRecipient` accepting a
+line break before the `@` (which MimeKit folds away, so the parsed address is still clean — the
+test asserts that rather than a rejection that does not happen).
 
 A count that has drifted from this table is not automatically a problem; a *failure* is.
 

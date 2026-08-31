@@ -60,7 +60,13 @@ public static class Passphrases
         {
             return Argon2id.VerifyHash(phcHash, secret);
         }
-        catch (FormatException)
+        // Geralt rejects a malformed PHC string in two different ways: FormatException
+        // once it is parsing, but ArgumentOutOfRangeException from its own length
+        // validation before that, for anything outside 45..128 characters. Catching
+        // only the first let a truncated stored hash throw out of a sign-in path --
+        // a 500 where the documented answer is false. Found 2026-08-31 by the first
+        // tests this type ever had.
+        catch (Exception ex) when (ex is FormatException or ArgumentException)
         {
             return false;
         }
