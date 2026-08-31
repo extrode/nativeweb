@@ -1486,3 +1486,9 @@ another project's deployment and runbook, not to this repo.
   next reboot or restart; `deploy.sh` checks only the colour it is staging, and `rollback.sh` notices
   only after the previous colour has gone inactive. Unreachable today because no host has ever run
   these scripts. Same review.
+
+- **D2 is answered and the generated admin stays open by default (2026-08-31, the user's call).**
+  Recorded here because the argument for closing it does not go away: `AddScaffolding` refuses to
+  register an authentication scheme on the grounds that "a default supplied from a library is one
+  nobody reviews", and a posture supplied by omission is equally unreviewed. If a stamped product
+  ever ships an unguarded model by accident, this is the entry to reopen.

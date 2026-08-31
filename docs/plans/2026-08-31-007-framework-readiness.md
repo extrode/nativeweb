@@ -148,7 +148,11 @@ primitive, a login round-trip, password validators — is framework-side. Milest
 without it. The alternative is to state plainly that NativeWeb ships no auth and every product
 brings its own, and to stop advertising `[Auth]` as a framework feature.
 
-**D2. Should the generated admin be closed by default?** Qwen argues yes, with the framework's own
+**D2. Should the generated admin be closed by default?** **Answered 2026-08-31: no — it stays open
+by default.** The user's call. A model with no `[Auth]` remains reachable anonymously, nothing
+breaks for a consumer, and `apps/sample`'s `Tag` model goes on demonstrating openness as a
+legitimate choice. The index gating from T11 stands either way: a guarded model's link is emitted
+only to a caller who satisfies its read requirement. The argument as it stood: qwen argues yes, with the framework's own
 reasoning turned around: `AddScaffolding` refuses to register an authentication scheme because *"a
 default supplied from a library is one nobody reviews"* — and a posture supplied by omission is
 equally unreviewed. Django's admin is closed from the first request. Against: it is a breaking
