@@ -1390,3 +1390,8 @@ another project's deployment and runbook, not to this repo.
 
 - ~~**`DeployScriptTests.cs:727` points the wrong way**~~ — **fixed 2026-08-31**; the reference
   reads "above", which is where `The_ssh_allowance_is_not_hardcoded` is.
+
+- `NativeWeb:BotTraps:MinAgeSeconds` parses with `NumberStyles.Float`, so `1e9` binds and
+  disables every form submission for ~31 years. Pre-existing (the skeleton's `Program.cs` parsed
+  the same way); found while writing spec 015 T5's binder tests. An upper clamp, the way
+  `Readiness:CacheSeconds` has one, is the fix.
