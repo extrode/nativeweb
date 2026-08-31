@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.SignIn.Tests.Aot</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- Method_Scenario_Expectation is the xUnit convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707;CA1711</NoWarn>
+  </PropertyGroup>
+
+  <!-- probe-host is a project of its own, published by the gate rather than compiled
+       into it. Without these removes the SDK's default globs would sweep its Program.cs
+       into this assembly, and the gate would compile the very thing it means to publish. -->
+  <ItemGroup>
+    <Compile Remove="probe-host\**" />
+    <None Remove="probe-host\**" />
+    <EmbeddedResource Remove="probe-host\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+</Project>

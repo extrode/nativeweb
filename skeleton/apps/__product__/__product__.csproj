@@ -77,12 +77,19 @@
          Every one of these was a file in this directory until 2026-08-31, so a
          fix to any of them could not reach a product already stamped. -->
     <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.web\nativeweb.web.csproj" />
+    <!-- OAuth sign-in (spec 016): the authorization-code grant with PKCE, the
+         session cookie, and the bearer-introspection filter. Referenced
+         unconditionally rather than behind a stamp-time question, because a
+         product that adds sign-in later would otherwise edit this file to get a
+         scheme RequireAuthorization can challenge with. -->
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.signin\nativeweb.signin.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(NativeWebUsePackages)' == 'true'">
     <PackageReference Include="NativeWeb.Security" />
     <PackageReference Include="NativeWeb.Render" />
     <PackageReference Include="NativeWeb.Web" />
+    <PackageReference Include="NativeWeb.SignIn" />
     <!-- The package ships under analyzers/dotnet/cs, which is what makes it a
          generator; OutputItemType/ReferenceOutputAssembly are ProjectReference
          metadata and would be ignored here. PrivateAssets keeps it build-only. -->

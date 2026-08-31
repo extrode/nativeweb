@@ -36,6 +36,10 @@
     <ProjectReference Include="..\..\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
+    <!-- The OAuth relying party (spec 016). Referenced so the demo under
+         DemoSignIn.cs can sign a visitor in against a provider; the app registers
+         it only in Development, where the provider is this same process. -->
+    <ProjectReference Include="..\..\libs\nativeweb.signin\nativeweb.signin.csproj" />
     <!-- The framework's request pipeline (spec 015). -->
     <ProjectReference Include="..\..\libs\nativeweb.web\nativeweb.web.csproj" />
   </ItemGroup>

@@ -26,6 +26,9 @@ path now** — you are building your own application on the framework.
   suite, then `tools/new-product.ps1` for your own product, role and database.
 - [`../libs/nativeweb.scaffold/README.md`](../libs/nativeweb.scaffold/README.md) — decorate a
   model, get an admin UI. The fastest route from a table to a working screen.
+- [`../libs/nativeweb.signin/README.md`](../libs/nativeweb.signin/README.md) — sign users in
+  against any conforming OAuth 2.1 / OIDC provider. Configuration keys, the seams, and what your
+  product has to supply.
 - [`02-reference/template-diagnostics.md`](02-reference/template-diagnostics.md) — `NWT001`-`NWT016`,
   what each template build error means and how to fix it.
 - [`02-reference/configuration.md`](02-reference/configuration.md) — every setting, its default,
@@ -59,6 +62,7 @@ Each library documents itself. These are reference, not tutorial.
 
 - [`../libs/nativeweb.scaffold/README.md`](../libs/nativeweb.scaffold/README.md) — declarative CRUD scaffolding.
 - [`../libs/nativeweb.assets/README.md`](../libs/nativeweb.assets/README.md) — vendored HTMX and Alpine. Not a .NET project.
+- [`../libs/nativeweb.signin/README.md`](../libs/nativeweb.signin/README.md) — the OAuth relying party.
 
 `libs/nativeweb.forms`, `.render`, `.security`, `.mail` and the generators have no README of their
 own yet. Their reference is `02-reference/template-diagnostics.md` and the worked usage in

@@ -13,6 +13,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Added
+- **`libs/nativeweb.signin` — the client half of OAuth, as framework.** A product signs users in
+  against any conforming issuer without writing the relying party itself: authorization-code with
+  PKCE, an opaque `__Host-` session cookie over an `ISessionStore` the product implements, silent
+  refresh with compare-and-swap, sign-out, and a bearer-introspection endpoint filter with a
+  short-TTL cache. It registers a real authentication scheme, so a scaffolded route's
+  `RequireAuthorization` works in a stamped product, which it did not before. Provider-agnostic
+  and configuration-driven — no token issuance, no consent screen, no realm resolution and no
+  client registry: NativeWeb is the client, never the server. NativeAOT-clean, with unit,
+  integration and Playwright tiers plus an AOT publish probe.
+
 ### Fixed
 - **The deploy chain reads its configuration prefix off the artifact instead of guessing it.**
   `scripts/deploy/`'s preflight demanded ten keys spelled with a `NativeWeb` prefix: nine are read
@@ -103,6 +114,25 @@ Merged into `dev`, not yet tagged.
   open. The one outstanding input is a push of `dev`, which is the user's.
 
 ### Added
+- **OAuth sign-in as a framework primitive (`libs/nativeweb.signin`).** The relying-party half of
+  OAuth 2.1 / OIDC, provider-agnostic and configuration-driven: the authorization-code grant with
+  PKCE, an opaque server-side session behind a `__Host-` cookie over a store the product supplies,
+  token refresh, sign-out, and a bearer-introspection filter with a short TTL cache for API
+  endpoints. It registers a real authentication scheme, which is what a scaffolded route's
+  `RequireAuthorization` needed and did not have — before this a protected route in a stamped
+  product answered a bare 401 with no way to sign in. NativeWeb is the client and never the
+  server: no issuer, no consent screen, no realm resolution, no client registry, and no provider
+  named anywhere in the shipped source, which
+  `tests/nativeweb.repo.tests.unit/ProviderNeutralityTests.cs` asserts over
+  `libs/nativeweb.signin`, `libs/nativeweb.signin.testing` and `skeleton`.
+  Configuration is read key by key from an `IConfiguration` section rather than bound, because a
+  reflecting binder is the one dependency that would stop the library publishing AOT-clean;
+  `tests/nativeweb.signin.tests.aot` publishes a probe host and fails on any IL2xxx/IL3xxx
+  warning, measured at 21 s with none. The skeleton stamps the section and registers the scheme
+  only when a provider is configured, so a product stamped before it has one still boots.
+  Documented in `libs/nativeweb.signin/README.md`; `apps/sample` runs the whole round trip against
+  a demo authorization server it hosts itself, so `dotnet run` needs no external service.
+
 - **The framework web seam (`libs/nativeweb.web`).** One `AddNativeWebWeb` + `UseNativeWebPipeline`
   + `MapNativeWebEndpoints` composes what every NativeWeb product used to copy into its own
   `Program.cs`: Kestrel limits, forwarded headers, the pooled data source, telemetry, data

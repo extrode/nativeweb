@@ -1,10 +1,14 @@
-# Current
+﻿# Current
 
 What's in flight right now. Keep it SMALL: one focus at a time where possible.
 
 Exactly **one** task, the one being worked on right now. Not a list: the list is `../tasklist.md`,
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
+
+- **Nothing is in flight.** Spec 016 — the OAuth relying party — merged into `dev` on
+  2026-09-01 and its summary is in `previous.md`. What remains below is standing work waiting on
+  a person or a decision, not a task underway.
 
 - **Phase 3 of the readiness plan.** T11 (the scaffold defect batch) and T12 (deploy and database
   hygiene) are both done. T12: the deploy chain publishes `apps/sample` by default and names no

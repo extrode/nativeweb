@@ -7,6 +7,7 @@ using Npgsql;
 
 using NativeWeb.Scaffold;
 using NativeWeb.Scaffold.Generated;
+using NativeWeb.SignIn;
 using NativeWeb.Web;
 
 namespace NativeWeb.Sample;
@@ -49,6 +50,52 @@ public sealed class Program
         // Antiforgery and authorization, which every scaffolded route needs.
         builder.Services.AddScaffolding();
 
+        // The OAuth relying party (spec 016 R28), pointed at the demo authorization
+        // server this app mounts on itself below. Development only, because that
+        // server is: outside Development the app has no provider configured and
+        // registering a scheme against blank endpoints would fail at startup.
+        //
+        // Registered BEFORE the cookie scheme on purpose. AddSignIn makes itself the
+        // default scheme only when it is the first one registered, and the cookie
+        // call below reasserts the default after it either way -- the scaffolded
+        // admin's challenge has to stay the cookie's, whatever else is mounted.
+        if (builder.Environment.IsDevelopment())
+        {
+            string origin = DemoProvider.SelfOrigin(builder.Configuration);
+
+            // Where the browser goes, and where this app's own HttpClient goes, which are the
+            // same origin unless a test has said otherwise. See DemoProvider.BackChannelOrigin.
+            string backChannel = DemoProvider.BackChannelOrigin(builder.Configuration);
+
+            builder.Services.AddSingleton<DemoProvider>();
+            builder.Services.AddSignIn(signIn =>
+            {
+                signIn.AuthorizationEndpoint = $"{origin}{DemoProvider.BasePath}/authorize";
+                signIn.TokenEndpoint = $"{backChannel}{DemoProvider.BasePath}/token";
+                signIn.UserInfoEndpoint = $"{backChannel}{DemoProvider.BasePath}/userinfo";
+                signIn.IntrospectionEndpoint = $"{backChannel}{DemoProvider.BasePath}/introspect";
+                signIn.ClientId = "nativeweb-sample";
+                signIn.ClientSecret = "demo-secret";
+                signIn.RedirectUri = $"{origin}{DemoSignInPaths.Callback}";
+                signIn.LoginPath = DemoSignInPaths.Login;
+                signIn.CallbackPath = DemoSignInPaths.Callback;
+                signIn.LogoutPath = DemoSignInPaths.Logout;
+                signIn.SignedOutPath = "/welcome";
+                signIn.DefaultReturnPath = "/account";
+
+                // Not LoginPath. That route IS the flow trigger, so a failure sent
+                // there starts the flow again and fails again; the demo's welcome
+                // page is a page, and a page can render ?error=.
+                signIn.FailurePath = "/welcome";
+
+                // A demo's sessions do not outlive the process that minted them, so
+                // there is nothing for a persisted key to protect. A product supplies
+                // one; see the library's README.
+                signIn.AllowEphemeralStoreEncryptionKey = true;
+                signIn.CookieName = DemoSignInPaths.SessionCookie;
+            });
+        }
+
         // Authentication is deliberately NOT part of that call: who may reach /admin
         // is this app's decision, and a default from a library is one nobody reviews.
         builder.Services
@@ -58,6 +105,23 @@ public sealed class Program
                 options.Cookie.Name = "nw-sample";
                 options.LoginPath = "/signin";
             });
+
+        // Which of the two schemes answers a request that named neither. See
+        // DemoSignInPaths.EitherScheme for what breaks without it -- the sign-out form,
+        // first and least obviously.
+        if (builder.Environment.IsDevelopment())
+        {
+            builder.Services
+                .AddAuthentication(authentication =>
+                    authentication.DefaultScheme = DemoSignInPaths.EitherScheme)
+                .AddPolicyScheme(
+                    DemoSignInPaths.EitherScheme,
+                    "The OAuth session when the visitor carries one, the cookie demo otherwise",
+                    policy => policy.ForwardDefaultSelector = http =>
+                        http.Request.Cookies.ContainsKey(DemoSignInPaths.SessionCookie)
+                            ? SessionAuthenticationHandler.SchemeName
+                            : CookieAuthenticationDefaults.AuthenticationScheme);
+        }
 
         // The generated endpoints resolve IScaffoldStore<T> from RequestServices and
         // know nothing else about persistence. Which implementation answers is decided
@@ -157,6 +221,12 @@ public sealed class Program
 
                 return Results.Redirect("/admin");
             });
+
+            // The sign-in demo: the relying party's three endpoints, the authorization
+            // server they talk to, and one page on each side of the line (R28).
+            app.MapSignIn();
+            app.MapDemoProvider();
+            app.MapDemoSignIn();
         }
 
         app.Run();
