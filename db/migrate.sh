@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
 #
-# Applies db/migrations/*.sql to a database in order, tracking applied
-# versions in schema_migrations so re-runs skip what's already there.
+# Applies a directory of NNNN_*.sql migrations to a database in order, tracking
+# applied versions in schema_migrations so re-runs skip what's already there.
 #
-# UNREACHABLE AS IT STANDS, since 2026-08-31. MIGRATIONS_DIR below resolves to
-# db/migrations/, which left with the identity provider
-# (docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md), and the superuser step
-# near the bottom names 0002_extensions.sql unconditionally. Run it and it aborts
-# on the missing file; db/test-run-lock.sh, which drives it, aborts with it.
+# RETARGETED 2026-08-31. It used to resolve db/migrations/, which left with the
+# identity provider (docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md), and
+# it named 0002_extensions.sql unconditionally -- so every run aborted on a
+# missing file, taking db/test-run-lock.sh with it. It now defaults to
+# db/sample/migrations/, takes MIGRATIONS_DIR for anything else, and treats the
+# superuser extensions step as optional: a schema that needs no extension has no
+# 0002 and needs no superuser at all.
 #
-# It is kept, not deleted, because the locking design below is the part worth
-# having and skeleton/db/migrate.sh -- the copy a stamped product actually gets,
-# and the only live one -- was derived from it. Retargeting this copy at
-# db/sample/migrations/ means making the extensions step conditional, which is a
-# change to the runner rather than a correction to this branch: work/todo.md
-# carries it.
+# It was kept rather than retired because the locking design below is the part
+# worth having, and skeleton/db/migrate.sh -- the copy a stamped product gets --
+# was derived from it.
 #
 # Env (all optional; the defaults are the local dev setup):
 #   PGHOST            default 127.0.0.1
@@ -24,8 +23,10 @@
 #                     fallback connection strings assume the same name
 #   APP_ROLE          default nativeweb_app -- PGPASSWORD (or ~/.pgpass) must
 #                     authenticate this role for every migration except 0002
-#   SUPERUSER_ROLE    default postgres -- must authenticate for 0002 only
-#                     (creates the citext extension; nativeweb_app can't)
+#   SUPERUSER_ROLE    default postgres -- must authenticate for 0002 only, and
+#                     only if the directory has a 0002 (it creates extensions,
+#                     which the app role cannot)
+#   MIGRATIONS_DIR    default db/sample/migrations -- the directory to apply
 #
 # Each migration is applied together with its schema_migrations row in a single
 # transaction, so a crash cannot commit one without the other. See mode_of()
@@ -58,7 +59,20 @@ APP_ROLE="${APP_ROLE:-nativeweb_app}"
 SUPERUSER_ROLE="${SUPERUSER_ROLE:-postgres}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MIGRATIONS_DIR="$SCRIPT_DIR/migrations"
+MIGRATIONS_DIR="${MIGRATIONS_DIR:-$SCRIPT_DIR/sample/migrations}"
+
+if [ ! -d "$MIGRATIONS_DIR" ]; then
+  echo "ERROR: no migrations directory at $MIGRATIONS_DIR." >&2
+  echo "       Pass MIGRATIONS_DIR=<dir> for the schema you mean to apply." >&2
+  exit 1
+fi
+
+# An empty directory is not "nothing to do": every glob below would expand to the
+# literal pattern and psql would be handed a filename with brackets in it.
+if ! compgen -G "$MIGRATIONS_DIR/[0-9][0-9][0-9][0-9]_*.sql" >/dev/null; then
+  echo "ERROR: $MIGRATIONS_DIR contains no NNNN_*.sql migrations." >&2
+  exit 1
+fi
 
 app_psql() {
   psql -h "$PGHOST" -p "$PGPORT" -U "$APP_ROLE" -d "$PGDATABASE" -v ON_ERROR_STOP=1 "$@"
@@ -549,9 +563,19 @@ if [ -n "$duplicate_versions" ]; then
   exit 1
 fi
 
+# The extensions migration is optional. It is the one file applied as the
+# superuser, and a schema that needs no extension needs no superuser: demanding
+# one anyway would make every deploy of a plain schema depend on a credential it
+# never uses.
+#
+# EXT_VERSION is the version the loop below skips, so when there is no
+# 0002_extensions.sql it must match NOTHING -- not "0002", which would silently
+# skip a 0002 that is some other migration entirely.
 EXT_FILE="$MIGRATIONS_DIR/0002_extensions.sql"
-EXT_VERSION="$(version_of "$EXT_FILE")"
-if is_tracked "$EXT_VERSION"; then
+if [ ! -f "$EXT_FILE" ]; then
+  EXT_VERSION="none"
+  echo "none  no extensions migration in this schema; no superuser step"
+elif EXT_VERSION="$(version_of "$EXT_FILE")" && is_tracked "$EXT_VERSION"; then
   echo "skip  $EXT_VERSION (already applied)"
 else
   echo "apply $EXT_VERSION (as $SUPERUSER_ROLE)"
