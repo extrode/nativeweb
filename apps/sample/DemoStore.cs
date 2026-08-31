@@ -44,6 +44,15 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
 
     public ValueTask<IReadOnlyList<T>> ListAsync(string? search, IReadOnlyList<string> searchFields, int skip, int take, CancellationToken ct)
     {
+        // A negative skip is a caller error, and this store says so rather than
+        // absorbing it. LINQ's Skip treats a negative count as zero, so before this
+        // guard an overflowed page offset -- ?page=2000000000 times the page size,
+        // wrapping past int.MaxValue -- quietly returned page one. A store over
+        // PostgreSQL has no such mercy: OFFSET -1 is an error. The generated
+        // endpoint clamps the page so neither happens, and this is what makes a
+        // regression there visible here instead of only against a database.
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+
         IReadOnlyList<T> page = Filter(search, searchFields)
             .OrderBy(KeyOf, StringComparer.Ordinal)
             .Skip(skip)
