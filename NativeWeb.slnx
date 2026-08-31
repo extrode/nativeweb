@@ -22,6 +22,7 @@
     <Project Path="tests/nativeweb.scaffold.tests.unit/nativeweb.scaffold.tests.unit.csproj" />
     <Project Path="tests/nativeweb.scaffold.tests.integration/nativeweb.scaffold.tests.integration.csproj" />
     <Project Path="tests/nativeweb.scaffold.tests.e2e/nativeweb.scaffold.tests.e2e.csproj" />
+    <Project Path="tests/nativeweb.sample.tests.integration/nativeweb.sample.tests.integration.csproj" />
     <Project Path="tests/nativeweb.sample.tests.unit/nativeweb.sample.tests.unit.csproj" />
     <Project Path="tests/nativeweb.web.tests.unit/nativeweb.web.tests.unit.csproj" />
     <Project Path="tests/nativeweb.security.tests.unit/nativeweb.security.tests.unit.csproj" />

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -118,6 +119,52 @@ public sealed partial class SessionAuthenticationHandler(
     {
         await Sessions.RevokeAsync(Context, Context.RequestAborted).ConfigureAwait(false);
         Context.User = new ClaimsPrincipal(new ClaimsIdentity());
+    }
+
+    /// <summary>
+    /// Sends an unauthenticated request to the sign-in path, remembering where it was going.
+    /// </summary>
+    /// <param name="properties">
+    /// The challenge's properties. <c>RedirectUri</c>, when a consumer set one, outranks the
+    /// current path: a consumer challenging from a filter knows where the visitor should land
+    /// better than the URL of the request that tripped it.
+    /// </param>
+    /// <remarks>
+    /// Without this override the base handler answers a bare 401, which is what a scaffolded
+    /// <c>RequireAuthorization</c> route returned to every visitor before this library existed
+    /// (R11). The candidate goes through the same <see cref="ReturnPath"/> guard the callback
+    /// uses, so a request for <c>//evil.com</c> is challenged to the configured fallback rather
+    /// than carrying an open redirect into the flow.
+    /// </remarks>
+    protected override Task HandleChallengeAsync(AuthenticationProperties properties)
+    {
+        SignInOptions options = services.GetRequiredKeyedService<SignInOptions>(Scheme.Name);
+
+        string returnTo = ReturnPath.Sanitise(
+            properties?.RedirectUri ?? Request.Path + Request.QueryString,
+            options.DefaultReturnPath);
+
+        Response.Redirect(
+            $"{options.LoginPath}?{SignInQuery.ReturnTo}={Uri.EscapeDataString(returnTo)}");
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Answers 403 to a request that is signed in and still not allowed.
+    /// </summary>
+    /// <param name="properties">Ignored: there is nowhere to send someone who is already signed in.</param>
+    /// <remarks>
+    /// The base implementation does this too. It is written out because the challenge above is
+    /// not the base implementation, and a reader who has just seen one redirect would otherwise
+    /// have to go and check whether the other redirects as well — which is the loop that ends
+    /// with a signed-in visitor being bounced to sign-in forever.
+    /// </remarks>
+    protected override Task HandleForbiddenAsync(AuthenticationProperties properties)
+    {
+        Response.StatusCode = StatusCodes.Status403Forbidden;
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

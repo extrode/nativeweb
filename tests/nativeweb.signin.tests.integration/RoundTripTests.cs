@@ -78,6 +78,41 @@ public sealed class RoundTripTests
     }
 
     [Fact]
+    public async Task Private_WithoutASession_IsSentToSignIn()
+    {
+        await using SignInHost host = await SignInHost.StartAsync();
+        using var browser = new Browser(host.Client());
+
+        using HttpResponseMessage response = await browser.GetOnceAsync("/private");
+
+        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+        Assert.Equal("/signin?returnTo=%2Fprivate", response.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Private_WithAQueryString_KeepsItOnTheWayToSignIn()
+    {
+        await using SignInHost host = await SignInHost.StartAsync();
+        using var browser = new Browser(host.Client());
+
+        using HttpResponseMessage response = await browser.GetOnceAsync("/private?page=2");
+
+        Assert.Equal("/signin?returnTo=%2Fprivate%3Fpage%3D2", response.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Private_WithoutASession_SignsInAndArrivesWhereItWasGoing()
+    {
+        await using SignInHost host = await SignInHost.StartAsync();
+        using var browser = new Browser(host.Client());
+
+        using HttpResponseMessage response = await browser.GetAsync("/private");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.StartsWith("private:", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Public_WithoutASession_IsServed()
     {
         await using SignInHost host = await SignInHost.StartAsync();
