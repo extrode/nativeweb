@@ -428,7 +428,7 @@ internal static class ScaffoldEmitter
                 continue;
             }
 
-            sb.AppendLine($"        {p.Name} = {Convert(p)},");
+            sb.AppendLine($"        {p.Name} = {Convert(p) ?? throw new InvalidOperationException($"no conversion for {p.TypeName}")},");
         }
 
         sb.AppendLine("    };");
@@ -514,7 +514,16 @@ internal static class ScaffoldEmitter
         _ => "text",
     };
 
-    private static string Convert(PropertyModel p)
+    // Null means "this type has no form conversion", and the generator turns that
+    // into a display-only property rather than an assignment. It is deliberately
+    // the ONLY table of bindable types: the default arm used to emit
+    // `ScaffoldValues.Text(form.X) ?? string.Empty` for anything it did not
+    // recognise, which is a string assigned to a byte, a ushort, an enum,
+    // a DateOnly, a TimeSpan or any type a consumer invents -- CS0029 in
+    // generated code, on a model that had done nothing wrong. Closing that class
+    // by listing more types only moves the edge; returning null closes it for
+    // every type there will ever be.
+    internal static string? Convert(PropertyModel p)
     {
         string raw = $"form.{p.Name}";
         return p.TypeName switch
@@ -545,7 +554,7 @@ internal static class ScaffoldEmitter
             "System.DateTime" => $"ScaffoldValues.DateTimeValue({raw}, DateTime.UtcNow)",
             "System.Guid" when p.IsNullable => $"ScaffoldValues.NullableGuid({raw})",
             "System.Guid" => $"ScaffoldValues.GuidValue({raw})",
-            _ => $"ScaffoldValues.Text({raw}) ?? string.Empty",
+            _ => null,
         };
     }
 

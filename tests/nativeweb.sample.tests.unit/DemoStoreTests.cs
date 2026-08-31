@@ -77,6 +77,37 @@ public sealed class DemoStoreTests
         Assert.Null(await store.GetAsync("a1", CancellationToken.None));
     }
 
+    // False means "no such row" and nothing else. A single TryUpdate also fails when
+    // a concurrent save replaced the value, and the generated handler maps false to
+    // 404 -- so the loser of two admins saving the same row was told the record does
+    // not exist while it was still in the list.
+    [Fact]
+    public async Task UpdateAsync_LosingToAConcurrentSave_StillReportsTheRowExists()
+    {
+        ArticleStore store = StoreWith("a1", "before");
+
+        int reportedMissing = 0;
+
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(worker => Task.Run(async () =>
+        {
+            for (int i = 0; i < 500; i++)
+            {
+                bool updated = await store.UpdateAsync(
+                    "a1",
+                    new Article { Title = $"w{worker}-{i}", Author = "xunit", Body = "b" },
+                    CancellationToken.None);
+
+                if (!updated)
+                {
+                    Interlocked.Increment(ref reportedMissing);
+                }
+            }
+        })));
+
+        Assert.Equal(0, reportedMissing);
+        Assert.NotNull(await store.GetAsync("a1", CancellationToken.None));
+    }
+
     // A negative skip is a caller error the store names, because the database it
     // stands in for cannot absorb one: PostgreSQL's OFFSET -1 is an error, while
     // LINQ's Skip treats a negative count as zero and hides the defect.

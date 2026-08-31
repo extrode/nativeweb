@@ -98,12 +98,36 @@ public sealed class MigrationRunnerTargetTests
     [Fact]
     public void TheSkeletonRunner_CarriesTheSameGuards()
     {
-        string skeleton = File.ReadAllText(Path.Combine(RepoRoot(), "skeleton", "db", "migrate.sh"));
+        string[] expected = Body(Runner())
+            .Replace("nativeweb_dev", "__product___dev", StringComparison.Ordinal)
+            .Replace("nativeweb_app", "__product___app", StringComparison.Ordinal)
+            .Replace("$SCRIPT_DIR/sample/migrations", "$SCRIPT_DIR/migrations", StringComparison.Ordinal)
+            .Split('\n');
 
-        Assert.Contains("MIGRATIONS_DIR=\"${MIGRATIONS_DIR:-", skeleton, StringComparison.Ordinal);
-        Assert.Contains("compgen -G", skeleton, StringComparison.Ordinal);
-        Assert.Contains("if [ ! -f \"$EXT_FILE\" ]; then", skeleton, StringComparison.Ordinal);
-        Assert.Contains("EXT_VERSION=\"none\"", skeleton, StringComparison.Ordinal);
+        string[] actual = Body(File.ReadAllText(Path.Combine(RepoRoot(), "skeleton", "db", "migrate.sh")))
+            .Split('\n');
+
+        for (int i = 0; i < Math.Min(expected.Length, actual.Length); i++)
+        {
+            Assert.True(
+                string.Equals(expected[i], actual[i], StringComparison.Ordinal),
+                $"skeleton/db/migrate.sh diverges from db/migrate.sh at body line {i + 1}."
+                + $"{Environment.NewLine}  db/migrate.sh:          {expected[i]}"
+                + $"{Environment.NewLine}  skeleton/db/migrate.sh: {actual[i]}");
+        }
+
+        Assert.Equal(expected.Length, actual.Length);
+    }
+
+    // The header above `set -euo pipefail` is each file's own documentation: one
+    // names this repository's schema, the other carries __PRODUCT__ placeholders.
+    // Everything below it is the mechanism, and the mechanism has to be identical.
+    private static string Body(string runner)
+    {
+        int start = runner.IndexOf("set -euo pipefail", StringComparison.Ordinal);
+        Assert.True(start >= 0, "a migration runner with no `set -euo pipefail` is not the file this test means.");
+
+        return runner[start..].Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 
     [Fact]

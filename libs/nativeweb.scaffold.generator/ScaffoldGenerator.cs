@@ -128,6 +128,16 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                 continue;
             }
 
+            // An indexer has no name a form field could carry -- property.Name is
+            // "this[]" -- and a property with no public setter cannot appear on the
+            // left of the emitted object initializer at all. Both used to reach the
+            // emitter: a model with `public string Summary => Title + "..."` got
+            // `Summary = ...` emitted against it, CS0200 in the consumer's build.
+            if (property.IsIndexer || property.SetMethod is null || property.SetMethod.DeclaredAccessibility != Accessibility.Public)
+            {
+                continue;
+            }
+
             var pm = new PropertyModel
             {
                 Name = property.Name,
@@ -135,6 +145,11 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                 IsNullable = property.Type.NullableAnnotation == NullableAnnotation.Annotated
                     || property.Type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T,
             };
+
+            // A type with no form conversion is displayed and carried through, never
+            // assigned from the form. ScaffoldEmitter.Convert is the one table that
+            // decides, so a type can never be editable here and unconvertible there.
+            pm.ReadOnly = ScaffoldEmitter.Convert(pm) is null;
 
             pm.Label = SpaceCamelCase(property.Name);
 
