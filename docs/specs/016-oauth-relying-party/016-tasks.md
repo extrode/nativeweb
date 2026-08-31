@@ -55,7 +55,7 @@ each one records a finding from spec 008 or 009.
 ## Consumers and documentation
 
 - [x] **T24** Reference application — files: `apps/sample/` — covers: R28 — done when: the sample serves a page requiring sign-in and a public page, against the stub provider, with tests at the sample's own tier.
-- [ ] **T25** Skeleton registers the scheme — files: `skeleton/apps/__product__/Program.cs`, `skeleton/apps/__product__/appsettings.json` — covers: R11, R28 — done when: a freshly stamped product challenges an anonymous request to a scaffolded `[Auth]` route and serves an authenticated one, where today it returns a bare 401 to everybody.
+- [x] **T25** Skeleton registers the scheme — files: `skeleton/apps/__product__/Program.cs`, `skeleton/apps/__product__/appsettings.json` — covers: R11, R28 — done when: a freshly stamped product challenges an anonymous request to a scaffolded `[Auth]` route and serves an authenticated one, where today it returns a bare 401 to everybody.
 - [ ] **T26** Library README — files: `libs/nativeweb.signin/README.md` — covers: R6, R29 — done when: configuration, wiring, every seam and what a product must supply are documented, and the pairwise-subject warning sits next to the subject property rather than in a section nobody opens.
 - [ ] **T27** Provider-neutrality gate and visibility — files: `tests/nativeweb.repo.tests.unit/`, `docs/README.md`, `CHANGELOG.md`, `work/status/current.md`, `work/todo.md` — covers: R17 — done when: a repository test searches the shipped library source for the provider's name and hostname and fails on any match outside test fixtures and documentation examples, and the visibility files record what shipped.
 
