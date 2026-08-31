@@ -1,0 +1,77 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The web pipeline the framework ships (spec 015). Until 2026-08-31 every
+       file in here was template text under skeleton/apps/__product__/, copied
+       into each product at stamp time, so a security fix to the CSP or the
+       output-cache guard could not reach a product already stamped. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Web</PackageId>
+    <Version>0.1.0</Version>
+    <Description>NativeWeb framework: the request pipeline — security headers, public-page output cache, error pages, static pages, flash, readiness, CSP reporting.</Description>
+    <RootNamespace>NativeWeb.Web</RootNamespace>
+    <!-- The Request Delegate Generator. MapGet/MapPost carry
+         RequiresUnreferencedCode + RequiresDynamicCode, and the only thing that
+         makes them AOT-clean is the RDG intercepting each call site with
+         generated binding code. The Web SDK turns it on for the app; a class
+         library does not get it, so CspReportEndpoint and SecurityTxtEndpoint
+         failed with four IL2026/IL3050 the moment they left the product
+         (2026-08-31). Interceptors have to be opted into by namespace as well. -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.AspNetCore.Http.Generated</InterceptorsNamespaces>
+  </PropertyGroup>
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible and analyzer settings come from Directory.Build.props. -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\nativeweb.render\nativeweb.render.csproj" />
+    <ProjectReference Include="..\nativeweb.security\nativeweb.security.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- QueryRedactingProcessor is a BaseProcessor<Activity>, so the trace SDK
+         is a compile-time dependency of this library rather than only of the
+         product that turns telemetry on. Extensions.Hosting brings the SDK
+         core; the instrumentation and exporter packages stay with the caller
+         that wires them. -->
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <!-- Npgsql, because the pipeline owns the pooled data source and the
+         /readyz probe that reaches it. The alternative was a probe delegate the
+         product supplies, which keeps the driver out of here and puts forty
+         lines back into every Program.cs — the thing this spec exists to
+         remove. "PostgreSQL only" is binding in AGENTS.md, so the dependency
+         costs no generality this framework claimed to have. -->
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <!-- The framework's browser assets and the .targets that delivers them
+       (spec 015 R7). Packed as loose files rather than embedded resources so the
+       consumer's static web assets pipeline can fingerprint and precompress
+       them; NuGet imports build/$(PackageId).targets on its own, and a
+       ProjectReference consumer imports the same file by path. build/ and
+       wwwroot/ are siblings in the package exactly as they are here, so the one
+       relative path inside the .targets resolves in both modes. -->
+  <ItemGroup>
+    <None Include="build\NativeWeb.Web.targets" Pack="true" PackagePath="build\" />
+    <None Include="wwwroot\**\*" Pack="true" PackagePath="wwwroot\" />
+  </ItemGroup>
+
+  <!-- The Web SDK's implicit usings, restated. These sources were written under
+       Microsoft.NET.Sdk.Web and a class library does not get them. -->
+  <ItemGroup>
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+</Project>

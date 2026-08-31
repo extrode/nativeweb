@@ -225,7 +225,14 @@ internal static class ScaffoldEmitter
 
         sb.AppendLine("            sb.Append(\"<td class=\\\"nws-actions\\\">\");");
         sb.AppendLine("            sb.Append(\"<a class=\\\"nws-btn nws-btn--sm\\\" href=\\\"\").Append(BasePath).Append('/').Append(Uri.EscapeDataString(id)).Append(\"\\\">Edit</a>\");");
-        sb.AppendLine("            sb.Append(\"<form method=\\\"post\\\" action=\\\"\").Append(BasePath).Append('/').Append(Uri.EscapeDataString(id)).Append(\"/delete\\\" onsubmit=\\\"return confirm('Delete this record?')\\\">\");");
+        // data-nws-confirm, not onsubmit="return confirm(...)". An inline event
+        // handler needs 'unsafe-hashes' in the CSP to run at all, and the
+        // framework's own security headers do not grant it -- measured on
+        // 2026-08-31, when apps/sample adopted the pipeline (spec 015 T8) and the
+        // two delete e2e facts began reporting "the delete form did not raise a
+        // confirm dialog at all". The attribute is read by the one nonced listener
+        // ScaffoldLayout.Page emits.
+        sb.AppendLine("            sb.Append(\"<form method=\\\"post\\\" action=\\\"\").Append(BasePath).Append('/').Append(Uri.EscapeDataString(id)).Append(\"/delete\\\" data-nws-confirm=\\\"Delete this record?\\\">\");");
         sb.AppendLine("            sb.Append(ScaffoldLayout.AntiforgeryField(http));");
         sb.AppendLine("            sb.Append(\"<button type=\\\"submit\\\" class=\\\"nws-btn nws-btn--sm nws-btn--danger\\\">Delete</button></form>\");");
         sb.AppendLine("            sb.Append(\"</td></tr>\");");
@@ -525,13 +532,29 @@ internal static class ScaffoldEmitter
         sb.AppendLine("    /// <summary>Wraps generated body HTML in the page shell.</summary>");
         sb.AppendLine("    public static IResult Page(HttpContext http, string title, string body)");
         sb.AppendLine("    {");
+        // The nonce NativeWeb's SecurityHeadersMiddleware stashes for this request,
+        // read by its literal key so this generator takes no dependency on the web
+        // library. Empty when nothing set one, which is the case for a host that
+        // maps scaffolding without the framework pipeline: the inline style and
+        // script are then plain inline content and no CSP is there to object.
+        sb.AppendLine("        string nonce = http.Items.TryGetValue(\"csp-nonce\", out object? n) && n is string s && s.Length != 0");
+        sb.AppendLine("            ? \" nonce=\\\"\" + HtmlEncoder.Default.Encode(s) + \"\\\"\"");
+        sb.AppendLine("            : \"\";");
         sb.AppendLine("        string html = \"<!doctype html><html lang=\\\"en\\\"><head><meta charset=\\\"utf-8\\\">\"");
         sb.AppendLine("            + \"<meta name=\\\"viewport\\\" content=\\\"width=device-width,initial-scale=1\\\">\"");
-        sb.AppendLine("            + \"<title>\" + HtmlEncoder.Default.Encode(title) + \"</title><style>\" + Css + \"</style></head><body>\"");
+        sb.AppendLine("            + \"<title>\" + HtmlEncoder.Default.Encode(title) + \"</title><style\" + nonce + \">\" + Css + \"</style>\"");
+        sb.AppendLine("            + \"<script\" + nonce + \">\" + Confirm + \"</script></head><body>\"");
         sb.AppendLine($"            + \"<header class=\\\"nws-top\\\"><a href=\\\"{indexPath}\\\">Admin</a></header><main class=\\\"nws-main\\\">\"");
         sb.AppendLine("            + body + \"</main></body></html>\";");
         sb.AppendLine("        return Results.Content(html, \"text/html; charset=utf-8\");");
         sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine("    // One delegated listener for every data-nws-confirm form on the page,");
+        sb.AppendLine("    // in the capture phase so it can cancel before the submit proceeds.");
+        sb.AppendLine("    private const string Confirm =");
+        sb.AppendLine("        \"document.addEventListener('submit',function(e){var f=e.target;\"");
+        sb.AppendLine("        + \"if(f&&f.getAttribute){var m=f.getAttribute('data-nws-confirm');\"");
+        sb.AppendLine("        + \"if(m&&!window.confirm(m)){e.preventDefault();}}},true);\";");
         sb.AppendLine();
         sb.AppendLine("    private const string Css = \"\"\"");
         sb.AppendLine(Css());

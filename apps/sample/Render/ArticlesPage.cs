@@ -101,12 +101,12 @@ internal static class ArticlesPage
               <meta name="viewport" content="width=device-width,initial-scale=1">
               <title>Articles</title>
               <script src="/js/theme.js"></script>
-              <link rel="stylesheet" href="/css/tokens.css">
-              <link rel="stylesheet" href="/css/base.css">
-              <link rel="stylesheet" href="/css/components.css">
+              <link rel="stylesheet" href="/_nativeweb/css/tokens.css">
+              <link rel="stylesheet" href="/_nativeweb/css/base.css">
+              <link rel="stylesheet" href="/_nativeweb/css/components.css">
               <link rel="stylesheet" href="/css/sample.css">
               <link rel="stylesheet" href="/vendor/fonts/fonts.css">
-              <script src="/vendor/nativeweb/boot.js" defer></script>
+              <script src="/_nativeweb/boot.js" defer></script>
               <script src="/vendor/htmx/htmx.min.js" defer></script>
               <script src="/vendor/alpinejs/alpine.min.js" defer></script>
             </head>

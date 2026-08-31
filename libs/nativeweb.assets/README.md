@@ -1,15 +1,23 @@
 # nativeweb.assets
 
-Canonical client-side assets shared by every Lean Native Web app. Not a .NET project: nothing
-here compiles — apps vendor byte-identical copies under their own
-`wwwroot/vendor/nativeweb/` (the same pattern as the vendored htmx/Alpine), and a unit test in
-each app asserts the copy matches the canonical file, so drift fails the suite instead of
-shipping.
+**Framework-owned assets left this directory on 2026-08-31 (spec 015 R7).** `boot.js` and the
+three design-system stylesheets are now at `libs/nativeweb.web/wwwroot/_nativeweb/`, and
+`libs/nativeweb.web/build/NativeWeb.Web.targets` contributes them to every consumer's static web
+assets — so there is one copy, the build delivers it, and the fingerprinting and precompression
+`AssetUrls` depends on happen to it like any other file under `wwwroot`.
 
-What belongs here: framework-owned JS/CSS that every app must serve identically (`boot.js`, the
-`data-nw-*` enhancement layer — see `docs/01-architecture/progressive-enhancement.md`). What does not:
-third-party vendored libraries (each app vendors its own htmx/Alpine/fonts), app-specific
-assets, and anything generated.
+Until then the mechanism was hand-vendoring: canonical here, byte-identical copies under each
+app's own `wwwroot/`, and a parity test to catch drift. Two copies that a test proves equal are
+still two copies, and a framework whose CSS fix reaches a product only when somebody re-runs a
+copy is a framework that cannot ship a CSS fix. The base path is underscore-prefixed
+(`/_nativeweb/…`) because the static web assets pipeline treats two assets at one target path as
+a build error rather than a precedence question, and an app is free to have its own
+`wwwroot/css/base.css`.
+
+Third-party libraries are unchanged: each app still vendors its own htmx, Alpine and fonts, and
+`tests/nativeweb.repo.tests.unit/AssetParityTests.cs` still checks those trees agree between
+consumers. They are not the framework's to own — what is vendored is an upstream release, and the
+only claim is that every consumer is on the same one.
 
 `rollback/` is the one exception, and it is not part of that rule so much as a carve-out from it.
 It holds the previous vendored build of a library the repo has just moved off, kept only so a
@@ -20,5 +28,6 @@ copies from satisfies both. Files here are never edited, never served, and are r
 version they roll back to stops being a plausible target. Today: `htmx-2.0.10.min.js`, the build
 `apps/web` and the skeleton served before the htmx 4.0.0 upgrade.
 
-To change an asset: edit the canonical file here, re-copy it into every consuming app in the
-same branch, and let the parity tests prove the sync.
+To change a framework asset: edit the one file under `libs/nativeweb.web/wwwroot/_nativeweb/`.
+Nothing to re-copy. To upgrade a vendored third-party library: apply it to every consumer's
+`wwwroot/vendor/` in the same branch, which is what the remaining parity test checks.

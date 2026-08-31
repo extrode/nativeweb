@@ -56,6 +56,11 @@
     <!-- Integration tests: WebApplicationFactory host. Matched to the AspNetCore
          10.0.x line (no sibling pin exists to mirror). -->
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
+    <!-- The in-memory server behind tests/nativeweb.web.tests.unit (spec 015 T1).
+         Mvc.Testing would drag WebApplicationFactory and an entry-point assembly
+         in for a tier that composes its own pipeline; TestHost is the piece of it
+         that matters here. Same 10.0.x line as the sibling pin above. -->
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.7" />
     <!-- End-to-end browser tests. Net-new to this repo (no sibling reference);
          pinned to a recent 1.x. -->
     <PackageVersion Include="Deque.AxeCore.Playwright" Version="4.12.0" />

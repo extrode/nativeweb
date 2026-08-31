@@ -1390,3 +1390,36 @@ another project's deployment and runbook, not to this repo.
 
 - ~~**`DeployScriptTests.cs:727` points the wrong way**~~ — **fixed 2026-08-31**; the reference
   reads "above", which is where `The_ssh_allowance_is_not_hardcoded` is.
+
+- `NativeWeb:BotTraps:MinAgeSeconds` parses with `NumberStyles.Float`, so `1e9` binds and
+  disables every form submission for ~31 years. Pre-existing (the skeleton's `Program.cs` parsed
+  the same way); found while writing spec 015 T5's binder tests. An upper clamp, the way
+  `Readiness:CacheSeconds` has one, is the fix.
+
+- **Scaffold: `?page=2000000000` overflows to a negative offset.** `ScaffoldEmitter` clamps the
+  page low (`Math.Max(1, …)`) and not high, so `(page - 1) * PageSize` is unchecked `int`
+  arithmetic on an anonymous GET. Joins the T11 scaffold-defect batch (index not gated, short/float
+  won't compile, `[ScaffoldSearch]` never reaches the store, silent coercion, `DeleteAsync` ignores
+  false, update race).
+
+- **Scaffold: a created record's key is `default!`.** Nothing assigns one, so uniqueness is the
+  store's problem; against a store keyed on the value every create collides and the second
+  overwrites the first. Same T11 batch.
+
+- **`NativeWeb.Web.targets` is packed to `build\` only, which is not transitive.** A product
+  reaching the package through an intermediate gets the assemblies and none of the wwwroot assets,
+  failing as runtime 404s rather than a build error. `buildTransitive\` alongside `build\` is the
+  fix. Unexercised today: nothing installs these from a feed (see the publishing-model question
+  above).
+
+- **`ForwardedHeadersOptions.ForwardLimit` is left at 1 while `KnownProxies` takes a list.** Two
+  trusted hops (CDN in front of a reverse proxy) means only the last XFF entry is consumed and every
+  client shares one rate-limit partition. Raising it trades that for one more spoofable hop, so it
+  is a decision, not a fix. Found in the 015 review, 2026-08-31.
+
+- **`MaxRequestBodyBytes` and `RequestTimeout` have no configuration key.** Framework-wide ceilings
+  a product cannot tune without forking `NativeWebOptions`. Same review.
+
+- **`UseForwardedHeaders` sits above `ErrorPageMiddleware`.** A throw from it escapes to Kestrel as
+  a bare 500 rather than the error shell. The order is deliberate and tested (the rate limiter needs
+  the real IP), so moving the shell above it is a change to a recorded decision, not a bug fix.

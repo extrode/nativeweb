@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using AngleSharp.Html.Dom;
 using AngleSharp.Html.Parser;
 
-using __PRODUCT__.Middleware;
+using NativeWeb.Web;
 
 using Xunit;
 
