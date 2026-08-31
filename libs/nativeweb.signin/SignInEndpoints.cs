@@ -81,6 +81,48 @@ public static partial class SignInEndpoints
     }
 
     /// <summary>
+    /// Requires an active bearer token on this endpoint or group, checked by introspection.
+    /// </summary>
+    /// <typeparam name="TBuilder">The route or group builder.</typeparam>
+    /// <param name="builder">What to protect.</param>
+    /// <param name="scheme">The authentication scheme whose provider to introspect against.</param>
+    /// <returns>The builder, for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="builder"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="scheme"/> is blank.</exception>
+    /// <remarks>
+    /// This exists because <c>AddEndpointFilter&lt;BearerIntrospectionFilter&gt;()</c> CANNOT work
+    /// here. That overload activates the filter from the container by type, and every service the
+    /// filter needs is registered keyed on the scheme name, so the activation fails at the first
+    /// request with a message naming <c>OAuthClient</c> rather than the missing scheme. Resolving
+    /// per request out of <c>RequestServices</c> is what makes a keyed provider reachable from a
+    /// filter at all.
+    /// </remarks>
+    public static TBuilder RequireBearerToken<TBuilder>(
+        this TBuilder builder,
+        string scheme = SessionAuthenticationHandler.SchemeName)
+        where TBuilder : IEndpointConventionBuilder
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(scheme);
+
+        builder.AddEndpointFilter(async (context, next) =>
+        {
+            IServiceProvider services = context.HttpContext.RequestServices;
+
+            var filter = new BearerIntrospectionFilter(
+                services.GetRequiredKeyedService<OAuthClient>(scheme),
+                services.GetRequiredKeyedService<IntrospectionCache>(scheme),
+                services.GetRequiredKeyedService<SignInOptions>(scheme),
+                services.GetRequiredService<TimeProvider>(),
+                services.GetRequiredService<ILogger<BearerIntrospectionFilter>>());
+
+            return await filter.InvokeAsync(context, next).ConfigureAwait(false);
+        });
+
+        return builder;
+    }
+
+    /// <summary>
     /// Begins the flow: mint <c>state</c> and a PKCE verifier, record them, and redirect the
     /// browser to the provider's authorization endpoint.
     /// </summary>

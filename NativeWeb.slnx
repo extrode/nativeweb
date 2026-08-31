@@ -26,6 +26,7 @@
     <Project Path="tests/nativeweb.web.tests.unit/nativeweb.web.tests.unit.csproj" />
     <Project Path="tests/nativeweb.security.tests.unit/nativeweb.security.tests.unit.csproj" />
     <Project Path="tests/nativeweb.mail.tests.unit/nativeweb.mail.tests.unit.csproj" />
+    <Project Path="tests/nativeweb.signin.tests.integration/nativeweb.signin.tests.integration.csproj" />
     <Project Path="tests/nativeweb.signin.tests.unit/nativeweb.signin.tests.unit.csproj" />
   </Folder>
   <Project Path="../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj" />

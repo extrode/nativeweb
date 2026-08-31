@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The relying party through a real host (spec 016 R26, R27).
+
+       There is no reference to any identity provider here, and no network call
+       leaves the process: StubProvider is mounted into the SAME host as the
+       endpoints under test, and the library's own HttpClient for the scheme is
+       pointed back at that host's TestServer handler. The suite therefore passes
+       on a machine with no route to anything, which is the whole of R27. -->
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.SignIn.Tests.Integration</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- Method_Scenario_Expectation is the xUnit convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707;CA1711</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\nativeweb.signin\nativeweb.signin.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.signin.testing\nativeweb.signin.testing.csproj" />
+  </ItemGroup>
+
+</Project>
