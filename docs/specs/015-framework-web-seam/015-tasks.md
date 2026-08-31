@@ -34,7 +34,7 @@ T1 gates everything after it. Nothing moves until the invariants are asserted an
 - [x] **T9** Shrink `skeleton/apps/__product__/Program.cs` to ≤ 60 lines — files: that file —
   covers: R8 — done when: a stamped product builds and its three tiers pass, and a repo-tier test
   asserts the line ceiling.
-- [ ] **T10** Measure and record — files: `docs/02-reference/performance.md` — covers: R11 — done
+- [x] **T10** Measure and record — files: `docs/02-reference/performance.md` — covers: R11 — done
   when: the pipeline's cost on `apps/sample` is measured against Phase 1's close and written down
   with the bottleneck, whatever the number is.
 
