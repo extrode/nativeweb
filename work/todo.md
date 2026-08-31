@@ -1396,15 +1396,15 @@ another project's deployment and runbook, not to this repo.
   the same way); found while writing spec 015 T5's binder tests. An upper clamp, the way
   `Readiness:CacheSeconds` has one, is the fix.
 
-- **Scaffold: `?page=2000000000` overflows to a negative offset.** `ScaffoldEmitter` clamps the
-  page low (`Math.Max(1, …)`) and not high, so `(page - 1) * PageSize` is unchecked `int`
-  arithmetic on an anonymous GET. Joins the T11 scaffold-defect batch (index not gated, short/float
-  won't compile, `[ScaffoldSearch]` never reaches the store, silent coercion, `DeleteAsync` ignores
-  false, update race).
+- ~~**Scaffold: `?page=2000000000` overflows to a negative offset.**~~ Fixed in T11, 2026-08-31:
+  `Math.Clamp(…, 1, int.MaxValue / PageSize)`. The whole T11 batch went with it — index not gated,
+  short/float wouldn't compile, `[ScaffoldSearch]` never reached the store, silent coercion,
+  `DeleteAsync` ignoring false, the update race.
 
-- **Scaffold: a created record's key is `default!`.** Nothing assigns one, so uniqueness is the
-  store's problem; against a store keyed on the value every create collides and the second
-  overwrites the first. Same T11 batch.
+- ~~**Scaffold: a created record's key is `default!`.**~~ Addressed in T11, 2026-08-31: the contract
+  on `IScaffoldStore.CreateAsync` now states that the store assigns a unique key, and the generated
+  create redirects to the key it returned rather than discarding it — so a store that hands back a
+  stale or empty key fails on the next request instead of at the next silent overwrite.
 
 - **`NativeWeb.Web.targets` is packed to `build\` only, which is not transitive.** A product
   reaching the package through an intermediate gets the assemblies and none of the wwwroot assets,
@@ -1423,3 +1423,15 @@ another project's deployment and runbook, not to this repo.
 - **`UseForwardedHeaders` sits above `ErrorPageMiddleware`.** A throw from it escapes to Kestrel as
   a bare 500 rather than the error shell. The order is deliberate and tested (the rate limiter needs
   the real IP), so moving the shell above it is a change to a recorded decision, not a bug fix.
+
+- **Scaffold: `ScaffoldValues.Decimal` accepts a group separator and `Double`/`Single` do not.**
+  `Decimal` parses with `NumberStyles.Number`, so "1,5" is 1500 to it; the float converters use
+  `NumberStyles.Float` and reject the same string. Each validator matches its own converter, so
+  nothing is inconsistent within a type — but two number fields on one form disagree about what a
+  comma means. Narrowing `Decimal` would reject input that has been accepted and stored, so it is a
+  decision, not a fix. Found writing the T11 validator tests, 2026-08-31.
+
+- **Scaffold: a blank non-nullable numeric still takes the converter's fallback.** T11 made
+  *malformed* input an error; an omitted `int` field is still 0 and an omitted non-nullable
+  `DateTime` is still `DateTime.UtcNow`. Making blank "required" the way a non-nullable string is
+  would be the consistent rule, and it is a behaviour change for every existing form. Same batch.

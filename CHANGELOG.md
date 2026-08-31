@@ -61,6 +61,32 @@ Merged into `dev`, not yet tagged.
   throughput: 11,779 req/s against 18,105 for the same bytes. Nothing was ever being streamed.
 
 ### Fixed
+- **The generated admin index listed every model to everyone.** Each per-model route was guarded and
+  the index was not, so an anonymous visitor read off the name and URL of every guarded model and
+  was refused only on the click. A link is now emitted only when the caller satisfies that model's
+  read requirement, and the index itself requires an identity when every model does. The default
+  posture for a model with no `[Auth]` is unchanged — whether it should invert is D2 in the
+  readiness plan, still open.
+- **`short` and `float` properties generated code that did not compile.** Both fell through the
+  conversion table to the string case, so `short Quantity = ScaffoldValues.Text(…) ?? string.Empty`
+  — CS0029, on a model that declared nothing unusual. Nullable `double` and nullable `Guid` failed
+  the same way. A test now compiles the generator's output for every supported type, which also
+  found the generated files relying on `ImplicitUsings`: they now state their own usings.
+- **`[ScaffoldSearch]` reached the search box's placeholder and nothing else.** `IScaffoldStore`
+  takes the searchable property names on `ListAsync`/`CountAsync`; before this every store
+  re-declared the searchable columns by hand, and removing the attribute changed the placeholder
+  while leaving the column searched.
+- **Malformed numeric, `Guid` and `DateTime` input was silently coerced.** "abc" in a number field
+  was stored as 0 and "not-a-date" as the current instant, answered with the same 302 a valid
+  submission gets. It is now an error shown on the form. Blank still takes the documented fallback.
+- **`DeleteAsync` and `UpdateAsync` returning false were discarded**, so deleting a row that was not
+  there — or saving one deleted between the load and the save — redirected as if it had worked. Both
+  answer 404.
+- **`?page` was clamped low and not high**, so a page number in the hundreds of millions overflowed
+  `(page - 1) * PageSize` to a negative offset from an anonymous GET.
+- **The key `CreateAsync` returns was discarded.** The contract now states that the store assigns a
+  unique key, and the generated create redirects to the key it returned, so a store handing back a
+  stale or empty one fails visibly instead of overwriting a row later.
 - **The pooled `NpgsqlDataSource` was registered as a built instance**, so the container never
   disposed it: the pool outlived the host and connections closed by the socket rather than by
   Npgsql. A factory registration is the fix.
