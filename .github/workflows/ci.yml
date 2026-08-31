@@ -39,10 +39,14 @@ env:
 
   # Keys for ContactProtector and StoreDataProtector, which are framework
   # primitives in libs/nativeweb.security and outlived the identity provider that
-  # used to consume them here. No suite in this repository reads them today; they
-  # stay because a stamped product's own workflow inherits this shape, and because
-  # deleting a key that a future suite silently needs fails as a 503 rather than
-  # by name.
+  # used to consume them here. No suite in this repository reads them today, and
+  # neither primitive reads configuration at all -- both take their key from the
+  # caller -- so the `NativeWeb__` spelling binds nothing and a suite that needed
+  # one of these would spell it with its own product's section, the way apps/sample
+  # spells everything `Sample__`. They stay as the shape a stamped product's
+  # workflow inherits, and as the record that these are test values; they are not a
+  # working configuration for anything. Noted 2026-08-31 after the deploy preflight
+  # was found demanding the same departed spelling.
   #
   # These are test values and deliberately not secrets, which is why they are
   # here in the clear rather than in the secret store. DeriveKey SHA256s

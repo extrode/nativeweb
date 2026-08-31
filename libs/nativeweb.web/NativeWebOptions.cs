@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
 
@@ -136,9 +137,110 @@ public sealed record NativeWebOptions
     /// cannot be unit tested. <see cref="FromConfiguration"/> is the caller that
     /// turns a false here into that exit.
     /// </remarks>
+    // `home` and `canPersist` are parameters rather than read inside, because
+    // neither branch that matters can be produced on a developer's machine and an
+    // untestable guard against a silent failure is two silent failures.
+    //
+    // Emptiness is not the test the host needs, which is what the first version of
+    // this guard got wrong. A system account with no home directory still records
+    // one in passwd -- /nonexistent, or a /home path that was never created -- so
+    // UserProfile comes back non-empty, the guard did not fire, and the key ring
+    // resolved under a directory nothing can write. Persistence has to be probed,
+    // not inferred from the string.
+    internal static bool TryResolveKeyDirectory(
+        string? configured,
+        string home,
+        string applicationName,
+        Func<string, bool> canPersist,
+        [NotNullWhen(true)] out string? directory)
+    {
+        ArgumentNullException.ThrowIfNull(canPersist);
+
+        // A configured directory is taken as given and never probed. It is an
+        // operator's explicit statement, deploy.sh's preflight already checks it
+        // sits inside ReadWritePaths, and probing it would mean every process that
+        // binds these options creates a directory as a side effect of reading
+        // configuration. The fallback is the one nobody chose, so it is the one
+        // that has to be proved.
+        if (configured is { Length: > 0 })
+        {
+            directory = configured;
+            return true;
+        }
+
+        if (home.Length == 0)
+        {
+            directory = null;
+            return false;
+        }
+
+        // The home directory itself is what gets probed, and it has to already
+        // exist. A system account's passwd entry names a home that was never
+        // created -- /nonexistent on Debian -- and a process with enough privilege
+        // simply creates it, so a probe that CREATES the candidate returns true for
+        // the very account this guard was written for and puts the key ring on an
+        // ephemeral path nothing provisions or backs up. Existing-and-writable is
+        // the question; the key ring makes its own subdirectory afterwards.
+        if (!canPersist(home))
+        {
+            directory = null;
+            return false;
+        }
+
+        directory = Path.Combine(home, "." + applicationName.ToLowerInvariant(), "keys");
+        return true;
+    }
+
+    // Existence and writability, and nothing created that outlives the call. An
+    // earlier version created the candidate directory to prove the parent allowed
+    // it; that answered a different question -- a root process creates
+    // /nonexistent happily -- and it raced when four test hosts bound options at
+    // once, one deleting the directory while another wrote its probe into it. The
+    // probe file's name is random for the same reason.
+    internal static bool CanPersistKeys(string directory)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return false;
+        }
+
+        string probe = Path.Combine(directory, $".nativeweb-probe-{Path.GetRandomFileName()}");
+        try
+        {
+            File.WriteAllBytes(probe, []);
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+        {
+            return false;
+        }
+    }
+
     public static bool TryFromConfiguration(
         IConfiguration configuration,
         string applicationName,
+        out NativeWebOptions? options,
+        out string? error,
+        string? section = null) =>
+        TryFromConfiguration(
+            configuration,
+            applicationName,
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            CanPersistKeys,
+            out options,
+            out error,
+            section);
+
+    // The environment is read by the public overload above and passed in here, so
+    // the branch where the fallback key directory is unusable is reachable from a
+    // test. It is the branch that matters -- it is what a system account gets --
+    // and it cannot be produced on a developer's machine.
+    internal static bool TryFromConfiguration(
+        IConfiguration configuration,
+        string applicationName,
+        string home,
+        Func<string, bool> canPersist,
         out NativeWebOptions? options,
         out string? error,
         string? section = null)
@@ -215,6 +317,29 @@ public sealed record NativeWebOptions
             return false;
         }
 
+        // The dev default is a directory under the user's home, which is right for
+        // every environment that has one. A systemd unit whose user has no home
+        // directory does not: the path resolves somewhere nothing can write —
+        // /nonexistent, or the release directory that ProtectSystem=strict makes
+        // read-only. Persistence then fails, every restart remints the antiforgery
+        // keys, and every form POST answers 400 while /readyz stays green.
+        // Supplied-but-unusable stops the app here for the same reason the security
+        // contact does, three checks up.
+        if (!TryResolveKeyDirectory(
+            configuration[Key("DataProtection:KeyDirectory")],
+            home,
+            applicationName,
+            canPersist,
+            out string? keyDirectory))
+        {
+            error = $"{Key("DataProtection:KeyDirectory")} names no directory this process can write, and "
+                + "there is no usable home directory to fall back to, so the data protection key ring would "
+                + "not survive a restart. Every form POST would answer 400 after each deploy with nothing "
+                + "reporting it. Set it to a writable directory that outlives a release "
+                + "— /var/lib/nativeweb/keys on a host provisioned by scripts/deploy/provision.sh.";
+            return false;
+        }
+
         // Clamped rather than only validated as positive — see the property.
         var readiness = TimeSpan.FromSeconds(1);
         if (double.TryParse(configuration[Key("Readiness:CacheSeconds")], NumberStyles.Float, CultureInfo.InvariantCulture, out double readinessSeconds)
@@ -243,12 +368,7 @@ public sealed record NativeWebOptions
                 : applicationName,
             // Length check, not ??: appsettings documents the key with an empty
             // value, and DirectoryInfo("") throws at startup.
-            DataProtectionKeyDirectory = configuration[Key("DataProtection:KeyDirectory")] is { Length: > 0 } keyDirectory
-                ? keyDirectory
-                : Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    "." + applicationName.ToLowerInvariant(),
-                    "keys"),
+            DataProtectionKeyDirectory = keyDirectory,
             BotTrapMinAge = botTrapMinAge,
             GeneralPermitLimit = PermitLimit(configuration, Key("RateLimit:General:PermitLimit"), 120),
             CspReportPermitLimit = PermitLimit(configuration, Key("RateLimit:CspReport:PermitLimit"), 10),

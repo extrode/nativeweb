@@ -10,6 +10,10 @@
 # <addr> instead of holding :443 itself -- an Incus guest on a fleet host, where
 # one host-level Caddy fronts every site. Decision 006.
 #
+# --prefix <Name> is the configuration section the binary reads, default Sample.
+# It decides how every key in app.env and secrets.env is spelled, so a stamped
+# product must pass its own. Get it wrong and deploy.sh's preflight says so.
+#
 # Idempotent by construction: every step either creates something that does not
 # exist or asserts something that does. Running it twice changes nothing the
 # second time, which is what makes it safe to re-run after editing a unit file.
@@ -45,8 +49,22 @@ step() { echo "provision.sh: $*"; }
 # and the forwarded-headers settings seeded into app.env -- so the two modes share
 # every other step, including the whole blue/green release layout.
 EDGE_PROXY=""
+
+# --prefix <Name>: the configuration section the deployed binary reads, i.e. the
+# string its Program.cs passes to NativeWebOptions.FromConfiguration. It decides
+# how every key seeded below is SPELLED, and it used to be hardcoded NativeWeb --
+# a section no binary in this repository binds. Every key seeded under it was
+# therefore unread, including the two whose absence is silent. No cross-check
+# against the artifact is needed here: get it wrong and deploy.sh's preflight
+# fails by construction, because the keys it greps for will not be there.
+CONFIG_PREFIX="Sample"
 while [[ $# -gt 0 ]]; do
 	case "$1" in
+	--prefix)
+		[[ $# -ge 2 && -n "$2" ]] || die "--prefix needs the configuration section name, e.g. --prefix Sample"
+		CONFIG_PREFIX="$2"
+		shift 2
+		;;
 	--edge)
 		# Same `shift 2` trap deploy.sh's need_value documents: with one argument
 		# left, shift 2 returns 1 and `set -e` exits with no message at all.
@@ -55,7 +73,7 @@ while [[ $# -gt 0 ]]; do
 		shift 2
 		;;
 	-h | --help)
-		sed -n '2,23p' "${BASH_SOURCE[0]}"
+		sed -n '2,27p' "${BASH_SOURCE[0]}"
 		exit 0
 		;;
 	*) die "unknown argument '$1'" ;;
@@ -160,12 +178,12 @@ if [[ -n "$EDGE_PROXY" ]]; then
 # and the Caddy on this host owns the blue/green swap. Both must be trusted, and
 # ForwardLimit must match the chain length -- at the default of 1 the app unwinds
 # only the local hop and every request appears to come from $EDGE_PROXY.
-NativeWeb__ForwardedHeaders__KnownProxies=127.0.0.1,::1,$EDGE_PROXY
-NativeWeb__ForwardedHeaders__ForwardLimit=2"
+${CONFIG_PREFIX}__ForwardedHeaders__KnownProxies=127.0.0.1,::1,$EDGE_PROXY
+${CONFIG_PREFIX}__ForwardedHeaders__ForwardLimit=2"
 else
-	FORWARDED_STANZA='# REQUIRED. Unset means every client in the world shares one rate-limit
+	FORWARDED_STANZA="# REQUIRED. Unset means every client in the world shares one rate-limit
 # partition and nothing says so. deploy.sh refuses to promote without it.
-NativeWeb__ForwardedHeaders__KnownProxies=127.0.0.1,::1'
+${CONFIG_PREFIX}__ForwardedHeaders__KnownProxies=127.0.0.1,::1"
 fi
 
 seed_config "$CONFIG_ROOT/app.env" 0644 "root:$SERVICE_GROUP" \
@@ -173,40 +191,40 @@ seed_config "$CONFIG_ROOT/app.env" 0644 "root:$SERVICE_GROUP" \
 		'# Non-secret application settings. Read by nativeweb@.service.
 ASPNETCORE_ENVIRONMENT=Production' \
 		"$FORWARDED_STANZA" \
-		'# REQUIRED. This deployment public origin, emitted by robots.txt and sitemap.xml.
-NativeWeb__CanonicalBaseUrl=
+		"# REQUIRED. Must persist across releases, and must stay inside
+# /var/lib/nativeweb: ReadWritePaths in nativeweb@.service names that directory and
+# ProtectSystem=strict makes the rest read-only. Unset, the framework falls back to a
+# path under the process's home -- and this unit has no home -- so the data-protection
+# key ring cannot be written, every restart remints the antiforgery keys, and every
+# form POST 400s after each deploy with /readyz still green. deploy.sh checks both
+# the value and the directory it names.
+${CONFIG_PREFIX}__DataProtection__KeyDirectory=/var/lib/nativeweb/keys
 
-# Must persist across releases. Do not point this inside a release directory.
-NativeWeb__DataProtection__KeyDirectory=/var/lib/nativeweb/keys
-
-# Telemetry is opt-OUT. Either point this at a collector or set Enabled=false;
-# deploy.sh refuses to promote when neither is done.
+# Telemetry is opt-IN: the framework defaults Enabled to false. deploy.sh refuses to
+# promote only when this is true and no endpoint is set.
 # OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317
-NativeWeb__Telemetry__Enabled=false
-
-# The defaults are localhost and break every credential on a real hostname.
-NativeWeb__WebAuthn__ServerDomain=
-NativeWeb__WebAuthn__Origins=
-
-# The default is https://localhost/device and is wrong for any real deployment.
-NativeWeb__DeviceGrant__VerificationUri=')"
+${CONFIG_PREFIX}__Telemetry__Enabled=false")"
 
 # 0640 root:nativeweb. The service reads it; no other account can. Asserted on
 # every run, because this is the file whose mode silently drifting matters most.
 seed_config "$CONFIG_ROOT/secrets.env" 0640 "root:$SERVICE_GROUP" \
-	'# Secrets. NOT in the repository, NOT world-readable, NOT set with Environment=
+	"# Secrets. NOT in the repository, NOT world-readable, NOT set with Environment=
 # (which systemctl show would expose to any local user).
 #
-# Fill these in before the first deploy. A NativeWeb app refuses to start outside
-# Development without the SMTP host, and degrades SILENTLY without the three keys.
-ConnectionStrings__NativeWeb=
-NativeWeb__ContactKey=
-NativeWeb__StoreEncryptionKey=
-NativeWeb__PairwiseSalt=
-NativeWeb__Smtp__Host=
-NativeWeb__Smtp__Username=
-NativeWeb__Smtp__Secret=
-NativeWeb__Smtp__FromAddress='
+# Fill this in before the first deploy. Without it the app answers /healthz green
+# while serving no database at all, and deploy.sh refuses to promote.
+#
+# Two spellings, one of which applies: the reference app reads ConnectionStrings:<Prefix>,
+# a product stamped from skeleton/ reads <Prefix>:Db:ConnectionString. Fill the one
+# your binary uses and delete the other.
+#
+# The eight keys that used to be seeded here -- ContactKey, StoreEncryptionKey,
+# PairwiseSalt and the five SMTP settings -- belonged to the identity provider that
+# left this repository on 2026-08-31. No code here binds any of them, and the
+# preflight that demanded them made the operator invent values for a departed
+# product before it would deploy.
+ConnectionStrings__${CONFIG_PREFIX}=
+${CONFIG_PREFIX}__Db__ConnectionString="
 
 seed_config "$CONFIG_ROOT/blue.env" 0644 "root:$SERVICE_GROUP" \
 	'ASPNETCORE_URLS=http://127.0.0.1:5011'

@@ -74,9 +74,29 @@ public sealed class TelemetryGateTests
     public void TheSample_RegistersTheFrameworkPipelineThatCarriesTelemetry()
     {
         Assert.Contains("AddNativeWebWeb(options", Read("apps", "sample", "Program.cs"), StringComparison.Ordinal);
+
+        // The link is asserted inside AddNativeWebWeb's own body, sliced from its
+        // declaration to the next member at the same indentation. A positional
+        // "appears somewhere after" test stayed green when the call was moved into
+        // any other method between the two, which is the unhooking it exists to
+        // catch.
+        string pipeline = Read("libs", "nativeweb.web", "NativeWebPipeline.cs");
+
+        const string declaration = "public static WebApplicationBuilder AddNativeWebWeb(";
+        int start = pipeline.IndexOf(declaration, StringComparison.Ordinal);
+        Assert.True(start >= 0, "NativeWebPipeline.cs no longer declares AddNativeWebWeb.");
+
+        int next = pipeline.IndexOf("\n    public static ", start + declaration.Length, StringComparison.Ordinal);
+        Assert.True(next > start, "AddNativeWebWeb is the last member in the file; this test is reading the wrong slice.");
+
         Assert.Contains(
-            "services.AddOpenTelemetry()",
-            Read("libs", "nativeweb.web", "NativeWebPipeline.cs"),
+            "AddNativeWebTelemetry(options",
+            pipeline[start..next],
             StringComparison.Ordinal);
+
+        int telemetry = pipeline.IndexOf("public static IServiceCollection AddNativeWebTelemetry", StringComparison.Ordinal);
+        Assert.True(telemetry >= 0, "NativeWebPipeline.cs no longer declares AddNativeWebTelemetry.");
+
+        Assert.Contains("services.AddOpenTelemetry()", pipeline[telemetry..], StringComparison.Ordinal);
     }
 }

@@ -86,13 +86,26 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
         // and report success, which is the exact thing the handler was changed to
         // stop reporting. JauntyArticleStore gets this right through rows-affected;
         // the reference store has to match the semantics it demonstrates.
-        if (!this._items.TryGetValue(id, out T? current))
+        //
+        // The loop is what keeps false meaning "no such row" and nothing else. A
+        // single TryUpdate also fails when a concurrent UPDATE replaced the value,
+        // because it compares by reference; IScaffoldStore.UpdateAsync defines false
+        // strictly as absent and the handler maps it to 404, so two admins saving
+        // the same row left the loser told the record does not exist while it was
+        // still in the list. Retrying until the row is either gone or ours makes the
+        // concurrent-update case last-write-wins, which is what a SQL UPDATE's
+        // rows-affected reports.
+        AssignKey(item, id);
+
+        while (this._items.TryGetValue(id, out T? current))
         {
-            return ValueTask.FromResult(false);
+            if (this._items.TryUpdate(id, item, current))
+            {
+                return ValueTask.FromResult(true);
+            }
         }
 
-        AssignKey(item, id);
-        return ValueTask.FromResult(this._items.TryUpdate(id, item, current));
+        return ValueTask.FromResult(false);
     }
 
     public ValueTask<bool> DeleteAsync(string id, CancellationToken ct) =>

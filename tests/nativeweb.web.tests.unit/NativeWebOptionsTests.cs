@@ -218,4 +218,117 @@ public sealed class NativeWebOptionsTests
 
         Assert.Equal([IPAddress.Parse("10.0.0.1"), IPAddress.Parse("10.0.0.3")], options.KnownProxies);
     }
+
+    [Fact]
+    public void AConfiguredKeyDirectory_IsUsedVerbatim()
+    {
+        Assert.True(NativeWebOptions.TryResolveKeyDirectory("/var/lib/nativeweb/keys", "/home/dev", "Demo", _ => true, out string? directory));
+        Assert.Equal("/var/lib/nativeweb/keys", directory);
+    }
+
+    [Fact]
+    public void NoConfiguredKeyDirectory_FallsBackUnderTheHomeDirectory()
+    {
+        Assert.True(NativeWebOptions.TryResolveKeyDirectory(null, "/home/dev", "Demo", _ => true, out string? directory));
+        Assert.Equal(Path.Combine("/home/dev", ".demo", "keys"), directory);
+    }
+
+    // An empty home is what a process with no home directory at all gets.
+    // Path.Combine drops the empty segment, so the fallback used to yield a RELATIVE
+    // path, which resolves under WorkingDirectory -- read-only under
+    // ProtectSystem=strict. The key ring could not persist, every restart reminted
+    // the antiforgery keys, and every form POST answered 400 after each deploy with
+    // /readyz green.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void NoConfiguredKeyDirectory_AndNoHome_IsRefusedRatherThanResolvedRelative(string? configured)
+    {
+        Assert.False(NativeWebOptions.TryResolveKeyDirectory(configured, "", "Demo", _ => true, out string? directory));
+        Assert.Null(directory);
+    }
+
+    // The sharper case, and the one the emptiness test above does not reach: a
+    // system account records a home in passwd that was never created --
+    // /nonexistent on Debian -- so the string is not empty and the guard has to
+    // prove the directory rather than infer it from the path.
+    [Fact]
+    public void AHomeDirectoryNothingCanWrite_IsRefusedEvenThoughThePathIsNotEmpty()
+    {
+        Assert.False(NativeWebOptions.TryResolveKeyDirectory(null, "/nonexistent", "Demo", _ => false, out string? directory));
+        Assert.Null(directory);
+    }
+
+    // A configured directory is never probed: it is an operator's statement and
+    // deploy.sh preflights it, and probing would make binding options create a
+    // directory as a side effect of reading configuration.
+    [Fact]
+    public void AConfiguredKeyDirectory_IsTakenWithoutProbing()
+    {
+        Assert.True(NativeWebOptions.TryResolveKeyDirectory(
+            "/var/lib/nativeweb/keys",
+            "",
+            "Demo",
+            _ => throw new InvalidOperationException("a configured directory must not be probed"),
+            out string? directory));
+
+        Assert.Equal("/var/lib/nativeweb/keys", directory);
+    }
+
+    // Through the entry point, not the helper: what the helper's false has to
+    // produce is a startup refusal carrying the key's name, and nothing asserted
+    // that wiring. Reverting TryFromConfiguration to the old inline Path.Combine
+    // left every other test in this file green.
+    [Fact]
+    public void AnUnusableFallbackKeyDirectory_StopsStartupWithANamedError()
+    {
+        Assert.False(NativeWebOptions.TryFromConfiguration(
+            Config(),
+            "Demo",
+            "/nonexistent",
+            _ => false,
+            out NativeWebOptions? options,
+            out string? error));
+
+        Assert.Null(options);
+        Assert.NotNull(error);
+        Assert.Contains("Demo:DataProtection:KeyDirectory", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AConfiguredKeyDirectory_IsBoundThroughTheEntryPoint()
+    {
+        Assert.True(NativeWebOptions.TryFromConfiguration(
+            Config(("Demo:DataProtection:KeyDirectory", "/var/lib/nativeweb/keys")),
+            "Demo",
+            out NativeWebOptions? options,
+            out string? error));
+
+        Assert.Null(error);
+        Assert.Equal("/var/lib/nativeweb/keys", options?.DataProtectionKeyDirectory);
+    }
+    [Fact]
+    public void TheProbe_RefusesAHomeThatWasNeverCreated()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), $"nativeweb-absent-{Guid.NewGuid():N}");
+
+        Assert.False(NativeWebOptions.CanPersistKeys(missing));
+        Assert.False(Directory.Exists(missing));
+    }
+
+    [Fact]
+    public void TheProbe_AcceptsAWritableDirectoryAndLeavesNothingBehind()
+    {
+        string dir = Directory.CreateTempSubdirectory("nativeweb-probe").FullName;
+
+        try
+        {
+            Assert.True(NativeWebOptions.CanPersistKeys(dir));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(dir));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

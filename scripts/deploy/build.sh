@@ -35,7 +35,83 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/dist}"
 RUNTIME_ID="${RUNTIME_ID:-linux-x64}"
+# Captured BEFORE the defaults are applied. Once a variable has been given its
+# default it is always set, so a test made after the fact cannot tell an override
+# from a default and the guard below would never fire. `:+` rather than `+`: an
+# override to the empty string is not an override of anything, and deploy.sh --
+# which re-executes itself with these forwarded -- depends on that reading.
+PROJECT_SET="${PROJECT:+yes}"
+CONFIG_PREFIX_SET="${CONFIG_PREFIX:+yes}"
+DB_DIR_SET="${DB_DIR:+yes}"
+MIGRATIONS_DIR_SET="${MIGRATIONS_DIR:+yes}"
+
 PROJECT="${PROJECT:-apps/sample/nativeweb.sample.csproj}"
+
+# The configuration section the binary reads, and the migrations that belong to
+# it. Both are stamped into RELEASE below, because both are properties of the
+# ARTIFACT rather than of the host: the prefix is the string compiled in at
+# Program.cs's NativeWebOptions.FromConfiguration call, and the migrations are
+# the ones this project's schema needs. deploy.sh's preflight asks "will THIS
+# binary find its configuration", so the answer has to travel with the binary
+# the way short_sha already does.
+#
+# A host-side CONFIG_PREFIX would be worse in a specific way: seed_config in
+# provision.sh never overwrites, so a wrong first guess would persist forever,
+# and the preflight would be validating a file that supplied its own validator.
+CONFIG_PREFIX="${CONFIG_PREFIX:-Sample}"
+DB_DIR="${DB_DIR:-db}"
+MIGRATIONS_DIR="${MIGRATIONS_DIR:-db/sample/migrations}"
+
+# Overriding PROJECT without the other three is the silent case: a stamped
+# product would build its own binary and then be preflighted against Sample's
+# key names, which pass while the binary reads none of them -- Consequence B of
+# the 2026-08-31 review, rebuilt one layer up.
+if [[ -n "$PROJECT_SET" ]]; then
+	for name in CONFIG_PREFIX_SET DB_DIR_SET MIGRATIONS_DIR_SET; do
+		if [[ -z "${!name}" ]]; then
+			echo "ERROR: PROJECT is overridden but ${name%_SET} is not." >&2
+			echo "       A product that builds its own binary and inherits Sample's configuration" >&2
+			echo "       prefix or migrations passes a preflight that proves nothing. Set all three." >&2
+			exit 1
+		fi
+	done
+fi
+
+# The stamp names the path INSIDE the artifact, which is not the path the operator
+# gave: $DB_DIR arrives as db/ (see the cp below), so DB_DIR=database with
+# MIGRATIONS_DIR=database/migrations used to stamp a directory no artifact
+# contains. deploy.sh resolves the stamp release-relative and died on the host,
+# after the whole NativeAOT publish. With the defaults the two coincide, which is
+# why nothing caught it. Found by Fable, 2026-08-31.
+# Both are repo-relative and neither keeps a trailing slash. DB_DIR=database/ is
+# an ordinary way to type a directory, and it made the case below compare against
+# `database//*`, which database/migrations does not match -- so the build refused
+# a pair that was correct, with a message saying the opposite.
+DB_DIR="${DB_DIR%/}"
+MIGRATIONS_DIR="${MIGRATIONS_DIR%/}"
+
+if [[ "$DB_DIR" = /* || "$MIGRATIONS_DIR" = /* ]]; then
+	echo "ERROR: DB_DIR and MIGRATIONS_DIR are paths inside this repository, relative to its" >&2
+	echo "       root. Got DB_DIR=$DB_DIR MIGRATIONS_DIR=$MIGRATIONS_DIR." >&2
+	exit 1
+fi
+
+if [[ ! -d "$REPO_ROOT/$MIGRATIONS_DIR" ]]; then
+	echo "ERROR: MIGRATIONS_DIR is $MIGRATIONS_DIR, which is not a directory in this repository." >&2
+	exit 1
+fi
+
+case "$MIGRATIONS_DIR" in
+"$DB_DIR"/*)
+	ARTIFACT_MIGRATIONS_DIR="db/${MIGRATIONS_DIR#"$DB_DIR"/}"
+	;;
+*)
+	echo "ERROR: MIGRATIONS_DIR is $MIGRATIONS_DIR, which is not under DB_DIR ($DB_DIR)." >&2
+	echo "       Only \$DB_DIR travels in the artifact, so migrations outside it would not" >&2
+	echo "       be there to apply." >&2
+	exit 1
+	;;
+esac
 
 # The name the executable is installed under, inside the artifact and on the
 # host. NOT the project's own name: systemd will not expand a variable in the
@@ -166,13 +242,21 @@ built_at=$BUILT_AT
 built_by=$(id -un)@$(hostname)
 runtime=$RUNTIME_ID
 project=$PROJECT
+config_prefix=$CONFIG_PREFIX
+migrations_dir=$ARTIFACT_MIGRATIONS_DIR
 tree=$DIRTY
 EOF
 
 # Migrations travel with the release. deploy.sh runs them from the staged
 # directory, not from a checkout on the host -- there is no checkout on the
 # host, and there should not be one.
-cp -r db "$PUBLISH_DIR/db"
+#
+# $DB_DIR, not a hardcoded `db`: this line used to copy THIS checkout's db/ no
+# matter which project was being built, so a stamped product's artifact carried
+# NativeWeb's sample schema and none of its own. The destination stays fixed at
+# db/ inside the artifact, because deploy.sh resolves migrations_dir relative to
+# the release directory and that layout is the artifact's contract.
+cp -r "$DB_DIR" "$PUBLISH_DIR/db"
 
 mkdir -p "$OUTPUT_DIR"
 ARTIFACT="$OUTPUT_DIR/nativeweb-$SHORT_SHA.tar.zst"

@@ -4,7 +4,7 @@ Database assets for __PRODUCT__ (`apps/__product__`): its own database (`__produ
 its own app role (`__product___app`), its own migration history.
 
 ```
-migrations/   ordered PostgreSQL schema migrations (DDL); 0001 needs superuser (citext)
+migrations/   ordered PostgreSQL schema migrations (DDL); NNNN_extensions.sql needs superuser
 queries/      inline .sql query files; JauntyQ generates typed C# from these
 schema/       __product__.schema.json — the committed schema snapshot JauntyQ reads
 migrate.sh    applies migrations in order, tracked in schema_migrations

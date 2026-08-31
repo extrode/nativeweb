@@ -141,25 +141,87 @@ public sealed class ScaffoldGeneratorTests
         }
         """;
 
+    // The shapes an ordinary model can have that no conversion table covers: value
+    // types outside it, an enum, a computed property, an indexer, and a setter the
+    // generated code cannot reach. Each one used to emit an assignment -- CS0029 for
+    // the types, CS0200 for the unsettable ones.
+    private const string AwkwardModel = """
+        using NativeWeb.Scaffold;
+
+        namespace Demo
+        {
+            public enum Rank { Low, High }
+
+            [Scaffold]
+            public sealed class Awkward
+            {
+                [ScaffoldKey] public string Id { get; set; } = "";
+                public string Title { get; set; } = "";
+                public string Summary => Title + "!";
+                public byte Level { get; set; }
+                public ushort Port { get; set; }
+                public uint Count { get; set; }
+                public sbyte Offset { get; set; }
+                public char Initial { get; set; }
+                public ulong Huge { get; set; }
+                public Rank Grade { get; set; }
+                public Rank? MaybeGrade { get; set; }
+                public System.DateOnly Day { get; set; }
+                public System.TimeOnly Hour { get; set; }
+                public System.DateTimeOffset Moment { get; set; }
+                public System.TimeSpan Duration { get; set; }
+                public string Locked { get; private set; } = "";
+                public string this[int i] => Title;
+            }
+        }
+        """;
+
     [Fact]
-    public void EverySupportedPropertyType_EmitsCodeThatCompiles()
+    public void EverySupportedPropertyType_EmitsCodeThatCompiles() =>
+        AssertGeneratedSourceCompiles(EveryTypeModel);
+
+    [Fact]
+    public void TypesWithNoConversion_AndPropertiesWithNoReachableSetter_EmitCodeThatCompiles() =>
+        AssertGeneratedSourceCompiles(AwkwardModel);
+
+    [Fact]
+    public void APropertyWithNoConversion_IsCarriedThroughRatherThanBoundFromTheForm()
     {
-        // The real NativeWeb.Scaffold attributes, not the inline copies the other
-        // tests declare: this compilation has to resolve ScaffoldValues and
-        // ScaffoldEndpoints too, and two definitions of one attribute name would be
-        // ambiguous rather than convenient.
+        (_, string emitted) = Run(AwkwardModel);
+
+        Assert.Contains("Grade = existing is null ? default! : existing.Grade,", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Summary =", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Locked =", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("this[]", emitted, StringComparison.Ordinal);
+    }
+
+    // The real NativeWeb.Scaffold attributes, not the inline copies the other tests
+    // declare: this compilation has to resolve ScaffoldValues and ScaffoldEndpoints
+    // too, and two definitions of one attribute name would be ambiguous rather than
+    // convenient.
+    private static void AssertGeneratedSourceCompiles(string model)
+    {
         var compilation = CSharpCompilation.Create(
             "scaffold-generator-compile-test",
-            syntaxTrees: [CSharpSyntaxTree.ParseText(EveryTypeModel)],
+            syntaxTrees: [CSharpSyntaxTree.ParseText(model)],
             references: PlatformReferences(),
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
 
-        CSharpGeneratorDriver
+        GeneratorDriver driver = CSharpGeneratorDriver
             .Create(new ScaffoldGenerator())
             .RunGeneratorsAndUpdateCompilation(compilation, out Compilation updated, out _);
 
+        // Without this the test passes when the generator THROWS: an exception in a
+        // generator is reported as CS8785 on the driver and leaves the compilation
+        // with nothing added, so "the generated source has no errors" is satisfied
+        // by there being no generated source. Measured by mutation, 2026-08-31.
+        GeneratorRunResult result = Assert.Single(driver.GetRunResult().Results);
+        Assert.Null(result.Exception);
+        Assert.NotEmpty(result.GeneratedSources);
+
         Diagnostic[] errors = updated
             .GetDiagnostics()
+            .Concat(driver.GetRunResult().Diagnostics)
             .Where(d => d.Severity == DiagnosticSeverity.Error)
             .ToArray();
 
@@ -539,8 +601,29 @@ public sealed class ScaffoldGeneratorTests
     {
         (_, string source) = Run(Attributes, ArticleModel);
 
-        Assert.Contains("if (!await store.DeleteAsync(id, ct).ConfigureAwait(false))", source, StringComparison.Ordinal);
-        Assert.Contains("if (!await store.UpdateAsync(id, item, ct).ConfigureAwait(false))", source, StringComparison.Ordinal);
+        // The branch BODY, not only that the boolean is read. Both assertions used
+        // to stop at the `if`, so a branch that redirected to the list -- the very
+        // thing the fix removed -- passed.
+        AssertBranchBody(
+            source,
+            "if (!await store.DeleteAsync(id, ct).ConfigureAwait(false))",
+            "return Results.NotFound();");
+
+        AssertBranchBody(
+            source,
+            "if (!await store.UpdateAsync(id, item, ct).ConfigureAwait(false))",
+            "return Results.NotFound();");
+    }
+
+    private static void AssertBranchBody(string source, string condition, string expected)
+    {
+        int start = source.IndexOf(condition, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"the emitted source has no `{condition}`.");
+
+        int close = source.IndexOf("\n        }", start, StringComparison.Ordinal);
+        Assert.True(close > start, $"`{condition}` has no closing brace.");
+
+        Assert.Contains(expected, source[start..close], StringComparison.Ordinal);
     }
 
     [Fact]

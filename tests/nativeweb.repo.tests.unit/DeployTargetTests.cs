@@ -76,6 +76,14 @@ public sealed class DeployTargetTests
     [Fact]
     public void NothingDownstreamOfTheBuild_NamesAProject()
     {
+        // Read out of build.sh rather than written here. The two literals below are
+        // historical: this test never learned what the project name IS, so
+        // retargeting build.sh at a third project would have left that third name
+        // free to leak downstream with the assertion still green.
+        string current = Path.GetDirectoryName(
+            Defaulted(Read("scripts", "deploy", "build.sh"), "PROJECT=\"${PROJECT:-").Replace('\\', '/'))!
+            .Replace('\\', '/');
+
         foreach (string file in Directory.EnumerateFiles(
             Path.Combine(RepoRoot(), "scripts", "deploy"),
             "*",
@@ -89,7 +97,106 @@ public sealed class DeployTargetTests
             string text = File.ReadAllText(file);
 
             Assert.DoesNotContain("apps/web", text, StringComparison.Ordinal);
-            Assert.DoesNotContain("apps/sample", text, StringComparison.Ordinal);
+            Assert.DoesNotContain(current, text, StringComparison.Ordinal);
+
+            Assert.DoesNotContain("NativeWeb__", text, StringComparison.Ordinal);
         }
+    }
+
+    // The configuration prefix is the class of coupling the test above misses: a
+    // key name is not a project name, so ten NativeWeb__* keys sat in deploy.sh
+    // and provision.sh while apps/sample bound Sample:. The preflight hard-failed
+    // on nine keys nothing reads, and passed on the two that mattered while they
+    // stayed unset. Derived from the parsed PROJECT rather than hardcoded, so
+    // retargeting the default project moves this assertion with it.
+    [Fact]
+    public void BuildScript_StampsThePrefixTheDefaultProjectReads()
+    {
+        string build = Read("scripts", "deploy", "build.sh");
+
+        string project = Defaulted(build, "PROJECT=\"${PROJECT:-");
+        string stamped = Defaulted(build, "CONFIG_PREFIX=\"${CONFIG_PREFIX:-");
+
+        string programPath = Path.Combine(
+            RepoRoot(),
+            Path.GetDirectoryName(project.Replace('/', Path.DirectorySeparatorChar))!,
+            "Program.cs");
+
+        Assert.True(File.Exists(programPath), $"build.sh publishes {project}, which has no Program.cs beside it.");
+
+        const string call = "NativeWebOptions.FromConfiguration(builder.Configuration, \"";
+        string program = File.ReadAllText(programPath);
+        int start = program.IndexOf(call, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"{programPath} does not call NativeWebOptions.FromConfiguration with a literal section.");
+
+        start += call.Length;
+        string bound = program[start..program.IndexOf('"', start)];
+
+        Assert.True(
+            string.Equals(stamped, bound, StringComparison.Ordinal),
+            $"build.sh stamps config_prefix={stamped} but the binary it publishes binds '{bound}'. "
+                + "deploy.sh preflights the stamped prefix, so it would demand keys this binary never reads "
+                + "and pass while the ones it does read stayed unset.");
+    }
+
+    [Fact]
+    public void TheDeployScript_TakesTheMigrationsDirectoryFromTheArtifact()
+    {
+        string deploy = Read("scripts", "deploy", "deploy.sh");
+
+        Assert.Contains("sed -n 's/^config_prefix=//p' \"$STAGE/RELEASE\"", deploy, StringComparison.Ordinal);
+        Assert.Contains("sed -n 's/^migrations_dir=//p' \"$STAGE/RELEASE\"", deploy, StringComparison.Ordinal);
+
+        string build = Read("scripts", "deploy", "build.sh");
+        Assert.Contains("config_prefix=$CONFIG_PREFIX", build, StringComparison.Ordinal);
+
+        // The stamped path is the one inside the artifact, not the one the operator
+        // gave. Only $DB_DIR travels, and it arrives as db/, so stamping the
+        // operator's MIGRATIONS_DIR named a directory no artifact contains whenever
+        // DB_DIR was anything but "db" -- and deploy.sh resolves the stamp
+        // release-relative, so it died on the host after the whole publish.
+        Assert.Contains("migrations_dir=$ARTIFACT_MIGRATIONS_DIR", build, StringComparison.Ordinal);
+        Assert.Contains("ARTIFACT_MIGRATIONS_DIR=\"db/${MIGRATIONS_DIR#\"$DB_DIR\"/}\"", build, StringComparison.Ordinal);
+    }
+
+    // Both remote transports forward MIGRATIONS_DIR unconditionally, and this
+    // script re-executes itself on the far side. So the host half always sees the
+    // variable SET -- to the empty string when nothing was overridden -- and a `+`
+    // test counted that as an override: the RELEASE stamp went unread, migrate.sh
+    // was handed the release root, and every --host and --incus deploy died on its
+    // compgen guard. Only --local ever reached the stamp.
+    [Fact]
+    public void TheDeployScript_TreatsAnEmptyForwardedMigrationsDirAsUnset()
+    {
+        string deploy = Read("scripts", "deploy", "deploy.sh");
+
+        Assert.True(
+            deploy.Contains("--env MIGRATIONS_DIR=\"$MIGRATIONS_DIR\"", StringComparison.Ordinal)
+                || deploy.Contains("MIGRATIONS_DIR=$(printf %q \"$MIGRATIONS_DIR\")", StringComparison.Ordinal),
+            "deploy.sh no longer forwards MIGRATIONS_DIR to the host half; this test is reading the wrong mechanism.");
+
+        Assert.Contains("MIGRATIONS_DIR_SET=\"${MIGRATIONS_DIR:+yes}\"", deploy, StringComparison.Ordinal);
+        Assert.DoesNotContain("MIGRATIONS_DIR_SET=\"${MIGRATIONS_DIR+yes}\"", deploy, StringComparison.Ordinal);
+
+        // And the capture is read where the stamp is: pinning the spelling alone
+        // stayed green with the whole `if [[ -z ... ]]` block deleted, which is the
+        // regression this test is named for.
+        const string branch = "if [[ -z \"$MIGRATIONS_DIR_SET\" ]]; then";
+        int start = deploy.IndexOf(branch, StringComparison.Ordinal);
+        Assert.True(start >= 0, "deploy.sh no longer reads MIGRATIONS_DIR_SET, so nothing decides whether to trust the stamp.");
+
+        int end = deploy.IndexOf("\nfi", start, StringComparison.Ordinal);
+        Assert.True(end > start, "the MIGRATIONS_DIR_SET branch has no closing fi.");
+
+        Assert.Contains("sed -n 's/^migrations_dir=//p' \"$STAGE/RELEASE\"", deploy[start..end], StringComparison.Ordinal);
+    }
+
+    private static string Defaulted(string script, string marker)
+    {
+        int start = script.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"scripts/deploy/build.sh has no line matching `{marker}`.");
+
+        start += marker.Length;
+        return script[start..script.IndexOf('}', start)];
     }
 }

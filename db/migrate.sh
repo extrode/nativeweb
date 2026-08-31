@@ -22,10 +22,11 @@
 #                     database (never epass.io's live one); the test tiers'
 #                     fallback connection strings assume the same name
 #   APP_ROLE          default nativeweb_app -- PGPASSWORD (or ~/.pgpass) must
-#                     authenticate this role for every migration except 0002
-#   SUPERUSER_ROLE    default postgres -- must authenticate for 0002 only, and
-#                     only if the directory has a 0002 (it creates extensions,
-#                     which the app role cannot)
+#                     authenticate this role for every migration except the
+#                     NNNN_extensions.sql one
+#   SUPERUSER_ROLE    default postgres -- must authenticate for NNNN_extensions.sql
+#                     only, and only if the directory has one (it creates
+#                     extensions, which the app role cannot)
 #   MIGRATIONS_DIR    default db/sample/migrations -- the directory to apply
 #
 # Each migration is applied together with its schema_migrations row in a single
@@ -569,17 +570,40 @@ fi
 # never uses.
 #
 # EXT_VERSION is the version the loop below skips, so when there is no
-# 0002_extensions.sql it must match NOTHING -- not "0002", which would silently
-# skip a 0002 that is some other migration entirely.
-EXT_FILE="$MIGRATIONS_DIR/0002_extensions.sql"
-if [ ! -f "$EXT_FILE" ]; then
+# extensions migration it must match NOTHING -- not a number, which would
+# silently skip whatever other migration happens to carry it.
+#
+# Found by name, not by number. This repository's schema numbered it 0002 and a
+# stamped product numbers it 0001; a hardcoded number means the other one is not
+# recognised as the superuser step, falls into the loop below, and is applied as
+# the app role -- which cannot CREATE EXTENSION, so every fresh product failed
+# its first migration run. Found by Fable, 2026-08-31.
+#
+# EXT_VERSION holds ONE version, so more than one extensions migration cannot be
+# handled here -- the second would fall into the loop below and be applied as the
+# app role, which is the same failure with a later number on it. Refused rather
+# than half-supported: the message says what to do, and nothing runs.
+EXT_MATCHES="$(compgen -G "$MIGRATIONS_DIR/[0-9][0-9][0-9][0-9]_extensions.sql" || true)"
+EXT_COUNT="$(printf '%s' "$EXT_MATCHES" | grep -c . || true)"
+if [ "$EXT_COUNT" -gt 1 ]; then
+  echo "ERROR: $MIGRATIONS_DIR has $EXT_COUNT extensions migrations:" >&2
+  printf '  %s
+' $EXT_MATCHES >&2
+  echo "       Only one file may be applied as $SUPERUSER_ROLE. Fold them into one," >&2
+  echo "       or move the later statements into a migration the app role can run." >&2
+  exit 1
+fi
+
+EXT_FILE="$EXT_MATCHES"
+if [ -z "$EXT_FILE" ]; then
   EXT_VERSION="none"
   echo "none  no extensions migration in this schema; no superuser step"
 elif EXT_VERSION="$(version_of "$EXT_FILE")" && is_tracked "$EXT_VERSION"; then
   echo "skip  $EXT_VERSION (already applied)"
 else
   echo "apply $EXT_VERSION (as $SUPERUSER_ROLE)"
-  # 0002 runs as the superuser, so it cannot share apply_and_record's app_psql.
+  # The extensions migration runs as the superuser, so it cannot share
+  # apply_and_record's app_psql.
   # It is CREATE EXTENSION only -- DDL, idempotent, and the one migration whose
   # double-apply is provably harmless -- so the old two-step is kept here.
   super_psql -f "$EXT_FILE"

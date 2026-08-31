@@ -13,6 +13,62 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Fixed
+- **The deploy chain reads its configuration prefix off the artifact instead of guessing it.**
+  `scripts/deploy/`'s preflight demanded ten keys spelled with a `NativeWeb` prefix: nine are read
+  by no code in this repository — they left with the identity provider — and the tenth named a
+  section no binary binds, so a deploy of the scripts' own default project invented values for a
+  departed product while the two checks that mattered passed with their settings unset.
+  `build.sh` now stamps `config_prefix` and `migrations_dir` into the artifact's `RELEASE`,
+  `deploy.sh` derives every key from the stamp, `provision.sh` takes `--prefix`, and overriding
+  `PROJECT` without the other three is an error. The telemetry gate was inverted, asserting an
+  opt-out posture the binder cannot produce.
+- **Data protection keys no longer land in a directory nothing can write.** `NativeWebOptions`
+  composed the key path from `Environment.SpecialFolder.UserProfile`, which is empty for a systemd
+  unit whose user has no home directory; `Path.Combine` dropped the segment and the result was
+  relative to `WorkingDirectory`, read-only under `ProtectSystem=strict`. Keys were regenerated on
+  every restart and every form POST after a deploy answered 400. It now refuses to start, and
+  `deploy.sh` checks the configured directory sits under `/var/lib/nativeweb`.
+- **The scaffold generator no longer emits code the consumer cannot compile.** `ScaffoldEmitter`'s
+  default arm assigned a string to any type it did not recognise — `byte`, `ushort`, an enum,
+  `DateOnly`, `TimeSpan`, a consumer's own type — which is CS0029 in generated source on a model
+  that had done nothing wrong. Unconvertible types are now display-only. Indexers and properties
+  without a public setter reached the emitter as well and produced CS0200.
+- **The reference store stopped reporting 404 for a row that exists.** `DemoStore.UpdateAsync`
+  used a single `ConcurrentDictionary.TryUpdate`, which compares by reference and so failed when a
+  concurrent save had replaced the value; `IScaffoldStore.UpdateAsync` defines `false` strictly as
+  "no such row" and the handler maps it to 404, so two admins saving the same record left the
+  loser told it did not exist.
+- **`skeleton/db/migrate.sh` carries the guards this repo's runner has.** It was a 97-line copy
+  missing the advisory run lock, the `is_tracked` failure guard and the atomic transaction wrap, so
+  every stamped product shipped with the runner the fixes had never reached. It is now generated
+  from `db/migrate.sh` and held there by line-by-line parity.
+- **The remote deploy path never read the stamp the fix above added.** `deploy.sh` re-executes
+  itself on the far side of both transports and forwards `MIGRATIONS_DIR` unconditionally, so the
+  host half always saw it set — to the empty string — and a `+` test counted that as an override.
+  Every `--host` and `--incus` deploy would have died at the migrate step; only `--local` reached
+  the stamp. Both scripts now capture with `:+`.
+- **Every fresh stamped product would have failed its first migration.** The runner named
+  `0002_extensions.sql` while `skeleton/db/migrations` ships `0001_extensions.sql`, so the file
+  fell through to the main loop and was applied as the app role, which cannot `CREATE EXTENSION`.
+  The superuser step is found by pattern now, not by number.
+- **The key-directory guard did not fire on the host it was written for.** A system account
+  records a home in `passwd` that was never created, so `UserProfile` comes back non-empty and the
+  emptiness test passed; the ring resolved under a directory nothing can write, which is the
+  silent 400 the guard exists to prevent. The fallback is probed rather than inferred — and the
+  probe requires the home directory to already exist, because a process with enough privilege
+  creates `/nonexistent` happily and would have passed a probe that created what it tested.
+- **A second extensions migration would have been applied as the app role.** Discovering the
+  superuser step by pattern fixed the wrong-number case but took the first match, so a schema that
+  adds an extension after launch hit the same failure with a later number on it. That directory is
+  refused with a message; `EXT_VERSION` holds one version, and half-supporting two is worse than
+  saying so.
+- **Five tests whose comments claimed more than their assertions proved.** Each asserted that a
+  substring appeared somewhere in a file, which stays true when the branch containing it is
+  deleted. They now parse the structure they name — branch slices, line-by-line parity, a derived
+  value compared against the source it derives from — and each was mutation-checked against the
+  change it claims to catch.
+
 ### Changed
 - **The epass.io cutover is closed as a NativeWeb concern, and the term is retired here.**
   Checked against the real sibling checkout on 2026-08-31 rather than taken on report: epass.io has

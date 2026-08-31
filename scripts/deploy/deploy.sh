@@ -26,13 +26,14 @@
 # Env (host side):
 #   READY_TIMEOUT   seconds to wait for /readyz, default 60
 #   RELEASES_KEEP   release directories to leave on disk, default 5
-#   MIGRATIONS_DIR  the release-relative migrations directory to apply, default
-#                   db/sample/migrations. It must be named, not inherited: the
-#                   runner's own default is the sample schema, so a stamped
-#                   product that overrode PROJECT at build time and said nothing
-#                   here would have the demo articles table applied to its
+#   MIGRATIONS_DIR  the release-relative migrations directory to apply. Normally
+#                   unset: build.sh stamps it into the artifact's RELEASE file and
+#                   this reads it from there. There is no default here any more.
+#                   The old one was db/sample/migrations, this repository's own,
+#                   so a stamped product that overrode PROJECT at build time and
+#                   said nothing here had the demo articles table applied to its
 #                   production database and its own migrations skipped, in
-#                   silence. Set it to the same directory your product ships.
+#                   silence. Setting this overrides the stamp.
 
 set -euo pipefail
 
@@ -43,7 +44,20 @@ UPSTREAM_FILE=/etc/caddy/upstream.caddy
 DEPLOY_LOG=/var/lib/nativeweb/deployments.log
 READY_TIMEOUT="${READY_TIMEOUT:-60}"
 RELEASES_KEEP="${RELEASES_KEEP:-5}"
-MIGRATIONS_DIR="${MIGRATIONS_DIR:-db/sample/migrations}"
+# Both now come off the artifact's RELEASE stamp, below. An explicit environment
+# override still wins; what changed is that inheriting a default is no longer
+# possible, because the default was this repository's own and a stamped product
+# silently got it.
+# `:+`, not `+`: this script re-executes ITSELF on the far side of both remote
+# transports, and both forward MIGRATIONS_DIR unconditionally -- so the host half
+# always sees the variable set, to the empty string when the operator overrode
+# nothing. Under `+` that counted as an override, the RELEASE stamp was never
+# read, and migrate.sh was handed the release root, where it dies on the compgen
+# guard. Every --host and --incus deploy failed at the migrate step; only --local
+# ever reached the stamp. Found by Fable, 2026-08-31.
+MIGRATIONS_DIR_SET="${MIGRATIONS_DIR:+yes}"
+MIGRATIONS_DIR="${MIGRATIONS_DIR:-}"
+CONFIG_PREFIX=""
 
 ARTIFACT=""
 HOST=""
@@ -260,41 +274,67 @@ preflight_config() {
 	# `?? "localhost"` in Program.cs does NOT rescue it -- WebAuthn ends up with an
 	# empty relying-party domain and every credential fails at verification time,
 	# with /readyz still saying ready.
-	local key
-	for key in NativeWeb__CanonicalBaseUrl \
-		NativeWeb__WebAuthn__ServerDomain \
-		NativeWeb__WebAuthn__Origins \
-		NativeWeb__DeviceGrant__VerificationUri \
-		ConnectionStrings__NativeWeb \
-		NativeWeb__ContactKey \
-		NativeWeb__StoreEncryptionKey \
-		NativeWeb__PairwiseSalt \
-		NativeWeb__Smtp__Host \
-		NativeWeb__Smtp__FromAddress; do
-		if ! grep -qE "^\s*${key}\s*=\s*\S" <<<"$combined"; then
-			die "$key is empty or absent in /etc/nativeweb/.
-       provision.sh seeds it blank on purpose so that a host cannot inherit a development
-       default, and an empty EnvironmentFile value is an empty string, not an absent one --
-       so the code's fallback does not fire and the failure is silent. Fill it in and
-       deploy again."
-		fi
-	done
-
-	if ! grep -qE '^\s*NativeWeb__ForwardedHeaders__KnownProxies\s*=\s*\S' <<<"$combined"; then
-		die "NativeWeb__ForwardedHeaders__KnownProxies is not set in /etc/nativeweb/.
+	# EVERY key name below is built from $CONFIG_PREFIX, read off the artifact.
+	# The ten keys this loop used to demand all carried a NativeWeb prefix, and
+	# nine of them are read by no code in this repository at all -- they belonged
+	# to the identity provider that left on 2026-08-31. The tenth was spelled for
+	# a section the binary does not bind. So the gate hard-failed every deploy on
+	# values nothing would ever read, and the two checks that DID matter were
+	# spelled the same wrong way: they passed while the settings they name stayed
+	# unset. A preflight that passes when the thing it prevents is happening is
+	# worse than no preflight, because it is also an assurance.
+	if ! grep -qE "^\s*${CONFIG_PREFIX}__ForwardedHeaders__KnownProxies\s*=\s*\S" <<<"$combined"; then
+		die "${CONFIG_PREFIX}__ForwardedHeaders__KnownProxies is not set in /etc/nativeweb/.
        Behind Caddy, unset means ASP.NET Core trusts loopback only, RemoteIpAddress is the
-       proxy hop, and every client in the world shares one rate-limit partition -- across
-       sign-in, register and the OAuth endpoints. Nothing errors and nothing logs it.
+       proxy hop, and every client in the world shares one rate-limit partition. Nothing
+       errors and nothing logs it.
        Set it to the proxy's address (127.0.0.1, ::1) and deploy again."
 	fi
 
-	if ! grep -qE '^\s*OTEL_EXPORTER_OTLP_ENDPOINT\s*=\s*\S' <<<"$combined" &&
-		! grep -qiE '^\s*NativeWeb__Telemetry__Enabled\s*=\s*false\s*$' <<<"$combined"; then
-		die "Telemetry has no destination and is not disabled.
-       Telemetry is opt-OUT as of 2026-08-17: unset means ON, so this host would stand up an
-       OTLP exporter and retry forever against a collector that does not exist.
-       Set OTEL_EXPORTER_OTLP_ENDPOINT, or set NativeWeb__Telemetry__Enabled=false.
-       Leaving it to the default is the one thing R21 does not allow."
+	# Either spelling: the reference app reads ConnectionStrings:<Prefix>, a
+	# stamped product reads <Prefix>:Db:ConnectionString. Absent, the reference app
+	# serves its in-memory demo store with a green /healthz and a product times out
+	# the /readyz poll with no named cause.
+	if ! grep -qE "^\s*ConnectionStrings__${CONFIG_PREFIX}\s*=\s*\S" <<<"$combined" &&
+		! grep -qE "^\s*${CONFIG_PREFIX}__Db__ConnectionString\s*=\s*\S" <<<"$combined"; then
+		die "no database connection string in /etc/nativeweb/.
+       Set ConnectionStrings__${CONFIG_PREFIX} or ${CONFIG_PREFIX}__Db__ConnectionString.
+       Without one this host answers /healthz green while serving no database at all."
+	fi
+
+	# The path half is what makes this pass only when the app can do the thing.
+	# Unset, the framework falls back to a directory under the process's home,
+	# and the unit has no home: User=nativeweb is --system --no-create-home, so
+	# the path resolves under WorkingDirectory=/opt/nativeweb/<colour>, which
+	# ProtectSystem=strict makes read-only. The data-protection key ring then
+	# cannot persist, every restart remints the antiforgery keys, and every form
+	# POST answers 400 after each deploy with /readyz still green. Any value
+	# outside ReadWritePaths fails the same way, by the kernel's decision rather
+	# than the app's -- hence the prefix check, not just a non-empty check.
+	local key_dir
+	key_dir="$(grep -E "^\s*${CONFIG_PREFIX}__DataProtection__KeyDirectory\s*=" <<<"$combined" | tail -n 1 | sed 's/^[^=]*=\s*//')"
+	if [[ -z "$key_dir" ]]; then
+		die "${CONFIG_PREFIX}__DataProtection__KeyDirectory is empty or absent in /etc/nativeweb/.
+       Set it to /var/lib/nativeweb/keys. Unset, the key ring lands under a read-only
+       WorkingDirectory and cannot persist: every form POST 400s after each deploy and
+       nothing reports it."
+	fi
+	if [[ "$key_dir" != /var/lib/nativeweb/* ]]; then
+		die "${CONFIG_PREFIX}__DataProtection__KeyDirectory is $key_dir, which is outside
+       /var/lib/nativeweb. ReadWritePaths in nativeweb@.service names that directory and
+       ProtectSystem=strict makes the rest of the filesystem read-only, so the key ring
+       could not be written there whatever the app intends."
+	fi
+
+	# Fail only when telemetry is ON with nowhere to send it. The gate used to
+	# assert the opposite -- that unset means on -- which was true of the app that
+	# left. NativeWebOptions defaults Telemetry:Enabled to false, so the old gate
+	# enforced a state the binder cannot produce and demanded busywork for it.
+	if grep -qiE "^\s*${CONFIG_PREFIX}__Telemetry__Enabled\s*=\s*true\s*$" <<<"$combined" &&
+		! grep -qE '^\s*OTEL_EXPORTER_OTLP_ENDPOINT\s*=\s*\S' <<<"$combined"; then
+		die "${CONFIG_PREFIX}__Telemetry__Enabled is true and OTEL_EXPORTER_OTLP_ENDPOINT is not set.
+       This host would stand up an OTLP exporter and retry forever against a collector that
+       does not exist. Set the endpoint, or leave telemetry off."
 	fi
 }
 
@@ -350,8 +390,6 @@ exec 9>/var/lib/nativeweb/deploy.lock
 flock -n 9 || die "another deploy is already running on this host (/var/lib/nativeweb/deploy.lock).
        Wait for it to finish; do not force it. Two deploys at once stage into the same colour."
 
-preflight_config
-
 LIVE="$(live_colour)"
 IDLE="$(other_colour "$LIVE")"
 IDLE_PORT="$(port_for "$IDLE")"
@@ -365,6 +403,26 @@ tar --zstd -xf "$ARTIFACT" -C "$STAGE"
 [[ -f "$STAGE/RELEASE" ]] || die "artifact has no RELEASE file -- was it built by scripts/deploy/build.sh?"
 NEW_SHA="$(sed -n 's/^short_sha=//p' "$STAGE/RELEASE")"
 [[ -n "$NEW_SHA" ]] || die "artifact RELEASE file has no short_sha"
+
+# The configuration prefix is a property of the BINARY -- it is the string
+# compiled in at the Program.cs call to NativeWebOptions.FromConfiguration -- so
+# the preflight cannot ask "will this binary find its configuration" before the
+# artifact has been read. Hence the preflight moved down here from above the
+# lock: nothing between the two mutates the host, so the reorder costs nothing.
+CONFIG_PREFIX="$(sed -n 's/^config_prefix=//p' "$STAGE/RELEASE")"
+[[ -n "$CONFIG_PREFIX" ]] || die "artifact RELEASE file has no config_prefix.
+       It predates the 2026-08-31 stamp; rebuild it with scripts/deploy/build.sh.
+       Guessing the prefix would mean preflighting keys this binary may never read."
+
+if [[ -z "$MIGRATIONS_DIR_SET" ]]; then
+	MIGRATIONS_DIR="$(sed -n 's/^migrations_dir=//p' "$STAGE/RELEASE")"
+	[[ -n "$MIGRATIONS_DIR" ]] || die "artifact RELEASE file has no migrations_dir.
+       It predates the 2026-08-31 stamp; rebuild it with scripts/deploy/build.sh, or pass
+       MIGRATIONS_DIR explicitly. The old default was this repository's own sample schema,
+       which a product would have applied to its production database and reported success."
+fi
+
+preflight_config
 
 # --- Idempotence (R8) --------------------------------------------------------
 if [[ "$(release_sha_of "$LIVE")" == "$NEW_SHA" ]]; then

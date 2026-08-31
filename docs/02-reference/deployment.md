@@ -95,19 +95,24 @@ script that has seen them.
 
 Then, in order:
 
-1. **Fill in `/etc/nativeweb/secrets.env`.** The connection string, the three
-   encryption keys and the SMTP settings. A NativeWeb app refuses to start outside
-   Development without `NativeWeb__Smtp__Host`, and degrades **silently** without
-   `ContactKey`, `StoreEncryptionKey` or `PairwiseSalt` — see
-   [configuration.md](configuration.md), "Required outside Development".
+**Every key below is spelled `<Prefix>__…`, where `<Prefix>` is the configuration
+section the deployed binary reads** — `Sample` for `apps/sample`, your product's
+own name for anything stamped from `skeleton/`. Pass it to `provision.sh --prefix`
+and `build.sh` stamps the matching `config_prefix` into the artifact, which is
+where `deploy.sh` reads it from. Until 2026-08-31 every key here was spelled
+`NativeWeb__`, a section no binary in this repository binds: the preflight demanded
+nine keys nothing reads and passed on the two that mattered while they stayed unset.
+
+1. **Fill in `/etc/nativeweb/secrets.env`.** The connection string, and nothing
+   else. Two spellings are seeded and one of them applies:
+   `ConnectionStrings__<Prefix>` for `apps/sample`,
+   `<Prefix>__Db__ConnectionString` for a stamped product. Delete the other.
 2. **Fill in the blanks in `/etc/nativeweb/app.env`.** Checklist below.
 3. **Set `NATIVEWEB_HOST` and `NATIVEWEB_ACME_EMAIL`** in `/etc/default/caddy`,
    then `systemctl restart caddy`.
-   `deploy.sh` refuses to promote while any of them is blank. An `EnvironmentFile`
-   line with nothing after the `=` sets the variable to the **empty string**, not
-   to absent, so the code's `?? "localhost"` fallbacks do not fire — WebAuthn
-   would come up with an empty relying-party domain, `/readyz` would still say
-   ready, and every credential would fail at verification.
+   `deploy.sh` refuses to promote while any of the four keys below is blank. An
+   `EnvironmentFile` line with nothing after the `=` sets the variable to the
+   **empty string**, not to absent, so a code fallback does not fire.
 4. **Generate the backup key.**
    ```sh
    sudo age-keygen -o /etc/nativeweb/backup-age.key
@@ -135,21 +140,26 @@ Then, in order:
 
 ### Required configuration
 
-Every one of these is either required or has a default that is wrong for a real
-deployment. `deploy.sh` enforces the first two; the rest are on you.
+Four keys, all enforced by `deploy.sh`'s preflight, all spelled with the prefix
+stamped into the artifact. Every check fails when the app would misbehave and
+passes when it would not — a preflight that passes while the thing it prevents is
+happening is worse than none, because it is also an assurance.
 
 | Key | Why |
 |---|---|
-| `NativeWeb__ForwardedHeaders__KnownProxies` | **Enforced by `deploy.sh`.** Unset behind Caddy means `RemoteIpAddress` is the proxy and every client in the world shares one rate-limit partition — across sign-in, register and OAuth. Nothing errors and nothing logs it |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` **or** `NativeWeb__Telemetry__Enabled=false` | **Enforced by `deploy.sh`.** Telemetry is opt-out; unset means an exporter retrying forever against a collector that is not there |
-| `ConnectionStrings__NativeWeb` | A missing one is not fatal: the app serves and `/readyz` reports not-ready. **Enforced by `deploy.sh`** along with every other key `provision.sh` seeds blank |
-| `NativeWeb__ContactKey`, `StoreEncryptionKey`, `PairwiseSalt` | Absent, each degrades security silently. Startup refuses outside Development |
-| `NativeWeb__Smtp__Host`, `FromAddress` | Startup refuses without the host; the dev senders write login links to the log |
-| `NativeWeb__DataProtection__KeyDirectory` | Must be `/var/lib/nativeweb/keys`. The default is under the app directory, which a blue/green swap moves |
-| `NativeWeb__CanonicalBaseUrl` | This host's public origin, emitted by robots.txt and sitemap.xml |
-| `NativeWeb__WebAuthn__ServerDomain`, `Origins` | Default `localhost` breaks every credential on a real hostname |
-| `NativeWeb__DeviceGrant__VerificationUri` | Default `https://localhost/device` is wrong for any real deployment |
-| `NativeWeb__FirstPartyClientId` | Points at the row migration `0055` seeds |
+| `<Prefix>__ForwardedHeaders__KnownProxies` | Unset behind Caddy means `RemoteIpAddress` is the proxy hop and every client in the world shares one rate-limit partition. Nothing errors and nothing logs it |
+| `ConnectionStrings__<Prefix>` **or** `<Prefix>__Db__ConnectionString` | Absent, `apps/sample` serves its in-memory demo store with a green `/healthz`, and a stamped product times out the `/readyz` poll with no named cause |
+| `<Prefix>__DataProtection__KeyDirectory` | Must be under `/var/lib/nativeweb`. That is the only path `ReadWritePaths` names, and `ProtectSystem=strict` makes the rest read-only. Unset, the key ring lands under a read-only working directory and cannot persist: every restart remints the antiforgery keys and every form POST answers 400 after each deploy, with `/readyz` green. The app now refuses to start rather than doing that silently |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, when `<Prefix>__Telemetry__Enabled=true` | Telemetry is opt-**in**: the framework defaults `Enabled` to false. The preflight fails only when it is on with nowhere to send. Until 2026-08-31 this gate asserted the opposite, which was true of the app that left the repo and demanded busywork ever after |
+
+**Nine keys were deleted from this table on 2026-08-31**: `ContactKey`,
+`StoreEncryptionKey`, `PairwiseSalt`, both `Smtp` settings, both `WebAuthn`
+settings, `DeviceGrant__VerificationUri`, `CanonicalBaseUrl` and
+`FirstPartyClientId`. No code in this repository binds any of them — they left
+with the identity provider — and `FirstPartyClientId` pointed at a row seeded by
+migration `0055`, which left with `db/migrations`. The preflight required all of
+them, so deploying the scripts' own default project meant inventing values for a
+departed product's settings.
 
 ## Releasing
 

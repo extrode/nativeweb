@@ -1474,7 +1474,16 @@ another project's deployment and runbook, not to this repo.
   that *was* deleted now shows an error page where a redirect to the list would read as success.
   Distinguishing the two needs the store to say which happened. Same review.
 
-- **`scripts/deploy/` preflight and `provision.sh` guard the wrong configuration section.**
+- ~~**`scripts/deploy/` preflight and `provision.sh` guard the wrong configuration section.**~~
+  **Fixed 2026-08-31** on `fix/021-review-findings`. `build.sh` stamps `config_prefix` and
+  `migrations_dir` into the artifact's RELEASE file, `deploy.sh` reads both and builds every key
+  from the prefix, `provision.sh` takes `--prefix`, and the ten dead keys are gone. Two facts in
+  the entry below were understated and are recorded here because the wording would have sent
+  someone debugging the wrong mechanism: the key ring does not "fall back to the app directory
+  and move on a swap" — the app directory is *unwritable* under `ProtectSystem=strict` with
+  `ReadWritePaths=/var/lib/nativeweb`, so it never persists at all; and the telemetry gate was
+  inverted, asserting an opt-out posture the binder cannot produce. `NativeWebOptions` now
+  refuses to start rather than composing a relative key path. The original entry, for the record:
   `preflight_config` requires `ConnectionStrings__NativeWeb`, `NativeWeb__WebAuthn__*`,
   `NativeWeb__DeviceGrant__VerificationUri`, `NativeWeb__ContactKey`, `NativeWeb__StoreEncryptionKey`,
   `NativeWeb__PairwiseSalt` and `NativeWeb__Smtp__*` — the departed IdP's keys — while `apps/sample`
@@ -1496,6 +1505,25 @@ another project's deployment and runbook, not to this repo.
   next reboot or restart; `deploy.sh` checks only the colour it is staging, and `rollback.sh` notices
   only after the previous colour has gone inactive. Unreachable today because no host has ever run
   these scripts. Same review.
+
+## Coverage gaps named during the 021 review, 2026-08-31 — not built
+
+The seven findings are fixed and each fix is mutation-checked, but the audit named four tests that
+would have caught them earlier and still do not exist. Each is small; none is in that branch's scope.
+
+- **No LanguageVersion gate on the generator's output.** `ScaffoldGeneratorTests` compiles emitted
+  source with the default parse options, so a construct the generator emits that needs a newer C#
+  than a consumer targets compiles here and fails there. A `CSharpParseOptions(LanguageVersion.CSharp10)`
+  variant of the existing compile test closes it.
+- **The update-false → 404 path is asserted from the emitted source, never executed.** The scaffold
+  integration tier could drive a stub store returning `false` and assert the response status, which
+  is what the DemoStore finding was about.
+- **`TryResolveKeyDirectory`'s empty-home branch has no behavioural partner.** The unit test proves
+  the resolver refuses; nothing proves the refusal reaches startup as a named error rather than a
+  modal-blocking hang, which is the failure mode `lessons/2026-07-26` records for NativeAOT config
+  errors.
+- **Nothing pins the `[ScaffoldSearch]` wiring.** A search attribute that stops reaching the query
+  is a silent behaviour change with no red test.
 
 - **D2 is answered and the generated admin stays open by default (2026-08-31, the user's call).**
   Recorded here because the argument for closing it does not go away: `AddScaffolding` refuses to
