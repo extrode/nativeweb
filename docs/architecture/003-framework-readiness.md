@@ -11,7 +11,8 @@ shortest road to a version someone can look at and work in.**
 
 ## 1. What is here, measured
 
-Six libraries carry the whole framework. Line counts are `*.cs` outside `bin/obj`:
+Eight libraries carry the whole framework -- 7,606 lines across 41 files, independently
+recounted by the glm review. Line counts are `*.cs` outside `bin/obj`:
 
 | library | lines | what it is |
 |---|---|---|
@@ -23,7 +24,13 @@ Six libraries carry the whole framework. Line counts are `*.cs` outside `bin/obj
 | `nativeweb.render` | 415 | the template runtime, locale catalog and negotiation |
 | `nativeweb.forms` | 405 | `MapFormPost<T>` and the antiforgery/415 metadata |
 | `nativeweb.mail` | 325 | SMTP transport |
-| **total** | **~7,600** | plus `nativeweb.assets` (vendored htmx, `boot.js`) |
+| **total** | **7,606** | across 41 files |
+
+`libs/nativeweb.assets` is not in that table and is not a library: it holds `boot.js`, a README
+and `rollback/htmx-2.0.10.min.js`, with no csproj. Its README says apps vendor their own htmx and
+Alpine, and only the rollback build lives there -- so the current htmx 4.0.0 exists solely at
+`skeleton/apps/__product__/wwwroot/vendor/htmx/`. An earlier draft called it a vendored-asset
+library; it is a holding directory.
 
 Verified this session: solution builds **0 warnings / 0 errors**; **444 tests pass** across seven
 suites, none skipped; `tools/bench` 87 Deno facts pass; structure-audit reports 0 errors.
@@ -35,7 +42,8 @@ suites, none skipped; `tools/bench` 87 Deno facts pass; structure-audit reports 
 | `/healthz` | 200 | empty |
 | `/` | 302 | to `/admin` |
 | `/admin` | 200 | the generated admin index, 3,345 bytes, styled |
-| `/admin/articles`, `/admin/tags` | 200 | generated CRUD |
+| `/admin/tags` | 200 | generated CRUD, open: `Tag` declares no `[Auth]` |
+| `/admin/articles` | 302 | to `/signin`: `Article` declares `[Auth(Role = "admin")]` |
 | `/articles` | 200 | a rendered list page with an antiforgery-minted filter form |
 
 **So there is a working UI today, and it is the scaffold's.** `/admin` ships its own inline
@@ -45,8 +53,8 @@ twelve seconds from a warm build.
 
 ## 2. The gap, in one sentence
 
-**The framework's libraries do not add up to an application; `skeleton/` makes up the difference
-by copying source, and nothing compiles `skeleton/`.**
+**The framework's libraries do not add up to an application, so `skeleton/` makes up the
+difference by copying source into every product.**
 
 Everything a real page needs beyond the render call lives in `skeleton/apps/__product__/` as files
 a stamped product owns outright, not as a library it references:
@@ -66,8 +74,13 @@ a stamped product owns outright, not as a library it references:
 | `wwwroot/css/{tokens,base,components}.css` | the design system |
 | `wwwroot/vendor/{htmx,alpinejs,fonts}` | the vendored client runtime |
 
-That is roughly twenty source files and the entire design system. Three consequences follow, and
-they are the whole of what is wrong:
+That is roughly twenty source files and the entire design system. Measured: the eleven middleware
+and render-support files total **980 lines**, and `skeleton/apps/__product__/Program.cs` is another
+**489** — so about **1,470 lines are copied into every stamped product**, against a framework of
+7,600. Every product carries a fifth of the framework's mass as source it owns and cannot receive
+fixes for.
+
+Three consequences follow, and they are the whole of what is wrong:
 
 **(a) The sample cannot use any of it, so what it renders is bare.** `apps/sample` has no
 `wwwroot/` and no `templates/`. Its `/articles` page is valid HTML with no stylesheet link, no
@@ -75,16 +88,27 @@ htmx, no layout, no fonts — measured above. The only styled surface in the rep
 inline CSS, which is a different design language from `skeleton/`'s tokens. **A framework whose
 reference application cannot show its own design system has no answer to "show me the UI".**
 
-**(b) `skeleton/` is in no solution, nothing compiles it, and as of this week nothing checks it
-either.** Already milestone 1 in `work/milestones.md`: ten drifts from `apps/web` accumulated
-undetected and were found by an audit rather than by CI. The mitigation was
-`SkeletonParityTests` (2026-08-30), 384 lines and fifteen facts pinning the skeleton's text
-against its twin — **and it is gone.** It lived at `tests/nativeweb.web.tests.unit/`, because the
-twin it compared against was `apps/web`, so the extraction deleted it along with the tier
-(confirmed: it is present at tag `pre-idp-extraction`, absent at `HEAD`). Text parity was always
-the weaker guarantee — it catches divergence, not breakage — but it was the only guarantee, and
-the skeleton now has none. Restoring cover is not a matter of rehoming the file: its comparand no
-longer exists, so the replacement has to be a build, which is the destination anyway.
+**(b) `skeleton/` is absent from `NativeWeb.slnx`, and its text-parity guard is gone.**
+`SkeletonParityTests` (2026-08-30) was 384 lines and fifteen facts pinning the skeleton's text
+against its twin, and it left with the extraction. It lived at `tests/nativeweb.web.tests.unit/`,
+because the twin it compared against was `apps/web` (confirmed: present at tag
+`pre-idp-extraction`, absent at `HEAD`). Its comparand no longer exists, so it cannot be rehomed;
+the replacement has to be a build.
+
+**Correction, from the glm review.** An earlier draft of this section said nothing compiles the
+skeleton, repeating milestone 1's wording. That is out of date. `.github/workflows/ci.yml:309`
+defines a `skeleton-stamp` job that runs `tools/new-product.ps1 -Execute` into a sibling
+directory, then restores, builds and runs the stamped product's unit, integration and e2e tiers
+including the NativeAOT publish (ci.yml:375-433). The accurate statement is narrower: the skeleton
+is not in `NativeWeb.slnx`, so a local `dotnet build` never touches it, and the CI job that does
+runs in package mode (`JauntyQUsePackages: "true"`, ci.yml:340). `work/milestones.md:21` carries
+the same stale wording and needs the same correction.
+
+What is uncovered is behaviour, not compilation. **No test in `tests/` references
+`SecurityHeadersMiddleware`, `PublicPageCache` or `ErrorPageMiddleware`** -- the fable review
+checked, and I confirmed it. Those twenty security-relevant files compile and are smoke-tested
+through a stamped product; none of their invariants is asserted anywhere. That is the gap that
+makes moving them risky, and it is a different gap from the one milestone 1 names.
 
 **(c) Copy-per-product is not a framework seam.** Django does not hand you `SecurityMiddleware` to
 paste; you add a string to `MIDDLEWARE` and upgrades reach you. Every file in the table above is a
@@ -96,7 +120,8 @@ extraction just corrected: something that should have been a boundary was a copy
 
 Carried from `work/todo.md` and `work/milestones.md`, not re-derived:
 
-- **`scripts/deploy/` still names `apps/web`** in six places, and has never run against a real
+- **`scripts/deploy/` still names `apps/web`** -- 7 occurrences across 5 files, counted by the glm
+  review -- and has never run against a real
   host (spec 011 T15). Milestone 3 is unmet and every elapsed time in the deployment reference
   reads `NOT YET MEASURED`.
 - **`db/migrate.sh` and `db/test-run-lock.sh` are unreachable** — `MIGRATIONS_DIR` resolves to the
@@ -104,15 +129,16 @@ Carried from `work/todo.md` and `work/milestones.md`, not re-derived:
 - **The OTel-under-AOT gate stopped gating.** `check-publish-budgets.ps1` was the only place the
   OpenTelemetry registration path ran inside a real NativeAOT image, and it ran because the target
   was `apps/web`.
-- **The generated admin is unauthenticated unless a model opts in.** `[Auth]`
+- **The generated admin index is never gated, whatever the models say.** `[Auth]`
   (`libs/nativeweb.scaffold/ScaffoldAttributes.cs:57`) emits `RequireAuthorization`
-  (`libs/nativeweb.scaffold.generator/ScaffoldEmitter.cs:174-180`) and is per-model, so a model
-  without it is world-readable and world-writable. Measured: `apps/sample`'s models carry no
-  `[Auth]`, and `GET /admin` and `/admin/articles` both answer **200 with no credentials**.
-  Defensible as a framework default only if it is a loud one, and Django's is the opposite —
-  `django.contrib.admin` is behind `is_staff` from the first request. Whether the default flips,
-  and whether the reference app should model the safe shape rather than the bare one, is a
-  decision this repo has not taken. Flagged for the reviews rather than assumed.
+  (`libs/nativeweb.scaffold.generator/ScaffoldEmitter.cs:174-180`) per model — but the emitted
+  index route carries no authorization metadata at all (`ScaffoldEmitter.cs:468-479`), so `/admin`
+  answers and enumerates every model including the gated ones. Measured against a running
+  instance: `/admin` **200**, `/admin/tags` **200** (`Tag` declares no `[Auth]`, by design),
+  `/admin/articles` **302 to `/signin`** (`Article` declares `[Auth(Role = "admin")]`,
+  `apps/sample/Models.cs:11`). An earlier draft of this document said `/admin/articles` was open;
+  that was wrong, and the qwen review caught it. The defect that survives is the index: a consumer
+  who gates every model still cannot close `/admin`.
 - **The framework has no password-policy primitives.** `LockoutPolicy`, `CommonPasswordChecker`,
   `HibpBreachChecker` left with `libs/nativeweb.auth`. Django ships password validators; these are
   on the `contrib.auth` side of the line and are a candidate to come back as framework.
@@ -120,6 +146,96 @@ Carried from `work/todo.md` and `work/milestones.md`, not re-derived:
   redistributed. Milestone 6.
 - **CI is red on every push** for an org-side JauntyQ package-read grant. Out of scope for this
   repo by standing decision; noted so a reader is not surprised.
+
+## 3b. What the three reviews found that this document did not
+
+Commissioned 2026-08-31 against the draft above: **fable** (`think`, 40 turns, $3.03) on
+architecture, **glm-5.3** (`glm-think`) on verification, **qwen3.8-max** (`qwen-review`) on the
+scaffold. A first, broader qwen dispatch hit its 20-turn cap and returned nothing ($0.94); the
+re-dispatch was narrowed to one subsystem with the file list supplied, which worked.
+
+Corrections to this document are folded in above. What follows is new.
+
+**Nothing in this repository uses htmx.** Fable found it; I confirmed with a whole-tree search:
+**zero `hx-get`, `hx-post`, `hx-target` or `hx-swap` attributes** in any `.cs` or `.html` under
+`apps/`, `libs/`, `skeleton/` or `tests/`. htmx is vendored, wired into the layout's CSRF-header
+script, upgraded to 4.0.0 by spec 012, benchmarked, and exercised by no live surface anywhere. For
+a framework whose architecture is "server-rendered HTML enhanced with HTMX", that is the single
+most surprising measurement in this document. It also means the `boot.js` progressive-enhancement
+path has never run against a real interaction.
+
+**There is no composition root, and the twenty middleware files are the visible tenth of it.**
+Fable's reframing, and it is better than section 2's. `skeleton/apps/__product__/Program.cs` is
+489 lines of framework knowledge held as copied text: the Kestrel body-size limit, request
+timeouts, forwarded headers, the IPv6-/64 rate-limit partitioner, data-protection key persistence,
+the `__Host-` antiforgery cookie hardening, OTel wiring, `ReadinessCache` construction. The defect
+narrates itself in a comment at `Program.cs:217-220` -- *"This was bare AddAntiforgery() until
+2026-08-30... The framework app fixed this in its 2026-08-19 audit and the template never took the
+fix, which meant every product stamped from it inherited the defaults."* That failure mode applies
+to all 489 lines, not only to the middleware. The same is true of `templates/layout/page.html:16-46`,
+where the CSRF-header script and htmx-config meta are framework behaviour held as template text.
+
+**A stamped product cannot put anything behind auth, and the framework's own feature is the trap.**
+The skeleton's `Program.cs` registers no authentication: no `AddAuthentication`, no
+`UseAuthentication`, no sign-in route, and it never maps the scaffold. Meanwhile the framework
+advertises `[Auth(Role = "admin")]` and `apps/sample` demonstrates it. A stamped product that
+follows that guidance gets a runtime failure, because there is no scheme to challenge with. The
+identity provider was silently supplying the whole "how does anyone sign in" answer, and section 3
+above named only the smallest piece of what left. On this repo's own Django line, `contrib.auth` --
+a user primitive, a session primitive, a login round-trip -- is framework-side, and **none of it
+exists.** Nothing in section 4's destinations produces it, and milestone 2 cannot complete without
+it.
+
+**The scaffold has defects, not only absences.** From the qwen audit, each confirmed against the
+generator source:
+
+| finding | file | kind |
+|---|---|---|
+| The admin index is emitted with no authorization metadata, so `/admin` enumerates gated models | `ScaffoldEmitter.cs:468-479` | defect |
+| `short` and `float` get a number input but fall through `Convert`'s `_` case to a string assignment -- the generated code does not compile | `ScaffoldEmitter.cs:402-403, 411-427` | defect |
+| `[ScaffoldSearch]` decides only whether the search box renders; which fields are searched never reaches the store, which takes one opaque string | `ScaffoldEmitter.cs:197`, `IScaffoldStore.cs:26` | defect |
+| Malformed numeric input coerces to 0, a bad `Guid` to `Guid.Empty`, a blank `DateTime` to `UtcNow`; the re-rendered form shows the coerced value, not what was typed | `ScaffoldValues.cs:23-65`, `ScaffoldEmitter.cs:424` | defect |
+| `DeleteAsync` ignores a `false` from the store and redirects as success | `ScaffoldEmitter.cs:311` | defect |
+| Update is GET-then-POST-overwrite with no concurrency token; last writer wins | `ScaffoldEmitter.cs:288-300` | defect |
+| No sorting: `IScaffoldStore<T>.ListAsync` has no ordering parameter, so order is whatever each store silently picks | `IScaffoldStore.cs:26` | absence |
+| No faceted filtering, no bulk actions, no foreign-key or relation display, no per-field widgets beyond `[ScaffoldMultiline]`, no readonly-on-form, no change history | | absence |
+
+Both sample models are flat, so the relation gap is never surfaced by the reference app. Qwen also
+found `apps/sample/Render/ArticlesPage.cs:82` hardcodes `__RequestVerificationToken` instead of
+reading `tokens.FormFieldName` as the scaffold library does -- the reference app hand-duplicating a
+framework constant.
+
+**The reviews disagreed with this document's ordering, and with each other on one fact.** Both
+fable and glm said the seam-first sequence in section 4 inverts the goal and buys weeks of
+invisible work; both independently warned that the first move must be to make the design system
+canonical, or `apps/sample` becomes a third copy of it and the seam gets harder. Fable additionally
+argued for compiling the skeleton before moving any file, on the grounds that it has no coverage --
+an argument that rests on the claim glm disproved, since the `skeleton-stamp` job already compiles
+and tests it. Fable's underlying point survives the correction in weaker form: compilation exists,
+behavioural assertions do not.
+
+## 3c. Two constraints the seam design has to answer
+
+Both from fable, neither previously recorded:
+
+1. **CSP hashes are compiled per product.** `Program.cs:374` builds the public-page CSP from
+   `Templates.Home.Index.InlineScriptCspHashes`, generated by the template compiler in the
+   product's own build. Moving the layout's `<head>` scripts into a shared library partial changes
+   where those hashes come from, and the design has to say where.
+2. **Asset delivery cannot use embedded resources.** `AssetUrls` depends on fingerprinting and
+   precompression of physical files, so a library shipping the design system has to materialise it
+   into the consumer's `wwwroot` via an MSBuild `.targets`, not embed it.
+
+## 3d. The highest risk, named by fable
+
+**The plan moves roughly twenty security-relevant files whose subtlest invariant lives only in
+prose.** The spec-006 triangle -- `PublicPageCache` / `Chrome.Anonymous` / antiforgery -- requires
+that the anonymous variant be byte-stable, mint no token, set no cookie, and never render an
+identity into a shared cache entry (`Chrome.cs:41-63`), with the cache after the rate limiter and
+the key including locale. All of that is commentary. An extraction that gets one of them subtly
+wrong ships cache poisoning or CSRF-token leakage into every stamped product, **and nothing red
+would turn**, because no test asserts any of it. The mitigation is to write those assertions before
+moving the files, not after.
 
 ## 4. Where this needs to go
 
