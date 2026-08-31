@@ -80,6 +80,13 @@ public sealed class Program
 
         WebApplication app = builder.Build();
 
+        // wwwroot/, and nothing else. CreateSlimBuilder does not add the static-file
+        // middleware, so a slim-hosted app serves no CSS until this line exists --
+        // measured, not assumed: without it every stylesheet here answered 404 while
+        // the page itself rendered fine, which is the failure that looks like a
+        // styling bug rather than a missing middleware.
+        app.UseStaticFiles();
+
         // Authentication, authorization, antiforgery, and the guard that turns a failed
         // antiforgery check into a 400 instead of a 500. Nothing is hidden: this is four
         // public calls, and an app needing anything between them writes them out. See

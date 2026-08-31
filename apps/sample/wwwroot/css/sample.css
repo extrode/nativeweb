@@ -1,0 +1,147 @@
+/* apps/sample's own layer. tokens.css, base.css and components.css are the
+   framework's shared design system, vendored byte-identical from
+   libs/nativeweb.assets/css/ and guarded by AssetParityTests -- edit those there,
+   not here. This file is the equivalent of the skeleton's __product__.css: the
+   chrome and the page-level classes that belong to one application.
+
+   Seeded from skeleton/apps/__product__/wwwroot/css/__product__.css so the
+   reference app and a stamped product start from the same chrome, then extended
+   with the article-list classes this app's own pages use. */
+
+/* --- Top bar ------------------------------------------------------------ */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 12px 24px;
+  background: var(--s1);
+  border-bottom: 1px solid var(--bd);
+}
+
+/* --t1, not the bare-link accent: the accent green fails WCAG AA (4.5:1)
+   against the page background, which axe flags in the e2e gate. */
+.topbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--t1);
+  text-decoration: none;
+}
+
+.topbar__nav {
+  display: flex;
+  gap: 18px;
+  font-size: 0.95rem;
+}
+
+.topbar__nav a {
+  color: var(--t2);
+  text-decoration: none;
+}
+
+.topbar__nav a:hover {
+  color: var(--t1);
+  text-decoration: underline;
+}
+
+/* --- Page --------------------------------------------------------------- */
+
+.page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+.page__title {
+  margin-bottom: 4px;
+}
+
+.page__lede {
+  color: var(--t2);
+  margin: 0 0 28px;
+}
+
+/* --- Article list ------------------------------------------------------- */
+
+/* The filter form is one row on a wide viewport and stacks on a narrow one.
+   grid rather than flex so the button keeps its intrinsic width while the
+   search box takes the slack. */
+.articles__filter {
+  display: grid;
+  grid-template-columns: 1fr 110px auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 24px;
+}
+
+/* The submit button is the one child with no .field wrapper, so it has no label
+   above it to align against. Nudged down by the label's own height so the three
+   controls sit on one baseline instead of the button floating. */
+.articles__filter .btn {
+  height: 38px;
+}
+
+@media (max-width: 560px) {
+  .articles__filter {
+    grid-template-columns: 1fr;
+  }
+}
+
+.articles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.articles__item {
+  background: var(--s1);
+  border: 1px solid var(--bd);
+  border-radius: var(--rm);
+  padding: 16px 20px;
+}
+
+.articles__title {
+  font-size: 1.05rem;
+  margin: 0 0 6px;
+}
+
+.articles__author,
+.articles__date {
+  color: var(--t3);
+  font-size: 0.85rem;
+}
+
+.articles__author::after {
+  content: "·";
+  margin: 0 6px;
+}
+
+.articles__empty {
+  color: var(--t3);
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* The htmx swap target. Reserving the min-height stops the page from jumping
+   when a filter returns fewer rows than it replaced, which reads as a flicker
+   rather than as a result. */
+.articles__results {
+  min-height: 120px;
+}
+
+/* --- Footer ------------------------------------------------------------- */
+
+.foot {
+  padding: 18px 24px;
+  border-top: 1px solid var(--bd);
+  color: var(--t3);
+  font-size: 0.85rem;
+  text-align: center;
+}
