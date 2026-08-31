@@ -219,10 +219,19 @@ public static class NativeWebPipeline
     }
 
     /// <summary>
-    /// Brotli for rendered HTML. Fingerprinted static assets ship precompressed
-    /// through <c>MapStaticAssets</c> and never reach this mime list.
-    /// <c>EnableForHttps</c> is a deliberate BREACH acceptance.
+    /// Brotli for rendered HTML, registered but <b>not</b> used by
+    /// <see cref="UseNativeWebPipeline"/>: a host with no compressing proxy in
+    /// front of it adds <c>app.UseResponseCompression()</c> and this is the
+    /// configuration that middleware picks up. Fingerprinted static assets ship
+    /// precompressed through <c>MapStaticAssets</c> and never reach this mime
+    /// list. <c>EnableForHttps</c> is a deliberate BREACH acceptance.
     /// </summary>
+    /// <remarks>
+    /// The paved deployment compresses at Caddy instead, which is 44% faster on
+    /// the same page and offers zstd. The measurement is bottleneck 4 in
+    /// <c>docs/02-reference/performance.md</c>; the directive is in
+    /// <c>scripts/deploy/caddy/Caddyfile</c>.
+    /// </remarks>
     public static IServiceCollection AddNativeWebResponseCompression(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -468,9 +477,24 @@ public static class NativeWebPipeline
         app.UseMiddleware<StaticPagesMiddleware>();
         app.UseRouting();
 
-        // Inside the headers middleware so compressed responses still carry the
-        // full header set.
-        app.UseResponseCompression();
+        // No UseResponseCompression here, and that is a measured decision rather
+        // than an omission (2026-08-31, A/B in docs/02-reference/performance.md).
+        // Compressing in-process cost apps/sample 59% of its throughput on a
+        // 3,271-byte page, and the level made no difference -- the cost is the
+        // per-response codec setup, not the bytes. Through the proxy every
+        // product is deployed behind, Caddy's `encode zstd gzip` served the same
+        // page at 9,002 req/s against 6,255 for the app compressing it: the edge
+        // is 44% faster and gets zstd, which .NET has no provider for.
+        //
+        // Two structural reasons on top of the number. Compressing here strips
+        // the Content-Length that TemplateResults declares, which is worth 35% on
+        // its own; and this step sits above UseOutputCache, so every cache hit
+        // would be recompressed -- the cache never recovers the codec cost for
+        // exactly the public traffic it exists to serve.
+        //
+        // A host with no compressing proxy in front of it adds the ASP.NET
+        // response-compression middleware itself; AddNativeWebWeb still
+        // registers the options, so that one line is the whole opt-in.
         app.UseMiddleware<RequestLoggingMiddleware>();
 
         // Cookie -> Accept-Language -> en.

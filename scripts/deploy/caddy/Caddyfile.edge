@@ -64,6 +64,17 @@
 	# response is the app's, and SecurityHeadersMiddleware already sets HSTS on it.
 	# Setting it again would emit the header twice.
 
+	# Compression happens at this hop, not in the app (2026-08-31; see the
+	# non-edge variant and docs/02-reference/performance.md, bottleneck 4).
+	#
+	# Here it does mean compressing on the private bridge hop to the fleet edge,
+	# which is CPU this guest could skip if the host-level Caddy compressed for
+	# it. It is stated anyway because that host's config is not in this
+	# repository: an edge that does not compress would otherwise ship every page
+	# uncompressed to real clients with nothing failing. Caddy does not
+	# double-encode, so an edge that does compress passes this through.
+	encode zstd gzip
+
 	# The live colour. deploy.sh rewrites this file and reloads; rollback.sh
 	# rewrites it back. Identical to the non-edge variant, which is the point --
 	# the promotion machinery does not know which mode it is running under.

@@ -38,6 +38,18 @@
 	# reaches the app.
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
+	# Compression happens here and not in the app, measured 2026-08-31: this hop
+	# served the same page at 9,002 req/s where the app compressing it managed
+	# 6,255, and compressing in-process also strips the Content-Length the
+	# renderer declares and re-runs on every output-cache hit. See
+	# docs/02-reference/performance.md, bottleneck 4.
+	#
+	# zstd first: it is what a current browser prefers. Brotli is absent because
+	# stock Caddy has no encoder for it -- adding br to this line fails config
+	# validation outright, "module not registered: http.encoders.br" -- so it is
+	# unavailable rather than declined. gzip is the floor for everything older.
+	encode zstd gzip
+
 	# The live colour. One line: `reverse_proxy 127.0.0.1:5011` or :5012.
 	# deploy.sh rewrites it and reloads; rollback.sh rewrites it back. Nothing
 	# else in this file changes between releases.
