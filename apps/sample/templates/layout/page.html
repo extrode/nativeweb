@@ -1,0 +1,38 @@
+<!--#template
+  @param string Title
+  @param string AntiforgeryToken
+-->
+<!DOCTYPE html>
+<html lang="{{locale.Lang}}" dir="{{locale.Dir}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{if AntiforgeryToken.Length != 0}}<meta name="request-verification-token" content="{{AntiforgeryToken}}">{{/if}}
+<meta name="htmx-config" content='{"includeIndicatorCSS":false,"noSwap":[204,304,"4xx","5xx"]}'>
+<title>{{Title}}</title>
+<script src="/js/theme.js"></script>
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/components.css">
+<link rel="stylesheet" href="/css/sample.css">
+<link rel="stylesheet" href="/vendor/fonts/fonts.css">
+<script src="/vendor/nativeweb/boot.js" defer></script>
+<script src="/vendor/htmx/htmx.min.js" defer></script>
+<script src="/vendor/alpinejs/alpine.min.js" defer></script>
+<script src="/js/htmx-antiforgery.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">{{t:chrome.skip}}</a>
+<header class="topbar">
+<a class="topbar__brand" href="/articles">{{t:chrome.brand}}</a>
+<nav class="topbar__nav">
+<a href="/articles">{{t:nav.articles}}</a>
+<a href="/admin">{{t:nav.admin}}</a>
+</nav>
+</header>
+<main class="page" id="main" tabindex="-1">
+{{slot Main}}
+</main>
+<footer class="foot">{{t:chrome.footer}}</footer>
+</body>
+</html>

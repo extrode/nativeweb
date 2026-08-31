@@ -3,7 +3,7 @@
     "nativeweb.sample": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "signin",
+      "launchUrl": "articles",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

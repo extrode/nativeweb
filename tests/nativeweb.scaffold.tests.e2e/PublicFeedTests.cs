@@ -160,4 +160,64 @@ public sealed class PublicFeedTests(JauntySampleFixture app, BrowserFixture brow
             await SampleE2eDatabase.DeleteByIdPrefixAsync(prefix);
         }
     }
+
+    /// <summary>
+    /// The filter swaps the results in place rather than navigating: htmx posts
+    /// the form, the server answers with the <c>#results</c> fragment alone, and
+    /// the surrounding document survives.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Nothing below this tier can assert it. The integration tier can send
+    /// <c>HX-Request</c> by hand and check the fragment came back, which proves the
+    /// server half; it cannot prove htmx sent the header, found the target, or
+    /// applied the swap, because there is no htmx in a
+    /// <c>WebApplicationFactory</c>. Every failure this catches — a stale
+    /// <c>hx-target</c>, a vendored library that did not load, the antiforgery
+    /// header glue missing so the POST answers 400 — leaves the server tier green.
+    /// </para>
+    /// <para>
+    /// The sentinel is the whole point of the last assertion. A full-page POST
+    /// would also end with the right rows on screen and would look identical to a
+    /// swap in every other check here; only a value hung off the window before the
+    /// submit can tell the two apart, because a navigation would discard it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task Feed_FilterSwapsTheResultsWithoutNavigating()
+    {
+        string prefix = $"e2e-{Guid.NewGuid():N}"[..15];
+        DateTime future = DateTime.UtcNow.AddYears(5);
+
+        try
+        {
+            await SampleE2eDatabase.InsertAsync($"{prefix}-k", $"{prefix}-keep", true, future);
+            await SampleE2eDatabase.InsertAsync($"{prefix}-d", $"{prefix}-drop", true, future.AddMinutes(1));
+
+            IPage page = await AnonymousPageAsync();
+            await page.GotoAsync("/articles");
+            await Assertions.Expect(page.GetByText($"{prefix}-drop")).ToBeVisibleAsync();
+
+            await page.EvaluateAsync("() => { window.__survived = true; }");
+
+            await page.FillAsync("#q", $"{prefix}-keep");
+            await page.ClickAsync(".articles__filter button[type=submit]");
+
+            await Assertions.Expect(page.GetByText($"{prefix}-keep")).ToBeVisibleAsync();
+            await Assertions.Expect(page.GetByText($"{prefix}-drop")).ToHaveCountAsync(0);
+
+            // The swap target survived its own replacement: hx-swap="outerHTML"
+            // replaces #results with a fragment whose own root carries id="results",
+            // so a second filter still has somewhere to land.
+            Assert.Equal(1, await page.Locator("#results").CountAsync());
+
+            // Still the same document, and still the same URL.
+            Assert.True(await page.EvaluateAsync<bool>("() => window.__survived === true"));
+            Assert.EndsWith("/articles", page.Url, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await SampleE2eDatabase.DeleteByIdPrefixAsync(prefix);
+        }
+    }
 }

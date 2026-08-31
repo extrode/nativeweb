@@ -13,6 +13,27 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Added
+- **`apps/sample` renders through the framework's own compiled templates**, styled, with the
+  article filter posting over htmx and swapping only the results list. The same form without
+  JavaScript posts to the same route and gets the whole page back, through one code path.
+- **`docs/02-reference/performance.md`** — every load measurement taken here, the control scenario
+  beside each one, and the bottlenecks found.
+- **One command for the edit-and-see-it loop**, in the README and the quick start:
+  `dotnet watch run --project apps/sample --no-hot-reload`.
+
+### Changed
+- **Template pages declare `Content-Length`.** `TemplateResults.Html` buffered the whole body and
+  then said nothing about its length, making every page a chunked response and costing 35% of
+  throughput: 11,779 req/s against 18,105 for the same bytes. Nothing was ever being streamed.
+
+### Fixed
+- **`work/milestones.md` claimed nothing compiles the skeleton.** CI's `skeleton-stamp` job stamps
+  a product and builds and tests all three of its tiers. The real gap is narrower: no *local* build
+  does, so a drift is a CI-only finding.
+- **The `apps/sample` launch profile opened `/signin`** rather than the feed the reference
+  application exists to show.
+
 ### Removed
 - **The identity provider left NativeWeb.** `apps/web`, `libs/nativeweb.auth`,
   `libs/nativeweb.data`, `libs/nativeweb.signin.epass`, `.signin.epass.testing`, `db/migrations`,

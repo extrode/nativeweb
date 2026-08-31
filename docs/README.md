@@ -46,6 +46,7 @@ Answers to specific questions. Not written to be read in order.
 | [`02-reference/template-diagnostics.md`](02-reference/template-diagnostics.md) | `NWT001`–`NWT016`: what each template build error means and how to fix it. |
 | [`02-reference/security-baseline.md`](02-reference/security-baseline.md) | The security checklist and what has been verified against it. Written against the identity provider that has since left; read it as the posture a stamped product inherits. |
 | [`02-reference/migration-lock-review.md`](02-reference/migration-lock-review.md) | How long `db/migrate.sh` holds its locks. Read before pointing it at a live database. |
+| [`02-reference/performance.md`](02-reference/performance.md) | Every load measurement taken here, what changed between them, and the bottlenecks found — including the one that cost 35% of page throughput to a header nobody was setting. |
 | [`02-reference/deployment.md`](02-reference/deployment.md) | The production runbook: provisioning, blue/green release, rollback, backups, restore, disaster recovery. Carries its own list of what has never been executed. |
 | [`handovers/admin-cms-handoff.md`](handovers/admin-cms-handoff.md) | The admin panel and CMS module design. |
 | [`handovers/epass-io-adoption-handoff.md`](handovers/epass-io-adoption-handoff.md) | For a downstream project building on this one: the licensing and JauntyQ constraints that reach it, the landmines, and what is built here but unproven. |

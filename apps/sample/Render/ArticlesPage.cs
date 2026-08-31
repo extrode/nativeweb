@@ -80,10 +80,16 @@ internal static class ArticlesPage
             : $"""
                 <form class="articles__filter" method="post" action="/articles">
                   <input type="hidden" name="__RequestVerificationToken" value="{encoder.Encode(token)}">
-                  <label for="q">Filter</label>
-                  <input id="q" name="query" type="search" value="{encoder.Encode(query ?? "")}">
-                  <input name="max" type="number" min="1" max="100" value="20">
-                  <button type="submit">Filter</button>
+                  <div class="field">
+                    <label class="field__label" for="q">Filter</label>
+                    <input class="input" id="q" name="query" type="search"
+                           placeholder="Title or author" value="{encoder.Encode(query ?? "")}">
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="max">Max</label>
+                    <input class="input" id="max" name="max" type="number" min="1" max="100" value="20">
+                  </div>
+                  <button class="btn btn--primary" type="submit">Filter</button>
                 </form>
                 """;
 
@@ -94,13 +100,34 @@ internal static class ArticlesPage
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width,initial-scale=1">
               <title>Articles</title>
+              <script src="/js/theme.js"></script>
+              <link rel="stylesheet" href="/css/tokens.css">
+              <link rel="stylesheet" href="/css/base.css">
+              <link rel="stylesheet" href="/css/components.css">
+              <link rel="stylesheet" href="/css/sample.css">
+              <link rel="stylesheet" href="/vendor/fonts/fonts.css">
+              <script src="/vendor/nativeweb/boot.js" defer></script>
+              <script src="/vendor/htmx/htmx.min.js" defer></script>
+              <script src="/vendor/alpinejs/alpine.min.js" defer></script>
             </head>
             <body>
-              <main>
-                <h1>Articles</h1>
+              <header class="topbar">
+                <a class="topbar__brand" href="/articles">NativeWeb sample</a>
+                <nav class="topbar__nav">
+                  <a href="/articles">Articles</a>
+                  <a href="/admin">Admin</a>
+                </nav>
+              </header>
+              <main class="page" id="main">
+                <h1 class="page__title">Articles</h1>
+                <p class="page__lede">
+                  Rendered server-side by apps/sample. The filter posts over htmx and
+                  falls back to a full-page POST with JavaScript off.
+                </p>
                 {filter}
                 {items}
               </main>
+              <footer class="foot">apps/sample -- the NativeWeb reference application</footer>
             </body>
             </html>
             """;

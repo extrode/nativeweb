@@ -6,6 +6,51 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Phase 1 — a visible UI and a working edit loop** — `feat/phase1-visible-ui`, 2026-08-31.
+  T1–T6 of `docs/plans/2026-08-31-007-framework-readiness.md`. `apps/sample` is styled, renders
+  through the framework's own compiled templates, and filters over htmx. **468 facts across seven
+  tiers, 0 failed, 0 skipped**; every new fact mutation-checked. Structure-audit 0 errors, 3
+  pre-existing warnings.
+  - **The reference application did not use the framework's renderer.** It hand-built HTML in a
+    `StringBuilder` while `nativeweb.render` — the largest library here — was exercised only by its
+    own unit tier. `GET /articles` now renders `layout/page` + `articles/index`; a filter POST with
+    `HX-Request` gets the `articles/results` fragment alone and the same POST without it gets the
+    whole page, through one `Page()` helper so the two cannot drift.
+  - **Four render tests were green against code that did not ship.** They asserted
+    `ArticlesPage.Render`, which no production path had called since the endpoints changed.
+    Retargeted rather than deleted — every fact in them was still worth holding, the encoding one
+    especially. `ArticlesPage.cs` itself is now dead and tracked; removing it is a commit, noted in
+    the cleanup script rather than done.
+  - **A 35% throughput defect in the framework, found by benchmarking rather than by review.**
+    `TemplateResults.Html` wrote to `Response.BodyWriter` and flushed once, which reads as the
+    streaming path and is not — the body was fully materialized before the flush either way, so
+    the length was knowable all along and never declared. Every page was a chunked response.
+    Three variants of the same page separate the causes: straight-to-writer no length **11,779
+    req/s**, buffered no length **11,778**, buffered with length **18,105**. The middle row rules
+    out the write pattern and leaves the framing. Guarded by `TemplateHtmlResultTests`, because no
+    assertion about markup can tell a chunked page from a measured one.
+  - **At close, `articles` is 18,958.6 req/s / 0.70 ms p50 / 35.6 MB** against a pre-Phase-1
+    baseline of 19,937.6, with the `healthz` control at 23,324.5 against 23,068.6. Zero errors.
+    Every measurement and both open bottlenecks are in `docs/02-reference/performance.md`.
+  - **Fable's verification found two real defects in this branch's own work**, both introduced by
+    it and both fixed here: the box gained `placeholder="Title or author"` while `Matching`
+    filtered titles only, and `max` was hard-coded at 20 in the template so a no-JS POST asking for
+    5 answered with five rows above a box reading 20. It also caught wrong arithmetic in a doc
+    comment (describing `HtmlEncoder.Default`, which this code does not use) and a form assertion
+    weakened to three page-wide `Contains` that three separate elements could satisfy. Asset parity
+    covered css only; `boot.js` and the third-party vendor trees are guarded now too.
+  - **`dotnet watch` needed two things, both measured.** Templates are `AdditionalFiles`, which its
+    default globs do not cover, so they need matching `Watch` items; and under the default
+    hot-reload session this project detected nothing at all, template or `.cs`, while a scratch
+    console app in the same tree rebuilt on both. The documented command is
+    `dotnet watch run --project apps/sample --no-hot-reload`.
+  - **Two claims in `work/milestones.md` were wrong and are corrected.** CI's `skeleton-stamp` job
+    does stamp and build the skeleton in package mode — what is missing is that no *local* build
+    does. Milestone 5 is `shipped`: the solution is 18 projects and none provider-specific.
+  - **Cleanup candidates in `scripts/cleanup/phase1-visible-ui.ps1`, not run** — 2,073 MB across 19
+    paths, chiefly the `bin/obj` trees of the seventeen projects that left with the identity
+    provider. It asks git about every target rather than asserting anything.
+
 - **The identity provider leaves NativeWeb** — `refactor/extract-idp`, 2026-08-31. NativeWeb is a
   framework and holds no product. `apps/web`, `libs/nativeweb.{auth,data}`, the two sign-in
   libraries, `db/{migrations,queries,schema,seed}` and seven test projects are gone: **622 files,

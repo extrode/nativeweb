@@ -53,7 +53,13 @@ public sealed class PublicFeedTests
 
         // Not merely "not a redirect": a 200 with the page on it.
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("<h1>Articles</h1>", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        // The class arrived with the compiled layout on 2026-08-31; the assertion is
+        // still "the page rendered its heading", not "the markup is byte-for-byte
+        // what it was".
+        Assert.Contains(
+            """<h1 class="page__title">Articles</h1>""",
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
     }
 
     [Fact]

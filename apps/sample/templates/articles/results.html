@@ -1,0 +1,18 @@
+<!--#template
+  @param System.Collections.Generic.IReadOnlyList<NativeWeb.Sample.PublishedArticle> Articles
+-->
+<div class="articles__results" id="results">
+{{if Articles.Count == 0}}
+<p class="articles__empty">{{t:articles.empty}}</p>
+{{else}}
+<ul class="articles">
+{{for article in Articles}}
+<li class="articles__item">
+<h2 class="articles__title">{{article.Title}}</h2>
+{{if article.Author != null}}<span class="articles__author">{{article.Author}}</span>{{/if}}
+<time class="articles__date" datetime="{{article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}">{{article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}</time>
+</li>
+{{/for}}
+</ul>
+{{/if}}
+</div>
