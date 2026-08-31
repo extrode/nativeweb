@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Encodings.Web;
 
 using Microsoft.Extensions.FileProviders;
@@ -22,8 +23,30 @@ public sealed class StaticErrorShell
     // Fail-fast at startup, matching the app's imperative config guards: a
     // missing shell discovered on the first 404 would be an error page that
     // itself 500s.
-    public static StaticErrorShell Load(IWebHostEnvironment environment) =>
-        Load(environment.WebRootFileProvider);
+    //
+    // This is the overload NativeWebPipeline calls, which puts it on the path out
+    // of Main -- where an escaping exception is the modal-block crash
+    // StartupConfigGuards.FailStartup exists to prevent, not a clean refusal. A
+    // missing or unreadable shell is an operator error with a known remedy, so it
+    // leaves by the same stderr message and exit 78 as a refused configuration
+    // value. The IFileProvider overload keeps throwing: it stays a pure function
+    // the unit tier can drive, and a test cannot observe Environment.Exit.
+    public static StaticErrorShell Load(IWebHostEnvironment environment)
+    {
+        try
+        {
+            return Load(environment.WebRootFileProvider);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException)
+        {
+            StartupConfigGuards.FailStartup(ex.Message);
+
+            // [DoesNotReturn] drives nullable flow analysis, not CS0161's
+            // definite-return check, so the compiler still wants an exit here.
+            // FailStartup itself carries the same line for the same reason.
+            throw new UnreachableException();
+        }
+    }
 
     public static StaticErrorShell Load(IFileProvider webRoot)
     {

@@ -53,10 +53,13 @@ worth seeing here rather than hiding, but it is the exception.
   exit 78 and the key named on stderr. That last one could not be driven through the key-directory
   branch it was written for: `GetFolderPath(UserProfile)` reads the process token on Windows, not
   `USERPROFILE`, so a malformed `BotTraps` value carries the same fact instead. 657 tests green
-  across the eight suites. Two things found on the way and **not** fixed, both on `work/todo.md`:
-  `StaticErrorShell.Load` throws out of `Main` instead of taking `FailStartup`'s exit -- the exact
-  modal-block failure the guard exists to prevent -- and six untracked test directories are
-  `bin`/`obj` residue of the departed identity provider.
+  across the eight suites. Two things found on the way, both on `work/todo.md`. The first is now
+  **fixed** (`fix/static-error-shell-exit`, 2026-08-31): `StaticErrorShell.Load` threw out of
+  `Main` instead of taking `FailStartup`'s exit -- the modal-block failure the guard exists to
+  prevent -- and the `IWebHostEnvironment` overload now routes a missing or unreadable shell to
+  exit 78 with the path on stderr, proved at the process boundary and mutation-checked. 658 green.
+  The second is not ours to run: six untracked test directories are `bin`/`obj` residue of the
+  departed identity provider, listed in `scripts/cleanup/021-coverage-gaps.ps1`.
 
 - **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
   not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has

@@ -80,6 +80,14 @@ Merged into `dev`, not yet tagged.
   NativeAOT failure mode `lessons/2026-07-26` records. The fourth gap, `[ScaffoldSearch]` wiring,
   **was already covered** — emitting an empty `SearchFields` set turns two integration tests red,
   measured by mutation rather than assumed. Every new test was mutation-checked.
+- **A missing static error shell now exits 78 instead of crashing out of `Main`.**
+  `StaticErrorShell.Load(IWebHostEnvironment)` is the overload `NativeWebPipeline` calls while
+  building the pipeline, so its `InvalidOperationException` escaped `Main` and the host died with
+  `0xE0434352` — under NativeAOT on Windows that is the modal box `StartupConfigGuards` exists to
+  prevent, which a supervisor reads as a hung service rather than an error. It now catches that
+  and `IOException` and routes both to `FailStartup`, so a missing or unreadable
+  `wwwroot/pages/error.html` leaves by the same stderr message and exit code as a refused
+  configuration value. The `IFileProvider` overload still throws and stays the unit tier's.
 
 ### Changed
 - **The epass.io cutover is closed as a NativeWeb concern, and the term is retired here.**
