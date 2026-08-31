@@ -1534,13 +1534,17 @@ an answer different from the one the audit assumed.
 
 ## Found while closing those gaps, 2026-08-31 — not fixed
 
-- **`StaticErrorShell.Load` throws out of `Main` instead of calling `FailStartup`.** Reached by
-  starting `apps/sample` with a working directory that has no `wwwroot`: the host dies with
+- ~~**`StaticErrorShell.Load` throws out of `Main` instead of calling `FailStartup`.**~~
+  **Fixed 2026-08-31, `fix/static-error-shell-exit`.** Reached by starting `apps/sample` with a
+  working directory that has no `wwwroot`: the host died with
   `InvalidOperationException: wwwroot/pages/error.html is missing` and exit code `0xE0434352`.
   That is the class of failure `lessons/2026-07-26` and `StartupConfigGuards` exist to prevent —
   under NativeAOT on Windows it is a modal box a supervisor sees as a hung service, not an error.
-  A missing static shell is an operator error with a known remedy, so it belongs on the same exit
-  path as a malformed configuration value. Out of scope for a test branch.
+  The `IWebHostEnvironment` overload — the one on the path out of `Main` — now catches
+  `InvalidOperationException` and `IOException` and routes them to `FailStartup`, so the shell
+  leaves by the same stderr message and exit 78 as a refused configuration value. The
+  `IFileProvider` overload still throws: it is the pure function the unit tier drives, and a test
+  cannot observe `Environment.Exit`.
 - **Six untracked test directories are `bin`/`obj` residue from the departed identity provider**:
   `tests/nativeweb.signin.epass.tests.{unit,integration,e2e,aot}`, `tests/nativeweb.web.tests.integration`
   and `tests/nativeweb.web.tests.e2e`. No `.csproj`, nothing in `NativeWeb.slnx`, nothing in git.
