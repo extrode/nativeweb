@@ -79,12 +79,18 @@ public sealed class SkeletonSignInTests
     [Fact]
     public void TheEntryPoint_RegistersNothingWhenNoProviderIsConfigured()
     {
-        // The guard, not the call. A skeleton that registered unconditionally would fail
-        // startup validation in every product stamped before it had a provider, which is
-        // every product on the day it is stamped.
-        string source = SkeletonText("apps/__product__/Program.cs");
+        // The guard around each call, not the guard anywhere in the file. A skeleton that
+        // registered unconditionally would fail startup validation in every product stamped
+        // before it had a provider, which is every product on the day it is stamped -- and
+        // the first version of this fact passed with the registration's guard deleted,
+        // because the sign-out endpoint's guard below still matched.
+        // Newlines normalised: the file is edited on two platforms and the guard would
+        // otherwise match or not by line ending.
+        string source = SkeletonText("apps/__product__/Program.cs").ReplaceLineEndings("\n");
+        const string guard = "if (signIn[\"AuthorizationEndpoint\"] is { Length: > 0 })";
 
-        Assert.Contains("signIn[\"AuthorizationEndpoint\"] is { Length: > 0 }", source, StringComparison.Ordinal);
+        Assert.Contains(Guarded(guard, "builder.Services.AddSignIn(signIn);"), source, StringComparison.Ordinal);
+        Assert.Contains(Guarded(guard, "app.MapSignIn();"), source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -103,6 +109,9 @@ public sealed class SkeletonSignInTests
             Assert.Contains($"\"{key}\": \"\"", settings, StringComparison.Ordinal);
         }
     }
+
+    private static string Guarded(string guard, string call) =>
+        $"        {guard}\n        {{\n            {call}\n        }}";
 
     private static string Condition(XElement group) => group.Attribute("Condition")?.Value ?? "";
 
