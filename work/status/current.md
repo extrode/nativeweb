@@ -6,39 +6,31 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 015 — the framework web seam** — `feat/015-framework-web-seam`, 2026-08-31. T1–T10, all
-  ten ticked. **546 facts across eight tiers, 0 failed, 0 skipped**; NativeAOT publish of
-  `apps/sample` clean, 0 IL2xxx/IL3xxx; structure-audit 0 errors, 3 pre-existing naming warnings.
-  Every new fact mutation-checked.
-  - **A product's entry point was 487 lines of framework wiring, and a security fix to any of it
-    could not reach a product already stamped.** Kestrel limits, forwarded headers, telemetry, data
-    protection, antiforgery, bot traps, rate limiting, the output cache, the middleware order,
-    `/healthz`, `/version`, `/readyz`, `/csp-report` and security.txt now live in
-    `libs/nativeweb.web`. The skeleton's `Program.cs` is 39 code lines, and a ceiling test holds it
-    there. Nothing is hidden: every step is a public extension method, and a product needing
-    something between two of them writes the eleven calls out.
-  - **Framework static assets are delivered by MSBuild, not copied into each product.**
-    `build/NativeWeb.Web.targets` contributes `wwwroot/_nativeweb/**` as linked `Content`, which the
-    static web assets pipeline fingerprints and precompresses into the consumer's publish output —
-    measured against a scratch probe before the design was committed. The `/_nativeweb/` base path
-    exists because two assets at one target path is a hard build error, not a precedence question.
-  - **Adopting the seam exposed three defects in one afternoon, each now a test.** Antiforgery's
-    `SecurePolicy.Always` 500s every form page over plain http, so `dotnet run` and Playwright both
-    broke (36 integration failures); `UseAuthentication` after antiforgery validation makes every
-    authenticated form post a 400 (10 more); and the scaffolded admin's inline `onsubmit` cannot run
-    under a nonce CSP, which only the Playwright tier could see (4 e2e).
-  - **The pipeline costs `articles` 66% of its throughput, and it is one middleware.** 18,958.6 →
-    6,440.5 req/s, bisected to response compression: the level makes no difference, the codec does,
-    and compressing strips the `Content-Length` that the 35% chunking fix had just added.
-    `docs/02-reference/performance.md` bottleneck 4 has the four-variant table and the three ways
-    out; `tools/bench/baseline.json` is re-recorded, because a baseline that is red on every run is
-    not a gate.
-  - **`Assembly.Load` by name is gone from the version lookup.** It does work under NativeAOT — the
-    published binary answered `/version` with the stamped value — but a name lookup that catches
-    four exception types and falls back is a silent wrong answer waiting for a rename. A product
-    passes `typeof(Program).Assembly` now.
-  - **The review found eleven things and three were worth fixing.** The data source was registered
-    as a built instance, so the container never disposed it and the pool outlived the host; the
-    Development antiforgery cookie name was composed a second way; and `Telemetry:Enabled` read
-    `1`, `yes` and `on` as off. The rest are in `work/todo.md`, including one finding that
-    contradicts a recorded decision and was left alone for it.
+- **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
+  not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has
+  never been run, and every elapsed time in `docs/02-reference/deployment.md` reads
+  `NOT YET MEASURED`. Until an operator walks a bare Debian host through provision → release →
+  rollback → restore and writes the times back, three of spec 011's requirements (R1, R16, R17)
+  are unmet and the scripts are untested against anything but `bash -n` and the unit tier.
+  R15 is conditional too: `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is not
+  noticed. This is a person's task, not a session's.
+
+- **The epass.io production cutover.** Sign-off gated, and as of 2026-08-25 gated on something
+  larger: `docs/architecture/002-epass-cutover-capability-gap.md` measured NativeWeb against the
+  repo it replaces for the first time and found `apps/web` is not a drop-in replacement. That
+  scope question was **answered 2026-08-29, in the epass.io repo**
+  (`epass.io/docs/decisions/2026-08-29-003-native-web-browser-surface.md`): the browser surface
+  only, DB-free, calling `apps/api` and `/internal/store` over HTTP, with `apps/api` remaining the
+  sole writer to the identity database. The port is built in that repo, not this one; findings
+  from here that reach it go to `epass.io/work/todo.md`.
+  Telemetry is no longer part of this: it is
+  on by default as of 2026-08-17, so there is no flag left to flip during the switch. What is
+  left is pointing `OTEL_EXPORTER_OTLP_ENDPOINT` at a collector, which needs a collector to
+  exist — an operator decision, not work.
+- Behind it, the `work/todo.md` items that need a decision rather than work: the skeleton's
+  release process (whether NativeWeb versions and publishes itself), the session key type
+  (JauntyQ-wide), and pinning the skeleton's two framework checkouts to tags, which cannot happen
+  until either framework repo publishes one. The Node 20 → 24 action bump that used to sit here is
+  **done** (2026-08-20) — see `docs/decisions/2026-08-20-001-node-runtime-in-ci.md`.
+- `work/milestones.md` was filled on 2026-08-30 with six destinations, so "where this project is
+  going" now has a record. Three of the six are `in progress`; T15 above is milestone 3.

@@ -14,6 +14,21 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **The framework web seam (`libs/nativeweb.web`).** One `AddNativeWebWeb` + `UseNativeWebPipeline`
+  + `MapNativeWebEndpoints` composes what every NativeWeb product used to copy into its own
+  `Program.cs`: Kestrel limits, forwarded headers, the pooled data source, telemetry, data
+  protection, antiforgery, bot traps, rate limiting, the public-page output cache, the middleware
+  order, `/healthz`, `/version`, `/readyz`, `/csp-report` and `/.well-known/security.txt`. The
+  skeleton's entry point went from 487 lines to 39 code lines, held there by a ceiling test, and a
+  security fix now reaches a stamped product by upgrading a library. Nothing is hidden: every step
+  is a public extension method.
+- **Framework static assets are delivered by MSBuild.** `build/NativeWeb.Web.targets` contributes
+  `wwwroot/_nativeweb/**` as linked `Content`, fingerprinted and precompressed into the consumer's
+  publish output by the static web assets pipeline. Served under `/_nativeweb/`, because two assets
+  at one target path is a hard build error rather than a precedence question.
+- **An authentication slot in the pipeline.** `UseNativeWebPipeline(locales, auth => …)` runs the
+  callback in front of antiforgery validation, which is the only position where an authenticated
+  form post validates — who may reach a route stays the product's decision.
 - **`apps/sample` renders through the framework's own compiled templates**, styled, with the
   article filter posting over htmx and swapping only the results list. The same form without
   JavaScript posts to the same route and gets the whole page back, through one code path.
@@ -23,11 +38,32 @@ Merged into `dev`, not yet tagged.
   `dotnet watch run --project apps/sample --no-hot-reload`.
 
 ### Changed
+- **`/version` and the telemetry service version take the product's assembly as a parameter**
+  (`typeof(Program).Assembly`) instead of loading it by name from `IHostEnvironment.ApplicationName`.
+  The name lookup does resolve under NativeAOT — the published binary answered with the stamped
+  value — but it answered a rename with a silent fallback rather than a compile error.
+- **Antiforgery relaxes to `SameAsRequest` and drops the `__Host-` prefix under Development.**
+  `Always` over plain http 500s the first page carrying a form, which broke `dotnet run`, every
+  loopback host and the Playwright tier at once. Driven by `IHostEnvironment`, so no settings file
+  can select the weak value.
+- **The bench baseline is re-recorded for the pipeline** (`articles` 18,958.6 → 6,440.5 req/s).
+  Response compression is the whole of the loss and `docs/02-reference/performance.md` bottleneck 4
+  bisects it; a baseline that is red on every run gates nothing.
 - **Template pages declare `Content-Length`.** `TemplateResults.Html` buffered the whole body and
   then said nothing about its length, making every page a chunked response and costing 35% of
   throughput: 11,779 req/s against 18,105 for the same bytes. Nothing was ever being streamed.
 
 ### Fixed
+- **The pooled `NpgsqlDataSource` was registered as a built instance**, so the container never
+  disposed it: the pool outlived the host and connections closed by the socket rather than by
+  Npgsql. A factory registration is the fix.
+- **`Telemetry:Enabled` read `1`, `yes` and `on` as off.** An equality check against `"true"` meant
+  an operator could believe telemetry was exporting when it was not; an unparseable value is now a
+  named startup error.
+- **The scaffolded admin could not render under a nonce CSP.** Its delete confirmation was an inline
+  `onsubmit` no policy without `unsafe-hashes` will run, and its inline `<style>` carried no nonce.
+  Only the Playwright tier could see it, and did: "the delete form did not raise a confirm dialog at
+  all".
 - **`work/milestones.md` claimed nothing compiles the skeleton.** CI's `skeleton-stamp` job stamps
   a product and builds and tests all three of its tiers. The real gap is narrower: no *local* build
   does, so a drift is a CI-only finding.
