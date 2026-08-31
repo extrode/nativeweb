@@ -103,6 +103,25 @@ Merged into `dev`, not yet tagged.
   open. The one outstanding input is a push of `dev`, which is the user's.
 
 ### Added
+- **OAuth sign-in as a framework primitive (`libs/nativeweb.signin`).** The relying-party half of
+  OAuth 2.1 / OIDC, provider-agnostic and configuration-driven: the authorization-code grant with
+  PKCE, an opaque server-side session behind a `__Host-` cookie over a store the product supplies,
+  token refresh, sign-out, and a bearer-introspection filter with a short TTL cache for API
+  endpoints. It registers a real authentication scheme, which is what a scaffolded route's
+  `RequireAuthorization` needed and did not have — before this a protected route in a stamped
+  product answered a bare 401 with no way to sign in. NativeWeb is the client and never the
+  server: no issuer, no consent screen, no realm resolution, no client registry, and no provider
+  named anywhere in the shipped source, which
+  `tests/nativeweb.repo.tests.unit/ProviderNeutralityTests.cs` asserts over
+  `libs/nativeweb.signin`, `libs/nativeweb.signin.testing` and `skeleton`.
+  Configuration is read key by key from an `IConfiguration` section rather than bound, because a
+  reflecting binder is the one dependency that would stop the library publishing AOT-clean;
+  `tests/nativeweb.signin.tests.aot` publishes a probe host and fails on any IL2xxx/IL3xxx
+  warning, measured at 21 s with none. The skeleton stamps the section and registers the scheme
+  only when a provider is configured, so a product stamped before it has one still boots.
+  Documented in `libs/nativeweb.signin/README.md`; `apps/sample` runs the whole round trip against
+  a demo authorization server it hosts itself, so `dotnet run` needs no external service.
+
 - **The framework web seam (`libs/nativeweb.web`).** One `AddNativeWebWeb` + `UseNativeWebPipeline`
   + `MapNativeWebEndpoints` composes what every NativeWeb product used to copy into its own
   `Program.cs`: Kestrel limits, forwarded headers, the pooled data source, telemetry, data

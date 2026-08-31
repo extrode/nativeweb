@@ -4,11 +4,14 @@
        flow with PKCE, take the callback, hold a session, refresh, sign out, and
        check a bearer token by introspection.
 
-       This is the recovered generic three-quarters of nativeweb.signin.epass,
-       which left with the identity provider on 2026-08-31 (decision 007). The
-       name carries no provider now, and that is the point: spec R17 forbids a
-       provider name, host, path or vendor field anywhere in a type name,
-       namespace or default value, and a repository test asserts it.
+       This is the recovered generic three-quarters of the provider-specific
+       project that left with the identity provider on 2026-08-31
+       (docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md). The name carries
+       no provider now, and that is the point: spec R17 forbids a provider name,
+       host, path or vendor field anywhere in a type name, namespace or default
+       value, and tests/nativeweb.repo.tests.unit/ProviderNeutralityTests.cs
+       asserts it over this project's whole source, this comment included, which
+       is why the old project is described here rather than named.
 
        The dependency edge that matters is still the one that is ABSENT. There is
        no reference to any identity-provider library, because none exists here any

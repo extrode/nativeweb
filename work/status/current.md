@@ -6,13 +6,34 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 016 — the OAuth relying party** (`feat/016-oauth-relying-party`). Building the client half
-  of OAuth as framework: authorization-code with PKCE, a server-side session over a store the
-  product implements, silent refresh, and a bearer-introspection filter. Recovering the generic
-  three-quarters of `nativeweb.signin.epass` from `f743436^`, dropping the provider-specific
-  login-link flow, and replacing the stateless signed ticket with an opaque cookie over
-  `ISessionStore` — because the provider rotates refresh tokens and revokes the family on reuse,
-  which a stateless design has nowhere to serialize. 27 tasks in `docs/specs/016-oauth-relying-party/016-tasks.md`.
+- **Spec 016 — the OAuth relying party — is built** (`feat/016-oauth-relying-party`, 2026-09-01).
+  All 27 tasks are `[x]`: authorization-code with PKCE, a server-side session over a store the
+  product implements, silent refresh, sign-out, and a bearer-introspection filter, all behind a
+  real authentication scheme — which is what a scaffolded route's `RequireAuthorization` needed
+  and did not have. The stateless signed ticket the recovered code used was replaced with an
+  opaque cookie over `ISessionStore`, because the provider rotates refresh tokens and revokes the
+  family on reuse, which a stateless design has nowhere to serialize.
+
+  **Three production defects the new tiers found**, each fixed where it lived rather than worked
+  around in the test. The scheme had no `HandleChallengeAsync`, so a protected route answered a
+  bare 401 instead of redirecting to the login path — the exact complaint R11 exists for, and
+  invisible until an app mounted the scheme. Two schemes in one app broke the sign-out form with
+  an unexplained 400: the antiforgery token binds to the identity as it stands when the check
+  runs, and `UseAuthentication` was running the other scheme, so the fix is a policy scheme the
+  product owns and the library cannot supply. And the introspection filter was unreachable
+  through `AddEndpointFilter<T>()`, because everything it needs is keyed on the scheme name.
+
+  **The e2e tier had to move to https**, over a certificate the fixture mints: `http://localhost`
+  was tried first on the reasoning that Chromium treats it as a trustworthy origin, and all four
+  facts failed with `ERR_TOO_MANY_REDIRECTS` because Chromium dropped the `__Host-` cookie on the
+  callback. The app is bound twice so its own relying party can reach its own token endpoint over
+  http, rather than a test changing the machine's trust store. The two e2e tiers now share a lock
+  file while publishing `apps/sample`, because a Windows mutex has thread affinity and could not
+  survive the awaited publish.
+
+  Measured: the AOT publish gate is 21 s with zero IL2xxx/IL3xxx warnings. Suites:
+  354 signin unit, 25 signin integration, 8 sample integration, 4 signin e2e, 2 signin aot,
+  96 repo unit, 54 sample unit.
 
 - **Phase 3 of the readiness plan.** T11 (the scaffold defect batch) and T12 (deploy and database
   hygiene) are both done. T12: the deploy chain publishes `apps/sample` by default and names no

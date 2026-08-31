@@ -29,16 +29,18 @@ wish list; the value is in recording the ones nobody has got to yet.
   - **G5 — list primitives.** `IScaffoldStore<T>.ListAsync` still takes no ordering parameter;
     ghosthive hand-rolled `ListQueryParser`, `FilterComposer` and a keyset `Cursor` and then went
     without them on its own control-plane lists. Sorting, filtering and cursor pagination.
-  - **G6 — READMEs for the seven libraries without one**, `nativeweb.web` first: it is the largest
+  - **G6 — READMEs for the six libraries without one**, `nativeweb.web` first: it is the largest
     seam and the one a consumer has already reimplemented by hand for want of knowing it exists.
+    `nativeweb.signin` got its own with spec 016 on 2026-09-01.
   - **G7 — an adoption guide for an existing app.** `getting-started.md` goes clone → stamp, and
     none of the three consumers can stamp anything.
 
-  **Needs a decision, not work — G3.** All three products authenticate against epass.io and all
-  three wrote their own relying party. An OAuth client — authorization-code with PKCE, a session
-  cookie primitive, an introspection filter, with no epass flow, realm or client registry — sits
-  on the `contrib.auth` side of the Django line the same way `django-allauth` does. Whether it
-  comes back as framework is the user's call, and `ghosthive.com`'s migration is blocked on it.
+  ~~**Needs a decision, not work — G3.**~~ **Answered, and built: spec 016 shipped
+  `libs/nativeweb.signin` on 2026-09-01** — authorization-code with PKCE, the session cookie
+  primitive and the introspection filter, with no provider flow, realm or client registry, on the
+  `contrib.auth` side of the Django line the same way `django-allauth` is. What the three
+  consumers each hand-rolled is now framework; migrating them is their own work, not this
+  repository's.
 
   **Left alone deliberately — G4.** NativeWeb renders HTML and has nothing for ghosthive's
   JSON-only control plane. That may be the right boundary; the framework should say so rather than
