@@ -50,6 +50,15 @@ public sealed class ScaffoldedAdminFlowTests(InMemorySampleFixture app, BrowserF
         await page.FillAsync("textarea[name=body]", "Created through the generated form.");
         await page.ClickAsync("form.nws-form button[type=submit]");
 
+        // Create lands on the new row's own page, not the list: the generated
+        // handler redirects to the key IScaffoldStore.CreateAsync returned. Asserted
+        // here so every caller of this helper covers it, then the helper puts the
+        // browser back on the list, which is where the callers do their work.
+        Assert.Matches($"{ListPath}/[^/]+$", new Uri(page.Url).AbsolutePath);
+        await Assertions.Expect(page.Locator("input[name=title]")).ToHaveValueAsync(title);
+
+        await page.GotoAsync(ListPath);
+
         return title;
     }
 
@@ -71,7 +80,8 @@ public sealed class ScaffoldedAdminFlowTests(InMemorySampleFixture app, BrowserF
 
         string title = await CreateArticleAsync(page);
 
-        // Create redirected back to the list and the row is on it.
+        // The helper asserted the redirect named the new row and then came back to
+        // the list, which is where the row must now appear.
         Assert.EndsWith(ListPath, page.Url, StringComparison.Ordinal);
         await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
 
