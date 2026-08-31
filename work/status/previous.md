@@ -38,3 +38,12 @@ The task completed most recently, kept for one rotation so the next one has cont
     Development antiforgery cookie name was composed a second way; and `Telemetry:Enabled` read
     `1`, `yes` and `on` as off. The rest are in `work/todo.md`, including one finding that
     contradicts a recorded decision and was left alone for it.
+
+- **Follow-on, same day — `perf/016-compression-placement`.** The compression trade 015 left open,
+  A/B'd against a real Caddy 2.11.4 rather than argued: the edge served the page at 9,002 req/s
+  where the app compressing it managed 6,255, and the composed pipeline recovered `articles` from
+  6,440.5 to **16,528.8 req/s**, putting the whole framework pipeline at 12.8% against Phase 1's
+  close instead of 66%. `UseResponseCompression` is out of `UseNativeWebPipeline`;
+  `encode zstd gzip` is in both deploy Caddyfiles, which validate; `AddNativeWebResponseCompression`
+  stays public for a host with no proxy. **562 facts, 0 failed, 0 skipped.** Brotli is absent
+  because stock Caddy has no encoder for it — `br` fails config validation outright.
