@@ -295,8 +295,55 @@ public sealed partial class SessionManager(
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        NoStore(context);
         context.Response.Cookies.Delete(options.CookieName, CookieOptionsFor(null));
     }
+
+    /// <summary>
+    /// Adds <c>no-store</c> to whatever the consumer already asked for, rather than replacing it.
+    /// </summary>
+    /// <remarks>
+    /// This was a plain assignment until the first consumer of the sign-out seam was reviewed
+    /// under spec 009. justsmtp's dashboard gate sets
+    /// <c>no-store, no-cache, must-revalidate, max-age=0</c> before the request reaches the
+    /// account lookup that decides to sign out; the assignment left one directive of the four and
+    /// an orphaned <c>Pragma: no-cache</c> beside it, on the one response whose cache posture
+    /// matters most. A library cannot know that a consumer's header is stricter than its own, so
+    /// it must not overwrite one.
+    /// <para>
+    /// A response that ends a session must not be served from a cache still holding the signed-in
+    /// page, which is why it is set here rather than at each call site.
+    /// </para>
+    /// </remarks>
+    /// <param name="context">The response to add the directive to.</param>
+    internal static void NoStore(HttpContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        string existing = context.Response.Headers.CacheControl.ToString();
+
+        if (existing.Length == 0)
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return;
+        }
+
+        foreach (string directive in existing.Split(','))
+        {
+            if (directive.AsSpan().Trim().Equals("no-store", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
+        context.Response.Headers.CacheControl = existing + ", no-store";
+    }
+
+    /// <summary>
+    /// The cookie name this manager reads and writes, so the authentication handler can tell an
+    /// anonymous request from one presenting a cookie without holding a second copy of the options.
+    /// </summary>
+    internal string CookieName => options.CookieName;
 
     /// <summary>The plaintext access token on a live session, or null when none is kept.</summary>
     /// <param name="record">A record from <see cref="ReadAsync"/>.</param>
