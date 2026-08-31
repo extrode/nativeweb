@@ -75,7 +75,7 @@ public static class NativeWebPipeline
         builder.Services.AddNativeWebResponseCompression();
         builder.Services.AddNativeWebTelemetry(options);
         builder.Services.AddNativeWebDataProtection(options);
-        builder.Services.AddNativeWebAntiforgery(options);
+        builder.Services.AddNativeWebAntiforgery(options, builder.Environment);
         builder.Services.AddNativeWebBotTraps(options);
         builder.Services.AddNativeWebRateLimiting(options);
         builder.Services.AddNativeWebOutputCache();
@@ -251,17 +251,47 @@ public static class NativeWebPipeline
     /// secure context, so an environment gate buys nothing and only creates a
     /// way to lose the flag.
     /// </summary>
+    /// <param name="services">The container being configured.</param>
+    /// <param name="options">Where the product-scoped cookie name comes from.</param>
+    /// <param name="environment">
+    /// Decides the cookie's <c>Secure</c> policy, and nothing else.
+    /// <see cref="CookieSecurePolicy.Always"/> everywhere except Development,
+    /// where it is <see cref="CookieSecurePolicy.SameAsRequest"/>.
+    /// <para>
+    /// Not a knob, and not configuration: the environment is the one input that
+    /// cannot be set to the weak value in production by editing a settings file.
+    /// Always unconditionally is what this was until 2026-08-31, and it makes a
+    /// plain-http host unusable rather than insecure —
+    /// <c>GetAndStoreTokens</c> throws outright over http under that policy, so
+    /// <c>dotnet run</c>, the Playwright tier and every local loopback host answer
+    /// 500 on the first page that renders a form. Behind TLS, which is every
+    /// deployment this framework ships (see scripts/deploy), the two policies are
+    /// identical.
+    /// </para>
+    /// </param>
     public static IServiceCollection AddNativeWebAntiforgery(
-        this IServiceCollection services, NativeWebOptions options)
+        this IServiceCollection services, NativeWebOptions options, IHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(environment);
+
+        CookieSecurePolicy secure = environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
 
         return services.AddAntiforgery(antiforgery =>
         {
             antiforgery.HeaderName = "RequestVerificationToken";
-            antiforgery.Cookie.Name = options.AntiforgeryCookieName;
-            antiforgery.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            // The __Host- prefix and the Secure attribute travel together: a
+            // browser rejects a __Host- cookie that is not Secure outright, so
+            // keeping the prefix under SameAsRequest would not weaken the cookie,
+            // it would drop it and turn every form post into a failed antiforgery
+            // check. The prefix comes back with the policy.
+            antiforgery.Cookie.Name = secure == CookieSecurePolicy.Always
+                ? options.AntiforgeryCookieName
+                : $"{options.ApplicationName}-antiforgery";
+            antiforgery.Cookie.SecurePolicy = secure;
             antiforgery.Cookie.SameSite = SameSiteMode.Lax;
             antiforgery.Cookie.Path = "/";
         });
@@ -330,8 +360,26 @@ public static class NativeWebPipeline
     /// generator emits per product from its own <c>locales/*.json</c> and which
     /// a framework library therefore cannot name.
     /// </param>
+    /// <param name="authentication">
+    /// Whatever establishes <c>HttpContext.User</c> — typically
+    /// <c>UseAuthentication()</c> and <c>UseAuthorization()</c> — or null for an
+    /// app with no sign-in.
+    /// <para>
+    /// A parameter rather than something the caller appends afterwards, because
+    /// the position is the whole point and it is not a position a caller can
+    /// reach from outside. Antiforgery tokens are bound to the identity that
+    /// minted them, and the validating middleware compares against
+    /// <c>HttpContext.User</c> as it stands when it runs. Registered after this
+    /// pipeline, authentication runs after that comparison, the user is
+    /// anonymous, and every authenticated form post is a 400 — measured on
+    /// 2026-08-31 against apps/sample: ten create/update/delete tests failed with
+    /// BadRequest and no other symptom.
+    /// </para>
+    /// </param>
     public static WebApplication UseNativeWebPipeline(
-        this WebApplication app, IReadOnlyList<string> supportedLocales)
+        this WebApplication app,
+        IReadOnlyList<string> supportedLocales,
+        Action<IApplicationBuilder>? authentication = null)
     {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(supportedLocales);
@@ -373,6 +421,11 @@ public static class NativeWebPipeline
         app.UseOutputCache();
 
         app.UseRequestTimeouts();
+
+        // Before UseAntiforgery, and that is the reason this hook exists at all —
+        // see the parameter's remarks.
+        authentication?.Invoke(app);
+
         app.UseAntiforgery();
         // Immediately after UseAntiforgery: that middleware records a failed
         // check on IAntiforgeryValidationFeature and continues rather than

@@ -1,0 +1,30 @@
+<!doctype html>
+<!--
+  The error shell (spec 003 R39). Hand-authored, loaded once at startup, and
+  deliberately dependent on nothing: no template, no stylesheet, no locale
+  catalog, no database. Anything it referenced could be the thing that just
+  failed, and an error page that 500s tells the caller nothing at all.
+  {{title}} and {{message}} are literal-replaced by StaticErrorShell.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<style>
+  body { margin: 0; display: grid; min-height: 100vh; place-items: center;
+         font: 16px/1.5 system-ui, sans-serif; color: #1c1f24; background: #f6f7f9; }
+  main { max-width: 34rem; padding: 2rem; text-align: center; }
+  h1 { margin: 0 0 .5rem; font-size: 1.5rem; }
+  p { margin: 0 0 1.5rem; color: #4a5058; }
+  a { color: #2c5fd3; }
+</style>
+</head>
+<body>
+<main>
+<h1>{{title}}</h1>
+<p>{{message}}</p>
+<a href="/">Back to the start</a>
+</main>
+</body>
+</html>
