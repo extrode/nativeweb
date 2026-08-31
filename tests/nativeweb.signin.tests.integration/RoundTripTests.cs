@@ -104,7 +104,9 @@ public sealed class RoundTripTests
         using HttpResponseMessage second = await browser.GetOnceAsync(callback);
 
         Assert.DoesNotContain("error=", first.Headers.Location!.ToString(), StringComparison.Ordinal);
-        Assert.Contains("error=", second.Headers.Location!.ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "error=state_used", second.Headers.Location!.ToString(), StringComparison.Ordinal);
+        Assert.Equal(1, host.Provider.TokenRequests);
     }
 
     [Fact]
