@@ -1,5 +1,5 @@
 {
-  "_comment": "Spec 012 R16. Recorded by tools/bench/run.ts --baseline; compared by --check on the same machine and the same harness settings, 20% down on req/s and 25% up on RSS. Measures apps/sample. Not comparable to the section 14 figures in docs/01-architecture, nor to this file's own pre-2026-08-31 figures, which measured apps/web before it left the repository. Re-recorded on 2026-08-31 for spec 015 T10: apps/sample now runs the framework web pipeline, which costs articles 66% of its throughput to response compression, so the Phase 1 figures would have made --check red on every future run. The drop is measured and bisected in docs/02-reference/performance.md, bottleneck 4. See tools/bench/README.md.",
+  "_comment": "Spec 012 R16. Recorded by tools/bench/run.ts --baseline; compared by --check on the same machine and the same harness settings, 20% down on req/s and 25% up on RSS. Measures apps/sample. Not comparable to the section 14 figures in docs/01-architecture, nor to this file's own pre-2026-08-31 figures, which measured apps/web before it left the repository. See tools/bench/README.md.",
   "recorded": "2026-08-31",
   "machine": {
     "hostname": "bench-host",
@@ -14,18 +14,18 @@
   },
   "scenarios": {
     "healthz": {
-      "rps": 19539.8,
-      "p50Ms": 0.66,
-      "p99Ms": 2.37,
+      "rps": 23183.5,
+      "p50Ms": 0.58,
+      "p99Ms": 1.91,
       "errors": 0,
-      "maxRssBytes": 56139776
+      "maxRssBytes": 56614912
     },
     "articles": {
-      "rps": 6440.5,
-      "p50Ms": 2.3,
-      "p99Ms": 6.52,
+      "rps": 16528.8,
+      "p50Ms": 0.93,
+      "p99Ms": 2.4,
       "errors": 0,
-      "maxRssBytes": 53968896
+      "maxRssBytes": 46211072
     }
   }
 }

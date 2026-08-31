@@ -18,7 +18,8 @@ anything about a page.
 
 | Date | Change | `articles` req/s | p50 | p99 | `healthz` req/s | peak RSS | `articles`/`healthz` |
 |---|---|---|---|---|---|---|---|
-| 2026-08-31 | **Framework web pipeline adopted** (spec 015) — new baseline | **6,440.5** | 2.30ms | 6.52ms | 19,539.8 | 53.5 MB | 0.330 |
+| 2026-08-31 | **Compression moved to Caddy** — current baseline | **16,528.8** | 0.93ms | 2.40ms | 23,183.5 | 54.0 MB | 0.713 |
+| 2026-08-31 | Framework web pipeline adopted (spec 015), compressing in-process | 6,440.5 | 2.30ms | 6.52ms | 19,539.8 | 53.5 MB | 0.330 |
 | 2026-08-31 | Phase 1 close: review fixes (author match, `Take` echoed) | 18,958.6 | 0.70ms | 2.30ms | 23,324.5 | 35.6 MB | 0.813 |
 | 2026-08-31 | **Content-Length declared** on template pages | 19,051.8 | 0.69ms | 2.30ms | 22,655.4 | 35.4 MB | 0.841 |
 | 2026-08-31 | Rendering through compiled templates (T3/T4) | 12,124.2 | 1.18ms | 3.76ms | 22,523.7 | 38.7 MB | 0.538 |
@@ -27,20 +28,18 @@ anything about a page.
 
 Zero errors in every run of every row.
 
-**Where it stands.** The top row is the current state and the committed baseline. Adopting the
-framework pipeline cost `articles` **66% of its throughput** (18,958.6 → 6,440.5) and `healthz`
-16% (23,324.5 → 19,539.8), and the two numbers are that far apart because the whole of the
-`articles` loss is one middleware: response compression, whose mime list is `text/html` only, so
-`healthz` never enters it. Bottleneck 4 below has the bisection. `tools/bench/baseline.json` was
-re-recorded from this row on 2026-08-31 — the pre-pipeline figures would have made `--check` red
-on every future run, which is a broken gate rather than a standing complaint.
+**Where it stands.** The top row is the current state and the committed baseline. A pipeline of
+ten middleware where there were none costs `articles` **12.8%** (18,958.6 → 16,528.8) and
+`healthz` nothing measurable (23,324.5 → 23,183.5, inside the run-to-run spread). Peak RSS rose
+35.6 → 54.0 MB, which is ten registrations of services that were absent before.
 
-The 16% on `healthz` is the rest of the pipeline — forwarded headers, the rate limiter, the
-security headers, the output cache lookup and telemetry — and it holds with compression disabled
-(19,998.8 req/s), so none of it is the codec. Peak RSS rose 35.6 → 53.5 MB for the same reason:
-eleven registrations of services that were absent before.
+The second row is what the same pipeline cost while it compressed in-process, and it is kept
+because the difference between the two rows is the whole of bottleneck 4: one middleware was
+worth 157% of this page's throughput. `tools/bench/baseline.json` was re-recorded twice on
+2026-08-31 — once for the pipeline as first adopted, once after compression moved — because a
+baseline that is red on every run gates nothing.
 
-Between the second and third rows, two behavioural fixes, not a perf change: matching authors as
+Between the third and fourth rows, two behavioural fixes, not a perf change: matching authors as
 well as titles adds one null-checked `Contains` per row over at most twenty rows, and echoing
 `Take` adds one integer to the render. Both are inside the noise, which the ratio moving 0.841 →
 0.813 across adjacent runs of near-identical code is itself a measure of.
@@ -90,10 +89,10 @@ and once for the title. It is a dictionary lookup and almost certainly noise at 
 is the only known redundant work on the request path, so it is written down rather than assumed
 away.
 
-### 4. Response compression — 63% of `articles` throughput (open, needs a decision)
+### 4. Response compression — 63% of `articles` throughput (fixed, by moving it)
 
-`AddNativeWebResponseCompression` registers Brotli and gzip for `text/html`, and
-`UseResponseCompression` runs on every page. It is the single most expensive step in the pipeline
+`AddNativeWebResponseCompression` registered Brotli and gzip for `text/html`, and
+`UseResponseCompression` ran on every page. It was the single most expensive step in the pipeline
 by a wide margin. Four variants of the same page, same harness, same session:
 
 | variant | `articles` req/s | p50 | `healthz` req/s |
@@ -101,31 +100,67 @@ by a wide margin. Four variants of the same page, same harness, same session:
 | pipeline with `UseResponseCompression()` commented out | 17,613.3 | 0.88ms | 19,998.8 |
 | gzip only, `CompressionLevel.Fastest` | 9,170.4 | 1.57ms | 19,926.1 |
 | Brotli + gzip, `CompressionLevel.Fastest` | 6,555.4 | 2.27ms | 19,892.2 |
-| Brotli + gzip, provider defaults — **as shipped** | 6,586.2 | 2.26ms | 19,853.4 |
+| Brotli + gzip, provider defaults — as first shipped | 6,586.2 | 2.26ms | 19,853.4 |
 
 Three readings, in order of how much they change the options:
 
 - **The compression level is not the cost.** `Fastest` and the default are 6,555.4 against
-  6,586.2 — inside the noise. Turning the quality knob down, which is where this investigation
-  started, buys nothing.
-- **The codec is.** Dropping Brotli and keeping gzip at `Fastest` recovers 40% of what was lost
-  (6,555.4 → 9,170.4) for a larger body on the wire.
+  6,586.2 — inside the noise. The page is 3,271 bytes; what is being paid for is the per-response
+  codec setup, not the entropy coding, which is why turning the quality knob down buys nothing.
+- **The codec is.** Dropping Brotli and keeping gzip at `Fastest` recovers 40% of what was lost.
 - **Bottleneck 1 comes back through the middleware.** Compressing strips the `Content-Length`
-  `TemplateResults` was fixed to declare, so every compressed page is chunked again. The 35%
-  measured there accounts for roughly the 17,613 → ~11,800 part of the drop; the codec accounts
-  for the rest. Nothing can declare a length ahead of a stream-compressed body, so this half is
-  not tunable — only avoidable.
+  `TemplateResults` was fixed to declare, so every compressed page is chunked again. Nothing can
+  declare a length ahead of a stream-compressed body, so this half is not tunable — only
+  avoidable.
 
 `healthz` is flat across all four rows, which is what confirms the attribution: the mime list is
 `text/html` and a plaintext route never enters the middleware.
 
-**The decision this is open on** is where compression belongs, and it is a CPU-versus-bandwidth
-trade nobody should make silently. `scripts/deploy/caddy/Caddyfile` has no `encode` directive
-today, so the app is the only thing compressing; static assets are precompressed at publish time
-and served as `.br`/`.gz` by `MapStaticAssets` regardless of this setting, so only rendered HTML
-is affected. Three ways out, none taken here: keep it (best bytes, worst CPU), drop Brotli for
-gzip `Fastest` (+42% throughput, bigger bodies), or move `encode zstd br gzip` to Caddy and take
-`UseResponseCompression` out of the pipeline (+174%, and one place doing the work instead of two).
+#### The A/B that settled it
+
+Compression has to happen somewhere, so the question was never whether to pay but where. Measured
+through a real Caddy 2.11.4 in front of the published binary, same driver, same three-runs-of-10s
+at concurrency 16:
+
+| variant | `articles` req/s | p50 | `healthz` req/s |
+|---|---|---|---|
+| A — app compresses, direct to Kestrel | 7,468.0 | 2.01ms | 20,804.9 |
+| B — nothing compresses, direct to Kestrel | 18,216.1 | 0.88ms | 21,118.8 |
+| C — app compresses, through Caddy | 6,254.6 | 2.50ms | 15,777.7 |
+| D — **Caddy compresses (`encode zstd gzip`), app does not** | **9,002.1** | 1.68ms | 16,470.1 |
+| E — nothing compresses, through Caddy | 14,253.4 | 1.06ms | 15,973.9 |
+
+C and D are the two real deployment shapes, and D beats C by **44%**. The rest is what makes that
+number readable: the proxy hop alone costs 22% (B → E), compressing at the edge costs 37% of what
+is left (E → D), and compressing in the app costs 59% (B → A) for a worse result. The edge also
+gets **zstd**, which .NET has no provider for: 3,271 bytes of HTML leave Caddy as 1,324.
+
+Two structural reasons on top of the number, both found in review rather than in the numbers:
+
+- `UseResponseCompression` sat **above** `UseOutputCache` in the pipeline order, so every
+  output-cache hit was recompressed. The cache never recovered the codec cost for exactly the
+  public traffic it exists to serve, and moving compression below the cache in-app would have
+  forced `Accept-Encoding` into the cache key.
+- Buffering in a middleware to restore `Content-Length` is not an option here:
+  `TemplateWriter` streams UTF-8 to the body writer by design (spec 003 R41), and these pages only
+  behave as materialized because 3 KB fits in Kestrel's pipe before a flush. That is an emergent
+  property, not a contract.
+
+**What changed.** `UseNativeWebPipeline` no longer compresses; `scripts/deploy/caddy/Caddyfile`
+and `Caddyfile.edge` carry `encode zstd gzip`, and both validate against Caddy 2.11.4.
+`AddNativeWebResponseCompression` stays public and registered, so a host with no compressing proxy
+adds one line and gets the old behaviour back — asserted by `CompressionPlacementTests`, because
+losing the `encode` line would ship every page uncompressed with nothing failing.
+
+Brotli is absent from the directive rather than declined: stock Caddy has no encoder for it, and
+adding `br` fails config validation with `module not registered: http.encoders.br`.
+
+**What the numbers still do not show.** The harness measures on loopback with no bandwidth cost,
+so it flatters every variant that skips compression; on a real WAN client the transfer of 3,271
+bytes against 1,324 dominates a 1.4 ms p50 difference. And 16 workers on 16 cores is CPU
+saturation, which a single-host product will not reach — the throughput deltas are an upper bound
+on what this matters in production, except for the cache-hit recompression, which scaled with
+exactly the traffic the cache exists for.
 
 ## What has never been measured
 

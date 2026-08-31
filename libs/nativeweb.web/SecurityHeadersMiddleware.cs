@@ -123,11 +123,14 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnviron
             {
                 headers["Cache-Control"] = $"public, max-age={PublicPageCache.MaxAgeSeconds}";
 
-                // Append, never assign. UseResponseCompression sets
-                // Vary: Accept-Encoding from its own OnStarting callback, and
-                // those fire in reverse registration order, so an assignment
-                // here lands last and erases it -- after which a shared cache
-                // can hand a brotli body to a client that never asked for one.
+                // Append, never assign. The composed pipeline no longer
+                // compresses (2026-08-31 -- the edge does), but a host without a
+                // compressing proxy adds UseResponseCompression itself, and that
+                // middleware sets Vary: Accept-Encoding from its own OnStarting
+                // callback. Those fire in reverse registration order, so an
+                // assignment here would land last and erase it -- after which a
+                // shared cache can hand a brotli body to a client that never
+                // asked for one. Caddy sets the same header for the same reason.
                 headers.Append("Vary", "Cookie, Accept-Language");
             }
             else if (!staticPage

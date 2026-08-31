@@ -38,6 +38,13 @@ Merged into `dev`, not yet tagged.
   `dotnet watch run --project apps/sample --no-hot-reload`.
 
 ### Changed
+- **Compression moved from the app to Caddy**, measured rather than assumed: through the proxy every
+  product is deployed behind, `encode zstd gzip` served the reference page at 9,002 req/s where the
+  app compressing it managed 6,255, and the composed pipeline recovered `articles` from 6,440.5 to
+  16,528.8 req/s overall. Compressing in-process also stripped the `Content-Length` the renderer
+  declares and re-ran on every output-cache hit. `AddNativeWebResponseCompression` stays public, so a
+  host with no compressing proxy adds one line. `docs/02-reference/performance.md` bottleneck 4 has
+  the five-variant A/B.
 - **`/version` and the telemetry service version take the product's assembly as a parameter**
   (`typeof(Program).Assembly`) instead of loading it by name from `IHostEnvironment.ApplicationName`.
   The name lookup does resolve under NativeAOT — the published binary answered with the stamped
