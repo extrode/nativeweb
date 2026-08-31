@@ -12,8 +12,11 @@ worth seeing here rather than hiding, but it is the exception.
   retired, with the superuser extensions step made optional; and the publish-budget launch now sets
   `Sample__Telemetry__Enabled`, so the OpenTelemetry registration runs inside the AOT image again —
   it had been set under the wrong configuration section since `apps/web` left, and nothing was red.
-  Nothing in `scripts/deploy/` has still ever run on a real host: that is T15, below. D2 — whether
-  the generated admin should be closed by default — is open and is the user's call.
+  Nothing in `scripts/deploy/` has still ever run on a real host: that is T15, below. **D2 is
+  answered (2026-08-31): the generated admin stays open by default** — an unguarded model is
+  reachable anonymously, and no consumer breaks. Plan 007 is therefore complete: phases 1, 2 and 3
+  are all built and merged, and what is left of it is the two decisions, both now taken (D1: ship
+  without auth for now; D2: open by default).
 
 - **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
   not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has
