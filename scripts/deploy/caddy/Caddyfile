@@ -32,7 +32,7 @@
 # the ACME HTTP-01 challenge path is served from under it without a hole being
 # punched by hand.
 {$NATIVEWEB_HOST} {
-	# HSTS. Note apps/web sets its own Strict-Transport-Security through
+	# HSTS. Note the app sets its own Strict-Transport-Security through
 	# SecurityHeadersMiddleware; this is the hop that actually terminates TLS,
 	# so the header it emits is the one a browser sees on a redirect that never
 	# reaches the app.

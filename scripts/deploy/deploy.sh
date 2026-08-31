@@ -385,7 +385,15 @@ mkdir -p "$RELEASE_DIR"
 cp -a "$STAGE/." "$RELEASE_DIR/"
 chown -R root:nativeweb "$RELEASE_DIR"
 chmod -R g-w,o-rwx "$RELEASE_DIR"
-chmod 0755 "$RELEASE_DIR/nativeweb.web"
+# The launcher's fixed name, set by build.sh, started by nativeweb@.service. It
+# is checked here rather than left to ConditionPathExists on the host: a unit
+# whose condition is false is inactive and SILENT, so an artifact with no
+# launcher would look like a deploy that worked and a colour that never came up.
+[[ -f "$RELEASE_DIR/nativeweb" ]] ||
+	die "the staged release has no 'nativeweb' executable. Artifacts built before
+       2026-08-31 name it after the project (nativeweb.web); rebuild with
+       scripts/deploy/build.sh."
+chmod 0755 "$RELEASE_DIR/nativeweb"
 # db/migrate.sh is executed as ./db/migrate.sh below. It is mode 100644 in the git
 # index, and `cp -a` preserves that, so on any build host that reports real file
 # modes -- which is every Linux one, including the disaster-recovery clone -- the

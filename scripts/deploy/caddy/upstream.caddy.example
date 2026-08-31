@@ -15,7 +15,7 @@
 # gets parsed as one. A unit test enforces it.
 #
 # Caddy sets X-Forwarded-For, X-Forwarded-Proto and X-Forwarded-Host on
-# reverse_proxy by default. apps/web only believes them when
+# reverse_proxy by default. The app only believes them when
 # NativeWeb:ForwardedHeaders:KnownProxies names this hop -- unset, every client
 # in the world collapses into one rate-limit partition and nothing logs it.
 # deploy.sh refuses to promote when that key is missing, for that reason.
