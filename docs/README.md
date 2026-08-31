@@ -78,7 +78,11 @@ Read these when you want to know **why**, not **what**.
 
 - [`decisions/`](decisions/) — dated architecture decision records. One question, one answer, the
   alternatives rejected.
-- [`architecture/`](architecture/) — longer design notes that outlive a single decision.
+- [`architecture/`](architecture/) — longer design notes that outlive a single decision. Two are
+  current rather than historical: [`003-framework-readiness.md`](architecture/003-framework-readiness.md)
+  asks what the framework is missing from inside this repository, and
+  [`004-consumer-readiness.md`](architecture/004-consumer-readiness.md) asks the same question by
+  reading the three products that build on it.
 - [`specs/`](specs/) — the Durable-tier trail: `NNN-spec.md` (what), `NNN-plan.md` (how),
   `NNN-tasks.md` (build order), one directory per feature.
 - [`plans/`](plans/) — Standard-tier plans, dated. Smaller than a spec, still reviewable.
