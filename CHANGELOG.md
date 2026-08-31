@@ -68,6 +68,18 @@ Merged into `dev`, not yet tagged.
   deleted. They now parse the structure they name — branch slices, line-by-line parity, a derived
   value compared against the source it derives from — and each was mutation-checked against the
   change it claims to catch.
+- **The four coverage gaps the 021 audit named, closed — two of them with a different answer than
+  the audit assumed.** The generator's emitted source is now compiled at pinned language versions
+  rather than only at the toolchain's default, and the floor turns out to be **C# 11**, not the
+  C# 10 the audit proposed: `ScaffoldRuntime.g.cs` emits a raw string literal and the form binder
+  implements `IBindableFromHttpContext<T>`, whose `BindAsync` is a static abstract interface
+  member. The generated update handler's second 404 — `UpdateAsync` returning false after
+  `GetAsync` already returned the row — is executed rather than read out of the emitted source, via
+  a stub store that makes the concurrent delete deterministic. A refused configuration is proved at
+  the process boundary: exit 78, the key named on stderr, and no modal block, which is the
+  NativeAOT failure mode `lessons/2026-07-26` records. The fourth gap, `[ScaffoldSearch]` wiring,
+  **was already covered** — emitting an empty `SearchFields` set turns two integration tests red,
+  measured by mutation rather than assumed. Every new test was mutation-checked.
 
 ### Changed
 - **The epass.io cutover is closed as a NativeWeb concern, and the term is retired here.**

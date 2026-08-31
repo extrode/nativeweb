@@ -184,6 +184,29 @@ public sealed class ScaffoldGeneratorTests
     public void TypesWithNoConversion_AndPropertiesWithNoReachableSetter_EmitCodeThatCompiles() =>
         AssertGeneratedSourceCompiles(AwkwardModel);
 
+    // The floor the emitted source is allowed to need, which is C# 11. Every other
+    // compile test runs at LanguageVersion.Default -- whatever this repository's own
+    // toolchain gives it -- so a construct the emitter starts using compiles here and
+    // fails in a consumer that pins an older LangVersion, with the error landing in
+    // generated code the consumer cannot edit.
+    //
+    // C# 11 rather than 10, measured 2026-08-31: ScaffoldRuntime.g.cs emits a raw
+    // string literal (CS8936), and the form binder implements
+    // IBindableFromHttpContext<T>, whose BindAsync is a static abstract interface
+    // member (CS8706). The second is not ours to lower -- the ASP.NET Core interface
+    // needs C# 11 whoever implements it -- so a consumer below 11 could not bind a
+    // minimal-API parameter at all. If this goes red, the emitter took a dependency
+    // on a newer language: back it out, or raise the floor here and say so.
+    [Theory]
+    [InlineData(LanguageVersion.CSharp11)]
+    [InlineData(LanguageVersion.CSharp12)]
+    [InlineData(LanguageVersion.CSharp13)]
+    public void EmittedCode_CompilesUnderTheOldestSupportedLanguageVersion(LanguageVersion language)
+    {
+        AssertGeneratedSourceCompiles(EveryTypeModel, language);
+        AssertGeneratedSourceCompiles(AwkwardModel, language);
+    }
+
     [Fact]
     public void APropertyWithNoConversion_IsCarriedThroughRatherThanBoundFromTheForm()
     {
@@ -199,16 +222,22 @@ public sealed class ScaffoldGeneratorTests
     // declare: this compilation has to resolve ScaffoldValues and ScaffoldEndpoints
     // too, and two definitions of one attribute name would be ambiguous rather than
     // convenient.
-    private static void AssertGeneratedSourceCompiles(string model)
+    private static void AssertGeneratedSourceCompiles(string model, LanguageVersion language = LanguageVersion.Default)
     {
+        CSharpParseOptions parseOptions = new(language);
+
         var compilation = CSharpCompilation.Create(
             "scaffold-generator-compile-test",
-            syntaxTrees: [CSharpSyntaxTree.ParseText(model)],
+            syntaxTrees: [CSharpSyntaxTree.ParseText(model, parseOptions)],
             references: PlatformReferences(),
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
 
+        // The parse options travel to the driver as well as to the model tree. Without
+        // them the generated sources are parsed at the default language version
+        // whatever the consumer set, so the gate below would compile the emitted code
+        // under rules no consumer is bound by.
         GeneratorDriver driver = CSharpGeneratorDriver
-            .Create(new ScaffoldGenerator())
+            .Create([new ScaffoldGenerator().AsSourceGenerator()], parseOptions: parseOptions)
             .RunGeneratorsAndUpdateCompilation(compilation, out Compilation updated, out _);
 
         // Without this the test passes when the generator THROWS: an exception in a

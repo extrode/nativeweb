@@ -41,6 +41,23 @@ worth seeing here rather than hiding, but it is the exception.
   one branch is the record worth keeping: each round's fixes carried defects of their own, and
   only the third came back with nothing that breaks a deploy.
 
+- **The four coverage gaps the 021 audit named are built** (`test/021-coverage-gaps`, 2026-08-31),
+  and two of them came back with an answer the audit did not have. The generator's language-version
+  floor is **C# 11**, not the C# 10 the audit proposed as the gate: the emitted source needs a raw
+  string literal and a static abstract interface member, and the second is not ours to lower, so a
+  consumer below 11 could not bind a minimal-API parameter at all. The `[ScaffoldSearch]` gap did
+  not exist -- emitting an empty `SearchFields` set already turns two integration tests red, which
+  is a fact measured by mutation rather than an entry taken on trust. The other two are new tests:
+  the generated update handler's second 404 is now executed through a stub store rather than read
+  out of the emitted source, and a refused configuration is proved at the process boundary with
+  exit 78 and the key named on stderr. That last one could not be driven through the key-directory
+  branch it was written for: `GetFolderPath(UserProfile)` reads the process token on Windows, not
+  `USERPROFILE`, so a malformed `BotTraps` value carries the same fact instead. 657 tests green
+  across the eight suites. Two things found on the way and **not** fixed, both on `work/todo.md`:
+  `StaticErrorShell.Load` throws out of `Main` instead of taking `FailStartup`'s exit -- the exact
+  modal-block failure the guard exists to prevent -- and six untracked test directories are
+  `bin`/`obj` residue of the departed identity provider.
+
 - **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
   not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has
   never been run, and every elapsed time in `docs/02-reference/deployment.md` reads
