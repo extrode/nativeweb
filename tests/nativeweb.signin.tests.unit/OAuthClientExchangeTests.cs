@@ -59,6 +59,25 @@ public sealed class OAuthClientExchangeTests
     }
 
     [Fact]
+    public async Task ExchangeCodeAsync_BasicAuthentication_FormEncodesBothHalvesBeforeBase64()
+    {
+        var handler = new StubHandler(Json(HttpStatusCode.OK, TokenJson));
+        SignInOptions options = Options(ClientAuthenticationMode.ClientSecretBasic);
+        options.ClientId = "client id/1";
+        options.ClientSecret = "s3cr3t+with/base64=padding";
+        var client = new OAuthClient(
+            new HttpClient(handler),
+            options,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<OAuthClient>.Instance);
+
+        await client.ExchangeCodeAsync("code-1", "verifier-1", default);
+
+        Assert.Equal(
+            "client%20id%2F1:s3cr3t%2Bwith%2Fbase64%3Dpadding",
+            Decode(handler.AuthorizationParameter!));
+    }
+
+    [Fact]
     public async Task ExchangeCodeAsync_PostAuthentication_PutsCredentialsInTheFormAndNowhereElse()
     {
         var handler = new StubHandler(Json(HttpStatusCode.OK, TokenJson));

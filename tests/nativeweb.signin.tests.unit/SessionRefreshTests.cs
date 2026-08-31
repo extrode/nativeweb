@@ -154,6 +154,106 @@ public sealed class SessionRefreshTests
     }
 
     [Fact]
+    public async Task EnsureFreshAsync_ConflictWinnerIsItselfStale_RefreshesAgain()
+    {
+        var provider = new CountingProvider();
+        Fixture fixture = await Signed(provider);
+        fixture.Clock.Now = Now.AddSeconds(1800);
+
+        var protector = new StoreDataProtector(fixture.Options.StoreEncryptionKey!);
+
+        // The winner of the compare-and-swap holds a token that has ALREADY expired -- what a
+        // provider issuing a short-lived token, or a token response with no expires_in at all,
+        // leaves behind. Returning it unexamined hands the caller a record NeedsRefresh rejects.
+        SessionRecord stale = fixture.State.Record! with
+        {
+            ProtectedAccessToken = protector.Protect("access-stale"),
+            ProtectedRefreshToken = protector.Protect("refresh-stale"),
+            AccessTokenExpiresAt = fixture.Clock.Now.AddSeconds(-1),
+            RefreshTokenHash = OpaqueTokens.Hash("refresh-stale"),
+        };
+
+        bool planted = false;
+        provider.OnCall = () =>
+        {
+            if (planted)
+            {
+                return;
+            }
+
+            planted = true;
+            fixture.Store.CreateAsync(fixture.State.KeyHash!, stale, default).GetAwaiter().GetResult();
+        };
+
+        SessionState after = await fixture.Manager.EnsureFreshAsync(fixture.Request(), fixture.State, default);
+
+        Assert.Equal(2, provider.Calls);
+        Assert.Equal("access-2", protector.Unprotect(after.Record!.ProtectedAccessToken));
+    }
+
+    [Fact]
+    public async Task AccessToken_ExpiredWithNoRefreshTokenToUse_IsNotServed()
+    {
+        var provider = new CountingProvider();
+        Fixture fixture = await Signed(provider, retainTokens: true, refreshToken: null);
+
+        Assert.Equal("access-1", fixture.Manager.AccessToken(fixture.State.Record!));
+
+        fixture.Clock.Now = Now.AddSeconds(1800);
+        SessionState after = await fixture.Manager.EnsureFreshAsync(fixture.Request(), fixture.State, default);
+
+        // The SESSION survives -- who the visitor is did not expire. The credential did.
+        Assert.Equal(SessionRead.Valid, after.Read);
+        Assert.Equal(0, provider.Calls);
+        Assert.Null(fixture.Manager.AccessToken(after.Record!));
+    }
+
+    [Fact]
+    public void TakeGate_WhileAnotherRequestHoldsOne_KeepsTheSameGate()
+    {
+        // The defect this replaced: the holder released, saw CurrentCount == 1 -- the count a
+        // semaphore also shows while a thread that already has the gate has not yet reached
+        // WaitAsync -- and removed it, so the next arrival built a SECOND gate for one session and
+        // both refreshed at once.
+        SessionManager.Gate first = SessionManager.TakeGate("key-hash");
+        SessionManager.Gate second = SessionManager.TakeGate("key-hash");
+
+        Assert.Same(first, second);
+
+        SessionManager.DropGate("key-hash", first);
+
+        SessionManager.Gate third = SessionManager.TakeGate("key-hash");
+        Assert.Same(second, third);
+
+        SessionManager.DropGate("key-hash", second);
+        SessionManager.DropGate("key-hash", third);
+    }
+
+    [Fact]
+    public void DropGate_ByTheLastUser_LeavesNothingBehind()
+    {
+        SessionManager.Gate gate = SessionManager.TakeGate("lonely-key");
+
+        Assert.True(SessionManager.HasGate("lonely-key"));
+
+        SessionManager.DropGate("lonely-key", gate);
+
+        Assert.False(SessionManager.HasGate("lonely-key"));
+    }
+
+    [Fact]
+    public async Task EnsureFreshAsync_AfterARefresh_LeavesNoGateBehind()
+    {
+        var provider = new CountingProvider();
+        Fixture fixture = await Signed(provider);
+        fixture.Clock.Now = Now.AddSeconds(1800);
+
+        await fixture.Manager.EnsureFreshAsync(fixture.Request(), fixture.State, default);
+
+        Assert.False(SessionManager.HasGate(fixture.State.KeyHash!));
+    }
+
+    [Fact]
     public async Task EnsureFreshAsync_WithRetainTokensOff_NeverCallsTheProvider()
     {
         var provider = new CountingProvider();
@@ -179,7 +279,11 @@ public sealed class SessionRefreshTests
         Assert.Equal(0, provider.Calls);
     }
 
-    private static async Task<Fixture> Signed(CountingProvider provider, bool retainTokens = true)
+    private static Task<Fixture> Signed(CountingProvider provider, bool retainTokens = true) =>
+        Signed(provider, retainTokens, Tokens.RefreshToken);
+
+    private static async Task<Fixture> Signed(
+        CountingProvider provider, bool retainTokens, string? refreshToken)
     {
         SignInOptions options = Options();
         options.RetainTokens = retainTokens;
@@ -193,7 +297,8 @@ public sealed class SessionRefreshTests
             NullLogger<SessionManager>.Instance);
 
         var minting = new DefaultHttpContext();
-        string cookieValue = await manager.MintAsync(minting, User, Tokens, default);
+        string cookieValue = await manager.MintAsync(
+            minting, User, Tokens with { RefreshToken = refreshToken }, default);
         SessionState state = await manager.ReadAsync(WithCookie(options, cookieValue), default);
 
         return new Fixture(manager, store, options, clock, cookieValue, state);

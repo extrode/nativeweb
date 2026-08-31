@@ -71,7 +71,7 @@ that will not parse throws at startup naming its own full path, not at the first
 | `ClientSecret` | for a confidential client | — | Environment variable or user-secrets. Never `appsettings.json`. |
 | `RedirectUri` | yes | — | Absolute, and registered at the provider. Must resolve to `CallbackPath`. |
 | `Scopes` | no | `openid profile email` | An array. **Replaces** the defaults wholesale rather than adding to them. |
-| `ClientAuthentication` | no | `ClientSecretBasic` | `ClientSecretBasic`, `ClientSecretPost` or `None` for a public client. |
+| `ClientAuthentication` | no | `ClientSecretBasic` | `ClientSecretBasic`, `ClientSecretPost` or `None` for a public client. Under `ClientSecretBasic` both halves are percent-encoded before the base64, per RFC 6749 2.3.1 — switch to `ClientSecretPost` for a provider that does not decode. |
 | `CookieName` | no | `__Host-signin` | Must keep the `__Host-` prefix; startup refuses one that does not. |
 | `LoginPath` | no | `/signin` | |
 | `CallbackPath` | no | `/signin/callback` | |

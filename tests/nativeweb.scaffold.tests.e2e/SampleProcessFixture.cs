@@ -85,8 +85,8 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     /// other tier: <c>tests/nativeweb.signin.tests.e2e</c> publishes the same project, and
     /// `dotnet test` runs test assemblies in separate processes concurrently, so the same
     /// `.sourcelink` contention returns one level up. A lock file under the repository's own
-    /// `tmp/` is what crosses the process boundary; whichever tier arrives second waits, then
-    /// runs an incremental no-op publish.
+    /// `tmp/` is what crosses the process boundary; whichever tier arrives second waits until the first
+    /// tier has EXITED, then publishes against no running image.
     /// </remarks>
     private const string PublishLock = "sample-publish.lock";
 
@@ -258,16 +258,31 @@ public abstract class SampleProcessFixture : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// The cross-process publish lock, held for the LIFETIME OF THIS TEST PROCESS. Never disposed:
+    /// the operating system closes the handle when the assembly's process exits, which is the
+    /// point at which the published exe stops running and the other tier may safely rewrite it.
+    /// </summary>
+    /// <remarks>
+    /// Releasing it after the publish and before the launch was measured to fail. Both e2e tiers
+    /// publish apps/sample and `dotnet test` runs assemblies concurrently, so the second tier's
+    /// publish tried to overwrite an exe the first tier had running; Windows refuses to write a
+    /// running image and the fixture died at startup -- 4 failures in 23 ms, passing on its own the
+    /// moment the tiers did not overlap. The reading that the second publish is incremental and
+    /// writes nothing holds only while the binary is already current, which is not true of the run
+    /// that changed the code.
+    /// </remarks>
+    private static FileStream? _publishLock;
+
     private static async Task<string> PublishAsync()
     {
         string repoRoot = FindRepoRoot();
         string csproj = Path.Combine(repoRoot, "apps", "sample", "nativeweb.sample.csproj");
 
-        using (await HoldPublishLockAsync(repoRoot).ConfigureAwait(false))
-        {
-            await RunAsync("dotnet", $"publish \"{csproj}\" -c Release", repoRoot, PublishTimeout)
-                .ConfigureAwait(false);
-        }
+        _publishLock = await HoldPublishLockAsync(repoRoot).ConfigureAwait(false);
+
+        await RunAsync("dotnet", $"publish \"{csproj}\" -c Release", repoRoot, PublishTimeout)
+            .ConfigureAwait(false);
 
         string exePath = Path.Combine(
             repoRoot, "apps", "sample", "bin", "Release", "net10.0", RuntimeInformation.RuntimeIdentifier, "publish",

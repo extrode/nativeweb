@@ -244,16 +244,31 @@ public sealed class SignInProcessFixture : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// The cross-process publish lock, held for the LIFETIME OF THIS TEST PROCESS. Never disposed:
+    /// the operating system closes the handle when the assembly's process exits, which is the
+    /// point at which the published exe stops running and the other tier may safely rewrite it.
+    /// </summary>
+    /// <remarks>
+    /// Releasing it after the publish and before the launch was measured to fail. Both e2e tiers
+    /// publish apps/sample and `dotnet test` runs assemblies concurrently, so the second tier's
+    /// publish tried to overwrite an exe the first tier had running; Windows refuses to write a
+    /// running image and the fixture died at startup -- 4 failures in 23 ms, passing on its own the
+    /// moment the tiers did not overlap. The reading that the second publish is incremental and
+    /// writes nothing holds only while the binary is already current, which is not true of the run
+    /// that changed the code.
+    /// </remarks>
+    private static FileStream? _publishLock;
+
     private static async Task<string> PublishAsync()
     {
         string repoRoot = FindRepoRoot();
         string csproj = Path.Combine(repoRoot, "apps", "sample", "nativeweb.sample.csproj");
 
-        using (await HoldPublishLockAsync(repoRoot).ConfigureAwait(false))
-        {
-            await RunAsync("dotnet", $"publish \"{csproj}\" -c Release", repoRoot, PublishTimeout)
-                .ConfigureAwait(false);
-        }
+        _publishLock = await HoldPublishLockAsync(repoRoot).ConfigureAwait(false);
+
+        await RunAsync("dotnet", $"publish \"{csproj}\" -c Release", repoRoot, PublishTimeout)
+            .ConfigureAwait(false);
 
         string exePath = Path.Combine(
             repoRoot, "apps", "sample", "bin", "Release", "net10.0", RuntimeInformation.RuntimeIdentifier, "publish",

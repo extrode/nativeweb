@@ -49,8 +49,72 @@ public sealed partial class SessionManager(
     /// empty dictionary. Keyed by the row's key hash, so two sessions never wait on each other.
     /// </para>
     /// </remarks>
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> Gates =
-        new(StringComparer.Ordinal);
+    /// <remarks>
+    /// A plain dictionary under a lock, and REFERENCE-COUNTED, rather than a
+    /// <c>ConcurrentDictionary</c> whose entry is dropped when the semaphore looks idle. The
+    /// earlier shape released the gate and removed it when <c>CurrentCount == 1</c>, which is the
+    /// count a semaphore also shows while a thread that has already taken the entry out of the
+    /// dictionary has not yet reached <c>WaitAsync</c>. The holder then removed that thread's gate,
+    /// the next arrival created a second one for the same key, and the two ran the refresh side by
+    /// side: the same refresh token presented twice to a rotating provider, which is the reuse
+    /// signature that kills a whole token family.
+    /// <para>
+    /// The count is incremented INSIDE the lock, before the caller waits, so a gate with a user is
+    /// never removable. The lock is never held across the wait or across any I/O.
+    /// </para>
+    /// </remarks>
+    private static readonly Dictionary<string, Gate> Gates = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Whether one session currently holds a gate. For the tests that pin the counting.
+    /// </summary>
+    /// <remarks>
+    /// By key rather than a count of the dictionary: the dictionary is static and xUnit runs test
+    /// classes in parallel, so a total is whatever the other class was doing at that instant.
+    /// </remarks>
+    /// <param name="keyHash">The session's key hash.</param>
+    internal static bool HasGate(string keyHash)
+    {
+        lock (Gates)
+        {
+            return Gates.ContainsKey(keyHash);
+        }
+    }
+
+    /// <summary>One session's refresh gate, and how many requests are holding a reference to it.</summary>
+    internal sealed class Gate
+    {
+        public SemaphoreSlim Semaphore { get; } = new(1, 1);
+
+        public int Users { get; set; }
+    }
+
+    internal static Gate TakeGate(string keyHash)
+    {
+        lock (Gates)
+        {
+            if (!Gates.TryGetValue(keyHash, out Gate? gate))
+            {
+                gate = new Gate();
+                Gates[keyHash] = gate;
+            }
+
+            gate.Users++;
+            return gate;
+        }
+    }
+
+    internal static void DropGate(string keyHash, Gate gate)
+    {
+        lock (Gates)
+        {
+            if (--gate.Users == 0)
+            {
+                Gates.Remove(keyHash);
+                gate.Semaphore.Dispose();
+            }
+        }
+    }
 
     private readonly StoreDataProtector _protector = new(options.StoreEncryptionKey
         ?? throw new InvalidOperationException(
@@ -168,8 +232,18 @@ public sealed partial class SessionManager(
             return state;
         }
 
-        SemaphoreSlim gate = Gates.GetOrAdd(keyHash, static _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(ct).ConfigureAwait(false);
+        Gate gate = TakeGate(keyHash);
+
+        try
+        {
+            await gate.Semaphore.WaitAsync(ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            DropGate(keyHash, gate);
+            throw;
+        }
+
         try
         {
             // Re-read behind the gate. The request that waited here usually finds the winner's
@@ -186,19 +260,44 @@ public sealed partial class SessionManager(
                 return new SessionState(SessionRead.Valid, current.Subject, current, keyHash);
             }
 
-            return await RefreshBehindTheGateAsync(context, current, keyHash, ct).ConfigureAwait(false);
+            // Twice at most. The first attempt covers the ordinary case; the second exists for a
+            // Conflict whose winner is ITSELF already inside the skew, which happens whenever the
+            // provider issues a token whose lifetime is shorter than RefreshSkew — including the
+            // zero a token response without expires_in decodes to. Returning the winner unexamined
+            // would hand the caller a record NeedsRefresh already rejects, and every request after
+            // it would take this path again for nothing.
+            //
+            // Bounded rather than looped: an unbounded retry against a provider issuing short
+            // tokens is a request that never returns.
+            for (int attempt = 1; ; attempt++)
+            {
+                (SessionState next, bool retry) =
+                    await RefreshBehindTheGateAsync(context, current, keyHash, ct).ConfigureAwait(false);
+
+                if (!retry || attempt == MaxRefreshAttempts || next.Record is not { } winner)
+                {
+                    return next;
+                }
+
+                current = winner;
+            }
         }
         finally
         {
-            gate.Release();
-            if (gate.CurrentCount == 1)
-            {
-                Gates.TryRemove(new KeyValuePair<string, SemaphoreSlim>(keyHash, gate));
-            }
+            gate.Semaphore.Release();
+            DropGate(keyHash, gate);
         }
     }
 
-    private async Task<SessionState> RefreshBehindTheGateAsync(
+    /// <summary>How many times one request will refresh before serving what it has.</summary>
+    private const int MaxRefreshAttempts = 2;
+
+    /// <summary>
+    /// One refresh attempt. The flag says whether the caller should try again on the record
+    /// returned: true only for a <see cref="SessionReplace.Conflict"/> whose winner still needs
+    /// refreshing.
+    /// </summary>
+    private async Task<(SessionState State, bool Retry)> RefreshBehindTheGateAsync(
         HttpContext context,
         SessionRecord current,
         string keyHash,
@@ -212,13 +311,13 @@ public sealed partial class SessionManager(
             LogRefreshRefused(logger, current.Subject);
             await store.RemoveAsync(keyHash, ct).ConfigureAwait(false);
             ClearCookie(context);
-            return SessionState.Unknown;
+            return (SessionState.Unknown, false);
         }
 
         if (refreshed.Outcome == SignInOutcome.Unavailable)
         {
             LogRefreshUnavailable(logger, current.Subject);
-            return new SessionState(SessionRead.Valid, current.Subject, current, keyHash);
+            return (new SessionState(SessionRead.Valid, current.Subject, current, keyHash), false);
         }
 
         ProviderTokens tokens = refreshed.Match(
@@ -243,20 +342,22 @@ public sealed partial class SessionManager(
         switch (outcome)
         {
             case SessionReplace.Replaced:
-                return new SessionState(SessionRead.Valid, replacement.Subject, replacement, keyHash);
+                return (new SessionState(SessionRead.Valid, replacement.Subject, replacement, keyHash), false);
 
             case SessionReplace.Conflict:
                 // Another instance refreshed while this one was talking to the provider. Its
                 // tokens are the live ones; the pair just fetched here is already stale.
                 SessionRecord? winner = await store.GetAsync(keyHash, ct).ConfigureAwait(false);
+
                 return winner is null
-                    ? SessionState.Unknown
-                    : new SessionState(SessionRead.Valid, winner.Subject, winner, keyHash);
+                    ? (SessionState.Unknown, false)
+                    : (new SessionState(SessionRead.Valid, winner.Subject, winner, keyHash),
+                       NeedsRefresh(winner));
 
             case SessionReplace.Gone:
             default:
                 ClearCookie(context);
-                return SessionState.Unknown;
+                return (SessionState.Unknown, false);
         }
     }
 
@@ -345,13 +446,29 @@ public sealed partial class SessionManager(
     /// </summary>
     internal string CookieName => options.CookieName;
 
-    /// <summary>The plaintext access token on a live session, or null when none is kept.</summary>
+    /// <summary>
+    /// The plaintext access token on a live session, or null when none is kept or the one held has
+    /// expired.
+    /// </summary>
+    /// <remarks>
+    /// The expiry check is not redundant with <c>EnsureFreshAsync</c>. A provider that issues no
+    /// refresh token at all leaves <c>ProtectedRefreshToken</c> empty, and the refresh path returns
+    /// immediately on that — so the session lives out its full <see cref="SignInOptions.SessionLifetime"/>,
+    /// fourteen days by default, holding an access token that died in thirty minutes. Without this
+    /// check the product is handed that dead token on every call for a fortnight and sees the
+    /// provider's 401s instead of an absent token it can react to.
+    /// <para>
+    /// The SESSION is unaffected: the visitor stays signed in, because who they are was settled at
+    /// sign-in and does not expire with a token. Only the provider call loses its credential.
+    /// </para>
+    /// </remarks>
     /// <param name="record">A record from <see cref="ReadAsync"/>.</param>
     internal string? AccessToken(SessionRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
 
         return record.ProtectedAccessToken is { Length: > 0 } protectedToken
+            && record.AccessTokenExpiresAt > clock.GetUtcNow()
             ? _protector.Unprotect(protectedToken)
             : null;
     }

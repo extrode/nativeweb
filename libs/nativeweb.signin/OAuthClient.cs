@@ -354,9 +354,20 @@ public sealed partial class OAuthClient(HttpClient http, SignInOptions options, 
         switch (options.ClientAuthentication)
         {
             case ClientAuthenticationMode.ClientSecretBasic:
+                // Percent-encoded BEFORE the base64, per RFC 6749 2.3.1: both halves are
+                // form-urlencoded and only then joined with a colon. It reads like ceremony on an
+                // alphanumeric client id and is not: a base64-shaped secret carries '+', '/' and
+                // '=', and a provider that decodes per the RFC recovers a DIFFERENT secret from
+                // the raw bytes than the one the operator configured. The failure is a 401 from
+                // the token endpoint that nothing in this process can explain.
+                //
+                // A provider that does not decode gets the encoded form and rejects it just as
+                // flatly. That is what ClientSecretPost is for; the README says so.
                 string credentials = Convert.ToBase64String(
                     Encoding.UTF8.GetBytes(
-                        string.Create(CultureInfo.InvariantCulture, $"{options.ClientId}:{options.ClientSecret}")));
+                        Uri.EscapeDataString(options.ClientId)
+                        + ":"
+                        + Uri.EscapeDataString(options.ClientSecret)));
                 request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
                 break;
 
