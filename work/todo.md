@@ -1506,6 +1506,25 @@ another project's deployment and runbook, not to this repo.
   only after the previous colour has gone inactive. Unreachable today because no host has ever run
   these scripts. Same review.
 
+## Coverage gaps named during the 021 review, 2026-08-31 — not built
+
+The seven findings are fixed and each fix is mutation-checked, but the audit named four tests that
+would have caught them earlier and still do not exist. Each is small; none is in that branch's scope.
+
+- **No LanguageVersion gate on the generator's output.** `ScaffoldGeneratorTests` compiles emitted
+  source with the default parse options, so a construct the generator emits that needs a newer C#
+  than a consumer targets compiles here and fails there. A `CSharpParseOptions(LanguageVersion.CSharp10)`
+  variant of the existing compile test closes it.
+- **The update-false → 404 path is asserted from the emitted source, never executed.** The scaffold
+  integration tier could drive a stub store returning `false` and assert the response status, which
+  is what the DemoStore finding was about.
+- **`TryResolveKeyDirectory`'s empty-home branch has no behavioural partner.** The unit test proves
+  the resolver refuses; nothing proves the refusal reaches startup as a named error rather than a
+  modal-blocking hang, which is the failure mode `lessons/2026-07-26` records for NativeAOT config
+  errors.
+- **Nothing pins the `[ScaffoldSearch]` wiring.** A search attribute that stops reaching the query
+  is a silent behaviour change with no red test.
+
 - **D2 is answered and the generated admin stays open by default (2026-08-31, the user's call).**
   Recorded here because the argument for closing it does not go away: `AddScaffolding` refuses to
   register an authentication scheme on the grounds that "a default supplied from a library is one

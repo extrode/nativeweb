@@ -2,22 +2,32 @@
 #
 # Applies db/migrations/*.sql to the __PRODUCT__ database in order, tracking
 # applied versions in schema_migrations so re-runs skip what's already there.
-# 0001 (extensions) is the one superuser migration; everything else runs as
-# the app role.
+# NNNN_extensions.sql -- 0001 in the skeleton's own schema -- is the one
+# superuser migration; everything else runs as the app role. It is found by name
+# rather than by number, so renumbering it is safe.
 #
 # Env (all optional; the defaults are the local dev setup):
 #   PGHOST            default 127.0.0.1
 #   PGPORT            default 5432
 #   PGDATABASE        default __product___dev
 #   APP_ROLE          default __product___app -- PGPASSWORD (or ~/.pgpass) must
-#                     authenticate this role for every migration except 0001
-#   SUPERUSER_ROLE    default postgres -- must authenticate for 0001 only, and
-#                     only if the directory has a 0001 (it creates extensions,
-#                     which __product___app cannot)
+#                     authenticate this role for every migration except the
+#                     extensions one
+#   SUPERUSER_ROLE    default postgres -- must authenticate for the extensions
+#                     migration only, and only if the directory has one (it
+#                     creates extensions, which __product___app cannot)
 #   MIGRATIONS_DIR    default db/migrations -- the directory to apply
 #
-# Plain `psql -f` runs autocommit -- never add `-1` / `--single-transaction`
-# here, so a future CREATE INDEX CONCURRENTLY migration keeps working.
+# Everything below this header is generated from NativeWeb's own db/migrate.sh
+# and held identical to it by a test, so a fix to the locking or the transaction
+# handling reaches this copy. Change it there, not here.
+#
+# Each migration is applied together with its schema_migrations row in a single
+# transaction. `--single-transaction` belongs ONLY on that one invocation, in
+# apply_and_record's `wrapped` arm: a migration that cannot be wrapped -- CREATE
+# INDEX CONCURRENTLY, or a file opening its own transaction -- says so with
+# `-- @no-transaction` on a line of its own, and mode_of() below detects the
+# rest by content.
 
 set -euo pipefail
 
@@ -538,17 +548,24 @@ fi
 # never uses.
 #
 # EXT_VERSION is the version the loop below skips, so when there is no
-# 0002_extensions.sql it must match NOTHING -- not "0002", which would silently
-# skip a 0002 that is some other migration entirely.
-EXT_FILE="$MIGRATIONS_DIR/0002_extensions.sql"
-if [ ! -f "$EXT_FILE" ]; then
+# extensions migration it must match NOTHING -- not a number, which would
+# silently skip whatever other migration happens to carry it.
+#
+# Found by name, not by number. This repository's schema numbered it 0002 and a
+# stamped product numbers it 0001; a hardcoded number means the other one is not
+# recognised as the superuser step, falls into the loop below, and is applied as
+# the app role -- which cannot CREATE EXTENSION, so every fresh product failed
+# its first migration run. Found by Fable, 2026-08-31.
+EXT_FILE="$(compgen -G "$MIGRATIONS_DIR/[0-9][0-9][0-9][0-9]_extensions.sql" | head -n 1 || true)"
+if [ -z "$EXT_FILE" ]; then
   EXT_VERSION="none"
   echo "none  no extensions migration in this schema; no superuser step"
 elif EXT_VERSION="$(version_of "$EXT_FILE")" && is_tracked "$EXT_VERSION"; then
   echo "skip  $EXT_VERSION (already applied)"
 else
   echo "apply $EXT_VERSION (as $SUPERUSER_ROLE)"
-  # 0002 runs as the superuser, so it cannot share apply_and_record's app_psql.
+  # The extensions migration runs as the superuser, so it cannot share
+  # apply_and_record's app_psql.
   # It is CREATE EXTENSION only -- DDL, idempotent, and the one migration whose
   # double-apply is provably harmless -- so the old two-step is kept here.
   super_psql -f "$EXT_FILE"

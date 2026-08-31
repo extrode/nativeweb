@@ -149,7 +149,34 @@ public sealed class DeployTargetTests
 
         string build = Read("scripts", "deploy", "build.sh");
         Assert.Contains("config_prefix=$CONFIG_PREFIX", build, StringComparison.Ordinal);
-        Assert.Contains("migrations_dir=$MIGRATIONS_DIR", build, StringComparison.Ordinal);
+
+        // The stamped path is the one inside the artifact, not the one the operator
+        // gave. Only $DB_DIR travels, and it arrives as db/, so stamping the
+        // operator's MIGRATIONS_DIR named a directory no artifact contains whenever
+        // DB_DIR was anything but "db" -- and deploy.sh resolves the stamp
+        // release-relative, so it died on the host after the whole publish.
+        Assert.Contains("migrations_dir=$ARTIFACT_MIGRATIONS_DIR", build, StringComparison.Ordinal);
+        Assert.Contains("ARTIFACT_MIGRATIONS_DIR=\"db/${MIGRATIONS_DIR#\"$DB_DIR\"/}\"", build, StringComparison.Ordinal);
+    }
+
+    // Both remote transports forward MIGRATIONS_DIR unconditionally, and this
+    // script re-executes itself on the far side. So the host half always sees the
+    // variable SET -- to the empty string when nothing was overridden -- and a `+`
+    // test counted that as an override: the RELEASE stamp went unread, migrate.sh
+    // was handed the release root, and every --host and --incus deploy died on its
+    // compgen guard. Only --local ever reached the stamp.
+    [Fact]
+    public void TheDeployScript_TreatsAnEmptyForwardedMigrationsDirAsUnset()
+    {
+        string deploy = Read("scripts", "deploy", "deploy.sh");
+
+        Assert.True(
+            deploy.Contains("--env MIGRATIONS_DIR=\"$MIGRATIONS_DIR\"", StringComparison.Ordinal)
+                || deploy.Contains("MIGRATIONS_DIR=$(printf %q \"$MIGRATIONS_DIR\")", StringComparison.Ordinal),
+            "deploy.sh no longer forwards MIGRATIONS_DIR to the host half; this test is reading the wrong mechanism.");
+
+        Assert.Contains("MIGRATIONS_DIR_SET=\"${MIGRATIONS_DIR:+yes}\"", deploy, StringComparison.Ordinal);
+        Assert.DoesNotContain("MIGRATIONS_DIR_SET=\"${MIGRATIONS_DIR+yes}\"", deploy, StringComparison.Ordinal);
     }
 
     private static string Defaulted(string script, string marker)

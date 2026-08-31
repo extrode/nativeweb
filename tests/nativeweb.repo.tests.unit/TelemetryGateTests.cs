@@ -75,22 +75,27 @@ public sealed class TelemetryGateTests
     {
         Assert.Contains("AddNativeWebWeb(options", Read("apps", "sample", "Program.cs"), StringComparison.Ordinal);
 
-        // The link between the two, not two independent substrings. AddOpenTelemetry
-        // lives in AddNativeWebTelemetry, a separate public method: unhooking that
-        // call from AddNativeWebWeb left both old needles intact and this test green,
-        // which is the regression the comment above says it exists to catch.
+        // The link is asserted inside AddNativeWebWeb's own body, sliced from its
+        // declaration to the next member at the same indentation. A positional
+        // "appears somewhere after" test stayed green when the call was moved into
+        // any other method between the two, which is the unhooking it exists to
+        // catch.
         string pipeline = Read("libs", "nativeweb.web", "NativeWebPipeline.cs");
 
-        int registration = pipeline.IndexOf("AddNativeWebWeb", StringComparison.Ordinal);
-        Assert.True(registration >= 0, "NativeWebPipeline.cs no longer declares AddNativeWebWeb.");
+        const string declaration = "public static WebApplicationBuilder AddNativeWebWeb(";
+        int start = pipeline.IndexOf(declaration, StringComparison.Ordinal);
+        Assert.True(start >= 0, "NativeWebPipeline.cs no longer declares AddNativeWebWeb.");
 
-        int call = pipeline.IndexOf("AddNativeWebTelemetry(options", registration, StringComparison.Ordinal);
-        Assert.True(
-            call > registration,
-            "AddNativeWebWeb does not call AddNativeWebTelemetry, so the sample turns on a switch nothing reads.");
+        int next = pipeline.IndexOf("\n    public static ", start + declaration.Length, StringComparison.Ordinal);
+        Assert.True(next > start, "AddNativeWebWeb is the last member in the file; this test is reading the wrong slice.");
+
+        Assert.Contains(
+            "AddNativeWebTelemetry(options",
+            pipeline[start..next],
+            StringComparison.Ordinal);
 
         int telemetry = pipeline.IndexOf("public static IServiceCollection AddNativeWebTelemetry", StringComparison.Ordinal);
-        Assert.True(telemetry > call, "AddNativeWebTelemetry is not declared after the call site this test located.");
+        Assert.True(telemetry >= 0, "NativeWebPipeline.cs no longer declares AddNativeWebTelemetry.");
 
         Assert.Contains("services.AddOpenTelemetry()", pipeline[telemetry..], StringComparison.Ordinal);
     }

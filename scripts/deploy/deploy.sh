@@ -48,7 +48,14 @@ RELEASES_KEEP="${RELEASES_KEEP:-5}"
 # override still wins; what changed is that inheriting a default is no longer
 # possible, because the default was this repository's own and a stamped product
 # silently got it.
-MIGRATIONS_DIR_SET="${MIGRATIONS_DIR+yes}"
+# `:+`, not `+`: this script re-executes ITSELF on the far side of both remote
+# transports, and both forward MIGRATIONS_DIR unconditionally -- so the host half
+# always sees the variable set, to the empty string when the operator overrode
+# nothing. Under `+` that counted as an override, the RELEASE stamp was never
+# read, and migrate.sh was handed the release root, where it dies on the compgen
+# guard. Every --host and --incus deploy failed at the migrate step; only --local
+# ever reached the stamp. Found by Fable, 2026-08-31.
+MIGRATIONS_DIR_SET="${MIGRATIONS_DIR:+yes}"
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-}"
 CONFIG_PREFIX=""
 

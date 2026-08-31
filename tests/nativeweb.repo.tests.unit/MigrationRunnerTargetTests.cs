@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace NativeWeb.Repo.Tests.Unit;
@@ -72,9 +74,9 @@ public sealed class MigrationRunnerTargetTests
         // The assignment has to sit INSIDE the missing-file branch. Asserting the
         // two strings exist somewhere in the file proved neither, and the branch
         // could be deleted with both still present.
-        const string branch = "if [ ! -f \"$EXT_FILE\" ]; then";
+        const string branch = "if [ -z \"$EXT_FILE\" ]; then";
         int start = runner.IndexOf(branch, StringComparison.Ordinal);
-        Assert.True(start >= 0, "db/migrate.sh no longer guards the extensions file with an -f test.");
+        Assert.True(start >= 0, "db/migrate.sh no longer guards the absence of an extensions migration.");
 
         int elif = runner.IndexOf("\nelif ", start, StringComparison.Ordinal);
         Assert.True(elif > start, "the extensions branch has no elif arm; this test is reading the wrong block.");
@@ -141,6 +143,52 @@ public sealed class MigrationRunnerTargetTests
         Assert.True(start >= 0, "a migration runner with no `set -euo pipefail` is not the file this test means.");
 
         return runner[start..].Replace("\r\n", "\n", StringComparison.Ordinal);
+    }
+
+    // It was 0002 in the runner and 0001 on disk, so the file fell through to the
+    // main loop and every fresh stamped product failed its first migration run.
+    [Fact]
+    public void TheSkeletonsExtensionsMigration_MatchesThePatternItsRunnerLooksFor()
+    {
+        string runner = File.ReadAllText(Path.Combine(RepoRoot(), "skeleton", "db", "migrate.sh"));
+
+        const string marker = "EXT_FILE=\"$(compgen -G \"$MIGRATIONS_DIR/";
+        int start = runner.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(start >= 0, "skeleton/db/migrate.sh no longer discovers the extensions migration by pattern.");
+
+        start += marker.Length;
+        string glob = runner[start..runner.IndexOf('"', start)];
+
+        StringBuilder pattern = new("^");
+        for (int i = 0; i < glob.Length; i++)
+        {
+            if (glob.AsSpan(i).StartsWith("[0-9]", StringComparison.Ordinal))
+            {
+                pattern.Append("[0-9]");
+                i += 4;
+            }
+            else
+            {
+                pattern.Append(glob[i] == '*' ? ".*" : Regex.Escape(glob[i].ToString()));
+            }
+        }
+
+        pattern.Append('$');
+
+        string[] extensions = Directory
+            .EnumerateFiles(Path.Combine(RepoRoot(), "skeleton", "db", "migrations"), "*_extensions.sql")
+            .Select(Path.GetFileName)
+            .ToArray()!;
+
+        Assert.NotEmpty(extensions);
+
+        foreach (string? file in extensions)
+        {
+            Assert.True(
+                Regex.IsMatch(file!, pattern.ToString()),
+                $"skeleton/db/migrations/{file} creates extensions, which the app role cannot do, "
+                    + $"but the runner's superuser step looks for {glob} and would apply it as the app role.");
+        }
     }
 
     // Refused, not merely detected. The substring alone passed with the guard

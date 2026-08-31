@@ -38,10 +38,10 @@ RUNTIME_ID="${RUNTIME_ID:-linux-x64}"
 # Captured BEFORE the defaults are applied. Once a variable has been given its
 # default it is always set, so a +x test can no longer tell an override from a
 # default and the guard below would never fire.
-PROJECT_SET="${PROJECT+yes}"
-CONFIG_PREFIX_SET="${CONFIG_PREFIX+yes}"
-DB_DIR_SET="${DB_DIR+yes}"
-MIGRATIONS_DIR_SET="${MIGRATIONS_DIR+yes}"
+PROJECT_SET="${PROJECT:+yes}"
+CONFIG_PREFIX_SET="${CONFIG_PREFIX:+yes}"
+DB_DIR_SET="${DB_DIR:+yes}"
+MIGRATIONS_DIR_SET="${MIGRATIONS_DIR:+yes}"
 
 PROJECT="${PROJECT:-apps/sample/nativeweb.sample.csproj}"
 
@@ -74,6 +74,29 @@ if [[ -n "$PROJECT_SET" ]]; then
 		fi
 	done
 fi
+
+# The stamp names the path INSIDE the artifact, which is not the path the operator
+# gave: $DB_DIR arrives as db/ (see the cp below), so DB_DIR=database with
+# MIGRATIONS_DIR=database/migrations used to stamp a directory no artifact
+# contains. deploy.sh resolves the stamp release-relative and died on the host,
+# after the whole NativeAOT publish. With the defaults the two coincide, which is
+# why nothing caught it. Found by Fable, 2026-08-31.
+if [[ ! -d "$REPO_ROOT/$MIGRATIONS_DIR" ]]; then
+	echo "ERROR: MIGRATIONS_DIR is $MIGRATIONS_DIR, which is not a directory in this repository." >&2
+	exit 1
+fi
+
+case "$MIGRATIONS_DIR" in
+"$DB_DIR"/*)
+	ARTIFACT_MIGRATIONS_DIR="db/${MIGRATIONS_DIR#"$DB_DIR"/}"
+	;;
+*)
+	echo "ERROR: MIGRATIONS_DIR is $MIGRATIONS_DIR, which is not under DB_DIR ($DB_DIR)." >&2
+	echo "       Only \$DB_DIR travels in the artifact, so migrations outside it would not" >&2
+	echo "       be there to apply." >&2
+	exit 1
+	;;
+esac
 
 # The name the executable is installed under, inside the artifact and on the
 # host. NOT the project's own name: systemd will not expand a variable in the
@@ -205,7 +228,7 @@ built_by=$(id -un)@$(hostname)
 runtime=$RUNTIME_ID
 project=$PROJECT
 config_prefix=$CONFIG_PREFIX
-migrations_dir=$MIGRATIONS_DIR
+migrations_dir=$ARTIFACT_MIGRATIONS_DIR
 tree=$DIRTY
 EOF
 

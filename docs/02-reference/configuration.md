@@ -20,8 +20,21 @@ this file existed, all of it was discoverable only by reading `Program.cs`.
 | User secrets | Development only | `CreateSlimBuilder` does not load them; `Program.cs` adds them explicitly when `IsDevelopment()` |
 | Environment variables | always | The deployment path |
 
-**Environment-variable spelling replaces `:` with `__`.** `NativeWeb:Db:MaxPoolSize` is
-`NativeWeb__Db__MaxPoolSize`. The connection string is `ConnectionStrings__NativeWeb`.
+**Environment-variable spelling replaces `:` with `__`.** `Sample:Db:MaxPoolSize` is
+`Sample__Db__MaxPoolSize`. The connection string is `ConnectionStrings__Sample`, or
+`Sample__Db__ConnectionString`.
+
+**The prefix is the product's, not the framework's.** It is the string the app passes to
+`NativeWebOptions.FromConfiguration` — `Sample` for `apps/sample`, `<Product>` for anything
+stamped from `skeleton/`. There is no `NativeWeb__` section: no binary in this repository binds
+one, and the deploy preflight demanded that spelling until 2026-08-31, which is how it came to
+validate settings nothing read. `scripts/deploy/build.sh` stamps the prefix into the artifact so
+`deploy.sh` checks the keys the binary being deployed will read.
+
+**The rest of this file describes the identity provider that left on 2026-08-31**
+(`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`). `FirstPartyClientId`, `ContactKey`,
+`StoreEncryptionKey`, `PairwiseSalt`, `WebAuthn:*`, `DeviceGrant:*` and the `Epass` rename below
+are its keys, kept as history. Nothing in this repository reads them.
 
 **Pre-rename keys are fatal, deliberately.** N4 renamed every key from `Epass:*` to `NativeWeb:*`.
 An environment still exporting `Epass__ContactKey` or `ConnectionStrings__Epass` would otherwise
