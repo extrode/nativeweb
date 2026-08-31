@@ -1506,24 +1506,45 @@ another project's deployment and runbook, not to this repo.
   only after the previous colour has gone inactive. Unreachable today because no host has ever run
   these scripts. Same review.
 
-## Coverage gaps named during the 021 review, 2026-08-31 — not built
+## ~~Coverage gaps named during the 021 review, 2026-08-31~~ — all four closed, 2026-08-31
 
-The seven findings are fixed and each fix is mutation-checked, but the audit named four tests that
-would have caught them earlier and still do not exist. Each is small; none is in that branch's scope.
+Built on `test/021-coverage-gaps`. Kept rather than deleted because two of the four came back with
+an answer different from the one the audit assumed.
 
-- **No LanguageVersion gate on the generator's output.** `ScaffoldGeneratorTests` compiles emitted
-  source with the default parse options, so a construct the generator emits that needs a newer C#
-  than a consumer targets compiles here and fails there. A `CSharpParseOptions(LanguageVersion.CSharp10)`
-  variant of the existing compile test closes it.
-- **The update-false → 404 path is asserted from the emitted source, never executed.** The scaffold
-  integration tier could drive a stub store returning `false` and assert the response status, which
-  is what the DemoStore finding was about.
-- **`TryResolveKeyDirectory`'s empty-home branch has no behavioural partner.** The unit test proves
-  the resolver refuses; nothing proves the refusal reaches startup as a named error rather than a
-  modal-blocking hang, which is the failure mode `lessons/2026-07-26` records for NativeAOT config
-  errors.
-- **Nothing pins the `[ScaffoldSearch]` wiring.** A search attribute that stops reaching the query
-  is a silent behaviour change with no red test.
+- ~~**No LanguageVersion gate on the generator's output.**~~ Built, and it found a fact rather than
+  a defect: the emitted source needs **C# 11**, not the C# 10 the audit proposed as the floor.
+  `ScaffoldRuntime.g.cs` emits a raw string literal (CS8936), and the form binder implements
+  `IBindableFromHttpContext<T>`, whose `BindAsync` is a static abstract interface member (CS8706).
+  The second is not ours to lower, so a consumer below C# 11 could not bind a minimal-API parameter
+  at all. The theory pins 11, 12 and 13, and the parse options now travel to the generator driver
+  as well as the model tree.
+- ~~**The update-false → 404 path is asserted from the emitted source, never executed.**~~ Built:
+  `ScaffoldedConcurrencyTests` registers a stub store through `ConfigureTestServices` whose
+  `GetAsync` returns the row and whose `UpdateAsync` returns false, which is the concurrent delete
+  made deterministic.
+- ~~**`TryResolveKeyDirectory`'s empty-home branch has no behavioural partner.**~~ Built as
+  `SampleStartupRefusalTests`, but **not on that branch**: an unusable home cannot be produced from
+  the environment on Windows, because `GetFolderPath(SpecialFolder.UserProfile)` reads the process
+  token rather than `USERPROFILE`. The boundary fact every refusal shares — a line on stderr, exit
+  78, and no modal block — is proved with a malformed `BotTraps` and `Telemetry` value instead.
+- ~~**Nothing pins the `[ScaffoldSearch]` wiring.**~~ **Already covered; the entry was wrong.**
+  Emitting an empty `SearchFields` set turns `ScaffoldedCrudTests.Search_FiltersOnTheSearchableProperties`
+  and `ScaffoldedDefectTests.Search_MatchesEverySearchableProperty` red. Measured by mutation
+  2026-08-31 rather than assumed.
+
+## Found while closing those gaps, 2026-08-31 — not fixed
+
+- **`StaticErrorShell.Load` throws out of `Main` instead of calling `FailStartup`.** Reached by
+  starting `apps/sample` with a working directory that has no `wwwroot`: the host dies with
+  `InvalidOperationException: wwwroot/pages/error.html is missing` and exit code `0xE0434352`.
+  That is the class of failure `lessons/2026-07-26` and `StartupConfigGuards` exist to prevent —
+  under NativeAOT on Windows it is a modal box a supervisor sees as a hung service, not an error.
+  A missing static shell is an operator error with a known remedy, so it belongs on the same exit
+  path as a malformed configuration value. Out of scope for a test branch.
+- **Six untracked test directories are `bin`/`obj` residue from the departed identity provider**:
+  `tests/nativeweb.signin.epass.tests.{unit,integration,e2e,aot}`, `tests/nativeweb.web.tests.integration`
+  and `tests/nativeweb.web.tests.e2e`. No `.csproj`, nothing in `NativeWeb.slnx`, nothing in git.
+  Listed in `scripts/cleanup/021-coverage-gaps.ps1`; the user runs it.
 
 - **D2 is answered and the generated admin stays open by default (2026-08-31, the user's call).**
   Recorded here because the argument for closing it does not go away: `AddScaffolding` refuses to
