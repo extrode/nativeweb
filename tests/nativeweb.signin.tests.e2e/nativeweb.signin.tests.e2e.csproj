@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.SignIn.Tests.E2e</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- CA1707 forbids underscores in identifiers; Method_Scenario_Expectation is
+         the standard xUnit test-naming convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+  <!-- No ProjectReference to apps/sample, for the reason the scaffold e2e tier
+       gives: this tier drives the published binary over a real socket, and a
+       reference would invite a test to reach into the session store and assert on
+       something the browser never saw. The paths below are string literals here
+       because that is all the browser knows about them either way. -->
+
+</Project>

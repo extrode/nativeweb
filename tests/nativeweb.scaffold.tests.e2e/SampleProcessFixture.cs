@@ -77,6 +77,19 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     /// </remarks>
     private static readonly Lazy<Task<string>> PublishedExe = new(PublishAsync);
 
+    /// <summary>
+    /// Names the lock the two e2e tiers hold while publishing <c>apps/sample</c>.
+    /// </summary>
+    /// <remarks>
+    /// The Lazy above serializes this process's own two fixtures. It cannot serialize the
+    /// other tier: <c>tests/nativeweb.signin.tests.e2e</c> publishes the same project, and
+    /// `dotnet test` runs test assemblies in separate processes concurrently, so the same
+    /// `.sourcelink` contention returns one level up. A lock file under the repository's own
+    /// `tmp/` is what crosses the process boundary; whichever tier arrives second waits, then
+    /// runs an incremental no-op publish.
+    /// </remarks>
+    private const string PublishLock = "sample-publish.lock";
+
     private Process? _process;
 
     private readonly LogTail _log = new();
@@ -213,12 +226,48 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     }
 
     /// <summary>Publishes apps/sample Release and returns the path to the binary.</summary>
+    /// <summary>
+    /// Holds the cross-process publish lock, releasing it on dispose.
+    /// </summary>
+    /// <remarks>
+    /// A file rather than a <see cref="Mutex"/>, and that is not a preference. A Windows mutex
+    /// has thread affinity and this publish is awaited, so the continuation lands on another
+    /// thread-pool thread and <c>ReleaseMutex</c> throws
+    /// "Object synchronization method was called from an unsynchronized block of code" --
+    /// measured, on the first run of this tier. A file handle is owned by the process.
+    /// </remarks>
+    private static async Task<FileStream> HoldPublishLockAsync(string repoRoot)
+    {
+        string directory = Path.Combine(repoRoot, "tmp");
+        Directory.CreateDirectory(directory);
+
+        string path = Path.Combine(directory, PublishLock);
+        DateTime deadline = DateTime.UtcNow + PublishTimeout;
+
+        while (true)
+        {
+            try
+            {
+                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException) when (DateTime.UtcNow < deadline)
+            {
+                // The other tier is publishing. Nothing to do but wait for it.
+                await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+            }
+        }
+    }
+
     private static async Task<string> PublishAsync()
     {
         string repoRoot = FindRepoRoot();
         string csproj = Path.Combine(repoRoot, "apps", "sample", "nativeweb.sample.csproj");
 
-        await RunAsync("dotnet", $"publish \"{csproj}\" -c Release", repoRoot, PublishTimeout).ConfigureAwait(false);
+        using (await HoldPublishLockAsync(repoRoot).ConfigureAwait(false))
+        {
+            await RunAsync("dotnet", $"publish \"{csproj}\" -c Release", repoRoot, PublishTimeout)
+                .ConfigureAwait(false);
+        }
 
         string exePath = Path.Combine(
             repoRoot, "apps", "sample", "bin", "Release", "net10.0", RuntimeInformation.RuntimeIdentifier, "publish",

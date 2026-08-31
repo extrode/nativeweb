@@ -63,13 +63,17 @@ public sealed class Program
         {
             string origin = DemoProvider.SelfOrigin(builder.Configuration);
 
+            // Where the browser goes, and where this app's own HttpClient goes, which are the
+            // same origin unless a test has said otherwise. See DemoProvider.BackChannelOrigin.
+            string backChannel = DemoProvider.BackChannelOrigin(builder.Configuration);
+
             builder.Services.AddSingleton<DemoProvider>();
             builder.Services.AddSignIn(signIn =>
             {
                 signIn.AuthorizationEndpoint = $"{origin}{DemoProvider.BasePath}/authorize";
-                signIn.TokenEndpoint = $"{origin}{DemoProvider.BasePath}/token";
-                signIn.UserInfoEndpoint = $"{origin}{DemoProvider.BasePath}/userinfo";
-                signIn.IntrospectionEndpoint = $"{origin}{DemoProvider.BasePath}/introspect";
+                signIn.TokenEndpoint = $"{backChannel}{DemoProvider.BasePath}/token";
+                signIn.UserInfoEndpoint = $"{backChannel}{DemoProvider.BasePath}/userinfo";
+                signIn.IntrospectionEndpoint = $"{backChannel}{DemoProvider.BasePath}/introspect";
                 signIn.ClientId = "nativeweb-sample";
                 signIn.ClientSecret = "demo-secret";
                 signIn.RedirectUri = $"{origin}{DemoSignInPaths.Callback}";

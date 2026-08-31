@@ -69,6 +69,31 @@ public sealed class DemoProvider
             .TrimEnd('/');
     }
 
+    /// <summary>
+    /// The origin the relying party calls the provider on server-to-server, which is the browser's
+    /// origin unless something says otherwise.
+    /// </summary>
+    /// <param name="configuration">The app's configuration.</param>
+    /// <returns>An absolute origin with no trailing slash.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="configuration"/> is null.</exception>
+    /// <remarks>
+    /// A real provider is a different host, so the front channel (the redirect the browser walks)
+    /// and the back channel (token, userinfo, introspection) are separately addressable in any
+    /// deployment. Here they are the same process, and are the same origin for anyone running
+    /// <c>dotnet run</c> — the key exists because the e2e tier must serve the browser over https,
+    /// for the <c>__Host-</c> cookie, while the app's own HttpClient has no reason to trust the
+    /// certificate a test minted for the occasion. Splitting the two is what lets the browser have
+    /// its secure origin without a test changing the machine's trust store.
+    /// </remarks>
+    public static string BackChannelOrigin(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        return configuration["Demo:BackChannelOrigin"] is { Length: > 0 } configured
+            ? configured.TrimEnd('/')
+            : SelfOrigin(configuration);
+    }
+
     internal IResult Authorize(HttpContext http)
     {
         string state = http.Request.Query["state"].ToString();
