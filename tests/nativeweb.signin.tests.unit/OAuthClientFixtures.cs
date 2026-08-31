@@ -2,6 +2,8 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NativeWeb.Security;
@@ -45,6 +47,25 @@ internal static class OAuthClientFixtures
         options.Validate();
 
         return options;
+    }
+
+    /// <summary>
+    /// The services <c>IResult.ExecuteAsync</c> resolves out of the context. A bare
+    /// <c>DefaultHttpContext</c> has none, and <c>RedirectHttpResult</c> asks for an
+    /// <c>ILoggerFactory</c> before it writes a single header.
+    /// </summary>
+    internal static IServiceProvider ResultServices { get; } = new LoggerOnlyServices();
+
+    internal static DefaultHttpContext Executable(this DefaultHttpContext context)
+    {
+        context.RequestServices = ResultServices;
+        return context;
+    }
+
+    private sealed class LoggerOnlyServices : IServiceProvider
+    {
+        public object? GetService(Type serviceType) =>
+            serviceType == typeof(ILoggerFactory) ? NullLoggerFactory.Instance : null;
     }
 
     internal static OAuthClient ClientFor(
