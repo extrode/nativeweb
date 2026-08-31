@@ -1,333 +1,353 @@
-# Previous
+# Current
 
-The task completed most recently, kept for one rotation so the next one has context.
+What's in flight right now. Keep it SMALL: one focus at a time where possible.
 
-- **Security audit backlog** — `fix/security-audit-2026-08-19`, 2026-08-31. The whole 2026-08-19
-  `apps/web` audit worked through in one branch, seven commits. **744 web-unit / 346
-  web-integration / 157 render / 64 scaffold-unit / 38 scaffold-integration / 85 forms / 184
-  signin / 36 sample, 0 failed, 0 skipped**; solution build 0 warnings, 0 errors; structure-audit
-  0 errors and the same 3 pre-existing warnings. Nine mutations, each killing its own fact.
-  - **The backlog was stale and that is the finding worth keeping.** Six of its thirteen items had
-    already been fixed by earlier sessions and never struck through — the antiforgery cookie, the
-    `Secure = !IsDevelopment()` gates, `/auth/signout` rate limiting, the three register
-    enumeration oracles, the bare `Results.Redirect("/")`, and the whole rate-limit route list,
-    which `RateLimitCoverageTests` now enforces as a property rather than a list. Verifying each
-    against the code first was most of the branch's value; fixing what was already fixed would
-    have been the rest of it wasted.
-  - **`form-action` is enforced against a submission's whole redirect chain, not its first hop.**
-    That is why `'self'` was blocking the no-JS OAuth consent path, and why the fix is a
-    per-response widening to the client's already-registered origin rather than a blanket
-    allowance or an honest-comment retreat.
-  - **The masked destination is signed rather than server-derived**, and the reason is a second
-    oracle: derived from `temp_codes.sent_to`, a real account's mask would change the moment its
-    code expired while an unknown identifier's never would. The first cut of the signing fix
-    still failed its own test — the display fell back to "your email" but the hidden field kept
-    echoing the attacker's string, so an unverifiable token now drops both.
-  - **Two of the four WebAuthn assertions were wrong on the first run and the code was right.**
-    System.Text.Json escapes as `<`, not as a literal `<`, and inert text like `onerror`
-    survives verbatim inside the JSON string. A test failing is not evidence the code is.
-  - **The two-lens review then found seven more, and the second lens earned its cost.** Four
-    were holes in the fixes themselves rather than in the code they fixed -- the body-less 415
-    coming back as an HTML page, the unvalidated form-action contribution, the unguarded
-    `new Uri`, and a mask lifetime borrowed from an unrelated rate-limit window. The consequence
-    lens alone found the three the correctness lens could not see from the diff: the IPv6
-    literal that CSP's grammar has no production for, the application rows written before
-    `ValidateHttpUrl` that nothing backfills, and the skeleton carrying all three drifts into
-    every product stamped from it. **787 web-unit / 347 web-integration after the fixes.**
-  - **One finding was refuted by measurement and its fix backed out.** `Uri.IsLoopback` really
-    is true for an empty host, and no http(s) input reaches that gate with one --
-    `Uri.TryCreate(UriKind.Absolute)` refuses `https:///logo.png`, `http://`, `http:////x` and
-    every other empty-authority form on .NET 10.0.7. The check was dead code; the inputs are
-    pinned as refused regardless, because what makes them safe is someone else's parser.
+Exactly **one** task, the one being worked on right now. Not a list: the list is `../tasklist.md`,
+and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
+worth seeing here rather than hiding, but it is the exception.
 
-  - **One item left open, needing a decision:** `GET /oauth/authorize` is a state-changing GET
-    under a `SameSite=Lax` session cookie, so where silent-SSO conditions hold a cross-site link
-    can drive a signed-in user into a grant with no consent interaction. Every fix is a design
-    change. The register username-taken message stays as it is — a registration form that cannot
-    say a username is taken cannot complete a registration, and the timing half is already closed.
+- **Phase 1 — a visible UI and a working edit loop** — `feat/phase1-visible-ui`, 2026-08-31.
+  T1–T6 of `docs/plans/2026-08-31-007-framework-readiness.md`. `apps/sample` is styled, renders
+  through the framework's own compiled templates, and filters over htmx. **468 facts across seven
+  tiers, 0 failed, 0 skipped**; every new fact mutation-checked. Structure-audit 0 errors, 3
+  pre-existing warnings.
+  - **The reference application did not use the framework's renderer.** It hand-built HTML in a
+    `StringBuilder` while `nativeweb.render` — the largest library here — was exercised only by its
+    own unit tier. `GET /articles` now renders `layout/page` + `articles/index`; a filter POST with
+    `HX-Request` gets the `articles/results` fragment alone and the same POST without it gets the
+    whole page, through one `Page()` helper so the two cannot drift.
+  - **Four render tests were green against code that did not ship.** They asserted
+    `ArticlesPage.Render`, which no production path had called since the endpoints changed.
+    Retargeted rather than deleted — every fact in them was still worth holding, the encoding one
+    especially. `ArticlesPage.cs` itself is now dead and tracked; removing it is a commit, noted in
+    the cleanup script rather than done.
+  - **A 35% throughput defect in the framework, found by benchmarking rather than by review.**
+    `TemplateResults.Html` wrote to `Response.BodyWriter` and flushed once, which reads as the
+    streaming path and is not — the body was fully materialized before the flush either way, so
+    the length was knowable all along and never declared. Every page was a chunked response.
+    Three variants of the same page separate the causes: straight-to-writer no length **11,779
+    req/s**, buffered no length **11,778**, buffered with length **18,105**. The middle row rules
+    out the write pattern and leaves the framing. Guarded by `TemplateHtmlResultTests`, because no
+    assertion about markup can tell a chunked page from a measured one.
+  - **At close, `articles` is 18,958.6 req/s / 0.70 ms p50 / 35.6 MB** against a pre-Phase-1
+    baseline of 19,937.6, with the `healthz` control at 23,324.5 against 23,068.6. Zero errors.
+    Every measurement and both open bottlenecks are in `docs/02-reference/performance.md`.
+  - **Fable's verification found two real defects in this branch's own work**, both introduced by
+    it and both fixed here: the box gained `placeholder="Title or author"` while `Matching`
+    filtered titles only, and `max` was hard-coded at 20 in the template so a no-JS POST asking for
+    5 answered with five rows above a box reading 20. It also caught wrong arithmetic in a doc
+    comment (describing `HtmlEncoder.Default`, which this code does not use) and a form assertion
+    weakened to three page-wide `Contains` that three separate elements could satisfy. Asset parity
+    covered css only; `boot.js` and the third-party vendor trees are guarded now too.
+  - **`dotnet watch` needed two things, both measured.** Templates are `AdditionalFiles`, which its
+    default globs do not cover, so they need matching `Watch` items; and under the default
+    hot-reload session this project detected nothing at all, template or `.cs`, while a scratch
+    console app in the same tree rebuilt on both. The documented command is
+    `dotnet watch run --project apps/sample --no-hot-reload`.
+  - **Two claims in `work/milestones.md` were wrong and are corrected.** CI's `skeleton-stamp` job
+    does stamp and build the skeleton in package mode — what is missing is that no *local* build
+    does. Milestone 5 is `shipped`: the solution is 18 projects and none provider-specific.
+  - **Cleanup candidates in `scripts/cleanup/phase1-visible-ui.ps1`, not run** — 2,073 MB across 19
+    paths, chiefly the `bin/obj` trees of the seventeen projects that left with the identity
+    provider. It asks git about every target rather than asserting anything.
 
-- **Backlog leftovers** — `fix/014-leftovers`, 2026-08-31. Five `work/todo.md` items closed, none
-  of them needing a host or a decision: the `NWF010` false positive, the two fixture-arithmetic
-  assertions in `DeclarativeFormTests`, the `DenoToolingPolicyTests` race, `deploy.sh --port`, and
-  the back-reference in `DeployScriptTests`. **706 web-unit / 339 web-integration / 85 forms /
-  157 render / 64 scaffold-unit / 38 scaffold-integration / 36 sample, 0 failed**; solution build
-  0 warnings; structure-audit 0 errors. Seven mutations, each killing its own fact.
-  - **Two measurements worth keeping.** IOperation hands an analyzer the UNREDUCED symbol for both
-    extension-call spellings, so `ReducedFrom` is null and the `this` is `Parameters[0]`; a first
-    cut read `ReducedFrom` and the branch never ran, which only a mutation showed. And the
-    `--help` output of every deploy script is a `sed` line range over its own header, so adding
-    three comment lines truncated it — caught by `AssertHelpRangeIsIntact`, which exists for that.
-  - **One item was opened rather than closed.** The runtime packages not referencing their
-    generators is all three families, not just Forms, and fixing it means choosing a publishing
-    model. Left on `todo.md` as a decision.
+- **The identity provider leaves NativeWeb** — `refactor/extract-idp`, 2026-08-31. NativeWeb is a
+  framework and holds no product. `apps/web`, `libs/nativeweb.{auth,data}`, the two sign-in
+  libraries, `db/{migrations,queries,schema,seed}` and seven test projects are gone: **622 files,
+  69,322 lines**. Nothing was ported — epass.io has its own IdP, which had diverged from this one
+  in content and not only in count. Decision and the full divergence table:
+  `docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`.
+  - **The line, and why it was crossed.** Django ships `contrib.auth` and leaves the OAuth2/OIDC
+    server to a third-party package. `TokenIssuer`, `SilentConsent`, `RealmResolver` and `SsoModes`
+    are the far side of it. The only justification anywhere was a stale sentence in `AGENTS.md`
+    calling this repo "the full ground-up redesign of epass.io", and the 2026-08-19 neutral-naming
+    rename made IdP code *look* like framework code without one line becoming it.
+  - **The highest-value find was coverage that would have vanished silently.**
+    `tests/nativeweb.web.tests.unit` was this repo's only unit tier, so seven repository-level
+    guards with nothing to do with the IdP lived in it — the workflow's action pinning,
+    `nuget.config`, the solution, `Directory.Build.props`, `.editorconfig`, pack metadata and the
+    skeleton's framework resolution. CI's own comments cite two of them as the reason its steps
+    exist. Rehomed as `tests/nativeweb.repo.tests.unit`, **51 facts**, with a CI step of its own.
+  - **Suites after: 444 facts across seven projects, 0 failed, 0 skipped**; solution build 0
+    warnings / 0 errors; `tools/bench` 87 Deno facts; structure-audit 0 errors.
+  - **The bench harness was retargeted at `apps/sample` and re-baselined**, not carried over — a
+    smaller app measured against a larger one's ceiling passes for the wrong reason. bench-host,
+    2026-08-31: `/healthz` 23,068.6 req/s, 0.60 ms p50, 45.0 MB; `/articles` 19,937.6 req/s,
+    0.61 ms p50, 40.3 MB, zero errors. `/articles` and not `/`, because `/` on `apps/sample` is a
+    302 and would measure the router; `run.test.ts` pins that. It also serves http now, so
+    `cert.ts` went with `apps/web`.
+  - **A real bug fell out of the re-baseline**: `--check` reported "within tolerance of the
+    baseline recorded 2026-08-30" about a file written minutes earlier.
+    `new Date().toISOString().slice(0,10)` is the UTC date, and this machine is UTC+8. `localDate()`
+    now, with three mutation-checked cases.
+  - **The correctness review found eleven things, and a grep sweep found three more the second
+    lens did not live to find** (it hit its turn cap and returned nothing, $3.18). All fixed except
+    three logged as decisions: `db/migrate.sh` and `db/test-run-lock.sh` are unreachable and now
+    say so in their own headers; the OTel-under-AOT gate in `check-publish-budgets.ps1` stopped
+    gating because `apps/sample` registers no telemetry; and the `Fido2`/`NSec` pins have no
+    consumer. All three are in `work/todo.md`.
+  - **Cleanup candidates in `scripts/cleanup/extract-idp.ps1`, not run** — the four untracked
+    `libs/epass.*` obj-only leftovers, and ~1.6 GB of `bin/obj` behind a second `-DeleteBuildOutput`
+    flag. It refuses to touch anything git tracks.
 
-- **Spec 014 — declarative form binding** — `feat/014-declarative-form-binding`, 2026-08-30,
-  **all ten tasks ticked and `014-spec.md` is `done`**. Brainstorm 001 T1.2 closed. A `[Form]`
-  record gets a generated binder; `MapFormPost<TForm>` attaches the 415, the antiforgery metadata
-  and the accepts metadata by construction; `NWF010` makes any other shape a build error. Both
-  `/auth/register` POSTs are converted. **699 unit / 339 integration / 73 e2e, 0 failed, and no
-  existing assertion edited**; `dotnet publish -c Release -r win-x64` of `apps/sample` and
-  `apps/web` both 0 warnings.
-  - **The plan's mechanism was disproved by measurement and replaced mid-build.** It assumed the
-    Request Delegate Generator would resolve an `IBindableFromHttpContext` that this generator
-    emits. It cannot: both generators run in the **same** pass over the same input compilation, so
-    RDG never sees a partial another generator added — it recorded `hasBindAsync: false`, treated
-    the model as a JSON body, and `ConsumesMatcherPolicy` answered every form POST **415 at
-    routing**, before a line of this feature ran. Five of seven integration tests were red on that
-    and nothing else said a word. `IFormModel<TSelf>` + `MapFormPost` replaced it; the correction
-    is at the top of `014-plan.md`. This is §14's rule from the other direction, and the second
-    time this repo has paid for the same fact.
-  - **The route is a `RequestDelegate` because the alternative does not build.** The
-    `Map*(…, Delegate)` overloads carry `RequiresDynamicCode`, and RDG cannot rewrite a call inside
-    a generic method, so the first `MapFormPost` failed the AOT publish with IL2026 + IL3050. The
-    `RequestDelegate` overloads carry neither attribute, and return `IEndpointConventionBuilder`
-    rather than `RouteHandlerBuilder` — which is why `RequireServices<T1,T2,T3>` gained an overload
-    on the interface beside the existing one. No existing call site changed.
-  - **`AcceptsMetadata` is what decides which rejection wins**, and it was found by three existing
-    assertions going red. RDG attached it for `[FromForm]` routes; without it,
-    `ConsumesMatcherPolicy` no longer answers a tokenless JSON POST 415 at routing and the
-    antiforgery middleware answers 400 first. `MapForm` attaches it.
-  - **Recorded rather than chosen:** `IFormCollection` is keyed case-insensitively, so a field
-    posted as `ConfirmPassphrase` binds a member whose wire name is `confirmPassphrase`. A form
-    model cannot declare two members whose wire names differ only in case. Found by an assertion
-    written the other way.
-  - Nine mutations run across the branch, each killing the facts it should: the analyzer's matched
-    verbs, the antiforgery attach, the accepts attach, the emitted content-type guard, the emitted
-    wire names, the 503-degrade, and the sample's page-size ceiling and case-insensitive query.
-  - **Pre-merge two-lens review, 2026-08-30/31.** Correctness and consequence lenses over the
-    whole branch diff; the generator findings were verified by reading `FormModel.cs` and
-    `FormGenerator.cs` rather than by refutation prompt. **Eleven code fixes and four weak
-    assertions**, each landing with the fact that would have caught it — eleven further mutations
-    run, every one killing its own fact. The code fixes: `SymbolDisplay.FormatLiteral` for wire
-    names (hand-rolled escaping emitted a raw newline into a string literal); `@`-prefixing
-    keyword identifiers (a model written `@class` emitted `partial record class`); the duplicate
-    wire-name check moved to `OrdinalIgnoreCase` to match how `IFormCollection` reads;
-    `NullableAnnotation.Annotated` rather than "not NotAnnotated", which had let a plain `string`
-    in a nullable-disabled file bind null silently; `[property: FormField]` read as well as the
-    parameter attribute, which is what `014-plan.md`'s own example wrote; file-local types
-    rejected by NWF005; structural `IEquatable<>` on `FormModel`, `FormFieldModel` and `Parsed`,
-    without which the incremental cache never hits; `Map` and `MapFallback` added to NWF010's
-    matched set; null guards on `MapForm`'s pattern and method; and two corrected remarks in
-    `FormBinding`. The four assertion defects: a theory that called the guard and asserted
-    nothing, a `NotEqual(BadRequest)` that a 500 would have satisfied, an undisambiguated 400,
-    and a binding fact that posted `Name` — testing case-insensitivity by accident rather than
-    the naming convention on purpose. Three `WebApplication` hosts now disposed.
-    **Final: 82 forms-unit / 36 sample-unit / 699 web-unit / 339 integration / 73 e2e, 0 failed;
-    both AOT publishes 0 warnings; structure-audit 0 errors.**
+- **Audit sweep and its fixes** — `chore/backlog-audit-2026-08-30`, 2026-08-30. Find-what-is-wrong
+  rather than build-the-next-thing: two `audit` lanes over `scripts/deploy/**` and `skeleton/`,
+  every claim then handed to a `review-deep` (Fable) worker prompted to refute it. **18 claims, 18
+  confirmed, 0 refuted**, plus one correction from Fable and one precision defect in the repo's own
+  audit tool. All 19 are fixed on this branch. The full list is in `work/todo.md`.
+  - **The skeleton is where the value was.** Ten drifts, none of which anything could have caught:
+    `skeleton/` is not in `NativeWeb.slnx`, so it never builds, and every drift was a thing a
+    stamped product would do wrong rather than fail to compile — a form POST answering 500 instead
+    of 400, a user-secrets store outranking a production environment variable, `/readyz` taking a
+    pooled connection per anonymous hit, unredacted query strings in every trace, and a mistyped
+    config value hanging the service behind a modal box under NativeAOT. `SkeletonParityTests` is
+    the first parity coverage this repo has had: **14 facts, six mutations, six distinct failures**.
+  - **`assertionless-test` had no notion of a project-local assertion helper**, so 52 of this
+    repo's own tests read as asserting nothing and the daily audit spent its refutation budget on
+    them. One regex; the mechanical sweep went **124 → 83 candidates**.
+  - Suites: **676 web-unit** (+14), 157 render, 64 scaffold, 184 signin, 16 sample, `tools/audit`
+    255, structure-audit 0 errors / 2 pre-existing warnings. `tmp/probe-app2` stamped and built
+    (0 warnings, 0 errors) to compile the skeleton C#, which the solution does not.
 
-- **htmx 4.0.0 upgrade** (spec 012, `feat/012-htmx-4-upgrade`, merged 2026-08-29, unpushed).
-  All fourteen tasks ticked; **`012-spec.md` is not `done` — R16 is unmet.** htmx 4 is a rewrite
-  from `XMLHttpRequest` onto `fetch()`: every lifecycle event was renamed to `htmx:phase:action`
-  and every payload now arrives as `detail.ctx` and nothing else. The migration surface turned out
-  to be small because no `hx-*` attribute is authored anywhere in this repo — all of them are
-  derived at runtime from `data-nw-*` by `boot.js`, so the upgrade was three files of glue plus the
-  vendored library, not a sweep of the render tree.
-  - **Three changes would have failed silently under a mechanical rename**, which is why the
-    translation was done by hand. Restoring the busy state on `after:request` leaves a permanently
-    disabled button after any network failure, because 4.0 does not fire that event when the
-    request never completes — it moved to `finally:request`. `after:swap` now dispatches on
-    `ctx.sourceElement`, so the old `event.target` fallback would focus the wrong node with no
-    error. And 4.0 **swaps 4xx/5xx bodies into the target by default**, which would have rendered
-    guard rejections inside authenticated pages; `noSwap: [204, 304, "4xx", "5xx"]` in the
-    `htmx-config` meta closes that, and it had to land in the same commit as the library.
-  - **A pre-existing test blind spot was exposed by mutation, not by review.** Reverting the
-    antiforgery listener to its 2.x event name left 67/67 green: the hidden
-    `__RequestVerificationToken` field covers every form post regardless of whether the header is
-    sent. `AntiforgeryToken_IsSentAsAHeaderOnHtmxRequests` now pins the header itself. All four new
-    e2e tests were mutation-checked; two of the four rounds initially produced bogus results from
-    stale build-server state, so each mutation run is preceded by
-    `dotnet build-server shutdown` plus a full build.
-  - **Two features were evaluated and declined on evidence.** Morph swaps: zero eligible targets,
-    because all five swap-target shapes contain their own forms and their own error banner, and
-    `#settings-sessions` — the one pure-list candidate — holds antiforgery and bot-trap hidden
-    inputs inside the swap region that morph's input preservation would leave stale
-    (`docs/decisions/2026-08-29-003-morph-swaps-not-adopted.md`). `hx-alpine-compat`: `git grep`
-    finds zero tracked Alpine directives in `apps/web` or `skeleton`, so it resolves a conflict
-    that cannot occur here.
-  - **What was measured:** the minified library, 51,238 B → 36,716 B, **28.3% smaller**. What was
-    not: §14's throughput and RSS figures, whose harness is two purpose-built minimal apps in a
-    sandbox that no longer exists — and which measure the server, where a browser-side library does
-    not appear. R16 is recorded unmet in §14 and in `012-tasks.md` T11 rather than filled with a
-    number nobody produced.
-  - The 2.0.10 build is retained at `libs/nativeweb.assets/rollback/htmx-2.0.10.min.js`, outside
-    every `wwwroot` so it is kept without being reachable or served. The `rollback/` carve-out is
-    documented in that library's `README.md`, which otherwise bars third-party files.
+- **ISL-NETC 1.1 re-sync** — `docs/isl-netc-1.1`, 2026-08-30. Unblocked by the family maintainer's
+  notice (`216557c`), which the user merged. `LICENSE.md` is now the 1.1 text with §1.2 completed as
+  Extrode LLC — one line different from the published text, `diff`-verified — so the `NOTICE.md`
+  Licensor override is gone and both notice and README cite the version-pinned URL.
+  `LicenseTextIsNotEditedToNameThisLicensor` inverted into
+  `LicenseCompletesTheLicensorFieldWithThisLicensor`; 652/652 unit, both mutations bite.
+  - **Verified against the published site, `docs/isl-1-1-published-verification`, 2026-08-30.** The
+    re-sync was taken from the local licence checkout because `curl` here returns `000`; that reads
+    as blocked egress and is not — `curl` on this machine fails every https request with code 43,
+    while `deno eval 'await fetch(...)'` from the same shell gets 200. All four URLs are live, and
+    published `/isl-netc/1.1/LICENSE.md` and `/isl-cla/1.1/CLA.md` are **byte-identical** to the
+    checkout the bumps came from. One real finding: `CONTRIBUTING.md` rows (c) and (e) called the
+    §9.2 jurisdiction and forum "placeholders" being completed. That is 1.0's shape — 1.0 §9.2
+    carries a literal `[JURISDICTION]`, 1.1 carries none and says the Agreement "carries no blanks
+    to fill". Reworded; the stated values did not change.
 
-- **Production deployment infrastructure** (spec 011, `feat/011-production-deployment`, merged
-  2026-08-27, unpushed). T1-T14 and T16 ticked; **T15 is outstanding and is a person's to run**,
-  so `011-spec.md` stays `draft`. The deploy half Slice 10 never started: `scripts/deploy/`
-  provisions a bare Debian host, releases blue/green behind Caddy, rolls back, and takes nightly
-  `age`-encrypted dumps to S3-compatible storage, with `docs/02-reference/deployment.md` as the
-  runbook. Blue/green over symlink-flip because R10 says the previous release keeps serving
-  *throughout*, which a restart gap cannot satisfy.
-  - **The two-lens review found fifteen real defects in this branch's own work, and both lenses
-    independently put the same one first.** `deploy.sh` invoked `db/migrate.sh` with no
-    environment, so it inherited the development database and role -- `nativeweb_dev` and
-    `nativeweb_app`, neither of which `provision.sh` creates. Every first deploy on a provisioned
-    host would have aborted at the migration step. The nightly backup would have failed on the
-    first timer run of every host for the same class of reason: it runs as root and no PostgreSQL
-    role called root exists. Both preflight guards checked the two keys `provision.sh` seeds
-    *populated*, so neither could ever fire while the blank ones went unchecked;
-    `StartLimitIntervalSec` sat in `[Service]`, where systemd ignores it; and `live_colour` read
-    the first port-shaped string in the upstream file, which was a comment. Full list in
-    `011-spec.md`, "Acceptance review".
-  - **T14 was measured rather than reasoned.** `MemoryDenyWriteExecute=yes` -- the one hardening
-    line that can stop the service booting -- was verified against a real `linux-x64` NativeAOT
-    publish on Debian 12 under WSL2: it started, answered `/healthz` 200 and `/readyz` 503 (the
-    no-database state), indistinguishable from the same binary with the filter off. The lazy
-    `dlopen` of `libsodium.so` behind Argon2id does not run at startup, so it was probed
-    separately under the same filter: `dlopen` succeeded, `sodium_init()` returned 0. Caveat on
-    record: a `--user` unit on the WSL2 kernel, not a `--system` unit on the target host.
-  - **Running `build.sh` for real found two defects a reading would not have.** A Debian WSL image
-    with no `zstd` compiled the whole NativeAOT publish (34,632,768 B) and then died on the tar,
-    leaving 4,096 bytes of a 34 MB artifact at the exact path `deploy.sh` is told to ship. Tool
-    preflight added, ordered after the Windows-shell refusal because git-bash has no zstd either;
-    the EXIT trap now covers the artifact and is narrowed again once tar returns 0.
-  - **Three requirements are unmet and none can be met from a session.** R1 (provisioning
-    walkthrough), R16 (restore drill) and R17 (disaster recovery) all need a real host. R15 is
-    conditional as well: `BACKUP_HEARTBEAT_URL` is unset, so a backup that silently stops running
-    is not noticed, and `backup.sh` says so in its own output on every run.
-  - Suite: 611 web-unit / 307 web-integration / 67 web-e2e, 0 failed. Four mutations confirmed
-    the new facts are not vacuous.
+- **OAuth back-navigation walk** — `test/oauth-back-navigation`, 2026-08-30. The last unblocked
+  item from 012's open questions. No defect: htmx's removed history cache never applied here, since
+  nothing in `apps/web` sets `hx-push-url`, `hx-boost` or `hx-history`. The test pins what does
+  matter — a re-issued authorize GET after the code is redeemed renders a fresh consent screen, and
+  the request count proves it reached the server (**1 → 2**, mutation-checked). **4 OAuth e2e
+  facts** (+1).
 
-- **Documentation and tutorials** (spec 010, `docs/010-documentation-and-tutorials`, merged
-  2026-08-25, unpushed). T1–T10, all ticked. Four documents — a filled `README.md`,
-  `docs/00-quick-start/getting-started.md`, `docs/00-quick-start/tutorial-first-feature.md` and
-  `docs/README.md` — plus the feature the tutorial is built on, `GET /articles` in `apps/sample`.
-  (Both quick-start paths were flat `docs/*.md` when 010 shipped; `feat/docs-site` moved them on
-  2026-08-27.)
-  - **R12 was the expensive requirement and the one that paid.** Every command executed before it
-    was written down, which is how the README's JauntyQ note came to say what it says: a clean
-    clone cannot build `NativeWeb.slnx` unless `jauntyq` is a literal sibling, and
-    `-p:JauntyQUsePackages=true` does *not* rescue it, because the solution lists JauntyQ's two
-    projects as members unconditionally. Path A was walked by stamping a real product into
-    `../probe` (47 unit / 7 integration / 2 e2e, 0 failed); its two footnotes —
-    `<Product>__Db__ConnectionString` in the environment, and roots as environment variables rather
-    than `-p:` flags, because command-line properties do not cross into the e2e fixture's child
-    `dotnet publish` — are findings from that run, not inferences.
-  - **The tutorial's feature is real, and it needed JauntyQ to ship something.** `ORDER BY
-    created_at` on a table indexed only by primary key raises `JNT8007`, fatal here under
-    `TreatWarningsAsErrors`. JauntyQ added `-- @allow-sort <reason>` (`bf37907` in that checkout),
-    mirroring `@allow-unindexed`: mandatory reason, bare form rejected `JNT3008`, and a
-    self-expiring `JNT8012` when the directive suppresses nothing. Verified rather than assumed by
-    putting it on `List.sql`, which sorts on the primary key, and watching `JNT8012` quote the
-    reason back. Chosen over an index migration because the table is three seeded rows in a demo,
-    where PostgreSQL would ignore the index; the four precedent migrations that *did* take the
-    index (`0023`, `0033`, `0034`, `0048`) are named in the query's own comment.
-  - **19 new facts, every one perturbed** — sample-unit 8 → 16, scaffold-integration 24 → 31,
-    scaffold-e2e 9 → 13, 0 failed, 0 skipped. Twelve distinct perturbations. Two method findings
-    are recorded in `010-tasks.md` and repeated in the tutorial's ninth section because they
-    generalise: perturbing `WHERE` and `ORDER BY` together failed four integration tests rather
-    than two, `ORDER BY ASC` having pushed the future-dated rows off the twenty-row page, so two of
-    them failed for a reason unrelated to what they assert; and the `.RequireAuthorization()`
-    perturbation failed in 96 ms, fast enough to suspect the host had never started — it had, and
-    the message proved it.
-  - **T10's read-back found three divergences, all recorded rather than smoothed.**
-    `docs/constitution.md` is still the unfilled template while `docs/README.md` lists it as
-    binding; `conventions.md` names cleanup scripts `cleanup-<milestone>.ps1` where the global rule
-    and the actual files use `<NNN>-<slug>.ps1`; and the tutorial's page carries no `data-nw-*` and
-    loads no `boot.js`, which is correct for a page with no interaction and is stated as such.
-    One thing was corrected instead: `db/sample/README.md`'s "the tests do not truncate" section,
-    made stale by this branch's own `DeleteByIdPrefixAsync`.
-  - `scripts/cleanup/010-documentation-and-tutorials.ps1` was written and run by the user: 26
-    scratch databases and the role `probe_app` dropped, leaving `nativeweb_dev`,
-    `nativeweb_sample_dev` and `nativeweb_sample_test`.
+- **Sticky busy control** — `fix/busy-control-detached-source`, 2026-08-30. A submit control left
+  disabled forever when the response swapped away the region that issued the request. Cause is
+  **not** what the 012 review recorded: htmx reassigns `ctx.sourceElement` to the swap target while
+  swapping (`FORM.auth-card` at `before:request`, `DIV.auth-board` at `finally:request`, measured),
+  so `boot.js` read its busy reference off an element that never had one. The reference rides on
+  the per-request `ctx` object now. **72 web e2e pass** (+1), 652 unit unchanged.
+  - The backlog's proposed fix — bind at-target with `{once: true}` — was implemented first and
+    **fails the regression test**, because htmx's `trigger` ends `isConnected ? element : document`
+    and routes a detached source's event to `document`. Delegation was the thing that worked.
+    Symptom was evidence; mechanism was a guess; one instrumented run contradicted both readings.
 
-- **CI Node-runtime cutover** (three branches, merged 2026-08-20; pushed 2026-08-24). GitHub is
-  withdrawing the node20 action runtime, and the useful question turned out not to be "what do we
-  bump" but "what is running Node at all". Two of the three actions were **deleted** rather than
-  bumped: `ilammy/msvc-dev-cmd` set up a toolchain the ILCompiler locates itself through its own
-  bundled `findvcvarsall.bat` (measured — a full AOT publish of `apps/web` from a shell with no
-  `VCINSTALLDIR` and no `cl.exe` on `PATH` links and exits 0 in 56s), and it was actively harmful,
-  exporting `Platform=x64` into MSBuild and inserting a phantom path segment into the publish
-  output; `actions/setup-dotnet` installed an SDK both hosted images already ship (10.0.110,
-  10.0.204, 10.0.302 on Ubuntu 24.04 and Windows Server 2025). The SDK requirement moved to
-  `global.json` (`10.0.100`, `rollForward: latestFeature`) in both this repo and the skeleton,
-  which is strictly wider coverage than the workflow had — it governs local builds too. That pin
-  is load-bearing and was proved so: perturbed to `rollForward: patch`, the SDK resolver itself
-  refuses with `sdk-not-found` before any test runs. `actions/checkout@v7` is now the only `uses:`
-  step across both workflows, so **no code from any account but GitHub's runs with the workflow
-  token**. `AtLeastOneThirdPartyActionIsPinned` could only survive by being weakened, so it was
-  inverted into `NoThirdPartyActionsAreUsed`; the SHA theory beside it stays as a latent guard.
-  494/494 web-unit green, build 0 warnings / 0 errors. The one thing local measurement could not
-  cover — whether `vswhere` finds the C++ tools on the hosted image with no setup step — **went
-  green on the first run after the push**, 2026-08-24T07:11Z, both jobs, on image
-  `windows-2025-vs2026` 20260818.207.1. Reasoning and every measurement:
-  `docs/decisions/2026-08-20-001-node-runtime-in-ci.md`.
+- **Scaffold e2e publish budget** — `fix/publish-budget-diagnostics`, 2026-08-30.
+  `SampleProcessFixture` allowed the NativeAOT publish 15 minutes; `AppProcessFixture` in the web
+  tier already allowed 30 for the same publish. Raised to 30. **13/13 pass, 2 s** from a detached
+  worktree — the main tree cannot run this tier while a Debug `nativeweb.web` holds `apps/web/bin`.
+  The `work/todo.md` entry that logged this named `AppProcessFixture`; the constant was in
+  `SampleProcessFixture`, and the entry now says so.
+  - Its first verification run looked hung for 45 minutes and was not: the background command
+    piped through `tail -25`, which buffers to EOF, so the output file stayed at 0 bytes while the
+    tier ran to completion. Redirect a long background run to a log file instead.
 
-- **epass sign-in library** (spec 008, `feat/008-signin-library`, merged 2026-08-19). T1–T19, the
-  relying-party half of the epass handshake as `libs/nativeweb.signin.epass` — a consumer supplies
-  an `ILoginFlowStore` and an `OnSignedIn` resolver and gets the start, callback and sign-out
-  endpoints, the signed `v2` session ticket and the open-redirect guard. `Pkce` and `Masking`
-  moved to `nativeweb.security` first (T1), so the library's graph does not touch `nativeweb.auth`.
-  Measured green: 164 unit / 16 integration / 2 e2e, full build with no warnings, AOT publish
-  exit 0 with zero IL2026/IL3050. Three findings from the reviews were real and fixed rather than
-  noted: `AddEpassSignIn` never called `AddAuthorization`, so the README's own wiring block threw
-  at first request; an unbounded login POST relayed whatever the form carried to the provider under
-  the client's credentials (now 254 bytes, RFC 5321, refused before any call); and an all-one-byte
-  signing key passed validation — the fix broke 20 fixtures that were using `new byte[32]`, which
-  is the finding proving itself. The conformance fixture lost its `ExpireAsync` hook: it now starts
-  a flow already expired, which additionally pins that a store honours the expiry it was *handed*
-  rather than inventing one. Two deliberate deviations from the approved plan: the fixture ships as
-  its own project (xunit must not be in a production package's closure) and `AddEpassSignIn` takes
-  only a configure delegate. The justsmtp.com migration (R12) is handed off, not done here.
+- **Unsupervised backlog run** — 2026-08-29, one branch per item, each merged to `dev` as it
+  finished. `test/antiforgery-guard-agreement`: the two antiforgery guards are now held to
+  agreeing across the three feature states, mutation-checked both ways (one guard drifts → fails;
+  both drift together → still fails). **652 unit tests pass** (+3).
 
-- **Away backlog slate** (seven branches, merged 2026-08-18). The items the user picked on the
-  way out, plus the two they decided rather than deferred. `db/migrate.sh` now takes a
-  session-level advisory lock through a psql coproc before it reads anything, so a second runner
-  queues and says so instead of racing `is_tracked`; verified by `db/test-run-lock.sh` rather than
-  an xUnit fact, because launching the runner from .NET on Windows deadlocks on the redirected
-  pipe and the failure would look exactly like the bug. `Redirects.To` answers a POST with 303 and
-  a GET with 302 -- Minimal APIs has no 303 helper, so `Location` is set by hand. The 415 sweep
-  reached the last six handlers, taking guarded handlers from 17 to 23 and turning six tolerant
-  ternaries into plain `ReadFormAsync`. `CompressedAssetTests` covers the one asset path only
-  `dotnet publish` exercises. `.editorconfig` gained field/local/parameter naming rules -- and the
-  find behind them: IDE1006 was off, so every naming rule in that file, including one written at
-  `severity = warning` on day one, had never run. The solution measured at a single violation.
-  `docs/02-reference/migration-lock-review.md` records which migrations would hurt against a live
-  database.
+- **Stale `extrode-legacy-org` references** — `fix/stale-extrode-legacy-org-references`, 2026-08-29. Two survivors of the
+  2026-08-26 org rename, each with the test gap that let it survive: `<Authors>extrode-legacy-org</Authors>` in
+  **ten** packable csproj (now one central value in `Directory.Build.targets`, verified through
+  `dotnet pack`), and `skeleton/nuget.config`'s `framework-github` feed host (now `extrode`, and
+  `OrgReferenceTests` now scans that file too). **649 unit tests pass** (+2, both mutation-checked).
+  CI stays red regardless: the JauntyQ 403 in `todo.md` is a package grant only the user can add.
 
-- **Bounded backlog run** (four branches, merged 2026-08-17). Taken simplest-first while the user
-  was away, on the scope they set on the way out. `fix/migrate-record-in-transaction` made
-  `db/migrate.sh` apply and record in one transaction, asks the server whether the wrap survived
-  rather than trusting its log, and lets a concurrent double-apply fail loudly.
-  `chore/skeleton-local-mode-ci` rebuilt the skeleton's CI in checkout mode — the package mode it
-  forced could never restore, because the private feed does not exist — with the framework checked
-  out as a SIBLING of the product: nested, `Directory.Packages.props` discovery walks up out of the
-  clone into the product's copy and restore dies NU1008 on both JauntyQ projects, measured. That
-  run also closed a vacuous pass of my own: a `(?m)` job-header regex that would not step over a
-  `\r`, so the sweep found no jobs and reported green. `fix/415-before-antiforgery` is the
-  400-vs-415 decision below, now taken. The JauntyQ generator flake is written up.
-- **CI closeout and the first-party application gap** (many branches, merged 2026-08-17). The CI
-  chain went green end to end for the first time, including `aot-publish` and all three test
-  tiers. Behind it: migration 0055 creates the first-party application row for every deployment,
-  which is what `db/seed/ci` had been papering over for CI alone — measured 33/258 integration
-  failures with 0055 withheld against 258/258 with it. `RealmResolver.ResolveFirstPartyAsync`
-  now returns null rather than throwing, both call sites answer 503, and a three-valued boot
-  check refuses to start outside Development only when the database *answers* and the row is
-  absent. `db/seed/ci` is retired and deleted; `CiSeedTests` was rewritten to assert the
-  inverse, that ci.yml applies no seed at all. Fable's review caught a real defect in
-  `DemoteBelowEnvironmentVariables`, which was wrong for more than one added source and had four
-  passing tests that were all single-source. The skeleton's `msvc-dev-cmd` is SHA-pinned, guarded
-  by `ActionPinTests` over both repositories' workflows. Cleanup ran: 97 merged branches, 29
-  scratch files and 8 repro databases removed.
-- **Overnight backlog** (three branches, merged 2026-08-17). `chore/test-and-skeleton-hygiene`
-  removed the two dead OpenApi package pins (approved beforehand: dependency removal) and made
-  `check-publish-budgets.ps1` default to the port ci.yml actually passes, guarded by a test that
-  reads both files. `feat/render-diagnostics-locations` gave every NWT diagnostic a real file and
-  line — they were all `Location.None`, so nothing in a build log was clickable — validated
-  `@param` types so a type with a space in it is NWT003 rather than a C# error in generated code,
-  and added NWT016, which rejects interpolation inside a tag but outside a quoted attribute value.
-  That last one makes `TemplateWriter`'s own safety comment checkable for the first time.
-- **IdP correctness backlog** (`fix/idp-correctness-backlog`, merged 2026-08-17). `POST
-  /auth/2fa/verify` answered an expired challenge with a bare 302, and that form is htmx-driven,
-  so the sign-in page's whole document was swapped into the 2FA card. Now `Redirects.To`, along
-  with eight GET-side redirects that are latent only because nothing links to them yet.
-  `AppProcessFixture` gained a 15-minute publish budget, event-based draining of both pipes (the
-  sequential drain could deadlock the child), the child's last output lines in the exception, and
-  `Kill(entireProcessTree: true)`; `ProcessRunTests` covers all three exits. The 400-vs-415
-  ordering was examined and deliberately left alone — it is consistent at all 23
-  `ValidateRequestAsync` sites, so it is a design decision to make, not a slip to fix; recorded in
-  `work/todo.md`.
-- Before that: `fix/loose-ends` (the last 2026-08-03 CSP review finding, plus the cleanup-script
-  `--execute` interface), spec 007 (session tokens hashed at rest) and `fix/csp-hash-scan-context`.
+- **Bench harness, third review pass** — `fix/012-bench-review`, 2026-08-29. Fable (`review-deep`)
+  read the whole harness diff after the glm correctness and consequence lenses had already run and
+  8 findings had been fixed. It found **5 more, 4 of them holes that let a check pass without
+  checking**, all confirmed by reading the code and all now fixed with mutation-checked tests:
+  the `--check` settings-mismatch escape (exit 2 now), a measured RSS of 0 passing the ceiling,
+  `isBaseline` validating the envelope but not the numbers, and cert reuse checking expiry but not
+  the chain. The fifth was a vacuous test of its own — the remint branch was asserted by a call
+  with no assertion after it, on a pair that took the reuse path anyway.
+  **95 harness tests / 0 failed**; `--check --skip-publish` exit 0, `--duration 5` exit 2.
+  - The lesson worth keeping: two lenses plus adversarial verification did not find these. A
+    third reader on a different model did, on code already declared clean.
+
+- **Licensing** — `docs/isl-netc-licensing`, 2026-08-29. The repository is licensed: ISL-NETC 1.0
+  verbatim in `LICENSE.md`, the Licensor override in `NOTICE.md`, ISL-CLA 1.1 adopted in
+  `CONTRIBUTING.md` with optional §6 (no AI-generated contributions) opted in, `CONTRIBUTORS.md`
+  as the signing sheet, and the packable libs packing the license and notice.
+  **647 unit tests pass** (+6, `LicenseFilesTests`, each mutation-checked).
+  - **What is still open: ISL-CLA 1.1 is a draft its own drafters say not to accept contributions
+    under.** islamiclicense.org merged it to their `dev` on 2026-08-29; it publishes at
+    <https://islamiclicense.org/isl-cla/1.1/CLA.md> once deployed, and 404s until then
+    (**deployed 2026-08-30; that URL is 200 and the DRAFT banner is still in it**). The adoption
+    here is recorded in advance and flagged not in force at the top of `CONTRIBUTING.md`. When it is
+    marked final, delete that banner — nothing else in the file changes.
+  - **The version moved 1.0 → 1.1 on 2026-08-29, `docs/isl-cla-1-1`.** The agreement had been
+    amended twice in place under a fixed 1.0 — three required statements to **four**, then to
+    **five** with **(e) the forum** and a second §9.2 placeholder `[FORUM]`. (That last detail did
+    not survive: published 1.1 §9.2 has **no** bracketed field at all — it defers both the law and
+    the forum to the adoption section. Corrected 2026-08-30.) Told that adoption is
+    by name *and version*, islamiclicense.org undid it: `ISL-CLA-1.0.md` is frozen back to its
+    original four-item text and the revisions are `ISL-CLA-1.1.md`. This repository states five
+    items, so it adopts **1.1**. The table labels (a)–(e); `LicenseFilesTests` asserts the version,
+    (d) and (e).
+  - **The license family moved to 1.1 the same day** — `[LICENSOR]` becomes a placeholder the
+    adopter fills, retiring the `NOTICE.md` override. **Merged on their `dev`, not published**, so
+    the live site still serves 1.0 and `/isl-cla/` still 404s. (**Published 2026-08-30**; this repo
+    re-synced the same day and the unversioned `/isl-netc/LICENSE.md` now serves 1.1.) Their
+    CHANGELOG says a 1.0 copy with
+    a documented override "remains internally coherent", and the frozen 1.0 texts stay online at
+    `/isl-x/1.0/LICENSE.md`. Bumping waits on their deploy; see `work/todo.md`.
+  - Jurisdiction and Licensor are not invented: **Commonwealth of Virginia** and **Extrode LLC**,
+    matching `jauntyq/LICENSE.md` §6.4 and `LICENSE-EULA.md` §7.4.
+  - ISL-NETC 1.0 itself is in force (effective July 2026), so the outbound side needed no wait.
+    Neither text has been read by counsel; both say of themselves that they should be.
+
+- **Backlog sweep** — `chore/backlog-sweep`, merged to `dev` 2026-08-29, unpushed. Five `Now-ish`
+  items from `work/todo.md`, each with tests and each mutation-checked. Two are worth more than
+  their line in the backlog:
+  - **`skeleton/Directory.Build.props` was not valid XML** (`--` inside an XML comment), so MSBuild
+    refused to load it with `MSB4024` and **no stamped product had ever built** — it failed on its
+    own README's first command, before compiling a line. Found by stamping one and running it,
+    which is the only thing that would have found it: the suite covers `apps/` and `libs/`, whose
+    build files MSBuild loads every run, while the skeleton's are copied as text and parsed by
+    nobody until a product exists. `BuildFileXmlTests` now parses every tracked build file via
+    `git ls-files`. Verified by stamping `Sectest` and building it: 0 warnings, 0 errors.
+  - **The `security.txt` contact is configuration**, in `apps/web` and the skeleton both, and
+    unset serves no file rather than one naming a mailbox the deployment does not own. The
+    newline guard on the value is reachable rather than defensive padding, which mutation testing
+    is how I know: `Uri.TryCreate` accepts `https://e.com/r\nContact: mailto:evil@x.net` as a
+    valid absolute https URI, so without the guard that reaches the file.
+  - Also: 20 cleanup scripts repointed off the pre-extrode path, `SdkPinTests` asking git rather
+    than walking into gitignored scratch, and `apps/web`'s launch profile turned HTTPS.
+  - **Suite after the sweep: 640 unit / 310 integration / 71 e2e, 0 failed**; solution build 0
+    warnings, 0 errors. The +29 unit and +3 integration are this branch's own facts.
+
+- **Spec 013 — continuous read-only audit** is merged to `dev`, unpushed, all fourteen
+  tasks ticked, **253 tests pass / 0 fail** (`cd tools/audit && deno test -A -q`). A daily
+  unattended read of one slice of this repository on audit-host.local, producing a deduplicated defect
+  ledger that an interactive session triages with the user. Read-only by topology, not by
+  instruction: audit-host audits a throwaway clone of a pushed mirror and holds no credential that
+  reaches `origin`. Scope is `nativeweb` only.
+  - **`013-spec.md` is `built`, not `done`, and R2 and R15 are why.** They are properties of
+    audit-host after the user runs `scripts/audit/provision-audit-host.sh --execute` on it — the same shape of
+    outstanding as spec 011's T15. The R-by-R table is in `013-spec.md`, "Acceptance review".
+  - **R14 is met in two clauses of three, and the spec says so.** Nothing in the audit path opens
+    a branch or writes to the repository, structurally, because the audit only writes to its own
+    store. That `accepted` needs the user's agreement is a **record, not an enforcement
+    boundary**: `--approved-by` is a flag anything with a shell can type. What holds is that the
+    audit never calls `triage.ts`.
+  - **A mutation test pushed a full mirror of this repository to audit-host.local**, unasked, on
+    2026-08-29 at 14:49: the mutation removed the sync script's dry-run `exit 0` and the script
+    went on to push for real. Nothing reached `origin`. The test now stubs `ssh` and asserts it
+    was never invoked. The mirror is gated behind `-DropRemoteMirror` in
+    `scripts/cleanup/013-continuous-audit.ps1` — keep it if the audit host is going ahead.
+  - The audit's own first real run found **one genuine defect in this repo** and it is on
+    `work/todo.md`, not fixed: `docs/01-architecture/native-web-architecture.md:133` points at
+    `docs/99-design/design-decisions.md`, which no tracked file matches.
+  - Operator guide: `docs/02-reference/continuous-audit.md`. Spec/plan/tasks at
+    `docs/specs/013-continuous-audit/`.
+
+- **R16 load harness** — `feat/012-bench-harness`, merged to `dev` 2026-08-29, unpushed.
+  `tools/bench/` publishes `apps/web`, drives the published binary over https and averages three
+  ten-second passes per scenario against a committed `baseline.json`. **60 facts, 0 failed**
+  (`cd tools/bench && deno task test`), four of them mutation-checked.
+  - **First baseline (bench-host, 16 cpu, win-x64, 2026-08-29):** `/healthz` 18,067.2 req/s, 0.83 ms p50,
+    74.4 MB peak RSS; `home` — the full page render — 6,998.0 req/s, 2.11 ms p50, 60.9 MB. Zero
+    errors in both.
+  - **It has to serve https, and that was measured rather than assumed.** The first real run
+    recorded a baseline in which every `GET /` answered 500: the antiforgery cookie is
+    `CookieSecurePolicy.Always` and `Layout.Page` mints a token on every page, so over http the
+    render throws. 245,106 errors, 0 req/s, and `--baseline` wrote the file without complaint. It
+    now refuses a measurement with failed requests, zero throughput or no RSS reading, and
+    `tools/bench/cert.ts` mints a throwaway CA and leaf with openssl — a CA *and* a leaf because
+    Deno rejects a trust anchor offered as an end entity.
+  - **Tolerances are 20% down on throughput and 25% up on RSS, not the 5% the plan proposed.**
+    Eleven `home` passes across five sessions on one unchanged binary spread 16.3%, peak RSS 29%. A 5% band would fail
+    on noise more often than on a regression — which is also why this is not a CI job.
+  - **`012-spec.md` is `done`.** R16 is closed as *within tolerance of `baseline.json`* rather
+    than as the §14 re-run it originally asked for, which is impossible: those figures came from
+    two apps that are not in this repo and a sandbox that is gone. §14 now says the old table is
+    frozen and points at `tools/bench/` for regression work. Plan:
+    `docs/plans/2026-08-29-005-r16-load-harness.md`.
+  - Post-012 web suite is unchanged by this branch: **641 unit / 310 integration / 71 e2e, 0
+    failed**. The harness is Deno and adds no xUnit facts.
+
+- **Spec 011 still has not reached `done`, and that is unchanged by 012.** T15 -- the provisioning
+  walkthrough, the restore drill and the disaster-recovery run -- is executed by a person on a real
+  host, and `011-spec.md` stays `draft` until its measured times are in
+  `docs/02-reference/deployment.md`. That remains the first thing standing between this repo and a
+  production host, ahead of the cutover decision in `next.md`.
+
+- Spec 010 — documentation and tutorials — merged into `dev` on 2026-08-25
+  and rolled to `previous.md`; all ten of its tasks are ticked and `010-spec.md` is `done`. Every
+  numbered spec in `docs/specs/` is now `done` except 008, which stays `draft` for the reason
+  below.
+  - **What comes next is a decision, not a task.** `next.md` holds the epass.io production
+    cutover, and it is gated on the whole-versus-partial scope question in
+    `docs/architecture/002-epass-cutover-capability-gap.md`. Nothing under it can be scheduled
+    until that is answered.
+  - **Four unscheduled merges landed after 010 and are on `dev` at `1004220`**, none of them a
+    tasklist entry, all of them pushed to `origin/dev` on 2026-08-27: `chore/move-to-extrode`
+    (cleanup script for the source-root rename), `fix/jauntyq-root-name-agnostic`,
+    `feat/docs-site` (the `docs/` restructure below), and `fix/skeleton-probe-case`. `dev` and
+    `origin/dev` are level; there is no `main` branch yet, local or remote, because nothing has
+    been released.
+
+- **Spec 009 — three consumer seams for the sign-in library.**
+  `feat/009-signin-consumer-seams`, merged to `dev` 2026-08-25, unpushed. The three gaps
+  justsmtp.com found while migrating onto the library under 008 R12: no way to end a session
+  mid-request, no way for a test to mint a ticket, no seam for a consumer's own
+  address-plausibility check. All three closed, all three optional.
+  - **R9 is not this repo's work and is deliberately unmet here.** justsmtp adopting the seams
+    and deleting its three workarounds is a separate branch in a separate repository, sequenced
+    after this merge. Until that lands, the seams are compiled rather than used.
+  - **The justsmtp migration DID land** (2026-08-19), which retires the note that used to sit
+    here. Spec 008's `Status: draft` is now simply stale — logged on `work/todo.md` rather than
+    flipped, because confirming its fifteen acceptance criteria is a review of 008, not a line of
+    009's work.
+  - **A worktree cannot build `NativeWeb.slnx`.** Found on this branch. The
+    `Directory.Build.props` half was fixed here (`JauntyQRoot` now probes two depths); the
+    solution half needs a decision and is on `work/todo.md`. Per-project builds work with no flag.
+- Scaffolding POC (brainstorm 001 T1.3) is merged; follow-ups on `work/todo.md`, none blocking.
+  - **The two-lens review found eleven real defects in 009's own work**, all fixed on the branch
+    before it merged, one dropped as refuted. Four were behavioural — a policy timeout escaping as
+    a 500, `SignOutAsync` leaving `Context.User` authenticated, a second `OnAddressSubmitted`
+    silently disabling the first, and `no-store` set by one sign-out path but not the other — and
+    four were **prose on this branch asserting something the code did not do**, chiefly the
+    testing package being called undeployable while `DevelopmentDependency` was missing. The
+    R-by-R table in `009-spec.md` now reads R6 as met for the failure code and NOT for the
+    response shape; that half is documentary and pinned by a test. Detail: `009-spec.md`,
+    "What review found".
+- Suite counts, **all eleven tiers re-measured on `dev` at `1004220` on 2026-08-27 — 1,373 facts,
+  0 failed, 0 skipped**: 509 web-unit / 298 web-integration / 64 web-e2e / 157 render /
+  16 sample-unit / 64 scaffold-unit / 31 scaffold-integration / 13 scaffold-e2e / 184 signin-unit /
+  34 signin-integration / 3 signin-e2e. Solution build is 0 warnings, 0 errors.
+  **A twelfth project, `nativeweb.signin.epass.tests.aot`, holds no tests and `dotnet test` skips
+  it silently** — `IsTestProject=false`, by design. Its assertion is
+  `dotnet publish tests/nativeweb.signin.epass.tests.aot -c Release`, which exits 0 with no IL2026
+  and no IL3050. **It runs in CI as of 2026-08-29** (`chore/aot-gate-in-ci`), as a second step in
+  the `aot-publish` job. It has to be a second publish: `apps/web` holds no ProjectReference to
+  `nativeweb.signin.epass`, so the library's IL never reached the existing link and a green
+  `aot-publish` said nothing about it. Between `dotnet test` collecting zero facts in silence and
+  CI never linking the library, its only trigger had been someone remembering it.
+  This supersedes the 1,308 measured on `feat/009-signin-consumer-seams` on 2026-08-25. The +65 is
+  work merged after that branch, **not drift**: scaffold-integration 17→31 and scaffold-e2e 4→13
+  from the scaffolding follow-ups, web-unit 494→509 and signin-unit 177→184 from the JauntyQ-root
+  and skeleton-probe fixes, and 16 sample-unit that the 2026-08-25 breakdown omitted entirely.
+  **These counts were measured, not perturbed** — the tiers were re-run as a state check, and no
+  new fact was written on this pass.
+- Spec statuses: 001–007 `done`, 009 `done`. **008 says `draft` and, after the 2026-08-25 review,
+  should.** Twelve of its fifteen criteria are met and evidenced; R1, R11 and R12 each describe
+  something the shipped code deliberately does differently, so flipping the status is the user's
+  call rather than a correction. R-by-R table in `008-spec.md`, "Acceptance review".
+- The AOT publish gate for the sign-in library measures exit 0, zero IL2026/IL3050, **16,786,944 B**
+  exe (16.6 MB before 009); re-run after the review fixes. Note it only compiles natively when given a RID: `PublishAot=true` with
+  no `-r` gives the analyser pass and a managed publish, which is what the tests.aot project does
+  by default. 009's gate was verified both ways.
