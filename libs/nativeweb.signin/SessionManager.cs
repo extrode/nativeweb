@@ -28,10 +28,30 @@ namespace NativeWeb.SignIn;
 /// <param name="logger">This library's logger.</param>
 public sealed partial class SessionManager(
     ISessionStore store,
+    OAuthClient client,
     SignInOptions options,
     TimeProvider clock,
     ILogger<SessionManager> logger)
 {
+    /// <summary>
+    /// One gate per session, so two requests on one session do not both call the provider.
+    /// </summary>
+    /// <remarks>
+    /// The gate is in-process and the compare-and-swap is not: they cover different halves of the
+    /// same race. Inside one process the gate means the provider is called ONCE and the second
+    /// request reads the first one's result; across processes the gate does not exist, and
+    /// <see cref="ISessionStore.ReplaceIfMatchAsync"/> is what stops the loser from writing over
+    /// the winner. A rotating provider revokes the whole token family when a consumed refresh
+    /// token is presented again, so a session survives only while both halves hold.
+    /// <para>
+    /// Static rather than an instance field: the gate has to be the same object for two concurrent
+    /// requests, and a scoped registration would give each request its own manager and its own
+    /// empty dictionary. Keyed by the row's key hash, so two sessions never wait on each other.
+    /// </para>
+    /// </remarks>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> Gates =
+        new(StringComparer.Ordinal);
+
     private readonly StoreDataProtector _protector = new(options.StoreEncryptionKey
         ?? throw new InvalidOperationException(
             $"{nameof(SignInOptions.StoreEncryptionKey)} is unset. Call "
@@ -117,6 +137,134 @@ public sealed partial class SessionManager(
     }
 
     /// <summary>
+    /// Refreshes the session's access token when it is within <see cref="SignInOptions.RefreshSkew"/>
+    /// of expiry, and returns the session to carry on with.
+    /// </summary>
+    /// <remarks>
+    /// No redirect and no user-visible step: a request either finds a usable access token or gets
+    /// one before it is served (R13). A provider that REFUSES the refresh ends the session — the
+    /// alternative is a live session holding a token nothing will accept, which fails later, in a
+    /// place with no way to recover. A provider that is merely UNREACHABLE does not: nothing was
+    /// decided, and the existing token may well outlive the outage.
+    /// </remarks>
+    /// <param name="context">The request being served.</param>
+    /// <param name="state">What <see cref="ReadAsync"/> returned.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The session as it stands after any refresh.</returns>
+    internal async Task<SessionState> EnsureFreshAsync(
+        HttpContext context,
+        SessionState state,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (state.Read != SessionRead.Valid
+            || state.Record is not { } record
+            || state.KeyHash is not { } keyHash
+            || !options.RetainTokens
+            || record.ProtectedRefreshToken.Length == 0
+            || !NeedsRefresh(record))
+        {
+            return state;
+        }
+
+        SemaphoreSlim gate = Gates.GetOrAdd(keyHash, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            // Re-read behind the gate. The request that waited here usually finds the winner's
+            // fresh tokens already in place, and never calls the provider at all.
+            SessionRecord? current = await store.GetAsync(keyHash, ct).ConfigureAwait(false);
+            if (current is null)
+            {
+                ClearCookie(context);
+                return SessionState.Unknown;
+            }
+
+            if (!NeedsRefresh(current))
+            {
+                return new SessionState(SessionRead.Valid, current.Subject, current, keyHash);
+            }
+
+            return await RefreshBehindTheGateAsync(context, current, keyHash, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+            if (gate.CurrentCount == 1)
+            {
+                Gates.TryRemove(new KeyValuePair<string, SemaphoreSlim>(keyHash, gate));
+            }
+        }
+    }
+
+    private async Task<SessionState> RefreshBehindTheGateAsync(
+        HttpContext context,
+        SessionRecord current,
+        string keyHash,
+        CancellationToken ct)
+    {
+        string refreshToken = _protector.Unprotect(current.ProtectedRefreshToken);
+        SignInResult<ProviderTokens> refreshed = await client.RefreshAsync(refreshToken, ct).ConfigureAwait(false);
+
+        if (refreshed.Outcome == SignInOutcome.Refused)
+        {
+            LogRefreshRefused(logger, current.Subject);
+            await store.RemoveAsync(keyHash, ct).ConfigureAwait(false);
+            ClearCookie(context);
+            return SessionState.Unknown;
+        }
+
+        if (refreshed.Outcome == SignInOutcome.Unavailable)
+        {
+            LogRefreshUnavailable(logger, current.Subject);
+            return new SessionState(SessionRead.Valid, current.Subject, current, keyHash);
+        }
+
+        ProviderTokens tokens = refreshed.Match(
+            static value => value,
+            static _ => throw new InvalidOperationException("Refused was handled above."),
+            static () => throw new InvalidOperationException("Unavailable was handled above."));
+
+        DateTimeOffset now = clock.GetUtcNow();
+        string rotated = tokens.RefreshToken is { Length: > 0 } issued ? issued : refreshToken;
+        SessionRecord replacement = current with
+        {
+            ProtectedAccessToken = _protector.Protect(tokens.AccessToken),
+            ProtectedRefreshToken = _protector.Protect(rotated),
+            AccessTokenExpiresAt = now.AddSeconds(tokens.ExpiresIn),
+            RefreshTokenHash = OpaqueTokens.Hash(rotated),
+        };
+
+        SessionReplace outcome = await store
+            .ReplaceIfMatchAsync(keyHash, current.RefreshTokenHash, replacement, ct)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case SessionReplace.Replaced:
+                return new SessionState(SessionRead.Valid, replacement.Subject, replacement, keyHash);
+
+            case SessionReplace.Conflict:
+                // Another instance refreshed while this one was talking to the provider. Its
+                // tokens are the live ones; the pair just fetched here is already stale.
+                SessionRecord? winner = await store.GetAsync(keyHash, ct).ConfigureAwait(false);
+                return winner is null
+                    ? SessionState.Unknown
+                    : new SessionState(SessionRead.Valid, winner.Subject, winner, keyHash);
+
+            case SessionReplace.Gone:
+            default:
+                ClearCookie(context);
+                return SessionState.Unknown;
+        }
+    }
+
+    /// <summary>True when the access token is inside the skew of its expiry, or already past it.</summary>
+    private bool NeedsRefresh(SessionRecord record) =>
+        record.AccessTokenExpiresAt - options.RefreshSkew <= clock.GetUtcNow();
+
+    /// <summary>
     /// Ends the session this request carries: removes the row, then expires the cookie.
     /// </summary>
     /// <remarks>
@@ -182,6 +330,12 @@ public sealed partial class SessionManager(
 
     [LoggerMessage(1, LogLevel.Information, "Signed in {Subject}")]
     private static partial void LogSignedIn(ILogger logger, string subject);
+
+    [LoggerMessage(2, LogLevel.Information, "The provider refused to refresh {Subject}; the session has ended")]
+    private static partial void LogRefreshRefused(ILogger logger, string subject);
+
+    [LoggerMessage(3, LogLevel.Warning, "Could not reach the provider to refresh {Subject}; keeping the session")]
+    private static partial void LogRefreshUnavailable(ILogger logger, string subject);
 }
 
 /// <summary>What the session cookie on a request turned out to be worth.</summary>

@@ -255,7 +255,12 @@ public sealed class SessionManagerTests
         var store = new RecordingStore();
 
         return (
-            new SessionManager(store, options, clock ?? new MovableClock(Now), NullLogger<SessionManager>.Instance),
+            new SessionManager(
+                store,
+                ClientFor(new StubHandler(Json(System.Net.HttpStatusCode.OK, "{}"))),
+                options,
+                clock ?? new MovableClock(Now),
+                NullLogger<SessionManager>.Instance),
             store,
             options);
     }
