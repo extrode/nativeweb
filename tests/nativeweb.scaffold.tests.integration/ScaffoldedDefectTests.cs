@@ -75,6 +75,38 @@ public sealed class ScaffoldedDefectTests
         Assert.DoesNotContain("Malformed number", await list.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
+    // Defect: the rejected form was rebuilt from the converted item, so the visitor
+    // read "Views must be a whole number." next to a field showing 0 -- the
+    // converter's fallback, not what they typed -- under the heading "Edit Article",
+    // for a row that had never existed. Both halves are one fix: the error path
+    // hands the submitted form down and passes no row.
+    [Fact]
+    public async Task Create_Rejected_RedisplaysWhatWasTypedUnderTheCreateHeading()
+    {
+        using var factory = new SampleFactory();
+        using HttpClient client = await factory.CreateSignedInAsync();
+
+        using HttpResponseMessage response = await Forms.PostAsync(
+            client,
+            "/admin/articles/new",
+            "/admin/articles",
+            new("title", "Kept on rejection"),
+            new("author", "xunit"),
+            new("body", "hello"),
+            new("viewCount", "abc"));
+
+        string html = await response.Content.ReadAsStringAsync();
+
+        // What was typed, in the fields, including the value that failed.
+        Assert.Contains("value=\"Kept on rejection\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"abc\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("value=\"0\"", html, StringComparison.Ordinal);
+
+        // And the page is still the create page: same action, no id in it.
+        Assert.Contains("action=\"/admin/articles\"", html, StringComparison.Ordinal);
+        Assert.Contains(">Create<", html, StringComparison.Ordinal);
+    }
+
     // Blank is not malformed: the documented fallback still applies, so an omitted
     // number is 0 rather than an error. Stated as a fact because the fix above could
     // so easily have taken this with it.

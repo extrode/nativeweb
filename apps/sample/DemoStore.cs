@@ -79,14 +79,20 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
 
     public ValueTask<bool> UpdateAsync(string id, T item, CancellationToken ct)
     {
-        if (!this._items.ContainsKey(id))
+        // TryUpdate against the row we read, not ContainsKey then an indexer
+        // assignment. The generated handler now treats false as 404, and it does so
+        // because a concurrent delete between the load and the save is one request,
+        // not a rare race -- a check-then-act here would resurrect the deleted row
+        // and report success, which is the exact thing the handler was changed to
+        // stop reporting. JauntyArticleStore gets this right through rows-affected;
+        // the reference store has to match the semantics it demonstrates.
+        if (!this._items.TryGetValue(id, out T? current))
         {
             return ValueTask.FromResult(false);
         }
 
         AssignKey(item, id);
-        this._items[id] = item;
-        return ValueTask.FromResult(true);
+        return ValueTask.FromResult(this._items.TryUpdate(id, item, current));
     }
 
     public ValueTask<bool> DeleteAsync(string id, CancellationToken ct) =>

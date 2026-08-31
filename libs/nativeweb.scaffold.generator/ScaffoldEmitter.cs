@@ -65,7 +65,12 @@ internal static class ScaffoldEmitter
         sb.AppendLine("    private const int PageSize = 20;");
         sb.AppendLine();
         sb.AppendLine("    /// <summary>The [ScaffoldSearch] properties, as declared names, handed to the store on every list.</summary>");
-        sb.AppendLine($"    public static readonly string[] SearchFields = [{string.Join(", ", searchable.Select(p => "\"" + Escape(p.Name) + "\""))}];");
+        // `new string[] { ... }` and not a collection expression: the emitted source
+        // is compiled with the CONSUMER's LangVersion, and `[...]` needs C# 12.
+        // Everything else the generator emits bottoms out at C# 9, so a collection
+        // expression here would raise that floor for the whole generated file --
+        // the same class of consumer-side break as relying on ImplicitUsings.
+        sb.AppendLine($"    public static readonly string[] SearchFields = new string[] {{ {string.Join(", ", searchable.Select(p => "\"" + Escape(p.Name) + "\""))} }};");
         sb.AppendLine();
 
         EmitMap(sb, model, cls, form, route);
@@ -298,7 +303,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        var (item, error) = FromForm(form, null);");
         sb.AppendLine("        if (error is not null)");
         sb.AppendLine("        {");
-        sb.AppendLine("            return ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, item, BasePath, \"Create\", error));");
+        sb.AppendLine("            return ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, null, BasePath, \"Create\", error, form));");
         sb.AppendLine("        }");
         sb.AppendLine();
         // The returned key is used rather than discarded, and the redirect goes to
@@ -307,6 +312,14 @@ internal static class ScaffoldEmitter
         // empty one now shows it on the very next request instead of at the next
         // silent overwrite.
         sb.AppendLine("        string created = await store.CreateAsync(item, ct).ConfigureAwait(false);");
+        // Without this, an empty key redirects to BasePath + "/" -- which is the
+        // list route -- and a store that assigned no key looks like a successful
+        // create. The guard is what makes the paragraph above true.
+        sb.AppendLine("        if (string.IsNullOrEmpty(created))");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            throw new InvalidOperationException(\"IScaffoldStore<{type}>.CreateAsync returned no key. The store assigns the key and must return it.\");");
+        sb.AppendLine("        }");
+        sb.AppendLine();
         sb.AppendLine("        return Results.Redirect(BasePath + \"/\" + Uri.EscapeDataString(created));");
         sb.AppendLine("    }");
         sb.AppendLine();
@@ -327,7 +340,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        var (item, error) = FromForm(form, existing);");
         sb.AppendLine("        if (error is not null)");
         sb.AppendLine("        {");
-        sb.AppendLine("            return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, item, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", error));");
+        sb.AppendLine("            return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, existing, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", error, form));");
         sb.AppendLine("        }");
         sb.AppendLine();
         // The row was there when GetAsync ran and may not be when UpdateAsync does:
@@ -421,7 +434,14 @@ internal static class ScaffoldEmitter
         sb.AppendLine("    };");
         sb.AppendLine();
 
-        sb.AppendLine($"    private static string FormHtml(HttpContext http, {type}? row, string action, string submitLabel, string? error)");
+        // `submitted` is the rejected form, and it is what an error page renders
+        // from. Without it the redisplayed form showed Build's output, so
+        // "Views must be a whole number." appeared next to a field reading 0 and a
+        // rejected date next to this instant: the message and the value disagreed,
+        // and the user could no longer see what they had typed. It also decides the
+        // heading, because `row` is null on a rejected create, which is what makes
+        // that page say "New" rather than "Edit".
+        sb.AppendLine($"    private static string FormHtml(HttpContext http, {type}? row, string action, string submitLabel, string? error, {model.TypeName}Form? submitted = null)");
         sb.AppendLine("    {");
         sb.AppendLine("        StringBuilder sb = new(2048);");
         sb.AppendLine("        sb.Append(\"<div class=\\\"nws-head\\\"><h1>\").Append(Enc(row is null ? \"New \" + Singular : \"Edit \" + Singular)).Append(\"</h1>\");");
@@ -435,18 +455,27 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        sb.Append(ScaffoldLayout.AntiforgeryField(http));");
         foreach (PropertyModel p in editable)
         {
+            // The submitted string wins over the stored value, so a rejected form
+            // comes back carrying what the user typed.
+            string value = $"submitted is not null ? (submitted.{p.Name} ?? \"\") : row is null ? \"\" : ScaffoldValues.Editable(row.{p.Name})";
+
             sb.AppendLine($"        sb.Append(\"<label for=\\\"{p.FieldName}\\\">{Escape(p.Label)}</label>\");");
             if (p.Multiline)
             {
-                sb.AppendLine($"        sb.Append(\"<textarea id=\\\"{p.FieldName}\\\" name=\\\"{p.FieldName}\\\" rows=\\\"6\\\">\").Append(Enc(row is null ? \"\" : ScaffoldValues.Editable(row.{p.Name}))).Append(\"</textarea>\");");
+                sb.AppendLine($"        sb.Append(\"<textarea id=\\\"{p.FieldName}\\\" name=\\\"{p.FieldName}\\\" rows=\\\"6\\\">\").Append(Enc({value})).Append(\"</textarea>\");");
             }
             else if (p.TypeName == "bool")
             {
-                sb.AppendLine($"        sb.Append(\"<input type=\\\"checkbox\\\" id=\\\"{p.FieldName}\\\" name=\\\"{p.FieldName}\\\"\").Append(row is not null && row.{p.Name} ? \" checked\" : \"\").Append(\">\");");
+                // `row.Flag == true` rather than `row is not null && row.Flag`:
+                // for a `bool?` property the second is bool? in a && and does not
+                // compile, which is the one gap the short/float pass left. Ticked
+                // state comes from the submission when there is one, because an
+                // unticked box submits nothing and must come back unticked.
+                sb.AppendLine($"        sb.Append(\"<input type=\\\"checkbox\\\" id=\\\"{p.FieldName}\\\" name=\\\"{p.FieldName}\\\"\").Append((submitted is not null ? ScaffoldValues.Boolean(submitted.{p.Name}) : row?.{p.Name} == true) ? \" checked\" : \"\").Append(\">\");");
             }
             else
             {
-                sb.AppendLine($"        sb.Append(\"<input type=\\\"{InputType(p)}\\\" id=\\\"{p.FieldName}\\\" name=\\\"{p.FieldName}\\\" value=\\\"\").Append(Enc(row is null ? \"\" : ScaffoldValues.Editable(row.{p.Name}))).Append(\"\\\">\");");
+                sb.AppendLine($"        sb.Append(\"<input type=\\\"{InputType(p)}\\\" id=\\\"{p.FieldName}\\\" name=\\\"{p.FieldName}\\\" value=\\\"\").Append(Enc({value})).Append(\"\\\">\");");
             }
         }
 

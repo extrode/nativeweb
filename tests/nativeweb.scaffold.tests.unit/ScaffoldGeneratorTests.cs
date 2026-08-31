@@ -132,6 +132,7 @@ public sealed class ScaffoldGeneratorTests
                 public float Approx { get; set; }
                 public float? MaybeApprox { get; set; }
                 public bool Flag { get; set; }
+                public bool? MaybeFlag { get; set; }
                 public System.DateTime When { get; set; }
                 public System.DateTime? MaybeWhen { get; set; }
                 public System.Guid Ident { get; set; }
@@ -503,7 +504,7 @@ public sealed class ScaffoldGeneratorTests
     {
         (_, string source) = Run(Attributes, ArticleModel);
 
-        Assert.Contains("public static readonly string[] SearchFields = [\"Title\"];", source, StringComparison.Ordinal);
+        Assert.Contains("public static readonly string[] SearchFields = new string[] { \"Title\" };", source, StringComparison.Ordinal);
         Assert.Contains("store.ListAsync(search, SearchFields,", source, StringComparison.Ordinal);
         Assert.Contains("store.CountAsync(search, SearchFields,", source, StringComparison.Ordinal);
     }
@@ -527,7 +528,7 @@ public sealed class ScaffoldGeneratorTests
 
         (_, string source) = Run(Attributes, plain);
 
-        Assert.Contains("SearchFields = [];", source, StringComparison.Ordinal);
+        Assert.Contains("SearchFields = new string[] {  };", source, StringComparison.Ordinal);
     }
 
     // A discarded false reported a deletion that did not happen and an edit that was
@@ -549,6 +550,35 @@ public sealed class ScaffoldGeneratorTests
 
         Assert.Contains("string created = await store.CreateAsync(item, ct)", source, StringComparison.Ordinal);
         Assert.Contains("Results.Redirect(BasePath + \"/\" + Uri.EscapeDataString(created))", source, StringComparison.Ordinal);
+    }
+
+    // An empty key would redirect to BasePath + "/", which routes to the list -- so a
+    // store that forgot to return its key produced a create that looked successful
+    // and a row nobody could reach. The contract says the store assigns the key; a
+    // store that breaks it is told so rather than being papered over.
+    [Fact]
+    public void Create_WithNoKeyBack_FailsInsteadOfRedirectingToTheList()
+    {
+        (_, string source) = Run(Attributes, ArticleModel);
+
+        Assert.Contains("if (string.IsNullOrEmpty(created))", source, StringComparison.Ordinal);
+        Assert.Contains("throw new InvalidOperationException(", source, StringComparison.Ordinal);
+    }
+
+    // The rejected form is rebuilt from what was submitted, not from the converted
+    // item: the fallback the converter chose is what the validator just refused, so
+    // showing it back is showing the visitor a value they did not type.
+    [Fact]
+    public void ARejectedForm_IsRedisplayedFromTheSubmittedValues()
+    {
+        (_, string source) = Run(Attributes, ArticleModel);
+
+        Assert.Contains("ArticleForm? submitted = null)", source, StringComparison.Ordinal);
+        Assert.Contains("submitted is not null ? (submitted.Title ?? \"\")", source, StringComparison.Ordinal);
+
+        // And a rejected create is still a create: no row, so no "Edit" heading and
+        // the action stays the collection.
+        Assert.Contains("FormHtml(http, null, BasePath, \"Create\", error, form)", source, StringComparison.Ordinal);
     }
 
     // Clamped at both ends. (page - 1) * PageSize is unchecked int arithmetic, so a
