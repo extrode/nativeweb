@@ -78,7 +78,7 @@ wrong meaning.
 |---|---|---|
 | `libs/nativeweb.signin/ReturnPath.cs` | recovered verbatim; namespace only | R5 |
 | `libs/nativeweb.signin/ILoginFlowStore.cs` | recovered verbatim; namespace only. `FlowTake`, `FlowTakeResult`, `LoginFlow` with its redacting `ToString` | R2, R3 |
-| `libs/nativeweb.signin/LoginFlowSweeper.cs` | recovered; hosted service, GC only | R4 |
+| `libs/nativeweb.signin/SignInSweeper.cs` | recovered; hosted service, GC only | R4 |
 | `libs/nativeweb.signin/SignInOptions.cs` | from `EpassSignInOptions`. `BaseUrl` → explicit `AuthorizationEndpoint`, `TokenEndpoint`, `UserInfoEndpoint`, `IntrospectionEndpoint`; adds `Scopes`, `ClientAuthentication`, `RefreshSkew`, `RetainTokens`. Keeps `Validate()` whole: `__Host-` prefix, placeholder-key refusal, relative-path guards, `RedirectUri`/`CallbackPath` pairing, `IsConfigured` degradation | R17, R19, R30 |
 | `libs/nativeweb.signin/SignInEndpoints.cs` | `GET {LoginPath}` → 302 with PKCE+state (**new**); `GET {CallbackPath}` → take flow, exchange, userinfo, mint session (recovered); `POST {LogoutPath}` (recovered) | R1, R2, R3, R5 |
 | `libs/nativeweb.signin/OAuthClient.cs` | from `EpassClient`. Keeps `SendAsync`/`ReadErrorAsync` and the refused-vs-unavailable split. `StartLoginLinkAsync` **deleted**. `ExchangeCodeAsync` and `GetUserInfoAsync` generalized; adds `RefreshAsync` and `IntrospectAsync` | R1, R13, R14, R31 |
@@ -151,7 +151,7 @@ form-encoded `token` with confidential-client auth, returning `active` plus opti
 | R# | covered by |
 |---|---|
 | R1, R2, R3 | `SignInEndpoints`, `ILoginFlowStore` |
-| R4 | `LoginFlowSweeper` |
+| R4 | `SignInSweeper` |
 | R5 | `ReturnPath` + startup validation |
 | R6 | `OAuthDtos.UserInfo`, README |
 | R7, R8 | `SessionManager` + `OpaqueTokens.Hash` + `StoreDataProtector` |

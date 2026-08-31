@@ -2,6 +2,43 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Spec 016 — the OAuth relying party** — `feat/016-oauth-relying-party`, 2026-09-01. All 27
+  tasks ticked, spec `Status: done`. **1313 tests across 15 assemblies, 0 failed**; AOT publish
+  gate 21 s with zero IL2xxx/IL3xxx. NativeWeb is the client half and never the server:
+  authorization-code with PKCE, an opaque session cookie over an `ISessionStore` the product
+  implements, silent refresh, sign-out, and a bearer-introspection filter, all behind a real
+  authentication scheme — which is what a scaffolded route's `RequireAuthorization` needed and
+  did not have.
+  - **The pre-merge review found twelve defects and none of them was refuted.** Three rounds,
+    each round's fixes reviewed again, every fix mutation-checked. The one that mattered most is
+    login CSRF: `state` was remembered by the server alone, so an attacker could run the flow in
+    their own browser, keep the callback URL and hand it to a victim, whose browser would then
+    hold a session for the attacker's identity. The state is written to a short-lived `__Host-`
+    cookie now and a callback that cannot show it is refused with `state_mismatch`.
+  - **Three of the twelve were code that no caller reached.** `IntrospectionCache.Sweep` and
+    `ISessionStore.SweepAsync` had no production caller, so expired sessions and stale verdicts
+    accumulated for the life of the process; the sweeper swept login flows alone and is named
+    `SignInSweeper` now for sweeping all three. The failure redirect pointed at `LoginPath`,
+    which is the flow trigger, so a failure restarted the flow and looped the browser —
+    `FailurePath` is a separate option and `Validate()` refuses it if it equals either route
+    the library owns.
+  - **Two concurrency defects, one measured through the refresh path.** The per-session gate was
+    evicted on `SemaphoreSlim.CurrentCount == 1`, which reads the same whether the gate is idle
+    or a thread holding a reference has not yet reached `WaitAsync`; the next arrival built a
+    second gate for the same key and both refreshed at once. It is reference-counted under a
+    lock now. And a CAS conflict returned the winner's record without re-checking whether the
+    winner itself was stale — `ProviderTokens.From` defaults `ExpiresIn` to 0 when the provider
+    omits `expires_in`, so a winner can land already inside `RefreshSkew`. Bounded to two
+    attempts.
+  - **`ClientSecretBasic` sent a raw `id:secret`.** RFC 6749 §2.3.1 requires both halves
+    form-urlencoded before the base64, and a base64-shaped secret carries `+`, `/` and `=`, so
+    any provider reading the header to the letter refused the exchange.
+  - **A publish lock that outlived its publish.** Two e2e tiers publish `apps/sample`; a
+    `dotnet publish` over a running exe fails on Windows, and the earlier reasoning that the
+    second publish is incremental and writes nothing held only while the binary was already
+    current. Measured red once — `Failed: 4, Passed: 0` in the full run against green alone.
+    The lock is held for the test process's lifetime now.
+
 - **Spec 015 — the framework web seam** — `feat/015-framework-web-seam`, 2026-08-31. T1–T10, all
   ten ticked. **546 facts across eight tiers, 0 failed, 0 skipped**; NativeAOT publish of
   `apps/sample` clean, 0 IL2xxx/IL3xxx; structure-audit 0 errors, 3 pre-existing naming warnings.

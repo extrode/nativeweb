@@ -13,6 +13,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Added
+- **`libs/nativeweb.signin` — the client half of OAuth, as framework.** A product signs users in
+  against any conforming issuer without writing the relying party itself: authorization-code with
+  PKCE, an opaque `__Host-` session cookie over an `ISessionStore` the product implements, silent
+  refresh with compare-and-swap, sign-out, and a bearer-introspection endpoint filter with a
+  short-TTL cache. It registers a real authentication scheme, so a scaffolded route's
+  `RequireAuthorization` works in a stamped product, which it did not before. Provider-agnostic
+  and configuration-driven — no token issuance, no consent screen, no realm resolution and no
+  client registry: NativeWeb is the client, never the server. NativeAOT-clean, with unit,
+  integration and Playwright tiers plus an AOT publish probe.
+
 ### Fixed
 - **The deploy chain reads its configuration prefix off the artifact instead of guessing it.**
   `scripts/deploy/`'s preflight demanded ten keys spelled with a `NativeWeb` prefix: nine are read
