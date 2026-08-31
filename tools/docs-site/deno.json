@@ -1,0 +1,16 @@
+{
+  "name": "nativeweb-docs-site",
+  "version": "0.1.0",
+  "exports": "./check.ts",
+  "tasks": {
+    "check-site": "deno run --allow-read check.ts",
+    "test": "deno test -q --allow-read --allow-write",
+    "check": "deno check check.ts"
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.0",
+    "@std/path": "jsr:@std/path@^1.0.0"
+  },
+  "fmt": { "lineWidth": 100 },
+  "lint": { "rules": { "tags": ["recommended"] } }
+}

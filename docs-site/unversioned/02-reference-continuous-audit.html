@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Continuous audit — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  try {
+    var t = localStorage.getItem('dg-theme');
+    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+    var s = parseFloat(localStorage.getItem('dg-fs'));
+    if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Continuous audit</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">quick-start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html" class="active" aria-current="page">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+</div>
+
+      </div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#what-it-does-once-a-night">What it does, once a night</a><a class="toc-l2" href="#why-it-cannot-damage-anything">Why it cannot damage anything</a><a class="toc-l2" href="#provisioning-once">Provisioning, once</a><a class="toc-l2" href="#reading-a-digest">Reading a digest</a><a class="toc-l2" href="#triaging">Triaging</a><a class="toc-l2" href="#stopping-it">Stopping it</a><a class="toc-l2" href="#where-things-live">Where things live</a><a class="toc-l2" href="#the-checks">The checks</a><a class="toc-l2" href="#running-it-by-hand">Running it by hand</a><a class="toc-l2" href="#cost">Cost</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Continuous audit</nav>
+        <article>
+<h1 id="continuous-audit">Continuous audit</h1>
+<p>A nightly, read-only pass over one slice of this repository, run on a machine that is not the
+workstation, producing findings a session triages by hand. Spec <code>docs/specs/013-continuous-audit/</code>.</p>
+<p>You should be able to provision it, read a digest, act on a finding and stop the schedule without
+opening a <code>.ts</code> file. That is what this page is for.</p>
+<h2 id="what-it-does-once-a-night">What it does, once a night</h2>
+<ol>
+<li>The workstation has pushed a mirror of the repository to the audit host.</li>
+<li>At 03:07 the audit host clones that mirror into a temporary directory.</li>
+<li>It picks the <strong>least recently audited slice</strong> — a directory that directly contains source —
+and reads only that. Slices never audited come first.</li>
+<li>It runs six mechanical checks over the slice, then, if the slice is under 120 KB and a GLM key
+is present, one bounded reading pass.</li>
+<li>Every candidate finding is put to a second model prompted to <strong>refute</strong> it. Refuted findings
+are dropped and counted; findings that cannot be evaluated are admitted as <code>unverified</code>.</li>
+<li>What survives is redacted, then appended to the ledger. The clone is deleted.</li>
+</ol>
+<p>A run only marks the slice as read when it read it through. A slice over the byte bound, or a
+reading pass the model cut short at its token limit, leaves the slice where it was in the
+rotation, so it comes round again rather than being recorded as covered.</p>
+<p>It writes nothing to this repository, ever. There is no flag that makes it.</p>
+<h2 id="why-it-cannot-damage-anything">Why it cannot damage anything</h2>
+<table>
+<thead>
+<tr>
+<th>Guarantee</th>
+<th>How, structurally</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The audit cannot modify the repository</td>
+<td>It works on a throwaway clone in a temp directory, deleted whether the run succeeds or throws</td>
+</tr>
+<tr>
+<td>The audit cannot reach <code>origin</code></td>
+<td>The audit host holds no credential for it; the repository reaches the host by push, not pull</td>
+</tr>
+<tr>
+<td>A secret in the source cannot leak into a report</td>
+<td>13 redaction rules run before anything is written, and every written artefact is re-scanned afterwards; a non-zero <code>corpusLeaks</code> is a defect in the audit itself</td>
+</tr>
+<tr>
+<td>A finding you dismissed cannot come back</td>
+<td><code>rejected</code> is an absorbing state, on write and on read</td>
+</tr>
+<tr>
+<td>A quiet week cannot look like a clean repository</td>
+<td>A day with no run record is reported as a gap, above the findings — and the gap window runs to today, so a scheduler that died a month ago shows a month of gaps rather than an unbroken history</td>
+</tr>
+<tr>
+<td>An unreachable audit host cannot look like a clean repository</td>
+<td>The digest refuses to render (exit 4) rather than reporting an empty ledger it could not read</td>
+</tr>
+</tbody>
+</table>
+<h2 id="provisioning-once">Provisioning, once</h2>
+<p>Run <strong>on the audit host, by you</strong>. It installs software and loads a scheduler, which is not an
+agent's call.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash">scp scripts/audit/provision-audit-host.sh audit-host.local:~/
+ssh audit-host.local
+./provision-audit-host.sh                 # dry run: prints every step, changes nothing
+./provision-audit-host.sh --execute       # installs Deno to ~/.deno, creates ~/audit, loads launchd
+</code></pre>
+</div>
+<p>It refuses with exit 3 if the host holds a production credential — <code>~/.aws/credentials</code>,
+<code>~/.pgpass</code>, a gh token and so on — before installing anything, so a refusal leaves the machine
+as it found it. <code>--accept-credential-risk</code> proceeds anyway and says so.</p>
+<p>The one secret the host needs is the GLM key in <code>~/.zai</code>. Without it the reading pass is skipped
+and the mechanical checks still run.</p>
+<p>Then, from the workstation:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash">scripts/audit/sync-to-audit-host.sh                # dry run: what it would mirror
+scripts/audit/sync-to-audit-host.sh --execute      # mirror every branch to the audit host
+ssh audit-host.local 'git clone -q ~/audit/mirror/nativeweb.git ~/audit/nativeweb'
+</code></pre>
+</div>
+<p>Re-run <code>sync-to-audit-host.sh --execute</code> whenever you want the audit to see newer work. It pushes to the
+audit host and never to <code>origin</code>; <code>origin</code> is yours.</p>
+<h2 id="reading-a-digest">Reading a digest</h2>
+<p>From the workstation. This reads over ssh and writes nothing on the audit host.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash">deno run -A tools/audit/digest.ts --ssh audit-host.local
+deno run -A tools/audit/digest.ts --ssh audit-host.local --json &gt; tmp/digest.json
+</code></pre>
+</div>
+<p>If the host cannot be reached it exits 4 and prints why, rather than rendering an empty digest —
+&quot;there are no findings&quot; and &quot;the store could not be read&quot; are not the same statement.</p>
+<p>The report opens with health, deliberately: if the scheduler is dead, nothing below that line
+means what it appears to mean. Then coverage, then untriaged findings with verified ones first,
+each carrying the file, the line, what, why, and a command to confirm it.</p>
+<p>Running it twice without triaging shows the same list. That is the intended behaviour — the list
+is &quot;everything not yet decided&quot;, not &quot;everything since yesterday&quot;.</p>
+<h2 id="triaging">Triaging</h2>
+<p>A finding is worth acting on, or it is not, and either way that is a decision someone makes.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash"># Dismiss it. Absorbing: it will never appear in a digest again.
+deno run -A tools/audit/triage.ts --ssh audit-host.local \
+  --id a1b2c3d4e5f6 --state rejected --reason &quot;cross-repo note, not this repository&quot;
+
+# Agree to act on it. Requires a recorded approver.
+deno run -A tools/audit/triage.ts --ssh audit-host.local \
+  --id a1b2c3d4e5f6 --state accepted --reason &quot;broken cross-reference&quot; --approved-by sy
+
+# Record that it is done.
+deno run -A tools/audit/triage.ts --ssh audit-host.local \
+  --id a1b2c3d4e5f6 --state fixed --reason &quot;landed in 97dc116&quot;
+</code></pre>
+</div>
+<p><code>--id</code> takes any unambiguous prefix of at least six characters. An ambiguous one is an error, not
+a guess.</p>
+<p><strong>On <code>--approved-by</code>.</strong> It is a record, not an enforcement boundary: anything with a shell can
+type a flag. What holds is structural — nothing in the audit path calls <code>triage.ts</code>. The audit
+writes findings and never decides about them. <code>--approved-by</code> exists so the ledger says who
+agreed and when, rather than the tooling assuming you did.</p>
+<p>Rejecting needs no approver, because declining to act is reversible with one more line while
+accepting is what leads to a branch and a diff.</p>
+<h2 id="stopping-it">Stopping it</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash">ssh audit-host.local &quot;launchctl bootout gui/\$(id -u)/com.extrode.nativeweb.audit&quot;
+</code></pre>
+</div>
+<p>The ledger, coverage and run records stay under <code>~/audit</code>. Re-run the provisioner to start again.</p>
+<p>To pause for one night, do nothing: the digest will report the gap, which is the point.</p>
+<h2 id="where-things-live">Where things live</h2>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The ledger of record</td>
+<td><code>audit-host:~/audit/ledger/nativeweb.jsonl</code> — append-only JSONL</td>
+</tr>
+<tr>
+<td>Slice coverage</td>
+<td><code>audit-host:~/audit/ledger/nativeweb-coverage.json</code></td>
+</tr>
+<tr>
+<td>One record per run</td>
+<td><code>audit-host:~/audit/runs/&lt;runId&gt;.json</code></td>
+</tr>
+<tr>
+<td>launchd stdout/stderr</td>
+<td><code>audit-host:~/audit/runs/launchd.{out,err}.log</code></td>
+</tr>
+<tr>
+<td>The repository mirror</td>
+<td><code>audit-host:~/audit/mirror/nativeweb.git</code></td>
+</tr>
+<tr>
+<td>The tooling checkout</td>
+<td><code>audit-host:~/audit/nativeweb</code></td>
+</tr>
+</tbody>
+</table>
+<p>A finding's identity is a hash of its path, rule and normalised excerpt — <strong>not</strong> its line number,
+so editing the code above a defect does not resurrect it as a new finding.</p>
+<h2 id="the-checks">The checks</h2>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Fires when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>stale-todo</code></td>
+<td>A TODO is both old (by blame) and unattributed — no owner, issue, spec, requirement, date or URL</td>
+</tr>
+<tr>
+<td><code>doc-names-missing-file</code></td>
+<td>A Markdown document names a repository path that no tracked file matches, under any reading</td>
+</tr>
+<tr>
+<td><code>assertionless-test</code></td>
+<td>An xUnit <code>[Fact]</code>/<code>[Theory]</code> or <code>Deno.test</code> body contains no assertion</td>
+</tr>
+<tr>
+<td><code>spec-requirement-without-criterion</code></td>
+<td>A spec requirement has no matching acceptance criterion</td>
+</tr>
+<tr>
+<td><code>spec-done-with-open-task</code></td>
+<td>A spec is marked done with unticked tasks</td>
+</tr>
+<tr>
+<td><code>spec-done-with-unmet-requirement</code></td>
+<td>A spec is marked done while its own text says a requirement is unmet</td>
+</tr>
+</tbody>
+</table>
+<p>Plus one reading pass per run, over the selected slice, whose findings go through the same
+refutation and redaction as the mechanical ones.</p>
+<h2 id="running-it-by-hand">Running it by hand</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="bash"><code class="language-bash">cd tools/audit
+deno test -A -q                                    # the suite
+deno run -A run.ts --source ../.. --store ../../tmp/audit-smoke --no-model --slice docs/02-reference
+</code></pre>
+</div>
+<p><code>--no-model</code> runs the mechanical checks only, makes no network call, and costs nothing.</p>
+<h2 id="cost">Cost</h2>
+<p>The reading pass uses <code>glm-5.3</code> over the z.ai Anthropic-compatible endpoint, which draws z.ai plan
+credits. Each run records its token counts, and the digest shows the trend, so drift is visible
+before it is a bill. No dollar figure is claimed unless you supply a price with <code>--cost-in</code> and
+<code>--cost-out</code> — a fabricated number would be believed.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="02-reference-configuration.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Configuration</span>
+</a><a class="pn-next" href="02-reference-deployment.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Deployment</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+  </footer>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

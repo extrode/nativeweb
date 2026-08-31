@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NWT template diagnostics — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  try {
+    var t = localStorage.getItem('dg-theme');
+    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+    var s = parseFloat(localStorage.getItem('dg-fs'));
+    if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">NWT template diagnostics</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">quick-start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html" class="active" aria-current="page">Template diagnostics</a>  </div>
+</div>
+
+      </div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#at-a-glance">At a glance</a><a class="toc-l2" href="#the-header-nwt001-nwt002-nwt003">The header: NWT001, NWT002, NWT003</a><a class="toc-l2" href="#layouts-slots-and-fills-nwt004-nwt007-nwt010-nwt011">Layouts, slots and fills: NWT004, NWT007, NWT010, NWT011</a><a class="toc-l2" href="#partials-nwt005-nwt006">Partials: NWT005, NWT006</a><a class="toc-l2" href="#blocks-and-expressions-nwt008-nwt012">Blocks and expressions: NWT008, NWT012</a><a class="toc-l2" href="#localization-nwt013-nwt014-nwt015">Localization: NWT013, NWT014, NWT015</a><a class="toc-l2" href="#nwt016-interpolation-outside-a-quoted-attribute-value">NWT016 — interpolation outside a quoted attribute value</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">NWT template diagnostics</nav>
+        <article>
+<h1 id="nwt-template-diagnostics">NWT template diagnostics</h1>
+<p>Every mistake in a <code>.html</code> template is a <strong>build error</strong>, never a runtime blank (spec 003 R12).
+The <code>nativeweb.render.generator</code> source generator raises them as <code>NWT001</code>–<code>NWT016</code>, category
+<code>NativeWeb.Render</code>, all <code>DiagnosticSeverity.Error</code> and all enabled by default. There is no
+suppression story on purpose: a suppressed template error is a page that renders wrong in
+production instead of failing on the build machine.</p>
+<p>Each one carries a real file and line since <code>feat/render-diagnostics-locations</code> (2026-08-17), so
+a build-log entry is clickable. Descriptors: <code>libs/nativeweb.render.generator/TemplateDiagnostics.cs</code>.
+Every example below is taken from a passing fact in
+<code>tests/nativeweb.render.tests.unit/GeneratorDiagnosticsTests.cs</code> — if an example here stops
+triggering its diagnostic, that test file is what to trust.</p>
+<h2 id="at-a-glance">At a glance</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Title</th>
+<th>Raised when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NWT001</td>
+<td>Malformed template header</td>
+<td>The <code>&lt;!--#template … --&gt;</code> header is unclosed, names a reserved <code>@param</code>, or a layout declares <code>@layout</code></td>
+</tr>
+<tr>
+<td>NWT002</td>
+<td>Unknown template directive</td>
+<td>A header line is neither <code>@layout</code> nor <code>@param</code></td>
+</tr>
+<tr>
+<td>NWT003</td>
+<td>Malformed @param</td>
+<td>Not <code>@param &lt;type&gt; &lt;name&gt;</code></td>
+</tr>
+<tr>
+<td>NWT004</td>
+<td>Layout not found</td>
+<td><code>@layout</code> names no template file</td>
+</tr>
+<tr>
+<td>NWT005</td>
+<td>Partial not found</td>
+<td><code>{{&gt; path}}</code> names no template file</td>
+</tr>
+<tr>
+<td>NWT006</td>
+<td>Partial arguments do not match its @param list</td>
+<td>Missing, unknown or malformed argument; or a layout called as a partial</td>
+</tr>
+<tr>
+<td>NWT007</td>
+<td>Slot or fill misused</td>
+<td>Six distinct fill/slot mistakes — see below</td>
+</tr>
+<tr>
+<td>NWT008</td>
+<td>Unbalanced template block</td>
+<td>A block never closed, a closer with no opener, or a reserved loop variable</td>
+</tr>
+<tr>
+<td>NWT009</td>
+<td>Duplicate template class</td>
+<td>Two template paths compile to one class name</td>
+</tr>
+<tr>
+<td>NWT010</td>
+<td>Parameter conflicts with layout</td>
+<td>Same <code>@param</code> name, different type, in page and layout</td>
+</tr>
+<tr>
+<td>NWT011</td>
+<td>Required slot not filled</td>
+<td>Layout declares <code>{{slot X}}</code>, page has no <code>{{fill X}}</code></td>
+</tr>
+<tr>
+<td>NWT012</td>
+<td>Template expression rejected</td>
+<td>An expression contains <code>;</code>, <code>{</code> or <code>}</code></td>
+</tr>
+<tr>
+<td>NWT013</td>
+<td>Unknown locale key</td>
+<td><code>{{t:key}}</code> is not in <code>locales/en.json</code>, or is not a valid key shape</td>
+</tr>
+<tr>
+<td>NWT014</td>
+<td>Orphan locale override</td>
+<td>A non-English catalog defines a key <code>en.json</code> does not</td>
+</tr>
+<tr>
+<td>NWT015</td>
+<td>Malformed locale catalog</td>
+<td>Five distinct catalog problems — see below</td>
+</tr>
+<tr>
+<td>NWT016</td>
+<td>Interpolation outside a quoted attribute value</td>
+<td><code>{{…}}</code> sits inside a tag but not inside a quoted value</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-header-nwt001-nwt002-nwt003">The header: NWT001, NWT002, NWT003</h2>
+<p>The optional header is an HTML comment at the top of the file:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">html</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="html"><code class="language-html">&lt;!--#template
+@layout layout/page
+@param string Title
+--&gt;
+</code></pre>
+</div>
+<p><strong>NWT001</strong> covers three things, because all three make the header itself unusable:</p>
+<ul>
+<li>The comment is never closed with <code>--&gt;</code>.</li>
+<li><code>@param</code> uses a <strong>reserved name</strong> — <code>writer</code>, <code>locale</code>, or any C# keyword. <code>writer</code> is the
+emitted method's own parameter and <code>locale</code> is the implicit one, so either would shadow
+machinery the generated code needs.</li>
+<li>A file that declares <code>{{slot …}}</code> (making it a layout) <strong>also</strong> declares <code>@layout</code>. Layout
+chaining is not supported, and a layout gets no class of its own, so without this check the
+outer layout would silently vanish. Checked before emission, so every page using that layout
+sees it as broken rather than half-rendered.</li>
+</ul>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">html</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="html"><code class="language-html">&lt;!--#template
+@param string writer
+--&gt;&lt;p&gt;x&lt;/p&gt;            &lt;!-- NWT001: 'writer' is reserved --&gt;
+</code></pre>
+</div>
+<p><strong>NWT002</strong> is the catch-all for a fourth directive: only <code>@layout</code> and <code>@param</code> exist.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">html</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="html"><code class="language-html">&lt;!--#template
+@bogus thing
+--&gt;&lt;p&gt;x&lt;/p&gt;            &lt;!-- NWT002 --&gt;
+</code></pre>
+</div>
+<p><strong>NWT003</strong> is shape alone — <code>@param</code> takes exactly a type and a name. Types are validated here
+too, so <code>@param My Type Name</code> is NWT003 rather than a C# syntax error inside generated code
+you did not write.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">html</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="html"><code class="language-html">&lt;!--#template
+@param OnlyOneToken
+--&gt;&lt;p&gt;x&lt;/p&gt;            &lt;!-- NWT003 --&gt;
+</code></pre>
+</div>
+<h2 id="layouts-slots-and-fills-nwt004-nwt007-nwt010-nwt011">Layouts, slots and fills: NWT004, NWT007, NWT010, NWT011</h2>
+<p><strong>NWT004</strong> — <code>@layout layout/absent</code> matches no template file. Paths are the template path
+without extension, so <code>templates/layout/page.html</code> is <code>layout/page</code>.</p>
+<p><strong>NWT007</strong> is one ID over six conditions, all of them &quot;the fill/slot contract is broken&quot;:</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{fill X}}</code> has no matching slot in the layout</td>
+<td>layout has <code>{{slot Main}}</code>, page fills <code>Ghost</code></td>
+</tr>
+<tr>
+<td><code>{{fill …}}</code> with no <code>@layout</code> directive at all</td>
+<td>a page that fills nothing in particular</td>
+</tr>
+<tr>
+<td><code>{{fill X}}</code> appears more than once</td>
+<td>two <code>{{fill Main}}</code> blocks</td>
+</tr>
+<tr>
+<td><code>{{fill …}}</code> is not at the top level</td>
+<td>a fill nested inside <code>{{if}}</code></td>
+</tr>
+<tr>
+<td>Both <code>{{fill Main}}</code> <strong>and</strong> top-level content</td>
+<td>one or the other, not both</td>
+</tr>
+<tr>
+<td>The layout declares no <code>{{slot Main}}</code></td>
+<td>page content would be silently dropped</td>
+</tr>
+</tbody>
+</table>
+<p>The last one is the reason this is an error rather than a warning: a layout with only optional
+slots swallows the page body with nothing to show for it.</p>
+<p><strong>NWT010</strong> — the page and its layout both declare a <code>@param</code> of the same name with different
+types. The composed template has one parameter list, so the two cannot both be right.</p>
+<p><strong>NWT011</strong> — the layout declares <code>{{slot Sidebar}}</code> and the page never fills it. Mark the slot
+optional with <code>{{slot? Sidebar}}</code> if that is intended; an unfilled <code>{{slot? …}}</code> is fine.</p>
+<h2 id="partials-nwt005-nwt006">Partials: NWT005, NWT006</h2>
+<p><strong>NWT005</strong> — <code>{{&gt; shared/absent}}</code> matches no template file.</p>
+<p><strong>NWT006</strong> covers every way a call can disagree with the callee's <code>@param</code> list, and reports all
+of them in one message rather than one per build:</p>
+<ul>
+<li>Missing a required argument.</li>
+<li>Passing an argument the partial does not declare.</li>
+<li>A malformed argument: they are <code>Name=expression</code> with <strong>no spaces in the expression</strong>, so
+<code>{{&gt; shared/field Label=&quot;Hello world&quot;}}</code> is NWT006. Compute the value in the calling C# and
+pass it as a parameter.</li>
+<li>Calling a <strong>layout</strong> as a partial. A file with slots is a layout; it cannot be invoked with
+<code>{{&gt; …}}</code>.</li>
+</ul>
+<h2 id="blocks-and-expressions-nwt008-nwt012">Blocks and expressions: NWT008, NWT012</h2>
+<p><strong>NWT008</strong> — <code>{{if}}</code>, <code>{{for}}</code> and <code>{{fill}}</code> all open a block that must close. It fires on an
+unclosed opener, on a closer with no opener (<code>{{/if}}</code> alone), and on a <code>{{for}}</code> whose loop
+variable is not a valid identifier or is reserved (<code>{{for locale in Items}}</code>).</p>
+<p><strong>NWT012</strong> — a template expression may not contain <code>;</code>, <code>{</code> or <code>}</code>. Expressions are <strong>values,
+not statements</strong>; anything with control flow or a statement separator belongs in the calling C#.
+This is a hard syntactic bar rather than a parse of what the expression does, which is the point:
+it cannot be argued around.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">html</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="html"><code class="language-html">&lt;p&gt;{{X; System.IO.File.Delete(&quot;x&quot;)}}&lt;/p&gt;   &lt;!-- NWT012 --&gt;
+</code></pre>
+</div>
+<h2 id="localization-nwt013-nwt014-nwt015">Localization: NWT013, NWT014, NWT015</h2>
+<p><code>locales/en.json</code> is the root catalog and the fallthrough for every locale.</p>
+<p><strong>NWT013</strong> — <code>{{t:key}}</code> where the key is absent from <code>en.json</code>, or is not a valid key shape
+(letters, digits, <code>.</code>, <code>_</code>, <code>-</code>).</p>
+<p><strong>NWT014</strong> — the inverse: <code>locales/ms.json</code> defines a key <code>en.json</code> does not. Overrides refine
+the English root, they do not extend it, so this is almost always a typo.</p>
+<p><strong>NWT015</strong> covers the catalog files themselves:</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>en.json</code> is missing entirely</td>
+<td>no root catalog to fall through to</td>
+</tr>
+<tr>
+<td>A value is not a string or a nested object</td>
+<td><code>{ &quot;app&quot;: [1, 2] }</code></td>
+</tr>
+<tr>
+<td>An <code>_</code>-prefixed metadata key has an object value</td>
+<td><code>{ &quot;_meta&quot;: { &quot;x&quot;: &quot;y&quot; } }</code></td>
+</tr>
+<tr>
+<td><code>_dir</code> is not <code>ltr</code> or <code>rtl</code></td>
+<td><code>{ &quot;_dir&quot;: &quot;sideways&quot; }</code></td>
+</tr>
+<tr>
+<td>Two locale ids collide on the generated member name</td>
+<td><code>pt-br.json</code> and <code>pt_br.json</code>, or <code>all.json</code> colliding with <code>Locales.All</code></td>
+</tr>
+</tbody>
+</table>
+<p>A nested <code>_</code>-prefixed key is metadata, not a string key: <code>{&quot;app&quot;: {&quot;_note&quot;: …}}</code> does <strong>not</strong>
+become <code>app._note</code> and does not trip NWT014.</p>
+<h2 id="nwt016-interpolation-outside-a-quoted-attribute-value">NWT016 — interpolation outside a quoted attribute value</h2>
+<p>The newest and the only one that exists purely as a security guard. <code>TemplateWriter</code> encodes
+<code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>&quot;</code> and <code>'</code> — and nothing else. That set is safe in text and inside a <strong>quoted</strong>
+attribute value, and nowhere else. A space is not encoded, so a value interpolated into an
+unquoted attribute can close it and open <code>onfocus=…</code>; interpolating into the attribute-<em>name</em>
+position is the same escape by a shorter route.</p>
+<p><code>TemplateWriter</code>'s own comment had asserted this invariant since day one and nothing enforced it.
+NWT016 is what makes it checkable.</p>
+<p>Rejected:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">html</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="html"><code class="language-html">&lt;div class={{Value}}&gt;x&lt;/div&gt;
+&lt;div class = {{Value}}&gt;x&lt;/div&gt;
+&lt;div data-x=prefix{{Value}}&gt;x&lt;/div&gt;
+&lt;div {{Value}}&gt;x&lt;/div&gt;
+&lt;div class=&quot;a&quot; {{Value}}&gt;x&lt;/div&gt;
+&lt;div title={{t:app.name}}&gt;x&lt;/div&gt;
+</code></pre>
+</div>
+<p>Accepted — quote the value, single or double:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">html</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="html"><code class="language-html">&lt;div class=&quot;{{Value}}&quot;&gt;x&lt;/div&gt;
+</code></pre>
+</div>
+<p>The negative cases carry more weight than the positive ones here. A guard that fires on ordinary
+markup gets deleted rather than obeyed, so <code>GeneratorDiagnosticsTests</code> pins a longer list of
+shapes that must <strong>not</strong> raise NWT016 than of shapes that must.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="02-reference-security-baseline.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Security baseline</span>
+</a><span></span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+  </footer>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>
