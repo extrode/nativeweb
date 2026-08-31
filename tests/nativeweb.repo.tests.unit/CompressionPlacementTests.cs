@@ -41,8 +41,16 @@ public sealed class CompressionPlacementTests
         // fails config validation with "module not registered: http.encoders.br",
         // so a well-meant addition would break the deploy rather than improve the
         // ratio. The second assertion is what stops it being added back.
-        Assert.Contains("encode zstd gzip", config, StringComparison.Ordinal);
-        Assert.DoesNotContain("encode zstd br gzip", config, StringComparison.Ordinal);
+        // A line, not a substring: `# encode zstd gzip` satisfies Contains and
+        // compresses nothing, which is how the first cut of this test passed its
+        // own mutation.
+        string[] directives = config
+            .Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith("encode ", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Equal(["encode zstd gzip"], directives);
     }
 
     [Fact]
