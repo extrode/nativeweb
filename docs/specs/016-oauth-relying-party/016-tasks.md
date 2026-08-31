@@ -19,7 +19,7 @@ each one records a finding from spec 008 or 009.
 
 - [x] **T5** `SignInOptions` and `Validate()` — files: `libs/nativeweb.signin/SignInOptions.cs`, `tests/nativeweb.signin.tests.unit/SignInOptionsTests.cs` — covers: R9, R17, R19, R30 — done when: `BaseUrl` is replaced by four explicit endpoint URLs, `Scopes`/`ClientAuthentication`/`RefreshSkew`/`RetainTokens` exist, cookie attributes are fixed and unsettable, and tests cover each `Validate()` refusal separately: non-`__Host-` cookie name, absent key without the ephemeral opt-in, short key, single-repeated-byte key, off-site `DefaultReturnPath`, each non-relative route, unparseable endpoint URL, and `RedirectUri`/`CallbackPath` disagreement.
 - [x] **T6** Wire DTOs and JSON context — files: `libs/nativeweb.signin/OAuthDtos.cs`, `tests/nativeweb.signin.tests.unit/OAuthDtosTests.cs` — covers: R6, R31 — done when: `TokenResponse`, `UserInfo` and `IntrospectionResponse` deserialize through a source-generated `JsonSerializerContext`, and a test feeds each one a payload carrying unmodelled fields (`realm`, `realm_id`, `operator`, `enrollment_credential_id`) and asserts success.
-- [ ] **T7** `SignInResult` — files: `libs/nativeweb.signin/SignInResult.cs`, `tests/nativeweb.signin.tests.unit/SignInResultTests.cs` — covers: R16 — done when: refused and unavailable are distinguishable to the caller, and a test asserts the failure carries no provider detail.
+- [x] **T7** `SignInResult` — files: `libs/nativeweb.signin/SignInResult.cs`, `tests/nativeweb.signin.tests.unit/SignInResultTests.cs` — covers: R16 — done when: refused and unavailable are distinguishable to the caller, and a test asserts the failure carries no provider detail.
 
 ## Provider client
 
