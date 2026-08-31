@@ -108,10 +108,25 @@ public sealed class SignInRoundTripTests(SignInProcessFixture app, SignInBrowser
         Assert.Equal($"{app.BaseUrl}/welcome", page.Url);
         Assert.Null(await SessionAsync(page.Context));
 
-        // The provider approves without asking, so the next visit signs in again rather than
-        // stopping. What proves the old session is gone is that the new one is a different
-        // opaque string -- a sign-out that cleared the browser's copy and left the store's
-        // entry standing would hand back the same value.
+        // Clearing the browser's copy is the easy half, and on its own it proves nothing about
+        // the store: a session left standing there is still usable by anyone who kept the
+        // string. So the old cookie is handed back and has to be refused. The provider approves
+        // without asking, so /account signs in again rather than stopping -- what says the old
+        // session is gone is that the visit came back holding a different one.
+        await page.Context.AddCookiesAsync([
+            new Cookie
+            {
+                Name = SessionCookie,
+                Value = before,
+                Url = app.BaseUrl,
+                Secure = true,
+                HttpOnly = true,
+                SameSite = SameSiteAttribute.Lax,
+            },
+        ]);
+
+        Assert.Equal(before, (await SessionAsync(page.Context))?.Value);
+
         await page.GotoAsync("/account");
         Assert.NotEqual(before, (await SessionAsync(page.Context))?.Value);
     }
