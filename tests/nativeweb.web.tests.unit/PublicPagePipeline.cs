@@ -1,8 +1,6 @@
 using System.Globalization;
-using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
 
 using NativeWeb.Render;
@@ -55,76 +53,64 @@ internal sealed class PublicPagePipeline : IAsyncDisposable
 
     public HttpClient Client { get; }
 
-    /// <summary>The full pipeline, output cache included.</summary>
-    public static Task<PublicPagePipeline> WithCacheAsync() => StartAsync(outputCache: true);
+    /// <summary>The full pipeline, on a route declared publicly cacheable.</summary>
+    public static Task<PublicPagePipeline> WithCacheAsync() => StartAsync(publicPage: true);
 
-    /// <summary>The same pipeline with <c>UseOutputCache</c> omitted.</summary>
-    public static Task<PublicPagePipeline> WithoutCacheAsync() => StartAsync(outputCache: false);
+    /// <summary>
+    /// The same pipeline on a route that never says <c>AsPublicPage</c>. Nothing
+    /// is cached by default — the named policy is the only one registered — so
+    /// this is the real seam with the store out of the picture rather than a
+    /// second, hand-built composition.
+    /// </summary>
+    public static Task<PublicPagePipeline> WithoutCacheAsync() => StartAsync(publicPage: false);
 
     /// <summary>
     /// The full pipeline with a limiter that permits <paramref name="permitLimit"/>
-    /// requests and refuses the rest. Spec 006 R8's ordering is only observable
-    /// through a limiter that can be exhausted: a cache hit must still spend a
-    /// permit, and the only way to see whether it did is to run out.
+    /// requests a minute and refuses the rest. Spec 006 R8's ordering is only
+    /// observable through a limiter that can be exhausted: a cache hit must
+    /// still spend a permit, and the only way to see whether it did is to run
+    /// out.
     /// </summary>
     public static Task<PublicPagePipeline> WithRateLimitAsync(int permitLimit) =>
-        StartAsync(outputCache: true, permitLimit: permitLimit);
+        StartAsync(publicPage: true, permitLimit: permitLimit);
 
-    private static async Task<PublicPagePipeline> StartAsync(bool outputCache, int? permitLimit = null)
+    private static async Task<PublicPagePipeline> StartAsync(bool publicPage, int? permitLimit = null)
     {
-        WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
+        WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
+        {
+            // The error shell and the clean-URL route map are both read from the
+            // web root at startup, so this tier ships the one file they need.
+            ContentRootPath = AppContext.BaseDirectory,
+            WebRootPath = "wwwroot",
+            EnvironmentName = Environments.Development,
+        });
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
 
-        builder.Services.AddRouting();
-        builder.Services.AddOutputCache(options =>
-            options.AddPolicy(PublicPageCachePolicy.Name, policy => policy.AddPolicy<PublicPageCachePolicy>()));
-
-        // Unbounded unless a test asks otherwise. The limiter is in the pipeline
-        // regardless, because its position relative to the cache is itself an
-        // invariant (spec 006 R8) and not every test wants to be throttled to
-        // observe it.
-        builder.Services.AddRateLimiter(options =>
+        NativeWebOptions options = new()
         {
-            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.AddPolicy("general", _ => permitLimit is int limit
-                ? RateLimitPartition.GetFixedWindowLimiter("all", _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = limit,
-                    // Longer than any test run, so exhaustion is permanent within
-                    // one pipeline rather than a race against the clock.
-                    Window = TimeSpan.FromMinutes(10),
-                    QueueLimit = 0,
-                })
-                : RateLimitPartition.GetNoLimiter("all"));
-        });
+            ApplicationName = "Demo",
+            ConfigurationSection = "Demo",
+            TelemetryServiceName = "Demo",
+            // Under bin/, because a key ring in the user profile would make one
+            // test run visible to the next.
+            DataProtectionKeyDirectory = Path.Combine(AppContext.BaseDirectory, "dp-keys"),
+            // A limiter no test can reach unless a test asks for one it can. The
+            // limiter is in the pipeline regardless, because its position
+            // relative to the cache is itself an invariant (spec 006 R8).
+            GeneralPermitLimit = permitLimit ?? 1_000_000,
+        };
 
-        builder.Services.AddAntiforgery(static options =>
-        {
-            options.Cookie.Name = "__Host-nw-test-antiforgery";
-            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-            options.Cookie.SameSite = SameSiteMode.Lax;
-            options.Cookie.Path = "/";
-        });
+        builder.AddNativeWebWeb(options);
 
         WebApplication app = builder.Build();
-
-        app.UseMiddleware<SecurityHeadersMiddleware>();
-        app.UseRouting();
-        app.UseLocaleNegotiation(new LocaleNegotiationOptions { SupportedLocales = Locales.All });
-        app.UseRateLimiter();
-        if (outputCache)
-        {
-            app.UseOutputCache();
-        }
-
-        app.UseAntiforgery();
+        app.UseNativeWebPipeline(Locales.All);
 
         AssetUrls assets = new(app);
         IAntiforgery antiforgery = app.Services.GetRequiredService<IAntiforgery>();
         RenderCounter counter = new();
 
-        app.MapGet("/", IResult (HttpContext context) =>
+        RouteHandlerBuilder route = app.MapGet("/", IResult (HttpContext context) =>
         {
             int render = counter.Next();
 
@@ -150,8 +136,12 @@ internal sealed class PublicPagePipeline : IAsyncDisposable
 
             return Results.Content(body, "text/html; charset=utf-8");
         })
-        .RequireRateLimiting("general")
-        .AsPublicPage(PublicPageCache.Csp([]));
+        .RequireRateLimiting(NativeWebPipeline.GeneralRateLimitPolicy);
+
+        if (publicPage)
+        {
+            route.AsPublicPage(PublicPageCache.Csp([]));
+        }
 
         await app.StartAsync();
 

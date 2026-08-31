@@ -37,6 +37,16 @@
          core; the instrumentation and exporter packages stay with the caller
          that wires them. -->
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <!-- Npgsql, because the pipeline owns the pooled data source and the
+         /readyz probe that reaches it. The alternative was a probe delegate the
+         product supplies, which keeps the driver out of here and puts forty
+         lines back into every Program.cs — the thing this spec exists to
+         remove. "PostgreSQL only" is binding in AGENTS.md, so the dependency
+         costs no generality this framework claimed to have. -->
+    <PackageReference Include="Npgsql" />
   </ItemGroup>
 
   <!-- The Web SDK's implicit usings, restated. These sources were written under

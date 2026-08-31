@@ -56,6 +56,10 @@
 
   <ItemGroup>
     <AdditionalFiles Include="locales\*.json" />
+    <!-- StaticErrorShell.Load and StaticPagesMiddleware's route map both read
+         the web root at startup, so the composed pipeline needs one on disk
+         beside the test assembly. -->
+    <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
