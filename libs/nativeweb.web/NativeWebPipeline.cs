@@ -189,7 +189,12 @@ public static class NativeWebPipeline
         // Prepare() calls.
         connection.MaxAutoPrepare = options.MaxAutoPrepare;
 
-        return services.AddSingleton(new NpgsqlDataSourceBuilder(connection.ConnectionString).Build());
+        // A factory, not the built instance: the container disposes what it
+        // creates and nothing else, so registering the object directly leaves the
+        // pool undrained at shutdown and in-flight connections closed by the
+        // socket rather than by Npgsql.
+        string connectionString = connection.ConnectionString;
+        return services.AddSingleton(_ => new NpgsqlDataSourceBuilder(connectionString).Build());
     }
 
     /// <summary>
@@ -343,9 +348,12 @@ public static class NativeWebPipeline
             // keeping the prefix under SameAsRequest would not weaken the cookie,
             // it would drop it and turn every form post into a failed antiforgery
             // check. The prefix comes back with the policy.
+            // Derived from the one name rather than composed a second way: the
+            // Development cookie is the production cookie without its prefix, so
+            // renaming the property renames both.
             antiforgery.Cookie.Name = secure == CookieSecurePolicy.Always
                 ? options.AntiforgeryCookieName
-                : $"{options.ApplicationName}-antiforgery";
+                : options.AntiforgeryCookieName.Replace("__Host-", string.Empty, StringComparison.Ordinal);
             antiforgery.Cookie.SecurePolicy = secure;
             antiforgery.Cookie.SameSite = SameSiteMode.Lax;
             antiforgery.Cookie.Path = "/";

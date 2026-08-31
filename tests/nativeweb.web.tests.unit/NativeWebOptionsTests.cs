@@ -163,6 +163,50 @@ public sealed class NativeWebOptionsTests
         Assert.Equal(120, options.GeneralPermitLimit);
     }
 
+    [Theory]
+    [InlineData("1")]
+    [InlineData("yes")]
+    [InlineData("Enabled")]
+    [InlineData("on")]
+    public void AnUnparseableTelemetryFlagIsAStartupError(string value)
+    {
+        // Every one of these is something an operator writes meaning on, and
+        // every one of them read as off under the equality check this replaced.
+        // Telemetry an operator believes is exporting and is not is worse than a
+        // named error at startup, because nothing downstream ever says so.
+        Assert.False(NativeWebOptions.TryFromConfiguration(
+            Config(("Demo:Telemetry:Enabled", value)), "Demo", out NativeWebOptions? options, out string? error));
+
+        Assert.Null(options);
+        Assert.Contains("Demo:Telemetry:Enabled", error, StringComparison.Ordinal);
+        Assert.Contains(value, error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("TRUE", true)]
+    [InlineData("False", false)]
+    public void TheTelemetryFlagStillTakesTheValuesItAlwaysTook(string value, bool expected)
+    {
+        Assert.Equal(expected, Bind(("Demo:Telemetry:Enabled", value)).TelemetryEnabled);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ABlankSectionIsAnArgumentFaultAndNotADefaultedApp(string section)
+    {
+        // Blank builds keys of the form ":Db:ConnectionString", which match
+        // nothing: the app would boot with every value defaulted, no connection
+        // string, and no symptom beyond reporting itself not-ready.
+        Assert.Throws<ArgumentException>(() => NativeWebOptions.TryFromConfiguration(
+            Config(("Demo:Db:ConnectionString", "Host=localhost")),
+            "Demo",
+            out _,
+            out _,
+            section));
+    }
+
     [Fact]
     public void AnUnparseableProxyIsSkippedRatherThanTakingTheAppDown()
     {

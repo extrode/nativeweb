@@ -146,6 +146,16 @@ public sealed record NativeWebOptions
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(applicationName);
 
+        // An argument fault, not a configuration one, so it throws rather than
+        // returning an error: a blank section builds keys of the form
+        // ":Db:ConnectionString", which match nothing, and the app boots with
+        // every value defaulted and no connection string while reporting itself
+        // only "not ready".
+        if (section is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(section);
+        }
+
         options = null;
         error = null;
 
@@ -182,11 +192,27 @@ public sealed record NativeWebOptions
         {
             foreach (string ip in proxies.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
+                // Skipped, not fatal — a recorded decision, asserted by
+                // AnUnparseableProxyIsSkippedRatherThanTakingTheAppDown: headers
+                // from an untrusted hop are ignored, which is safe, so a typo
+                // costs a degraded rate-limit partition and not an outage.
                 if (IPAddress.TryParse(ip, out IPAddress? parsed))
                 {
                     knownProxies.Add(parsed);
                 }
             }
+        }
+
+        // A named error rather than a silent false. "1", "yes" and "Enabled" are
+        // all things an operator writes meaning on, and every one of them read as
+        // off under an equality check against "true" — telemetry that an operator
+        // believes is exporting and is not.
+        bool telemetryEnabled = false;
+        if (configuration[Key("Telemetry:Enabled")] is { Length: > 0 } telemetryRaw
+            && !bool.TryParse(telemetryRaw, out telemetryEnabled))
+        {
+            error = $"{Key("Telemetry:Enabled")} must be true or false; got '{telemetryRaw}'.";
+            return false;
         }
 
         // Clamped rather than only validated as positive — see the property.
@@ -209,7 +235,7 @@ public sealed record NativeWebOptions
                 ? maxAutoPrepare
                 : 20,
             KnownProxies = knownProxies,
-            TelemetryEnabled = string.Equals(configuration[Key("Telemetry:Enabled")], "true", StringComparison.OrdinalIgnoreCase),
+            TelemetryEnabled = telemetryEnabled,
             // Not under the product's section: OTEL_SERVICE_NAME is the standard
             // environment variable and lives at the configuration root.
             TelemetryServiceName = configuration["OTEL_SERVICE_NAME"] is { Length: > 0 } serviceName
