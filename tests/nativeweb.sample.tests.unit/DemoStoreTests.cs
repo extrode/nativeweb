@@ -53,8 +53,11 @@ public sealed class DemoStoreTests
         Assert.Null(await store.GetAsync("missing", CancellationToken.None));
     }
 
-    // The race the handler's 404 depends on, made deterministic: the row is read,
-    // then deleted, then the update lands. A check-then-act store resurrects it.
+    // The sequence the handler's 404 is for: the row is loaded for the edit form,
+    // deleted, and the save arrives after. What this asserts is the outcome -- false,
+    // and no row written back. It does not reach the interleaving the TryUpdate in
+    // the store exists for, where the delete lands between a check and an assignment;
+    // that window is a thread schedule, and no single-threaded test can force it.
     [Fact]
     public async Task UpdateAsync_AfterTheRowWasDeleted_DoesNotResurrectIt()
     {
