@@ -42,8 +42,8 @@ each one records a finding from spec 008 or 009.
 
 ## Wiring
 
-- [ ] **T18** `AddSignIn` — files: `libs/nativeweb.signin/ServiceCollectionExtensions.cs`, `tests/nativeweb.signin.tests.unit/AddSignInTests.cs` — covers: R11, R18, R19 — done when: registration takes a scheme name and a configure delegate with no reflecting binder, keeps `AddAntiforgery`/`TryAddSingleton(TimeProvider.System)`/`AddAuthorization`/startup-check-first, `Validate()` runs at registration, and a test registers two providers and asserts a session for one does not authenticate against the other.
-- [ ] **T19** `SignInBuilder` and the consumer policy — files: `libs/nativeweb.signin/SignInBuilder.cs`, `tests/nativeweb.signin.tests.unit/SignInPolicyTests.cs` — covers: R22, R23, R24 — done when: `WithFlowStore`/`WithSessionStore`/`OnSignedIn`/`WithSignInPolicy` exist; a policy refusal makes no provider call; two refused subjects — one with a local account, one without — produce responses identical in status, location and header set; and a host registering no policy behaves as if the seam did not exist.
+- [x] **T18** `AddSignIn` — files: `libs/nativeweb.signin/ServiceCollectionExtensions.cs`, `tests/nativeweb.signin.tests.unit/AddSignInTests.cs` — covers: R11, R18, R19 — done when: registration takes a scheme name and a configure delegate with no reflecting binder, keeps `AddAntiforgery`/`TryAddSingleton(TimeProvider.System)`/`AddAuthorization`/startup-check-first, `Validate()` runs at registration, and a test registers two providers and asserts a session for one does not authenticate against the other.
+- [x] **T19** `SignInBuilder` and the consumer policy — files: `libs/nativeweb.signin/SignInBuilder.cs`, `tests/nativeweb.signin.tests.unit/SignInPolicyTests.cs` — covers: R22, R23, R24 — done when: `WithFlowStore`/`WithSessionStore`/`OnSignedIn`/`WithSignInPolicy` exist; a policy refusal makes no provider call; two refused subjects — one with a local account, one without — produce responses identical in status, location and header set; and a host registering no policy behaves as if the seam did not exist.
 
 ## Testing package and tiers
 

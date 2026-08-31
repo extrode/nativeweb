@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -38,22 +39,29 @@ namespace NativeWeb.SignIn;
 /// <param name="options">Scheme options, supplied by the authentication stack.</param>
 /// <param name="loggerFactory">Logger factory, supplied by the authentication stack.</param>
 /// <param name="encoder">URL encoder, supplied by the authentication stack.</param>
-/// <param name="sessions">The session manager that owns reading, refreshing and ending a session.</param>
+/// <param name="services">
+/// The container, for the <see cref="SessionManager"/> registered under THIS handler's scheme name.
+/// Resolved by key rather than injected, because a host can register more than one provider and each
+/// scheme owns its own manager, options, stores and cookie name — an injected manager would be
+/// whichever one was registered last, and every scheme would then read the same sessions.
+/// </param>
 public sealed partial class SessionAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory loggerFactory,
     UrlEncoder encoder,
-    SessionManager sessions)
+    IServiceProvider services)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, loggerFactory, encoder),
       IAuthenticationSignOutHandler
 {
     /// <summary>The scheme name a host registers this handler under when it names no other.</summary>
     public const string SchemeName = "NativeWebSignIn";
 
+    private SessionManager Sessions => services.GetRequiredKeyedService<SessionManager>(Scheme.Name);
+
     /// <inheritdoc/>
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        SessionState state = await sessions.ReadAsync(Context, Context.RequestAborted)
+        SessionState state = await Sessions.ReadAsync(Context, Context.RequestAborted)
             .ConfigureAwait(false);
 
         if (state.Read != SessionRead.Valid)
@@ -61,7 +69,7 @@ public sealed partial class SessionAuthenticationHandler(
             return Anonymous(state.Read);
         }
 
-        SessionState fresh = await sessions
+        SessionState fresh = await Sessions
             .EnsureFreshAsync(Context, state, Context.RequestAborted)
             .ConfigureAwait(false);
 
@@ -108,7 +116,7 @@ public sealed partial class SessionAuthenticationHandler(
     /// cookie can no longer be expired.</exception>
     public async Task SignOutAsync(AuthenticationProperties? properties)
     {
-        await sessions.RevokeAsync(Context, Context.RequestAborted).ConfigureAwait(false);
+        await Sessions.RevokeAsync(Context, Context.RequestAborted).ConfigureAwait(false);
         Context.User = new ClaimsPrincipal(new ClaimsIdentity());
     }
 
@@ -122,7 +130,7 @@ public sealed partial class SessionAuthenticationHandler(
     /// </remarks>
     private AuthenticateResult Anonymous(SessionRead read)
     {
-        if (!Request.Cookies.ContainsKey(sessions.CookieName))
+        if (!Request.Cookies.ContainsKey(Sessions.CookieName))
         {
             // No cookie is not a rejection: it is an anonymous request, and a public site is full
             // of them. Nothing to expire and nothing to log.
@@ -130,7 +138,7 @@ public sealed partial class SessionAuthenticationHandler(
         }
 
         LogRejected(Logger, read.ToString());
-        sessions.ClearCookie(Context);
+        Sessions.ClearCookie(Context);
         return AuthenticateResult.NoResult();
     }
 

@@ -111,7 +111,7 @@ public sealed class SignOutEndpointTests
             new SchemeOptions(),
             NullLoggerFactory.Instance,
             UrlEncoder.Default,
-            throughTheHandler.Manager);
+            ManagerUnderTheDefaultScheme(throughTheHandler.Manager));
         await handler.InitializeAsync(
             new AuthenticationScheme(
                 SessionAuthenticationHandler.SchemeName,

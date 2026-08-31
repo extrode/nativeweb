@@ -84,13 +84,14 @@ public sealed class LoginFlowSweeperTests
     private static LoginFlowSweeper SweeperFor(ILoginFlowStore store, TimeSpan? interval = null)
     {
         var services = new ServiceCollection();
-        services.AddSingleton(store);
+        services.AddKeyedSingleton("test-scheme", store);
         ServiceProvider provider = services.BuildServiceProvider();
 
         return new LoginFlowSweeper(
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<LoginFlowSweeper>.Instance,
             TimeProvider.System,
+            "test-scheme",
             interval ?? LoginFlowSweeper.DefaultInterval);
     }
 

@@ -31,37 +31,51 @@ public static partial class SignInEndpoints
     /// <returns><paramref name="endpoints"/>, for chaining.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="endpoints"/> is null.</exception>
     /// <exception cref="InvalidOperationException"><c>AddSignIn</c> was not called.</exception>
-    public static IEndpointRouteBuilder MapSignIn(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapSignIn(
+        this IEndpointRouteBuilder endpoints,
+        string scheme = SessionAuthenticationHandler.SchemeName)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentException.ThrowIfNullOrWhiteSpace(scheme);
 
-        SignInOptions options = endpoints.ServiceProvider.GetRequiredService<SignInOptions>();
+        SignInOptions options = endpoints.ServiceProvider
+            .GetRequiredKeyedService<SignInOptions>(scheme);
 
+        // Every service below is resolved from the REQUEST's provider under this scheme's key,
+        // rather than taken as a lambda parameter. A keyed parameter needs its key as a
+        // compile-time attribute argument and the scheme is chosen at runtime, so the alternative
+        // is one set of unkeyed registrations — which is one provider per host, and a second
+        // AddSignIn silently overwriting the first.
         endpoints.MapGet(options.LoginPath, (
-            HttpContext context,
-            OAuthClient client,
-            ILoginFlowStore flows,
-            SignInOptions signIn,
-            TimeProvider time,
-            ILoggerFactory loggers) =>
-            GetLoginAsync(context, client, flows, signIn, time, loggers));
+            HttpContext context, TimeProvider time, ILoggerFactory loggers) =>
+            GetLoginAsync(
+                context,
+                context.RequestServices.GetRequiredKeyedService<OAuthClient>(scheme),
+                context.RequestServices.GetRequiredKeyedService<ILoginFlowStore>(scheme),
+                context.RequestServices.GetRequiredKeyedService<SignInOptions>(scheme),
+                time,
+                loggers,
+                context.RequestServices.GetKeyedService<SignInPolicy>(scheme)));
 
         endpoints.MapGet(options.CallbackPath, (
-            HttpContext context,
-            OAuthClient client,
-            ILoginFlowStore flows,
-            SessionManager sessions,
-            SignInOptions signIn,
-            ILoggerFactory loggers) =>
-            GetCallbackAsync(context, client, flows, sessions, signIn, loggers));
+            HttpContext context, ILoggerFactory loggers) =>
+            GetCallbackAsync(
+                context,
+                context.RequestServices.GetRequiredKeyedService<OAuthClient>(scheme),
+                context.RequestServices.GetRequiredKeyedService<ILoginFlowStore>(scheme),
+                context.RequestServices.GetRequiredKeyedService<SessionManager>(scheme),
+                context.RequestServices.GetRequiredKeyedService<SignInOptions>(scheme),
+                loggers,
+                context.RequestServices.GetKeyedService<SignInResolver>(scheme)));
 
         endpoints.MapPost(options.LogoutPath, (
-            HttpContext context,
-            IAntiforgery antiforgery,
-            SessionManager sessions,
-            SignInOptions signIn,
-            ILoggerFactory loggers) =>
-            PostLogoutAsync(context, antiforgery, sessions, signIn, loggers));
+            HttpContext context, IAntiforgery antiforgery, ILoggerFactory loggers) =>
+            PostLogoutAsync(
+                context,
+                antiforgery,
+                context.RequestServices.GetRequiredKeyedService<SessionManager>(scheme),
+                context.RequestServices.GetRequiredKeyedService<SignInOptions>(scheme),
+                loggers));
 
         return endpoints;
     }
@@ -83,7 +97,8 @@ public static partial class SignInEndpoints
         ILoginFlowStore flows,
         SignInOptions options,
         TimeProvider time,
-        ILoggerFactory loggers)
+        ILoggerFactory loggers,
+        SignInPolicy? policy = null)
     {
         SessionManager.NoStore(context);
 
@@ -93,6 +108,17 @@ public static partial class SignInEndpoints
             // unavailable, so the one thing this must not do is answer a public GET with a 500.
             LogNotConfigured(loggers.CreateLogger(typeof(SignInEndpoints)));
             return Results.Redirect(Failure(options, SignInFailureCode.ProviderUnavailable));
+        }
+
+        // The consumer's own judgement, if it registered one (R22). BEFORE the flow is recorded and
+        // before the browser is sent anywhere, which is the point: a refusal here costs no provider
+        // round trip and leaves no row for a callback to take.
+        if (policy is not null && !await Allowed(context, policy, loggers).ConfigureAwait(false))
+        {
+            // The SAME code every other refusal gets (R23). A refusal that could vary is a refusal
+            // that can be used to tell one caller from another — which is why SignInPolicy returns
+            // a boolean and has no way to name a code.
+            return Results.Redirect(Failure(options, SignInFailureCode.Refused));
         }
 
         string returnTo = ReturnPath.Sanitise(
@@ -127,7 +153,8 @@ public static partial class SignInEndpoints
         ILoginFlowStore flows,
         SessionManager sessions,
         SignInOptions options,
-        ILoggerFactory loggers)
+        ILoggerFactory loggers,
+        SignInResolver? resolver = null)
     {
         SessionManager.NoStore(context);
 
@@ -214,7 +241,30 @@ public static partial class SignInEndpoints
             return Results.Redirect(Failure(options, CodeFor(who.Outcome)));
         }
 
-        await sessions.MintAsync(context, user, tokens, context.RequestAborted).ConfigureAwait(false);
+        // The consumer's own mapping from a verified provider subject to whatever it calls a user,
+        // if it registered one. Without one the provider's subject IS the session subject, which is
+        // what makes the seam optional (R24).
+        ProviderUser subject = user;
+
+        if (resolver is not null)
+        {
+            string? local = await resolver(
+                context,
+                new VerifiedSubject(user.Subject),
+                new UnverifiedContactInfo(user.Email),
+                context.RequestAborted).ConfigureAwait(false);
+
+            if (local is not { Length: > 0 })
+            {
+                // The consumer refused locally. No session is minted — a resolver returning null
+                // must not produce a signed-in browser.
+                return Results.Redirect(Failure(options, SignInFailureCode.Refused));
+            }
+
+            subject = user with { Subject = local };
+        }
+
+        await sessions.MintAsync(context, subject, tokens, context.RequestAborted).ConfigureAwait(false);
 
         // Sanitised AGAIN, on the way out. It was sanitised before it was stored, but the store
         // between those two points is the CONSUMER'S — a table anyone with write access to the
@@ -278,6 +328,38 @@ public static partial class SignInEndpoints
             ? SignInFailureCode.ProviderUnavailable
             : SignInFailureCode.SignInFailed;
 
+    /// <summary>
+    /// Runs the consumer's policy, failing closed on anything it throws.
+    /// </summary>
+    /// <remarks>
+    /// A broken policy refuses. The other reading — treat a throw as acceptance — makes a consumer's
+    /// bug silently reopen the seam it added the policy to close, with nothing in the response to
+    /// say so.
+    /// <para>
+    /// A cancellation the CLIENT caused is rethrown rather than reported: nobody is reading the
+    /// response. One the POLICY caused is a broken policy and refuses like any other throw.
+    /// </para>
+    /// </remarks>
+    private static async Task<bool> Allowed(
+        HttpContext context, SignInPolicy policy, ILoggerFactory loggers)
+    {
+        try
+        {
+            return await policy(context, context.RequestAborted).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Consumer code, on an unauthenticated path: fail closed.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            LogPolicyThrew(loggers.CreateLogger(typeof(SignInEndpoints)), exception);
+            return false;
+        }
+    }
+
     private static async Task<bool> ValidatedAsync(
         HttpContext context,
         IAntiforgery antiforgery,
@@ -320,6 +402,9 @@ public static partial class SignInEndpoints
 
     [LoggerMessage(5, LogLevel.Warning, "Sign-in was requested but no provider is configured.")]
     private static partial void LogNotConfigured(ILogger logger);
+
+    [LoggerMessage(6, LogLevel.Error, "The registered SignInPolicy threw. The attempt was refused; a policy that throws must not be read as acceptance.")]
+    private static partial void LogPolicyThrew(ILogger logger, Exception ex);
 }
 
 /// <summary>

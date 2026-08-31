@@ -260,7 +260,7 @@ public sealed class SessionAuthenticationHandlerTests
                 new SchemeOptions(),
                 NullLoggerFactory.Instance,
                 UrlEncoder.Default,
-                Manager);
+                ManagerUnderTheDefaultScheme(Manager));
 
             await handler.InitializeAsync(
                 new AuthenticationScheme(

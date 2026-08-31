@@ -68,6 +68,31 @@ internal static class OAuthClientFixtures
             serviceType == typeof(ILoggerFactory) ? NullLoggerFactory.Instance : null;
     }
 
+
+    /// <summary>
+    /// A container holding one <see cref="SessionManager"/> under the default scheme key, which is
+    /// how the handler finds the manager belonging to the scheme it was mounted under.
+    /// </summary>
+    internal static IServiceProvider ManagerUnderTheDefaultScheme(SessionManager manager) =>
+        new KeyedManagerServices(manager);
+
+    private sealed class KeyedManagerServices(SessionManager manager)
+        : IServiceProvider, IKeyedServiceProvider
+    {
+        public object? GetService(Type serviceType) =>
+            serviceType == typeof(ILoggerFactory) ? NullLoggerFactory.Instance : null;
+
+        public object? GetKeyedService(Type serviceType, object? serviceKey) =>
+            serviceType == typeof(SessionManager)
+            && serviceKey as string == SessionAuthenticationHandler.SchemeName
+                ? manager
+                : null;
+
+        public object GetRequiredKeyedService(Type serviceType, object? serviceKey) =>
+            GetKeyedService(serviceType, serviceKey)
+            ?? throw new InvalidOperationException($"No {serviceType.Name} for '{serviceKey}'.");
+    }
+
     internal static OAuthClient ClientFor(
         StubHandler handler,
         ClientAuthenticationMode mode = ClientAuthenticationMode.ClientSecretBasic,

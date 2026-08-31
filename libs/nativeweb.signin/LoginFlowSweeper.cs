@@ -34,13 +34,15 @@ internal sealed partial class LoginFlowSweeper : BackgroundService
     private readonly IServiceScopeFactory _scopes;
     private readonly ILogger<LoginFlowSweeper> _logger;
     private readonly TimeSpan _interval;
+    private readonly string _scheme;
     private readonly TimeProvider _clock;
 
     public LoginFlowSweeper(
         IServiceScopeFactory scopes,
         ILogger<LoginFlowSweeper> logger,
-        TimeProvider clock)
-        : this(scopes, logger, clock, DefaultInterval)
+        TimeProvider clock,
+        string scheme)
+        : this(scopes, logger, clock, scheme, DefaultInterval)
     {
     }
 
@@ -48,11 +50,13 @@ internal sealed partial class LoginFlowSweeper : BackgroundService
         IServiceScopeFactory scopes,
         ILogger<LoginFlowSweeper> logger,
         TimeProvider clock,
+        string scheme,
         TimeSpan interval)
     {
         ArgumentNullException.ThrowIfNull(scopes);
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentException.ThrowIfNullOrWhiteSpace(scheme);
 
         if (interval <= TimeSpan.Zero)
         {
@@ -63,6 +67,7 @@ internal sealed partial class LoginFlowSweeper : BackgroundService
         _scopes = scopes;
         _logger = logger;
         _clock = clock;
+        _scheme = scheme;
         _interval = interval;
     }
 
@@ -93,7 +98,8 @@ internal sealed partial class LoginFlowSweeper : BackgroundService
         try
         {
             await using AsyncServiceScope scope = _scopes.CreateAsyncScope();
-            ILoginFlowStore store = scope.ServiceProvider.GetRequiredService<ILoginFlowStore>();
+            ILoginFlowStore store = scope.ServiceProvider
+                .GetRequiredKeyedService<ILoginFlowStore>(_scheme);
             await store.SweepAsync(stoppingToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
