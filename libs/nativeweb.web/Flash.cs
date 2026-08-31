@@ -1,6 +1,6 @@
-namespace __PRODUCT__;
+namespace NativeWeb.Web;
 
-internal enum FlashKind
+public enum FlashKind
 {
     Success,
     Error,
@@ -27,11 +27,11 @@ internal enum FlashKind
 // product's first success redirect only needs the Set call. Every full-page
 // render site a product adds must Take — the layout's required FlashOk /
 // FlashError params make the compiler point at any site that forgets.
-internal static class Flash
+public static class Flash
 {
     // internal, not private: PublicPageCache tests this cookie's presence to
     // decide whether a response can be shared (spec 006).
-    internal const string CookieName = "__Host-nw-flash";
+    public const string CookieName = "__Host-nw-flash";
     private const string SuccessPrefix = "ok:";
     private const string ErrorPrefix = "err:";
     private const int MaxMessageLength = 300;

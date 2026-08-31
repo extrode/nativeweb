@@ -8,8 +8,6 @@ using Microsoft.AspNetCore.TestHost;
 using NativeWeb.Render;
 
 using __PRODUCT__;
-using __PRODUCT__.Middleware;
-using __PRODUCT__.Render;
 
 namespace NativeWeb.Web.Tests.Unit;
 
@@ -134,8 +132,8 @@ internal sealed class PublicPagePipeline : IAsyncDisposable
             // the byte-stable anonymous chrome, anything carrying one gets the
             // full chrome, with a token and a canary in it.
             Chrome chrome = PublicPageCache.CarriesIdentityCookie(context.Request)
-                ? Chrome.For(context, assets, antiforgery)
-                : Chrome.Anonymous(context, assets);
+                ? Chrome.For(context, assets, antiforgery, Locales.Get(context.GetLocale()))
+                : Chrome.Anonymous(context, assets, Locales.Get(context.GetLocale()));
 
             // Rendered by hand rather than through a template so the body is a
             // flat statement of the five fields the invariants are about, and a

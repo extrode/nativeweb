@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.OutputCaching;
 
 using NativeWeb.Render;
 
-namespace __PRODUCT__.Middleware;
+namespace NativeWeb.Web;
 
 /// <summary>
 /// The output-cache policy for the anonymous public pages (spec 006 R2, R8).
@@ -20,12 +20,12 @@ namespace __PRODUCT__.Middleware;
 ///
 /// Pattern-copied from apps/manzil and kept structurally identical to it.
 /// </summary>
-internal sealed class PublicPageCachePolicy : IOutputCachePolicy
+public sealed class PublicPageCachePolicy : IOutputCachePolicy
 {
     /// <summary>The registered policy name the public endpoints attach by.</summary>
     public const string Name = "public-pages";
 
-    public ValueTask CacheRequestAsync(OutputCacheContext context, CancellationToken cancellationToken)
+    public ValueTask CacheRequestAsync(OutputCacheContext context, CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(context);
         HttpContext http = context.HttpContext;
@@ -67,10 +67,10 @@ internal sealed class PublicPageCachePolicy : IOutputCachePolicy
         return ValueTask.CompletedTask;
     }
 
-    public ValueTask ServeFromCacheAsync(OutputCacheContext context, CancellationToken cancellationToken) =>
+    public ValueTask ServeFromCacheAsync(OutputCacheContext context, CancellationToken cancellation) =>
         ValueTask.CompletedTask;
 
-    public ValueTask ServeResponseAsync(OutputCacheContext context, CancellationToken cancellationToken)
+    public ValueTask ServeResponseAsync(OutputCacheContext context, CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(context);
 

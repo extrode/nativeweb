@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Antiforgery;
 
-namespace __PRODUCT__.Middleware;
+namespace NativeWeb.Web;
 
 // Turns a failed antiforgery check into a 400 before the endpoint ever runs.
 //
@@ -29,7 +29,7 @@ namespace __PRODUCT__.Middleware;
 // Skeleton copy -- the product owns this file after stamping. NativeWeb.Scaffold
 // ships the same guard as UseAntiforgeryRejection; a stamped product that takes
 // the scaffold dependency can drop this file and call that instead.
-internal sealed class AntiforgeryValidationMiddleware(RequestDelegate next)
+public sealed class AntiforgeryValidationMiddleware(RequestDelegate next)
 {
     public Task InvokeAsync(HttpContext context)
     {

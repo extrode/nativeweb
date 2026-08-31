@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace __PRODUCT__.Middleware;
+namespace NativeWeb.Web;
 
 /// <summary>
 /// The one place the "this response is a shareable public page" contract lives
@@ -20,7 +20,7 @@ namespace __PRODUCT__.Middleware;
 /// Pattern-copied from apps/manzil and kept structurally identical to it, so
 /// fixes travel between the two by diff.
 /// </summary>
-internal static class PublicPageCache
+public static class PublicPageCache
 {
     /// <summary>
     /// Endpoint metadata marking a route as publicly cacheable, carrying the CSP

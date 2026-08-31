@@ -1,8 +1,7 @@
 using System.Text;
 
-using __PRODUCT__.Middleware;
 
-namespace __PRODUCT__;
+namespace NativeWeb.Web;
 
 // POST /csp-report: sink for browser CSP violation reports. Both delivery
 // mechanisms land here -- the legacy report-uri POST (application/csp-report)
@@ -13,8 +12,14 @@ namespace __PRODUCT__;
 // log it raw for the operator to inspect, return 204. Rate-limited per IP so the
 // sink cannot be used as a log flooder. Skeleton copy -- the product owns this
 // file after stamping.
-internal static class CspReportEndpoint
+public static class CspReportEndpoint
 {
+    // The log category violation reports arrive under. It was "__PRODUCT__.CspReport"
+    // while this file was template text, so every stamped product had its own; a
+    // framework library has one name and it is this. An operator filtering on the
+    // old per-product category needs to filter on this instead.
+    public const string LoggerCategory = "NativeWeb.Web.CspReport";
+
     // Real violation reports are well under 2 KB; 8 KB leaves headroom for long
     // blocked-uri/source-file URLs and report-to batching without letting a
     // hostile client push megabytes into the log. Anything longer is truncated,
@@ -70,7 +75,7 @@ internal static class CspReportEndpoint
             if (total > 0)
             {
                 ILogger logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
-                    .CreateLogger("__PRODUCT__.CspReport");
+                    .CreateLogger(LoggerCategory);
                 LogReport(logger, Sanitize(Encoding.UTF8.GetString(buffer, 0, total)), null);
             }
 
@@ -84,7 +89,7 @@ internal static class CspReportEndpoint
     // Split rather than MediaTypeHeaderValue.TryParse -- one IndexOf is the whole
     // of the parsing this needs, and it keeps the header parser out of the AOT
     // graph for a route that does nothing else.
-    internal static bool IsReportContentType(string? contentType)
+    public static bool IsReportContentType(string? contentType)
     {
         if (string.IsNullOrEmpty(contentType))
         {
@@ -112,7 +117,7 @@ internal static class CspReportEndpoint
     // operator's terminal. Real reports are JSON, which never needs raw control
     // characters (they arrive \u-escaped), so flattening them to spaces loses
     // nothing legitimate.
-    internal static string Sanitize(string report)
+    public static string Sanitize(string report)
     {
         // DEL (0x7F) through the C1 range (0x9F), written as hex casts because
         // the escape form of these characters cannot survive a plain-text copy.

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.OutputCaching;
 
-namespace __PRODUCT__.Middleware;
+namespace NativeWeb.Web;
 
 /// <summary>
 /// Clears an owner's cached public pages after a write that could have changed
@@ -17,7 +17,7 @@ namespace __PRODUCT__.Middleware;
 /// ships here so a product that grows one has the mechanism rather than
 /// reinventing it. Pattern-copied from apps/manzil, structurally identical.
 /// </summary>
-internal static class PublicPageEviction
+public static class PublicPageEviction
 {
     /// <summary>
     /// Evicts this user's public pages whatever the response turns out to be.
@@ -56,7 +56,7 @@ internal static class PublicPageEviction
     /// eviction heals itself within the TTL, so neither would ever be caught
     /// by a flow test.
     /// </summary>
-    internal static Task EvictAsync(HttpContext context)
+    public static Task EvictAsync(HttpContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 

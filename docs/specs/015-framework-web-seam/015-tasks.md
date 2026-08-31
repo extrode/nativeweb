@@ -14,7 +14,7 @@ T1 gates everything after it. Nothing moves until the invariants are asserted an
 - [x] **T3** Move the skeleton's five unit test files into the new tier — files:
   `skeleton/tests/__product__.tests.unit/*.cs` → `tests/nativeweb.web.tests.unit/` — covers: R10 —
   done when: all five pass in the new tier and the skeleton keeps only its product-specific tests.
-- [ ] **T4** Create `libs/nativeweb.web` and move the ten middleware plus `Chrome`, `AssetUrls`,
+- [x] **T4** Create `libs/nativeweb.web` and move the ten middleware plus `Chrome`, `AssetUrls`,
   `Flash`, `StartupConfigGuards`, `ReadinessCache`, `CspReportEndpoint` — files: the new library,
   `skeleton/apps/__product__/**` — covers: R2, R6 — done when: the library builds with 0 warnings
   and T1–T3 still pass against it unchanged.

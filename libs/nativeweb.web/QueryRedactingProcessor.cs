@@ -3,7 +3,7 @@ using System.Text;
 
 using OpenTelemetry;
 
-namespace __PRODUCT__;
+namespace NativeWeb.Web;
 
 /// <summary>
 /// Rewrites the <c>url.query</c> span attribute so nothing survives but the names of parameters
@@ -26,9 +26,9 @@ namespace __PRODUCT__;
 /// </para>
 /// <para>Skeleton copy -- the product owns this file after stamping.</para>
 /// </remarks>
-internal sealed class QueryRedactingProcessor : BaseProcessor<Activity>
+public sealed class QueryRedactingProcessor : BaseProcessor<Activity>
 {
-    internal const string RedactedValue = "Redacted";
+    public const string RedactedValue = "Redacted";
 
     public override void OnEnd(Activity data)
     {
@@ -56,7 +56,7 @@ internal sealed class QueryRedactingProcessor : BaseProcessor<Activity>
     /// trace changes that here, knowing what it is trading.
     /// </para>
     /// </remarks>
-    internal static string Redact(string query)
+    public static string Redact(string query)
     {
         ReadOnlySpan<char> remaining = query;
         var result = new StringBuilder(query.Length);

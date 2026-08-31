@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace __PRODUCT__.Middleware;
+namespace NativeWeb.Web;
 
 // Structured, one-line-per-request logging (R23). Uses the [LoggerMessage]
 // source generator (compile-time, reflection-free) instead of interpolated
@@ -8,7 +8,7 @@ namespace __PRODUCT__.Middleware;
 // the correlation id -- it is what an error page or a downstream log line
 // would carry. The probes are skipped to keep the log readable under
 // load-balancer polling.
-internal sealed partial class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggingMiddleware> logger)
+public sealed partial class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggingMiddleware> logger)
 {
     public async Task InvokeAsync(HttpContext context)
     {

@@ -9,11 +9,9 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.HttpOverrides;
 
-using __PRODUCT__.Middleware;
-using __PRODUCT__.Render;
-
 using NativeWeb.Render;
 using NativeWeb.Security;
+using NativeWeb.Web;
 
 using Npgsql;
 
@@ -379,8 +377,8 @@ public sealed class Program
             // marked cacheable; a flash (or, in a product with accounts, a
             // session) renders today's page unchanged.
             Chrome chrome = PublicPageCache.CarriesIdentityCookie(context.Request)
-                ? Chrome.For(context, assets, antiforgery)
-                : Chrome.Anonymous(context, assets);
+                ? Chrome.For(context, assets, antiforgery, Locales.Get(context.GetLocale()))
+                : Chrome.Anonymous(context, assets, Locales.Get(context.GetLocale()));
             // Every full-page render site takes the flash (read-once); never
             // take it in a fragment path, which would consume it invisibly.
             (string Ok, string Error) flash = Flash.Take(context);
@@ -403,13 +401,13 @@ public sealed class Program
         // mailbox; a supplied-but-unusable value stops the app here rather than
         // shipping a file nobody can act on.
         if (!SecurityTxtEndpoint.TryNormalize(
-                builder.Configuration[SecurityTxtEndpoint.ConfigurationKey],
+                builder.Configuration[$"__PRODUCT__:{SecurityTxtEndpoint.ConfigurationKey}"],
                 out string? securityContact))
         {
             // Same reason as the BotTraps guard above: report and exit, do not
             // throw out of Main. See StartupConfigGuards.FailStartup.
             StartupConfigGuards.FailStartup(
-                $"{SecurityTxtEndpoint.ConfigurationKey} must be a bare email address or a mailto:, "
+                $"__PRODUCT__:{SecurityTxtEndpoint.ConfigurationKey} must be a bare email address or a mailto:, "
                 + "https: or tel: URI on a single line -- for example security@example.com. Leave it "
                 + "unset to serve no security.txt.");
         }

@@ -3,7 +3,7 @@ using System.Collections.Frozen;
 using Microsoft.AspNetCore.StaticAssets;
 using Microsoft.AspNetCore.StaticAssets.Infrastructure;
 
-namespace __PRODUCT__.Render;
+namespace NativeWeb.Web;
 
 // Resolves a logical wwwroot path (e.g. "/css/tokens.css") to the fingerprinted
 // URL MapStaticAssets actually serves it at, so the Render layer never hardcodes

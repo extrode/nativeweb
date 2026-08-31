@@ -1,4 +1,4 @@
-using __PRODUCT__.Middleware;
+using NativeWeb.Web;
 
 using Xunit;
 

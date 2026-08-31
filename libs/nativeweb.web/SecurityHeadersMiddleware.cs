@@ -1,13 +1,13 @@
 using System.Security.Cryptography;
 
-namespace __PRODUCT__.Middleware;
+namespace NativeWeb.Web;
 
 // Per-request security headers + a per-request CSP nonce. The nonce is stashed in
 // HttpContext.Items under ItemKey so the Render layer can stamp it onto inline
 // <script>/<style> tags; the CSP only trusts scripts/styles carrying it.
 // Headers are set via OnStarting so they land before the response body begins.
 // Skeleton copy -- the product owns this file after stamping.
-internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvironment environment)
+public sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvironment environment)
 {
     // Retrieval key for the CSP nonce (HttpContext.Items). Public so the Render
     // layer can read the same value this middleware generated.
@@ -32,7 +32,7 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvir
     // drops the nonces entirely and starts from 'none': linked stylesheets,
     // fonts and images from this origin are the whole allowlist, and
     // form-action 'none' bars an injected form from posting anywhere at all.
-    internal const string StaticPageCsp =
+    public const string StaticPageCsp =
         "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; "
         + "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; "
         + "report-uri /csp-report; report-to csp";
@@ -147,7 +147,7 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvir
     // "application/json", but also the "+json" structured suffix (RFC 6839), so
     // the first endpoint to return problem+json is covered by default rather than
     // silently dropping out of the no-store rule.
-    internal static bool IsSensitiveContentType(string? contentType)
+    public static bool IsSensitiveContentType(string? contentType)
     {
         if (contentType is null)
         {
@@ -174,7 +174,7 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvir
     // of the rule above -- but auth-flow redirects carry returnUrl in Location.
     // Enumerated rather than "any 3xx": 304 is a cache-validation response and
     // must not be told not to store, and 301/308 exist to be cached.
-    internal static bool IsSensitiveRedirect(int statusCode, IHeaderDictionary headers)
+    public static bool IsSensitiveRedirect(int statusCode, IHeaderDictionary headers)
     {
         // An htmx redirect is not an HTTP redirect: 200 with the target in
         // HX-Redirect. Same secret, same absence of a content type.

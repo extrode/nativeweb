@@ -2,7 +2,7 @@ using System.Collections.Frozen;
 
 using Microsoft.Extensions.FileProviders;
 
-namespace __PRODUCT__.Middleware;
+namespace NativeWeb.Web;
 
 // Hand-authored wwwroot/pages/*.html served at clean URLs (spec 003 R38).
 // This middleware only rewrites the request path before routing runs; the
@@ -17,7 +17,7 @@ namespace __PRODUCT__.Middleware;
 // side effect of rewriting this early: request logs record the rewritten
 // /pages/x.html path, not the clean URL the client sent. Skeleton copy --
 // the product owns this file after stamping.
-internal sealed class StaticPagesMiddleware
+public sealed class StaticPagesMiddleware
 {
     // HttpContext.Items marker: present means this response is a static page
     // (or a static-styled error page) and gets the nonce-free CSP branch.
@@ -38,7 +38,7 @@ internal sealed class StaticPagesMiddleware
         GuardAgainstRouteCollisions(_routes.Keys, endpointSources);
     }
 
-    internal StaticPagesMiddleware(RequestDelegate next, FrozenDictionary<string, string> routes)
+    public StaticPagesMiddleware(RequestDelegate next, FrozenDictionary<string, string> routes)
     {
         _next = next;
         _routes = routes;
@@ -63,7 +63,7 @@ internal sealed class StaticPagesMiddleware
     // needing percent-encoding would not round-trip through the decoded
     // Request.Path this map is keyed on. A missing pages/ dir is valid (an
     // app with no static pages yet) and yields an empty map.
-    internal static FrozenDictionary<string, string> BuildRouteMap(IFileProvider webRoot)
+    public static FrozenDictionary<string, string> BuildRouteMap(IFileProvider webRoot)
     {
         var routes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (IFileInfo file in webRoot.GetDirectoryContents("pages"))
@@ -89,7 +89,7 @@ internal sealed class StaticPagesMiddleware
     // whose clean URL matches a mapped route would silently shadow that route
     // for every HTTP method -- dropping settings.html into pages/ must fail
     // the deploy at startup, not disable the settings screen.
-    internal static void GuardAgainstRouteCollisions(
+    public static void GuardAgainstRouteCollisions(
         IEnumerable<string> cleanUrls, IEnumerable<EndpointDataSource> endpointSources)
     {
         var routeTexts = new HashSet<string>(

@@ -1,4 +1,4 @@
-namespace __PRODUCT__;
+namespace NativeWeb.Web;
 
 // RFC 9116 security.txt: where a researcher who found a vulnerability should
 // report it. Expires is mandatory (the RFC recommends under a year); a stale
@@ -14,9 +14,16 @@ namespace __PRODUCT__;
 // report sent there bounced into nobody's inbox and the reporter had no way to
 // learn that. Absence tells a researcher to look elsewhere. A placeholder tells
 // them they are finished.
-internal static class SecurityTxtEndpoint
+public static class SecurityTxtEndpoint
 {
-    internal const string ConfigurationKey = "__PRODUCT__:SecurityContact";
+    /// <summary>
+    /// The key this setting sits under, within whatever configuration section the
+    /// product gave <c>NativeWebOptions</c>. It was the whole key
+    /// (<c>__PRODUCT__:SecurityContact</c>) while this file was template text; a
+    /// framework library does not know the product's section name, so it owns the
+    /// leaf and the caller owns the prefix.
+    /// </summary>
+    public const string ConfigurationKey = "SecurityContact";
 
     // A year out. Bumped by hand; see the note at the top of the file.
     private const string Expires = "2027-08-01T00:00:00Z";
@@ -28,7 +35,7 @@ internal static class SecurityTxtEndpoint
     /// Pure, so the unit tier can drive it directly. Blank is valid and means
     /// "serve no security.txt"; only a supplied-but-unusable value is a failure.
     /// </remarks>
-    internal static bool TryNormalize(string? configured, out string? normalized)
+    public static bool TryNormalize(string? configured, out string? normalized)
     {
         normalized = null;
 
@@ -82,7 +89,7 @@ internal static class SecurityTxtEndpoint
     /// <summary>
     /// The security.txt body for a normalized contact URI.
     /// </summary>
-    internal static string Render(string contact) =>
+    public static string Render(string contact) =>
         "Contact: " + contact + "\n"
         + "Expires: " + Expires + "\n"
         + "Preferred-Languages: en\n";

@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Http;
 
-using __PRODUCT__.Middleware;
 
 using Xunit;
 

@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Antiforgery;
 
-using __PRODUCT__.Middleware;
 
 using NativeWeb.Render;
 using NativeWeb.Security;
 
-namespace __PRODUCT__.Render;
+namespace NativeWeb.Web;
 
 /// <summary>
 /// Everything the layout template needs on every page, gathered once per
@@ -26,11 +25,20 @@ public readonly record struct Chrome(
     // Anonymous instead. GetAndStoreTokens is idempotent per request, so the
     // layout's <meta> token and every form's hidden input come from the same
     // pair.
-    public static Chrome For(HttpContext context, AssetUrls assets, IAntiforgery antiforgery)
+    //
+    // The catalog is a parameter and not a lookup. Both factories read
+    // Locales.Get(context.GetLocale()) while this file was template text, and
+    // Locales is emitted per product by the render generator from that product's
+    // own locales/*.json — so the call compiled only inside a product and this
+    // file could not move into the framework with it (spec 015, found by T1).
+    // The caller passes the catalog and keeps the one line that names its own
+    // generated type.
+    public static Chrome For(
+        HttpContext context, AssetUrls assets, IAntiforgery antiforgery, LocaleCatalog locale)
     {
         AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(context);
         return new(
-            Locales.Get(context.GetLocale()),
+            locale,
             assets,
             (string)context.Items[SecurityHeadersMiddleware.ItemKey]!,
             tokens.FormFieldName,
@@ -50,7 +58,7 @@ public readonly record struct Chrome(
     /// Set-Cookie is both a per-response byte and a response OutputCache
     /// refuses to store;</item>
     /// <item>no nonce — the response is authorized by the build-generated
-    /// script hashes in <see cref="Middleware.PublicPageCache.Csp"/> instead;</item>
+    /// script hashes in <see cref="PublicPageCache.Csp"/> instead;</item>
     /// <item>no canary — <see cref="BotTraps.IssueCanary"/> signs the render
     /// instant, so it differs on every call. A public page renders no trap
     /// fields, so this drops a cost rather than a defence.</item>
@@ -61,6 +69,6 @@ public readonly record struct Chrome(
     /// that carried no session cookie, and passing an identity through it would
     /// leak that user's name into a shared entry.
     /// </summary>
-    public static Chrome Anonymous(HttpContext context, AssetUrls assets) =>
-        new(Locales.Get(context.GetLocale()), assets, "", "", "", "");
+    public static Chrome Anonymous(HttpContext context, AssetUrls assets, LocaleCatalog locale) =>
+        new(locale, assets, "", "", "", "");
 }

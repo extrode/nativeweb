@@ -30,6 +30,7 @@
     <PackageVersion Include="NativeWeb.Security" Version="0.1.0" />
     <PackageVersion Include="NativeWeb.Render" Version="0.1.0" />
     <PackageVersion Include="NativeWeb.Render.Generator" Version="0.1.0" />
+    <PackageVersion Include="NativeWeb.Web" Version="0.1.0" />
   </ItemGroup>
 
   <!-- Test-only packages. Referenced solely by tests/*, never by shipping code. -->

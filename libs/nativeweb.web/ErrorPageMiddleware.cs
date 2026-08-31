@@ -1,6 +1,6 @@
 using System.Text.Encodings.Web;
 
-namespace __PRODUCT__.Middleware;
+namespace NativeWeb.Web;
 
 // Central HTML error rendering: an unhandled exception, or any response that
 // reaches >= 400 without writing a body of its own (e.g. routing's unmatched-
@@ -11,7 +11,7 @@ namespace __PRODUCT__.Middleware;
 // static shell (spec 003 R39), never the renderer: the error path must keep
 // working when the render layer is the thing broken. Skeleton copy -- the
 // product owns this file after stamping.
-internal sealed partial class ErrorPageMiddleware(RequestDelegate next, StaticErrorShell shell, ILogger<ErrorPageMiddleware> logger)
+public sealed partial class ErrorPageMiddleware(RequestDelegate next, StaticErrorShell shell, ILogger<ErrorPageMiddleware> logger)
 {
     // Opt-out for an endpoint whose non-2xx IS its answer rather than a failure to
     // write one. The HasStarted check below cannot tell the two apart: a bare
@@ -83,7 +83,7 @@ internal sealed partial class ErrorPageMiddleware(RequestDelegate next, StaticEr
         await context.Response.WriteAsync(html).ConfigureAwait(false);
     }
 
-    internal static (string Title, string Message) Describe(int statusCode) => statusCode switch
+    public static (string Title, string Message) Describe(int statusCode) => statusCode switch
     {
         StatusCodes.Status400BadRequest => ("Bad request", "The request could not be understood. Check it and try again."),
         StatusCodes.Status404NotFound => ("Not found", "The page you're looking for doesn't exist."),

@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.EnvironmentVariables;
 
-namespace __PRODUCT__;
+namespace NativeWeb.Web;
 
 // Startup-time configuration handling that must be drivable by the unit tier.
 // Both members here fail by *not* firing, so a guard that silently returns is
@@ -15,12 +15,12 @@ namespace __PRODUCT__;
 // Skeleton copy -- the product owns this file after stamping, and a product with
 // its own boot-time invariants (a required secret, a row that must exist) adds
 // them here beside these two.
-internal static class StartupConfigGuards
+public static class StartupConfigGuards
 {
     // Exit code for a refused start. Distinct from 0 is all an orchestrator
     // needs; 78 is sysexits.h's EX_CONFIG, which costs nothing and reads
     // correctly in a service log.
-    internal const int ConfigurationErrorExitCode = 78;
+    public const int ConfigurationErrorExitCode = 78;
 
     // Deliberately not `throw`. An unhandled exception out of Program.Main is a
     // *crash*: under NativeAOT it fail-fasts with STATUS_STACK_BUFFER_OVERRUN
@@ -32,7 +32,7 @@ internal static class StartupConfigGuards
     // deployment is an operator error with a known cause and a known remedy, so
     // report it and exit.
     [DoesNotReturn]
-    internal static void FailStartup(string message)
+    public static void FailStartup(string message)
     {
         Console.Error.WriteLine(message);
         Console.Error.Flush();
@@ -54,7 +54,7 @@ internal static class StartupConfigGuards
     //
     // No-ops when nothing was added, or when no environment-variables source precedes
     // the addition -- in both cases the existing order is already correct.
-    internal static void DemoteBelowEnvironmentVariables(IList<IConfigurationSource> sources, int addedFrom)
+    public static void DemoteBelowEnvironmentVariables(IList<IConfigurationSource> sources, int addedFrom)
     {
         ArgumentNullException.ThrowIfNull(sources);
 

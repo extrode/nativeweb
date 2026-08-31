@@ -72,11 +72,17 @@
     <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
+    <!-- The request pipeline (spec 015): security headers, the public-page
+         output cache, error and static pages, flash, readiness, CSP reporting.
+         Every one of these was a file in this directory until 2026-08-31, so a
+         fix to any of them could not reach a product already stamped. -->
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.web\nativeweb.web.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(NativeWebUsePackages)' == 'true'">
     <PackageReference Include="NativeWeb.Security" />
     <PackageReference Include="NativeWeb.Render" />
+    <PackageReference Include="NativeWeb.Web" />
     <!-- The package ships under analyzers/dotnet/cs, which is what makes it a
          generator; OutputItemType/ReferenceOutputAssembly are ProjectReference
          metadata and would be ignored here. PrivateAssets keeps it build-only. -->

@@ -6,6 +6,7 @@
     <Project Path="libs/nativeweb.render.generator/nativeweb.render.generator.csproj" />
     <Project Path="libs/nativeweb.render/nativeweb.render.csproj" />
     <Project Path="libs/nativeweb.security/nativeweb.security.csproj" />
+    <Project Path="libs/nativeweb.web/nativeweb.web.csproj" />
     <Project Path="libs/nativeweb.mail/nativeweb.mail.csproj" />
     <Project Path="libs/nativeweb.forms/nativeweb.forms.csproj" />
     <Project Path="libs/nativeweb.forms.generator/nativeweb.forms.generator.csproj" />

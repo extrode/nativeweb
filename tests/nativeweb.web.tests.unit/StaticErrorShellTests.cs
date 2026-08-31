@@ -1,6 +1,5 @@
 using Microsoft.Extensions.FileProviders;
 
-using __PRODUCT__.Middleware;
 
 using Xunit;
 

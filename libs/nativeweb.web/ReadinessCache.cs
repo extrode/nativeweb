@@ -1,4 +1,4 @@
-namespace __PRODUCT__;
+namespace NativeWeb.Web;
 
 /// <summary>
 /// Serves <c>/readyz</c> from a short-lived cached answer so the probe's cost is
@@ -41,7 +41,7 @@ namespace __PRODUCT__;
 /// TimeSpan-from-an-origin rather than a DateTimeOffset, so a caller cannot
 /// supply a wall clock without noticing that it does not fit.
 /// </param>
-internal sealed class ReadinessCache(TimeSpan window, Func<Task<bool>> probe, Func<TimeSpan> clock)
+public sealed class ReadinessCache(TimeSpan window, Func<Task<bool>> probe, Func<TimeSpan> clock)
 {
     private readonly Lock _sync = new();
     private Task<bool>? _inFlight;

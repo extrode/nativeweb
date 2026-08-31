@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The web pipeline the framework ships (spec 015). Until 2026-08-31 every
+       file in here was template text under skeleton/apps/__product__/, copied
+       into each product at stamp time, so a security fix to the CSP or the
+       output-cache guard could not reach a product already stamped. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Web</PackageId>
+    <Version>0.1.0</Version>
+    <Description>NativeWeb framework: the request pipeline — security headers, public-page output cache, error pages, static pages, flash, readiness, CSP reporting.</Description>
+    <RootNamespace>NativeWeb.Web</RootNamespace>
+    <!-- The Request Delegate Generator. MapGet/MapPost carry
+         RequiresUnreferencedCode + RequiresDynamicCode, and the only thing that
+         makes them AOT-clean is the RDG intercepting each call site with
+         generated binding code. The Web SDK turns it on for the app; a class
+         library does not get it, so CspReportEndpoint and SecurityTxtEndpoint
+         failed with four IL2026/IL3050 the moment they left the product
+         (2026-08-31). Interceptors have to be opted into by namespace as well. -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.AspNetCore.Http.Generated</InterceptorsNamespaces>
+  </PropertyGroup>
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible and analyzer settings come from Directory.Build.props. -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\nativeweb.render\nativeweb.render.csproj" />
+    <ProjectReference Include="..\nativeweb.security\nativeweb.security.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- QueryRedactingProcessor is a BaseProcessor<Activity>, so the trace SDK
+         is a compile-time dependency of this library rather than only of the
+         product that turns telemetry on. Extensions.Hosting brings the SDK
+         core; the instrumentation and exporter packages stay with the caller
+         that wires them. -->
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+  </ItemGroup>
+
+  <!-- The Web SDK's implicit usings, restated. These sources were written under
+       Microsoft.NET.Sdk.Web and a class library does not get them. -->
+  <ItemGroup>
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+</Project>
