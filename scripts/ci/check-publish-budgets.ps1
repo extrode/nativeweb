@@ -9,7 +9,12 @@ param(
     # 5998, matching what ci.yml passes. It used to default to 5999, which no
     # caller ever used: running the script by hand exercised a port the pipeline
     # never touches, so a port-specific failure could only show up in CI.
-    [int]$Port = 5998
+    [int]$Port = 5998,
+    # The configuration section the target app binds NativeWebOptions from --
+    # apps/sample passes "Sample" to FromConfiguration, so its telemetry switch
+    # is Sample__Telemetry__Enabled and NOT NativeWeb__Telemetry__Enabled. Which
+    # is what silently un-gated the OTel-under-AOT check: see the launch below.
+    [string]$ConfigPrefix = 'Sample'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,15 +46,26 @@ $startInfo.WorkingDirectory = (Split-Path (Resolve-Path $ExePath).Path)
 $startInfo.UseShellExecute = $false
 $startInfo.EnvironmentVariables['ASPNETCORE_URLS'] = $baseUrl
 $startInfo.EnvironmentVariables['ASPNETCORE_ENVIRONMENT'] = 'Development'
-# Telemetry ON for this launch. THIS GATE STOPPED GATING on 2026-08-31: it was
-# the only place the OTel registration path ran inside a real NativeAOT image,
-# and it ran because the target was apps/web, which registered OpenTelemetry.
-# apps/sample does not, and no surviving library does, so the variable is inert
-# and an AOT-hostile change to the registration path would now ship unnoticed.
-# Kept set so the intent survives the gap; restoring the coverage means giving
-# apps/sample a telemetry registration, which work/todo.md carries. No collector
-# exists here; export failures are background warnings.
-$startInfo.EnvironmentVariables['NativeWeb__Telemetry__Enabled'] = 'true'
+# Telemetry ON for this launch: this is the only place the OpenTelemetry
+# registration runs inside a real NativeAOT image, so it is the only thing that
+# would catch an AOT-hostile change to it.
+#
+# It stopped gating on 2026-08-31 and the reason was one word in a variable name.
+# The key was NativeWeb__Telemetry__Enabled, which worked while the target was
+# apps/web -- that app bound its options from a "NativeWeb" section. apps/sample
+# binds from "Sample", so the variable matched nothing, TelemetryEnabled stayed
+# false, and AddNativeWebTelemetry returned before registering anything. Nothing
+# failed; the check just stopped checking. Hence -ConfigPrefix, and the repo-tier
+# fact that holds it to what apps/sample actually passes to FromConfiguration.
+#
+# Measured on the published win-x64 binary, 2026-08-31, with a value the options
+# validator rejects: Sample__Telemetry__Enabled=maybe refused startup with exit
+# 78 and "Sample:Telemetry:Enabled must be true or false", while
+# NativeWeb__Telemetry__Enabled=maybe started the app normally. The old key was
+# not merely the wrong section; it was unread.
+#
+# No collector exists here; export failures are background warnings.
+$startInfo.EnvironmentVariables["${ConfigPrefix}__Telemetry__Enabled"] = 'true'
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $process = [System.Diagnostics.Process]::Start($startInfo)
