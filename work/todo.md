@@ -1042,7 +1042,13 @@ Seven follow-ups the removal itself created, six of them still live:
   a comment in their place records why the two travel together, so a future reintroduction of
   `Fido2` does not hit the NU1107 libsodium conflict from scratch. Build stayed 0 warnings, 0 errors.
 
-## epass.io cutover readiness, probed 2026-08-24
+## ~~epass.io cutover readiness, probed 2026-08-24~~ — the cutover half is CLOSED 2026-08-31
+
+**Read `docs/decisions/2026-08-31-008-epass-cutover-closed.md` before acting on anything below.**
+The cutover is not a NativeWeb concern and the term is retired here: epass.io built its own browser
+surface, and the only NativeWeb-side input left is a push of `dev`, which is the user's.
+**What survives in this section is the deploy readiness, which is real and unrelated** — spec 011
+T15, the scripts that have never run on a host. Read it as that, not as cutover work.
 
 Probed before scheduling the cutover, on the reasoning that finding unfinished work afterwards is
 far more expensive than finding it now. ~~The application side is ready; the deploy side was never
@@ -1102,9 +1108,13 @@ surface, while epass.io is a JSON API with five clients hanging off it. The capa
 per-client route delta, epass.io's own unmerged work, and what was and was not verified are all
 in that doc.
 
-**The cutover therefore waits on a scope decision nobody has taken:** whole replacement, or
-browser surface only with `apps/api` left serving the native clients and the addon. The four
-deploy blockers above are downstream of whichever answer wins.
+~~**The cutover therefore waits on a scope decision nobody has taken:** whole replacement, or
+browser surface only with `apps/api` left serving the native clients and the addon.~~
+**Answered 2026-08-29 in the epass.io repo — browser surface only — and the whole question is
+closed here as of 2026-08-31**
+(`docs/decisions/2026-08-31-008-epass-cutover-closed.md`). The deploy blockers above are **not**
+downstream of it: they are spec 011 T15, which is worth doing whether or not any other repo ever
+deploys, and that is the only reason to read this section now.
 
 ## Perf re-measurement, 2026-08-24
 

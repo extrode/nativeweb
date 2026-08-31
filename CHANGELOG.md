@@ -13,6 +13,19 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Changed
+- **The epass.io cutover is closed as a NativeWeb concern, and the term is retired here.**
+  Checked against the real sibling checkout on 2026-08-31 rather than taken on report: epass.io has
+  built and merged its own browser surface and is ahead of this repo on it, consumes only
+  `libs/nativeweb.render` and `libs/nativeweb.security`, and uses nothing the identity provider's
+  departure deleted from either — it carries its own `PairwiseSubject` and `Pkce`. The render
+  library's public API has not moved since the `NATIVEWEB_REF` it pins, and that pin is reachable
+  on `origin/dev` today, so epass.io is not blocked on anything here. Recorded in
+  [decision 008](docs/decisions/2026-08-31-008-epass-cutover-closed.md); `work/status/current.md`,
+  `work/milestones.md` (milestone 4 → shipped), `work/tasklist.md`, `work/todo.md`,
+  `docs/02-reference/deployment.md` and spec 011's non-goals all updated to stop presenting it as
+  open. The one outstanding input is a push of `dev`, which is the user's.
+
 ### Added
 - **The framework web seam (`libs/nativeweb.web`).** One `AddNativeWebWeb` + `UseNativeWebPipeline`
   + `MapNativeWebEndpoints` composes what every NativeWeb product used to copy into its own

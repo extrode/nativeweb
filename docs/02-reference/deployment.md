@@ -317,7 +317,7 @@ whole way back, from nothing but this repository and the backup bucket:
 | `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
 | `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it |
 | CI cannot restore in package mode | Deferred; `build.sh` pins checkout mode and says why |
-| The epass.io cutover scope decision | Out of scope here — `../architecture/002-epass-cutover-capability-gap.md` |
+| ~~The epass.io cutover scope decision~~ | **Closed 2026-08-31, and not a NativeWeb concern at all** — `../decisions/2026-08-31-008-epass-cutover-closed.md`. Nothing in this runbook is gated on it. |
 
 **On `MemoryDenyWriteExecute`.** Measured 2026-08-27, Debian 12 under WSL2: the
 `linux-x64` publish started, logged "Now listening", and answered `/healthz` 200

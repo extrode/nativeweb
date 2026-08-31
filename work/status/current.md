@@ -27,18 +27,13 @@ worth seeing here rather than hiding, but it is the exception.
   R15 is conditional too: `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is not
   noticed. This is a person's task, not a session's.
 
-- **The epass.io production cutover.** Sign-off gated, and as of 2026-08-25 gated on something
-  larger: `docs/architecture/002-epass-cutover-capability-gap.md` measured NativeWeb against the
-  repo it replaces for the first time and found `apps/web` is not a drop-in replacement. That
-  scope question was **answered 2026-08-29, in the epass.io repo**
-  (`epass.io/docs/decisions/2026-08-29-003-native-web-browser-surface.md`): the browser surface
-  only, DB-free, calling `apps/api` and `/internal/store` over HTTP, with `apps/api` remaining the
-  sole writer to the identity database. The port is built in that repo, not this one; findings
-  from here that reach it go to `epass.io/work/todo.md`.
-  Telemetry is no longer part of this: it is
-  on by default as of 2026-08-17, so there is no flag left to flip during the switch. What is
-  left is pointing `OTEL_EXPORTER_OTLP_ENDPOINT` at a collector, which needs a collector to
-  exist — an operator decision, not work.
+- ~~**The epass.io production cutover.**~~ **Closed 2026-08-31 as a NativeWeb concern** —
+  `docs/decisions/2026-08-31-008-epass-cutover-closed.md`. Checked against the real sibling
+  checkout that day: epass.io has built and merged its own browser surface, consumes only
+  `libs/nativeweb.render` and `libs/nativeweb.security` from here, uses nothing the identity
+  provider's departure deleted from either, and its red CI has three causes all in that repo.
+  Nothing is owed to it but a push of `dev`, which is the user's call. **The term is retired
+  here; do not reopen it from an older document.**
 - Behind it, the `work/todo.md` items that need a decision rather than work: the skeleton's
   release process (whether NativeWeb versions and publishes itself), the session key type
   (JauntyQ-wide), and pinning the skeleton's two framework checkouts to tags, which cannot happen

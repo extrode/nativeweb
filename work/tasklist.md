@@ -109,5 +109,7 @@ Spec 003 (architecture v2 + manzil.my extraction) shipped 2026-08-01 — archive
 `docs/specs/003-architecture-v2/003-tasks.md` (all ticked).
 
 Spec 002 (IdP hardening) shipped 2026-07-31 — archived to
-`archive/2026-07-31-idp-hardening.md`. The sign-off-gated production cutover replacing
-epass.io remains user-gated. Unscheduled items live in `todo.md`.
+`archive/2026-07-31-idp-hardening.md`. ~~The sign-off-gated production cutover replacing
+epass.io remains user-gated.~~ **There is no such cutover: the identity provider left this
+repository on 2026-08-31 and the cutover closed with it**
+(`docs/decisions/2026-08-31-008-epass-cutover-closed.md`). Unscheduled items live in `todo.md`.

@@ -37,8 +37,11 @@ deliberately parked; this spec is the work that is true regardless.
 
 ## Non-goals
 
-- **The epass.io cutover scope decision.** Whole replacement versus browser surface only stays
-  open (`docs/architecture/002-epass-cutover-capability-gap.md`). Nothing here presumes an answer.
+- **The epass.io cutover scope decision.** ~~Whole replacement versus browser surface only stays
+  open (`docs/architecture/002-epass-cutover-capability-gap.md`).~~ **Answered browser-surface-only
+  on 2026-08-29 in the epass.io repo, and closed here entirely on 2026-08-31**
+  (`docs/decisions/2026-08-31-008-epass-cutover-closed.md`). It stayed a non-goal throughout and
+  nothing in this spec presumed an answer, which is why the closure changes nothing here.
 - **Closing the capability gap.** No SMS OTP, no Telegram/WhatsApp, no `/oauth/userinfo`, no
   authenticator devices, no push approvals, no hosted background services. Those are the cutover's
   work, not the deployment's.
