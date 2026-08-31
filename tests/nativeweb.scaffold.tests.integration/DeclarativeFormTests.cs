@@ -183,7 +183,13 @@ public sealed class DeclarativeFormTests
         string html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("""<form class="articles__filter" method="post" action="/articles">""", html, StringComparison.Ordinal);
+        // The form gained hx-post/hx-target on 2026-08-31, so the open tag is no
+        // longer one line. What this asserts is unchanged and is the thing the
+        // binder depends on: a POST form aimed at /articles. The hx- attributes are
+        // the enhancement layer and are asserted in the sample's own tier.
+        Assert.Contains("class=\"articles__filter\"", html, StringComparison.Ordinal);
+        Assert.Contains("method=\"post\"", html, StringComparison.Ordinal);
+        Assert.Contains("action=\"/articles\"", html, StringComparison.Ordinal);
         Assert.Contains("""name="query" """, html, StringComparison.Ordinal);
         Assert.Contains("""name="max" """, html, StringComparison.Ordinal);
     }

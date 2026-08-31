@@ -26,6 +26,16 @@
     <ProjectReference Include="..\..\libs\nativeweb.scaffold.generator\nativeweb.scaffold.generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
+    <!-- The compiled-template render engine, added 2026-08-31. Before it, this app
+         hand-built its HTML in a StringBuilder while the render layer (the largest
+         library in the framework at 3,633 lines) was exercised only by its own unit
+         tier and by the skeleton, which no local build compiles. A reference
+         application that does not use the framework's own renderer demonstrates the
+         wrong thing. -->
+    <ProjectReference Include="..\..\libs\nativeweb.render\nativeweb.render.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <!-- JauntyQ, hosted here against db/sample/ rather than in a shared library.
@@ -59,6 +69,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Templates and the locale catalog, read by nativeweb.render.generator. Not
+         ** on locales: the generator only accepts files directly under locales/. -->
+    <AdditionalFiles Include="templates\**\*.html" />
+    <AdditionalFiles Include="locales\*.json" />
     <AdditionalFiles Include="..\..\db\sample\queries\**\*.sql" />
     <AdditionalFiles Include="..\..\db\sample\schema\*.schema.json" />
   </ItemGroup>

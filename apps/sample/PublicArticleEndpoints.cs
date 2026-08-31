@@ -3,7 +3,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Antiforgery;
 
 using NativeWeb.Forms;
-using NativeWeb.Sample.Render;
+using NativeWeb.Render;
 
 namespace NativeWeb.Sample;
 
@@ -45,7 +45,7 @@ internal static class PublicArticleEndpoints
         {
             IReadOnlyList<PublishedArticle> recent = await articles.RecentAsync(PageSize, ct).ConfigureAwait(false);
             AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
-            return Results.Content(ArticlesPage.Render(recent, null, tokens.RequestToken), "text/html");
+            return Page(http, recent, query: null, tokens);
         });
 
         // The declarative-binding demo (spec 014). Three things are worth reading
@@ -73,13 +73,37 @@ internal static class PublicArticleEndpoints
             IReadOnlyList<PublishedArticle> matching = Matching(recent, filter.Query);
 
             AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
-            return Results.Content(
-                ArticlesPage.Render(matching, filter.Query, tokens.RequestToken),
-                "text/html");
+
+            // An htmx request gets the list fragment alone; a no-JS form POST gets
+            // the whole page. Same handler, same data, one branch -- which is the
+            // progressive-enhancement contract the architecture doc describes, and
+            // the reason the form carries both hx-post and a real method/action.
+            return http.Request.Headers.ContainsKey("HX-Request")
+                ? Results.Content(
+                    Templates.Articles.Results.ToHtmlString(
+                        locale: Locales.Get(http.GetLocale()),
+                        Articles: matching),
+                    "text/html")
+                : Page(http, matching, filter.Query, tokens);
         });
 
         return endpoints;
     }
+
+    // The full page, through the compiled layout. Both handlers land here so the
+    // GET and the no-JS POST cannot drift apart.
+    private static IResult Page(
+        HttpContext http,
+        IReadOnlyList<PublishedArticle> articles,
+        string? query,
+        AntiforgeryTokenSet tokens) =>
+        Templates.Articles.Index.Result(
+            locale: Locales.Get(http.GetLocale()),
+            Title: Locales.Get(http.GetLocale())["title.articles"],
+            AntiforgeryToken: tokens.RequestToken ?? "",
+            Query: query ?? "",
+            AntiforgeryFieldName: tokens.FormFieldName,
+            Articles: articles);
 
     // A blank box means "everything", which is why an empty query is not a filter
     // that matches nothing.

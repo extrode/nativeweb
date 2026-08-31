@@ -1,0 +1,23 @@
+{
+  "chrome": {
+    "skip": "Skip to content",
+    "brand": "NativeWeb sample",
+    "footer": "apps/sample -- the NativeWeb reference application"
+  },
+  "nav": {
+    "articles": "Articles",
+    "admin": "Admin"
+  },
+  "title": {
+    "articles": "Articles"
+  },
+  "articles": {
+    "title": "Articles",
+    "lede": "Rendered server-side from a compiled template. The filter posts over htmx and swaps only the list; with JavaScript off the same form posts the whole page.",
+    "filter": "Filter",
+    "max": "Max",
+    "placeholder": "Title or author",
+    "submit": "Filter",
+    "empty": "No published articles yet."
+  }
+}
