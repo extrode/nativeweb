@@ -80,11 +80,13 @@
          bug rather than a watcher that was never told.
 
          These lines are necessary and not sufficient. Hot reload has to be off as
-         well -- `dotnet watch run --project apps/sample --no-hot-reload`, which is
-         the form docs/00-quick-start/getting-started.md gives. Under the default
-         hot-reload session this project detected nothing, template or .cs alike,
-         while a scratch console app in the same tree detected both, so the cause
-         is this project's shape rather than the machine. -->
+         well, via the watch flag that disables it: see the command in
+         docs/00-quick-start/getting-started.md, which is the form that works.
+         Under the default hot-reload session this project detected nothing,
+         template or .cs alike, while a scratch console app in the same tree
+         detected both, so the cause is this project's shape, not the machine.
+         (The flag is not spelled here because a double hyphen is illegal inside
+         an XML comment: MSB4025, and the whole project fails to load.) -->
     <Watch Include="templates\**\*.html" />
     <Watch Include="locales\*.json" />
     <AdditionalFiles Include="..\..\db\sample\queries\**\*.sql" />
