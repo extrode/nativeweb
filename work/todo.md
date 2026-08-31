@@ -9,6 +9,41 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **The three consumers were probed on 2026-09-01; seven gaps, written up in
+  [`docs/architecture/004-consumer-readiness.md`](../docs/architecture/004-consumer-readiness.md).**
+  Read that first — this entry is the backlog handle, not the finding. What it measured: `epass.io`
+  declares two NativeWeb project references and uses **zero** NativeWeb types, having hand-ported
+  the five files `libs/nativeweb.web` now ships; `justsmtp.com` cannot build at all, both because
+  its probe path still names `extrode-legacy-org.com` and because seven of its files `using
+  NativeWeb.SignIn.Epass`, a library that left on 2026-08-31; and `ghosthive.com/apps/web` is 61
+  files of SvelteKit 5 on Deno whose recorded plan to adopt NativeWeb names the same dead path and
+  two libraries that no longer exist.
+
+  Work that lands here, in the order the document argues for:
+  - **G1 — pack and version the libraries.** Eight carry `IsPackable` and a `PackageId` and
+    nothing packs them; the repository has one tag ever, and it is not a release. Decision 004
+    approved package mode on 2026-08-30 and listed four obligations; none is done. Until one is,
+    every consumer builds against whatever `dev` happens to be.
+  - **G2 — a breaking-change log in `docs/`.** Removing `nativeweb.signin.epass` and
+    `nativeweb.auth` broke a downstream product and nothing here could have known.
+  - **G5 — list primitives.** `IScaffoldStore<T>.ListAsync` still takes no ordering parameter;
+    ghosthive hand-rolled `ListQueryParser`, `FilterComposer` and a keyset `Cursor` and then went
+    without them on its own control-plane lists. Sorting, filtering and cursor pagination.
+  - **G6 — READMEs for the seven libraries without one**, `nativeweb.web` first: it is the largest
+    seam and the one a consumer has already reimplemented by hand for want of knowing it exists.
+  - **G7 — an adoption guide for an existing app.** `getting-started.md` goes clone → stamp, and
+    none of the three consumers can stamp anything.
+
+  **Needs a decision, not work — G3.** All three products authenticate against epass.io and all
+  three wrote their own relying party. An OAuth client — authorization-code with PKCE, a session
+  cookie primitive, an introspection filter, with no epass flow, realm or client registry — sits
+  on the `contrib.auth` side of the Django line the same way `django-allauth` does. Whether it
+  comes back as framework is the user's call, and `ghosthive.com`'s migration is blocked on it.
+
+  **Left alone deliberately — G4.** NativeWeb renders HTML and has nothing for ghosthive's
+  JSON-only control plane. That may be the right boundary; the framework should say so rather than
+  leave it implied.
+
 - **The security and mail tiers exist now — 227 facts, written 2026-08-31.**
   `tests/nativeweb.security.tests.unit` (174) and `tests/nativeweb.mail.tests.unit` (53) close the
   coverage gap recorded below; nine mutations across the two libraries were checked to confirm the
