@@ -36,7 +36,15 @@
     <ProjectReference Include="..\..\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
+    <!-- The framework's request pipeline (spec 015). -->
+    <ProjectReference Include="..\..\libs\nativeweb.web\nativeweb.web.csproj" />
   </ItemGroup>
+
+  <!-- The framework's browser assets. NuGet imports this file on its own for a
+       PackageReference; a ProjectReference does not, so it is imported by path.
+       It contributes the files under libs/nativeweb.web/wwwroot/ to this app's
+       static web assets, which is what fingerprints and precompresses them. -->
+  <Import Project="..\..\libs\nativeweb.web\build\NativeWeb.Web.targets" />
 
   <!-- JauntyQ, hosted here against db/sample/ rather than in a shared library.
        It read "rather than taken from libs/nativeweb.data" until 2026-08-31, when

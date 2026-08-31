@@ -89,6 +89,17 @@
     <PackageReference Include="NativeWeb.Render.Generator" PrivateAssets="all" />
   </ItemGroup>
 
+  <!-- The framework's browser assets — boot.js and the design-system
+       stylesheets — served under /_nativeweb/ (spec 015 R7). In package mode
+       NuGet imports build/NativeWeb.Web.targets from the package itself, so this
+       line is the checkout mode's half only. The underscore-prefixed base path
+       is what keeps a framework asset from colliding with a file of the same
+       name under this product's own wwwroot: the static web assets pipeline
+       treats two assets at one target path as a build error, not a precedence
+       question. -->
+  <Import Project="$(NativeWebRoot)\libs\nativeweb.web\build\NativeWeb.Web.targets"
+          Condition="'$(NativeWebUsePackages)' != 'true'" />
+
   <ItemGroup>
     <AdditionalFiles Include="templates\**\*.html" />
     <!-- Not **: the generator only accepts files directly under locales/. -->

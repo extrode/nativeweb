@@ -1,20 +1,23 @@
+using System.Text.RegularExpressions;
+
 using Xunit;
 
 namespace NativeWeb.Repo.Tests.Unit;
 
 /// <summary>
-/// Every vendored copy of a framework-owned asset is byte-identical to the
-/// canonical file in <c>libs/nativeweb.assets/</c>.
+/// The framework's own assets are delivered from one place, and the third-party
+/// trees each app vendors for itself agree with each other.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>libs/nativeweb.assets/README.md</c> has described this rule since the
-/// directory existed: canonical here, byte-identical copies under each app's own
-/// <c>wwwroot/</c>, and a test that fails on drift so the divergence never ships.
-/// The test it describes was never in this tier. It lived beside <c>apps/web</c>
-/// and left with the identity provider on 2026-08-31, along with
-/// <c>SkeletonParityTests</c>, and for the same structural reason: both were
-/// written against a twin that no longer exists.
+/// The first half used to be a parity check, because vendoring by hand was how a
+/// framework asset reached an app: canonical in <c>libs/nativeweb.assets/</c>,
+/// byte-identical copies under each <c>wwwroot/</c>, drift caught here. Spec 015
+/// R7 removed the copies as a mechanism — the files moved to
+/// <c>libs/nativeweb.web/wwwroot/</c> and an MSBuild <c>.targets</c> contributes
+/// them to every consumer's static web assets, so there is one copy and nothing
+/// to keep in sync. What survives is the guard on the leftovers, which is a
+/// transitional fact, and the third-party check, which is not.
 /// </para>
 /// <para>
 /// This is the replacement, and it is deliberately in the repo tier rather than
@@ -34,7 +37,7 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// <c>AssetUrls</c> fingerprints diverge.
 /// </para>
 /// </remarks>
-public sealed class AssetParityTests
+public sealed partial class AssetParityTests
 {
     /// <summary>
     /// The framework-owned stylesheets. <c>__product__.css</c> is absent on
@@ -96,24 +99,74 @@ public sealed class AssetParityTests
         return data;
     }
 
-    [Theory]
-    [MemberData(nameof(Pairs))]
-    public void VendoredCopyIsByteIdenticalToCanonical(string consumerDirectory, string fileName)
+    /// <summary>
+    /// Where a framework-owned asset lives now: one copy, delivered to every
+    /// consumer by <c>libs/nativeweb.web/build/NativeWeb.Web.targets</c> (spec
+    /// 015 R7) and served under <c>/_nativeweb/</c>.
+    /// </summary>
+    private static string DeliveredAsset(string root, params string[] segments) =>
+        Path.Combine([root, "libs", "nativeweb.web", "wwwroot", "_nativeweb", .. segments]);
+
+    /// <summary>
+    /// The four files the framework delivers are present where the
+    /// <c>.targets</c> globs for them.
+    /// </summary>
+    /// <remarks>
+    /// The glob is <c>wwwroot\**\*</c>, so a file that goes missing produces no
+    /// build error at all — the consumer loses a stylesheet and finds out in a
+    /// browser. This is the fact that turns that into a failing test.
+    /// </remarks>
+    [Fact]
+    public void TheFrameworkDeliversEveryAssetItOwns()
     {
         string root = RepoRoot();
-        string canonical = Path.Combine(root, "libs", "nativeweb.assets", "css", fileName);
+        foreach (string file in CanonicalCss)
+        {
+            Assert.True(File.Exists(DeliveredAsset(root, "css", file)), $"Missing: {DeliveredAsset(root, "css", file)}");
+        }
+
+        Assert.True(File.Exists(DeliveredAsset(root, "boot.js")), $"Missing: {DeliveredAsset(root, "boot.js")}");
+    }
+
+    /// <summary>
+    /// A consumer's leftover copy of a framework-owned stylesheet has not
+    /// drifted from the delivered one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Until 2026-08-31 this compared each consumer's copy against a canonical
+    /// file in <c>libs/nativeweb.assets/css/</c>, and a missing copy was a
+    /// failure: vendoring by hand was the delivery mechanism. Spec 015 R7
+    /// replaced it — the file is delivered by the build, the templates resolve
+    /// it at <c>/_nativeweb/css/</c>, and the copies still sitting in each
+    /// consumer's <c>wwwroot/css/</c> are unreferenced leftovers awaiting
+    /// <c>scripts/cleanup/015-framework-web-seam.ps1</c>.
+    /// </para>
+    /// <para>
+    /// So absence passes and presence is checked. Not a weakened assertion: a
+    /// leftover that drifts is a file being edited by someone who thinks it is
+    /// still live, which is the exact confusion the removal is for.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Pairs))]
+    public void ALeftoverVendoredCopyHasNotDriftedFromTheDeliveredAsset(string consumerDirectory, string fileName)
+    {
+        string root = RepoRoot();
+        string delivered = DeliveredAsset(root, "css", fileName);
         string vendored = Path.Combine(root, consumerDirectory, fileName);
 
-        Assert.True(File.Exists(canonical), $"Canonical asset missing: {canonical}");
-        Assert.True(File.Exists(vendored), $"Vendored copy missing: {vendored}");
-
-        byte[] canonicalBytes = File.ReadAllBytes(canonical);
-        byte[] vendoredBytes = File.ReadAllBytes(vendored);
+        Assert.True(File.Exists(delivered), $"Delivered asset missing: {delivered}");
+        if (!File.Exists(vendored))
+        {
+            return;
+        }
 
         Assert.True(
-            canonicalBytes.AsSpan().SequenceEqual(vendoredBytes),
-            $"{consumerDirectory}/{fileName} has drifted from libs/nativeweb.assets/css/{fileName}. "
-                + "Edit the canonical file and re-copy it into every consumer in the same branch.");
+            File.ReadAllBytes(delivered).AsSpan().SequenceEqual(File.ReadAllBytes(vendored)),
+            $"{consumerDirectory}/{fileName} differs from the delivered "
+                + $"libs/nativeweb.web/wwwroot/_nativeweb/css/{fileName}, and nothing serves it: the "
+                + "framework's copy is the one every consumer gets. Delete the leftover rather than editing it.");
     }
 
     public static TheoryData<string, string> ScriptPairs()
@@ -130,21 +183,30 @@ public sealed class AssetParityTests
         return data;
     }
 
+    /// <summary>
+    /// The script half of
+    /// <see cref="ALeftoverVendoredCopyHasNotDriftedFromTheDeliveredAsset"/>,
+    /// with the same absence-passes rule and for the same reason.
+    /// </summary>
     [Theory]
     [MemberData(nameof(ScriptPairs))]
-    public void VendoredScriptIsByteIdenticalToCanonical(string consumerRoot, string relativePath)
+    public void ALeftoverVendoredScriptHasNotDriftedFromTheDeliveredAsset(string consumerRoot, string relativePath)
     {
         string root = RepoRoot();
-        string canonical = Path.Combine(root, "libs", "nativeweb.assets", Path.GetFileName(relativePath));
+        string delivered = DeliveredAsset(root, Path.GetFileName(relativePath));
         string vendored = Path.Combine(root, consumerRoot, relativePath);
 
-        Assert.True(File.Exists(canonical), $"Canonical asset missing: {canonical}");
-        Assert.True(File.Exists(vendored), $"Vendored copy missing: {vendored}");
+        Assert.True(File.Exists(delivered), $"Delivered asset missing: {delivered}");
+        if (!File.Exists(vendored))
+        {
+            return;
+        }
 
         Assert.True(
-            File.ReadAllBytes(canonical).AsSpan().SequenceEqual(File.ReadAllBytes(vendored)),
-            $"{consumerRoot}/{relativePath} has drifted from libs/nativeweb.assets/{Path.GetFileName(relativePath)}. "
-                + "Edit the canonical file and re-copy it into every consumer in the same branch.");
+            File.ReadAllBytes(delivered).AsSpan().SequenceEqual(File.ReadAllBytes(vendored)),
+            $"{consumerRoot}/{relativePath} differs from the delivered "
+                + $"libs/nativeweb.web/wwwroot/_nativeweb/{Path.GetFileName(relativePath)}, and nothing serves "
+                + "it. Delete the leftover rather than editing it.");
     }
 
     /// <summary>
@@ -204,6 +266,68 @@ public sealed class AssetParityTests
                         + "applied to every vendored tree in the same branch.");
             }
         }
+    }
+
+    /// <summary>
+    /// Every <c>/_nativeweb/</c> URL a consumer's markup references is a file the
+    /// framework actually delivers.
+    /// </summary>
+    /// <remarks>
+    /// The failure this catches has no build error in front of it. The
+    /// <c>.targets</c> globs <c>wwwroot\**\*</c>, so a template asking for a file
+    /// the library does not ship compiles, links and publishes; what happens is
+    /// <c>AssetUrls.Resolve</c> throwing on the first render, or — in the
+    /// skeleton, whose markup no local build compiles — nothing at all until
+    /// somebody stamps a product.
+    /// </remarks>
+    [Fact]
+    public void EveryFrameworkAssetUrlInConsumerMarkupIsDelivered()
+    {
+        string root = RepoRoot();
+        string[] sources =
+        [
+            .. Directory.EnumerateFiles(Path.Combine(root, "apps", "sample"), "*.html", SearchOption.AllDirectories),
+            .. Directory.EnumerateFiles(Path.Combine(root, "apps", "sample", "Render"), "*.cs", SearchOption.AllDirectories),
+            .. Directory.EnumerateFiles(
+                Path.Combine(root, "skeleton", "apps", "__product__", "templates"), "*.html", SearchOption.AllDirectories),
+        ];
+
+        List<string> missing = [];
+        foreach (string source in sources.Where(s => !s.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)))
+        {
+            foreach (Match match in FrameworkAssetUrl().Matches(File.ReadAllText(source)))
+            {
+                string relative = match.Groups[1].Value.Replace('/', Path.DirectorySeparatorChar);
+                if (!File.Exists(DeliveredAsset(root, relative)))
+                {
+                    missing.Add($"{Path.GetRelativePath(root, source)} -> /_nativeweb/{match.Groups[1].Value}");
+                }
+            }
+        }
+
+        Assert.True(
+            missing.Count == 0,
+            "These markup references name a framework asset that libs/nativeweb.web/wwwroot/_nativeweb/ "
+                + $"does not contain: {string.Join("; ", missing)}");
+    }
+
+    [GeneratedRegex(@"/_nativeweb/([A-Za-z0-9_./-]+)")]
+    private static partial Regex FrameworkAssetUrl();
+
+    /// <summary>
+    /// The markup scanned by
+    /// <see cref="EveryFrameworkAssetUrlInConsumerMarkupIsDelivered"/> references
+    /// framework assets at all, so a regex that silently stops matching cannot
+    /// pass that test by finding nothing.
+    /// </summary>
+    [Fact]
+    public void TheFrameworkAssetScanFindsTheReferencesItIsChecking()
+    {
+        string root = RepoRoot();
+        string layout = File.ReadAllText(
+            Path.Combine(root, "skeleton", "apps", "__product__", "templates", "layout", "page.html"));
+
+        Assert.Equal(4, FrameworkAssetUrl().Count(layout));
     }
 
     /// <summary>

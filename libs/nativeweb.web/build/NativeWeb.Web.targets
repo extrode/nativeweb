@@ -1,0 +1,35 @@
+<Project>
+
+  <!-- Framework-owned browser assets, delivered to the consumer as physical
+       files (spec 015 R7).
+
+       Physical files and not embedded resources, because AssetUrls resolves a
+       logical path to the fingerprinted route MapStaticAssets serves it at, and
+       MapStaticAssets builds that manifest from static web assets discovered at
+       build time. An embedded resource is invisible to both the fingerprinter
+       and the precompressor, so a framework that shipped its CSS embedded would
+       serve it uncached and uncompressed off a hand-written endpoint.
+
+       Imported automatically for a PackageReference (NuGet imports build/*.targets
+       of the package's own id); a ProjectReference has to import this file by
+       path, which is what the consuming csproj does. Both cases see the same
+       layout: build/ and wwwroot/ as siblings, so one relative path serves both. -->
+
+  <PropertyGroup>
+    <NativeWebAssetsDirectory Condition="'$(NativeWebAssetsDirectory)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)..', 'wwwroot'))</NativeWebAssetsDirectory>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(NativeWebImportAssets)' != 'false'">
+    <!-- Link, so the files land under the consumer's wwwroot even though they
+         live outside its project directory. The Web SDK's static web assets
+         pipeline keys on the link where one is set, which is what puts them in
+         the endpoint manifest AssetUrls reads. -->
+    <Content Include="$(NativeWebAssetsDirectory)**\*"
+             Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)"
+             TargetPath="wwwroot\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Visible="false" />
+  </ItemGroup>
+
+</Project>

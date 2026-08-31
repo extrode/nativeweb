@@ -49,6 +49,18 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
 
+  <!-- The framework's browser assets and the .targets that delivers them
+       (spec 015 R7). Packed as loose files rather than embedded resources so the
+       consumer's static web assets pipeline can fingerprint and precompress
+       them; NuGet imports build/$(PackageId).targets on its own, and a
+       ProjectReference consumer imports the same file by path. build/ and
+       wwwroot/ are siblings in the package exactly as they are here, so the one
+       relative path inside the .targets resolves in both modes. -->
+  <ItemGroup>
+    <None Include="build\NativeWeb.Web.targets" Pack="true" PackagePath="build\" />
+    <None Include="wwwroot\**\*" Pack="true" PackagePath="wwwroot\" />
+  </ItemGroup>
+
   <!-- The Web SDK's implicit usings, restated. These sources were written under
        Microsoft.NET.Sdk.Web and a class library does not get them. -->
   <ItemGroup>
