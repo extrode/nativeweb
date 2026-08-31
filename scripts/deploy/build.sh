@@ -50,7 +50,7 @@ for arg in "$@"; do
 	case "$arg" in
 	--force) FORCE=1 ;;
 	-h | --help)
-		sed -n '2,25p' "${BASH_SOURCE[0]}"
+		sed -n '2,31p' "${BASH_SOURCE[0]}"
 		exit 0
 		;;
 	*)
@@ -145,7 +145,13 @@ if [[ ! -f "$PUBLISHED_EXE" ]]; then
 	ls -1 "$PUBLISH_DIR" >&2
 	exit 1
 fi
-mv "$PUBLISHED_EXE" "$PUBLISH_DIR/$APP_BINARY"
+# A product whose project is already named nativeweb.csproj publishes straight
+# onto the target name, and `mv x x` fails with "are the same file" -- under
+# set -e, after the whole NativeAOT publish has been paid for. Given the fixed
+# name this script installs, that is a likely name for a product to pick.
+if [[ "$PUBLISHED_EXE" != "$PUBLISH_DIR/$APP_BINARY" ]]; then
+	mv "$PUBLISHED_EXE" "$PUBLISH_DIR/$APP_BINARY"
+fi
 chmod 0755 "$PUBLISH_DIR/$APP_BINARY"
 
 # The stamp. Read by deploy.sh, and by a human on the host asking what is

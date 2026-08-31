@@ -86,7 +86,7 @@ if [[ "$SCHEMA_CHANGED" == "1" ]]; then
        never built for. If those migrations were purely additive, roll back by hand and say so
        in the deployment log. If they were not, the way back is a forward release that reverses
        them -- not this script.
-       Migrations in that release: compare schema_migrations against $PREVIOUS_SHA's db/migrations."
+       Migrations in that release: compare schema_migrations against the migrations directory in $PREVIOUS_SHA's release."
 fi
 
 [[ -n "$PREVIOUS_SHA" ]] || die "release $CURRENT_SHA was the first on this host -- there is nothing behind it"

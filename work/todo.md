@@ -1463,3 +1463,26 @@ another project's deployment and runbook, not to this repo.
   a 404, which is right for a row that was never there; a back button or a double click on a row
   that *was* deleted now shows an error page where a redirect to the list would read as success.
   Distinguishing the two needs the store to say which happened. Same review.
+
+- **`scripts/deploy/` preflight and `provision.sh` guard the wrong configuration section.**
+  `preflight_config` requires `ConnectionStrings__NativeWeb`, `NativeWeb__WebAuthn__*`,
+  `NativeWeb__DeviceGrant__VerificationUri`, `NativeWeb__ContactKey`, `NativeWeb__StoreEncryptionKey`,
+  `NativeWeb__PairwiseSalt` and `NativeWeb__Smtp__*` — the departed IdP's keys — while `apps/sample`
+  binds `Sample:` and takes `ConnectionStrings:Sample`. Two effects, both from the mismatch the OTel
+  gate had: a deploy is blocked until an operator fills keys the binary never reads, and the keys it
+  *does* read go unchecked and unseeded. `provision.sh:180`'s
+  `NativeWeb__DataProtection__KeyDirectory=/var/lib/nativeweb/keys` is the sharp one — unread under
+  the `Sample` prefix, the key ring falls back to the app directory and a blue/green swap moves it
+  out from under every issued antiforgery token, which is the thing `nativeweb@.service:110-114`
+  says must not happen. The fix is a `-ConfigPrefix` equivalent for the deploy scripts plus a prune
+  of the IdP keys: bigger than T12's retarget, and it wants a decision about what a stamped
+  product's prefix is. Found in the T12 review, 2026-08-31; no host runs these scripts (T15), so
+  nothing is affected today.
+- **`deploy.sh` re-grants world read+execute on the launcher.** `chmod -R g-w,o-rwx "$RELEASE_DIR"`
+  followed by `chmod 0755 "$RELEASE_DIR/nativeweb"` leaves one hole in the release tree's permission
+  intent. Pre-existing, unchanged by T12. Same review.
+- **Nothing re-checks the live colour's launcher name.** A release staged before 2026-08-31 holds
+  `nativeweb.web`, which now fails the unit's `ConditionPathExists` and is skipped *silently* on the
+  next reboot or restart; `deploy.sh` checks only the colour it is staging, and `rollback.sh` notices
+  only after the previous colour has gone inactive. Unreachable today because no host has ever run
+  these scripts. Same review.

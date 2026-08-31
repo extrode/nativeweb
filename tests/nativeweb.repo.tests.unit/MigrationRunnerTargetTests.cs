@@ -73,6 +73,39 @@ public sealed class MigrationRunnerTargetTests
         Assert.Contains("EXT_VERSION=\"none\"", runner, StringComparison.Ordinal);
     }
 
+    // The runner's default is the scaffolding demo's schema, so a deploy that
+    // inherited it would create the demo articles table in a production database,
+    // skip the product's own migrations, and report success. The count going 0 -> 1
+    // also records SCHEMA_CHANGED, which is what rollback.sh refuses on -- so the
+    // silent wrong migration would also block the rollback from it.
+    [Fact]
+    public void TheDeployScript_NamesTheMigrationsDirectoryRatherThanInheritingIt()
+    {
+        string deploy = File.ReadAllText(Path.Combine(RepoRoot(), "scripts", "deploy", "deploy.sh"));
+
+        Assert.Contains("MIGRATIONS_DIR=\"${MIGRATIONS_DIR:-", deploy, StringComparison.Ordinal);
+        Assert.Contains("MIGRATIONS_DIR=\"$RELEASE_DIR/$MIGRATIONS_DIR\"", deploy, StringComparison.Ordinal);
+
+        // And it survives both transports to the host half, which is where the
+        // runner actually executes.
+        Assert.Contains("--env MIGRATIONS_DIR=\"$MIGRATIONS_DIR\"", deploy, StringComparison.Ordinal);
+        Assert.Contains("MIGRATIONS_DIR=$(printf %q \"$MIGRATIONS_DIR\")", deploy, StringComparison.Ordinal);
+    }
+
+    // The copy a stamped product gets carries the same three guards. It is the
+    // live one -- scripts/deploy/ invokes it, not this repo's copy -- so a fix
+    // that lands only here is a fix no product receives.
+    [Fact]
+    public void TheSkeletonRunner_CarriesTheSameGuards()
+    {
+        string skeleton = File.ReadAllText(Path.Combine(RepoRoot(), "skeleton", "db", "migrate.sh"));
+
+        Assert.Contains("MIGRATIONS_DIR=\"${MIGRATIONS_DIR:-", skeleton, StringComparison.Ordinal);
+        Assert.Contains("compgen -G", skeleton, StringComparison.Ordinal);
+        Assert.Contains("if [ ! -f \"$EXT_FILE\" ]; then", skeleton, StringComparison.Ordinal);
+        Assert.Contains("EXT_VERSION=\"none\"", skeleton, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void AnEmptyMigrationsDirectory_IsRefusedRatherThanGlobbed()
     {

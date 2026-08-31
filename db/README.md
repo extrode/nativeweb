@@ -13,13 +13,14 @@ provider itself; see `docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`. A 
 ship a schema, so nothing replaced them, and a new top-level schema arriving here is a scope
 question rather than a migration.
 
-**Neither `migrate.sh` nor `test-run-lock.sh` runs today.** `migrate.sh` resolves its migrations
-directory to `db/migrations/`, which went with the provider, and its one superuser step names
-`0002_extensions.sql` unconditionally; it aborts on the missing file, and `test-run-lock.sh` drives
-it, so it aborts too. They are kept as the reference the live copy was derived from — a stamped
-product gets `skeleton/db/migrate.sh`, which has its own `__PRODUCT__` text and is the one
-`scripts/deploy/` invokes. Retargeting this copy at `db/sample/migrations/` needs the extensions
-step made conditional; `work/todo.md` carries it.
+**`migrate.sh` was retargeted on 2026-08-31.** It used to resolve `db/migrations/`, which went with
+the provider, and to name `0002_extensions.sql` unconditionally, so every run aborted on the missing
+file and `test-run-lock.sh` aborted with it. It now defaults to `db/sample/migrations/`, takes
+`MIGRATIONS_DIR` for anything else, refuses a missing or migration-less directory, and applies the
+superuser extensions step only if the schema has one. `scripts/deploy/deploy.sh` names
+`MIGRATIONS_DIR` explicitly rather than inheriting that default, so a product deploy cannot apply
+this demo schema by accident. A stamped product gets `skeleton/db/migrate.sh`, which has its own
+`__PRODUCT__` text and carries the same three guards.
 
 ## Running two migrations at once
 

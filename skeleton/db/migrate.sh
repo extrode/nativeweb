@@ -11,8 +11,10 @@
 #   PGDATABASE        default __product___dev
 #   APP_ROLE          default __product___app -- PGPASSWORD (or ~/.pgpass) must
 #                     authenticate this role for every migration except 0001
-#   SUPERUSER_ROLE    default postgres -- must authenticate for 0001 only
-#                     (creates the citext extension; __product___app can't)
+#   SUPERUSER_ROLE    default postgres -- must authenticate for 0001 only, and
+#                     only if the directory has a 0001 (it creates extensions,
+#                     which __product___app cannot)
+#   MIGRATIONS_DIR    default db/migrations -- the directory to apply
 #
 # Plain `psql -f` runs autocommit -- never add `-1` / `--single-transaction`
 # here, so a future CREATE INDEX CONCURRENTLY migration keeps working.
@@ -26,7 +28,20 @@ APP_ROLE="${APP_ROLE:-__product___app}"
 SUPERUSER_ROLE="${SUPERUSER_ROLE:-postgres}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MIGRATIONS_DIR="$SCRIPT_DIR/migrations"
+MIGRATIONS_DIR="${MIGRATIONS_DIR:-$SCRIPT_DIR/migrations}"
+
+if [ ! -d "$MIGRATIONS_DIR" ]; then
+  echo "ERROR: no migrations directory at $MIGRATIONS_DIR." >&2
+  echo "       Pass MIGRATIONS_DIR=<dir> for the schema you mean to apply." >&2
+  exit 1
+fi
+
+# An empty directory is not "nothing to do": the globs below would expand to the
+# literal pattern and psql would be handed a filename with brackets in it.
+if ! compgen -G "$MIGRATIONS_DIR/[0-9][0-9][0-9][0-9]_*.sql" >/dev/null; then
+  echo "ERROR: $MIGRATIONS_DIR contains no NNNN_*.sql migrations." >&2
+  exit 1
+fi
 
 app_psql() {
   psql -h "$PGHOST" -p "$PGPORT" -U "$APP_ROLE" -d "$PGDATABASE" -v ON_ERROR_STOP=1 "$@"
@@ -52,9 +67,14 @@ record() {
 
 app_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());" >/dev/null
 
+# Optional: a schema needing no extension needs no superuser either. When the
+# file is absent EXT_VERSION must match NOTHING -- not "0001", which would
+# silently skip a 0001 that is some other migration.
 EXT_FILE="$MIGRATIONS_DIR/0001_extensions.sql"
-EXT_VERSION="$(version_of "$EXT_FILE")"
-if is_tracked "$EXT_VERSION"; then
+if [ ! -f "$EXT_FILE" ]; then
+  EXT_VERSION="none"
+  echo "none  no extensions migration in this schema; no superuser step"
+elif EXT_VERSION="$(version_of "$EXT_FILE")" && is_tracked "$EXT_VERSION"; then
   echo "skip  $EXT_VERSION (already applied)"
 else
   echo "apply $EXT_VERSION (as $SUPERUSER_ROLE)"

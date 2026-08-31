@@ -26,6 +26,13 @@
 # Env (host side):
 #   READY_TIMEOUT   seconds to wait for /readyz, default 60
 #   RELEASES_KEEP   release directories to leave on disk, default 5
+#   MIGRATIONS_DIR  the release-relative migrations directory to apply, default
+#                   db/sample/migrations. It must be named, not inherited: the
+#                   runner's own default is the sample schema, so a stamped
+#                   product that overrode PROJECT at build time and said nothing
+#                   here would have the demo articles table applied to its
+#                   production database and its own migrations skipped, in
+#                   silence. Set it to the same directory your product ships.
 
 set -euo pipefail
 
@@ -36,6 +43,7 @@ UPSTREAM_FILE=/etc/caddy/upstream.caddy
 DEPLOY_LOG=/var/lib/nativeweb/deployments.log
 READY_TIMEOUT="${READY_TIMEOUT:-60}"
 RELEASES_KEEP="${RELEASES_KEEP:-5}"
+MIGRATIONS_DIR="${MIGRATIONS_DIR:-db/sample/migrations}"
 
 ARTIFACT=""
 HOST=""
@@ -185,6 +193,7 @@ if [[ "$LOCAL" -ne 1 ]]; then
 				incus exec "$INSTANCE" \
 					--env READY_TIMEOUT="$READY_TIMEOUT" \
 					--env RELEASES_KEEP="$RELEASES_KEEP" \
+					--env MIGRATIONS_DIR="$MIGRATIONS_DIR" \
 					-- bash "$remote_dir/deploy.sh" --local --artifact "$remote_artifact"
 		} || status=$?
 		incus exec "$INSTANCE" -- rm -rf "$remote_dir" || true
@@ -222,6 +231,7 @@ if [[ "$LOCAL" -ne 1 ]]; then
 	# far side of the privilege boundary.
 	exec ssh -t "${ssh_port_args[@]}" "$HOST" \
 		"sudo env READY_TIMEOUT=$(printf %q "$READY_TIMEOUT") RELEASES_KEEP=$(printf %q "$RELEASES_KEEP") \
+		 MIGRATIONS_DIR=$(printf %q "$MIGRATIONS_DIR") \
 		 bash $(printf %q "$remote_dir/deploy.sh") --local --artifact $(printf %q "$remote_artifact"); \
 		 status=\$?; rm -rf $(printf %q "$remote_dir"); exit \$status"
 fi
@@ -423,7 +433,11 @@ ln -sfn "$RELEASE_DIR" "/opt/nativeweb/$IDLE"
 # the host has the role `nativeweb` and the database `nativeweb`. Invoked bare,
 # as it was, the migration step could only ever fail on a provisioned host -- or,
 # worse, migrate a stray nativeweb_dev if one existed. Every value it reads is
-# named here rather than inherited.
+# named here rather than inherited -- MIGRATIONS_DIR included, since 2026-08-31.
+# Left out of this list it defaults inside the runner, and the runner's default is
+# the scaffolding demo's schema: a product deploy would create the demo articles
+# table in production, skip its own migrations, and still report success. The path
+# is release-relative because the runner is invoked from $RELEASE_DIR.
 #
 # Over the unix socket, so nothing needs a password: provision.sh maps the root
 # account to both roles for this database in pg_ident, and root is already the
@@ -434,6 +448,7 @@ migrate_env=(
 	PGDATABASE=nativeweb
 	APP_ROLE=nativeweb
 	SUPERUSER_ROLE=postgres
+	MIGRATIONS_DIR="$RELEASE_DIR/$MIGRATIONS_DIR"
 )
 
 # The same connection the migration runner uses, so the two cannot disagree about
