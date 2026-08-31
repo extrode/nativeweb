@@ -9,6 +9,65 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **Three-lens repo audit, 2026-08-31: 29 findings, none fixed yet.** Fable (`review-deep`,
+  architecture-to-promise), glm-5.3 (`glm-think`, the untested security library) and qwen3.8-max
+  (`qwen-review`, the three source generators), each given the repo's stated promise and asked to
+  find where the code does not meet it. Raw output in `tmp/audit/{fable,glm2,qwen}.log`, scratch,
+  so this is the durable record. **None has a shell**, so every finding below is structural until
+  a test is written for it; the ones marked *confirmed* were checked here by reading the code.
+
+  **The one that changes what the repo can claim: `libs/nativeweb.security` and
+  `libs/nativeweb.mail` have zero tests.** *Confirmed* — nothing under `tests/` names
+  `Passphrases`, `OpaqueTokens`, `StoreDataProtector`, `ContactProtector`, `Masking` or
+  `Sha256Hex`. Eleven files of Argon2id, AES-GCM, blind-index HMAC and opaque tokens, exercised by
+  none of the 657 facts, because their suites left with the identity provider. `nativeweb.security`
+  is one of the two projects epass.io builds against. glm found 10 candidate defects in seven of
+  those files on a single read, headed by: `Masking.cs:81` an IPv4 address with a port takes the
+  IPv6 branch and is emitted unmasked; `StoreDataProtector.cs:75` a value whose `enc:v1:` prefix
+  was stripped is returned verbatim as "legacy plaintext", so integrity is opt-out by deleting
+  seven characters (*confirmed by reading*); `Passphrases.cs:63` a malformed stored PHC string
+  throws out of `Verify` instead of returning false; `ContactProtector.cs:69` trim-only
+  normalisation gives one phone number two different blind indexes.
+
+  **`libs/nativeweb.security/ContactProtector.cs` is scope residue.** Its public API is
+  realm-scoped (`EmailIndex(long realmId, ...)`) and its comments name `email_addresses` and
+  `phone_numbers`, tables that exist nowhere here. It has zero in-tree consumers. Realms are on the
+  must-not-return list; either the realm parameter goes or the file does.
+
+  **Scaffold generator, 12 findings from qwen, three of them silent-wrong-answer:**
+  inherited members are invisible because `ScaffoldGenerator.cs:124` uses `type.GetMembers()`,
+  which returns only declared members, so every save resets a base-class property to `default`
+  (*confirmed*); two `[Scaffold]` types with the same short name in different namespaces collide on
+  the hint name `model.TypeName + ".Scaffold.g.cs"`, where `TypeName` is `type.Name`, and crash the
+  consumer's build (*confirmed*); a second `[ScaffoldKey]` silently wins over the first at
+  `ScaffoldGenerator.cs:186` with no diagnostic, against `ScaffoldAttributes.cs:115`'s promise of
+  exactly one (*confirmed*). The rest are emission defects the forms generator already solved and
+  the scaffold generator did not inherit: no keyword escaping (contrast `FormEmitter.cs:99`), no
+  `SymbolDisplay.FormatLiteral` on `Route`/`Display`/`Label`, no rejection of generic or nested
+  types (contrast NWF005), and `Build`'s `new()` against a positional record that has no
+  parameterless constructor. Render generator: `TemplateModel.cs:143` reserves "the writer and
+  implicit locale parameters" and the list contains neither name.
+
+  **Architecture-to-promise, from Fable:** no principle violation reached a consumer — the only
+  `System.Reflection` use in `libs/` is one documented assembly-version read. What it found instead
+  is drift. `apps/sample/PublicArticleEndpoints.cs:40` attaches neither a rate-limit policy nor
+  `AsPublicPage` while `skeleton/apps/__product__/Program.cs:77` teaches both, so a consumer
+  copying the sample ships an unbounded public endpoint. Both trees carry a
+  `wwwroot/vendor/nativeweb/boot.js` that nothing references after spec 015. The skeleton's
+  `.csproj:46-52` names four OTel packages `libs/nativeweb.web/nativeweb.web.csproj:48-51` already
+  supplies, with a comment pointing at telemetry code that moved.
+
+- **justsmtp.com cannot build against this repository, twice over.** *Confirmed 2026-08-31.* Its
+  `Directory.Build.props:51-52` probes for `extrode-legacy-org.com\NativeWeb`, a path that has not existed
+  since the move to `extrode.com/nativeweb`, so `NativeWebRoot` resolves to nothing; and
+  `apps/web/justsmtp.web.csproj` plus its integration tests reference
+  `$(NativeWebRoot)\libs\nativeweb.signin.epass\nativeweb.signin.epass.csproj`, which left with the
+  identity provider — 24 `using NativeWeb.SignIn.Epass` sit behind it. MSBuild only warns (MSB9008)
+  on a missing `ProjectReference`, so this fails late and confusingly. Both fixes belong in
+  justsmtp.com, not here, but nothing in this repo told it the project was going. epass.io by
+  contrast is correct: it probes `..\nativeweb` and consumes only `nativeweb.render` and
+  `nativeweb.security`. ghosthive.com consumes nothing from NativeWeb at all.
+
 - **Audit sweep 2026-08-30, `chore/backlog-audit-2026-08-30`: 18 defects found and verified.**
   Two lanes on the `audit` class, each finding independently, then every claim handed to a
   `review-deep` (Fable) worker prompted to **refute** it. **18 claims, 18 confirmed, 0 refuted** —

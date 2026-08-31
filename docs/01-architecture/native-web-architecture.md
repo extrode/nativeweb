@@ -2,20 +2,37 @@
 
 ## Status
 
-**Built and verified in this process** (real code, compiled, AOT-published, load-tested —
-not projected): a Minimal API + HTMX + Alpine skeleton (`htmx-skeleton.zip`), a raw-Kestrel
-variant built purely for comparison (`bare-kestrel.zip`, not the recommendation — see §5),
-a JSON-returning API variant and a SvelteKit+Deno app built specifically to get real
-benchmark numbers against (§13), not to adopt.
+**Rewritten 2026-08-31.** What stood here described the four throwaway apps this document was
+originally written from — `htmx-skeleton.zip`, `bare-kestrel.zip`, a JSON API variant and a
+SvelteKit+Deno app — and said JauntyQ was "decided, not yet wired" and JWT bearer was the default
+auth. All three statements outlived the code they described by months. The sections below are the
+design; this block is what of it exists.
 
-**Decided, not yet wired into a real codebase:** JauntyQ as the data-access layer (§6) —
-the skeleton currently uses a plain in-memory list as a placeholder; JWT bearer auth as the
-default (§10) — not yet implemented against a real identity provider.
+**Built, and in this repository.** Everything §2 states as a principle is enforced by something
+that fails when it is broken:
 
-**Still open, needs verification against the real (non-toy) codebase before shipping:**
-auth AOT compatibility for whatever's actually configured, every real NuGet dependency's AOT
-compatibility (not just the toy skeleton's), session/auth state continuity during the
-strangler-fig migration window. See §16 for the full checklist.
+| | Where | Proved by |
+|---|---|---|
+| Minimal APIs, server-rendered HTML | `libs/nativeweb.web`, `libs/nativeweb.render` | 8 test suites, 657 facts |
+| NativeAOT, no trim warnings | `PublishAot`, `TreatWarningsAsErrors` repo-wide | the publish itself; a warning is an error |
+| Compile-time HTML, forms and CRUD | the three source generators under `libs/` | no runtime reflection outside one documented `/version` read |
+| JauntyQ for all data access | `db/sample`, `apps/sample` | wired and running, not a placeholder list |
+| HTMX + Alpine, vendored | `libs/nativeweb.assets` | served from the assembly, no CDN |
+| The reference application | `apps/sample` | the only deployable project in the tree |
+| The template a product is stamped from | `skeleton/`, `tools/new-product.ps1` | CI stamps and tests a product on every push |
+
+**Decided, and deliberately absent.** Auth is not the framework's to pick, so §10's JWT-bearer
+default is a recommendation to a product rather than a description of this repo: `apps/sample`
+uses a cookie and a demo sign-in, and the framework registers no authentication scheme. The
+identity provider that once made this section's auth claims true left on 2026-08-31
+([decision 007](../decisions/2026-08-31-007-idp-leaves-nativeweb.md)); the line NativeWeb holds is
+Django's, where `contrib.auth` ships and the OAuth2/OIDC server does not.
+
+**Open, and tracked elsewhere rather than here.** Deployment against a real host is unexecuted
+(spec 011 T15), and `libs/nativeweb.security` and `libs/nativeweb.mail` carry no tests — their
+coverage left with the identity provider. `work/todo.md` and `work/milestones.md` are where those
+live; §16's checklist below is the original list and is kept for the reasoning in it, not as a
+current to-do.
 
 ------
 
@@ -465,7 +482,15 @@ drag-and-drop cases. Worth a second pass over §8's table now that 4.0 has shipp
 
 ------
 
-## 16. Handoff Checklist — open risks to close before real implementation
+## 16. Handoff Checklist — the original open risks, kept as a record
+
+> **This list is historical, not a to-do.** It was written before any of this existed, when the
+> artifacts were four throwaway apps. Most of it has since been answered by building the thing:
+> the AOT publish runs in CI against the real dependency graph, JauntyQ drives `apps/sample` and
+> `db/sample` rather than an in-memory list, and there is no strangler-fig window because there
+> was no legacy stack to strangle. It is kept for the reasoning inside each item, which is still
+> the reasoning that applies. What is genuinely open lives in `work/todo.md` and
+> `work/milestones.md`, and the Status block at the top of this document names the two that matter.
 
 - [ ] **Auth AOT compatibility** for whatever scheme is actually configured (§10) — the one
   item in this spec not yet verified against a real setup.

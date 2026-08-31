@@ -184,24 +184,21 @@ public sealed class ScaffoldGeneratorTests
     public void TypesWithNoConversion_AndPropertiesWithNoReachableSetter_EmitCodeThatCompiles() =>
         AssertGeneratedSourceCompiles(AwkwardModel);
 
-    // The floor the emitted source is allowed to need, which is C# 11. Every other
-    // compile test runs at LanguageVersion.Default -- whatever this repository's own
-    // toolchain gives it -- so a construct the emitter starts using compiles here and
-    // fails in a consumer that pins an older LangVersion, with the error landing in
-    // generated code the consumer cannot edit.
+    // The version this repository and every consumer of it build at. Directory.Build.props
+    // sets LangVersion=latest against net10.0, and that is the whole policy: NativeWeb
+    // tracks the newest C# the current SDK ships and pins nothing below it.
     //
-    // C# 11 rather than 10, measured 2026-08-31: ScaffoldRuntime.g.cs emits a raw
-    // string literal (CS8936), and the form binder implements
-    // IBindableFromHttpContext<T>, whose BindAsync is a static abstract interface
-    // member (CS8706). The second is not ours to lower -- the ASP.NET Core interface
-    // needs C# 11 whoever implements it -- so a consumer below 11 could not bind a
-    // minimal-API parameter at all. If this goes red, the emitter took a dependency
-    // on a newer language: back it out, or raise the floor here and say so.
+    // This theory used to assert a C# 11 floor -- that the emitted source stayed
+    // compilable for a consumer who pinned an older LangVersion. Removed 2026-08-31:
+    // no such promise is made, and a test that guards an unmade promise turns red for
+    // a reason nobody has to act on. What survives is the mechanism underneath it,
+    // which was a real defect: the parse options now reach the generator driver, so
+    // the emitted trees are compiled at the version asked for rather than at the
+    // default whatever the caller set.
     [Theory]
-    [InlineData(LanguageVersion.CSharp11)]
-    [InlineData(LanguageVersion.CSharp12)]
-    [InlineData(LanguageVersion.CSharp13)]
-    public void EmittedCode_CompilesUnderTheOldestSupportedLanguageVersion(LanguageVersion language)
+    [InlineData(LanguageVersion.Latest)]
+    [InlineData(LanguageVersion.Preview)]
+    public void EmittedCode_CompilesAtTheLanguageVersionThisRepositoryBuildsAt(LanguageVersion language)
     {
         AssertGeneratedSourceCompiles(EveryTypeModel, language);
         AssertGeneratedSourceCompiles(AwkwardModel, language);
