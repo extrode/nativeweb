@@ -119,8 +119,10 @@ back.
 
 No rate-limit override is set: `apps/sample` puts no limiter on its pages, where `apps/web` had
 `GET /` behind `RequireRateLimiting("page")` at a limit sized for one human per minute.
-`NativeWeb__Telemetry__Enabled=false` is still passed but is inert — `apps/sample` registers no
-telemetry — and stays because the harness measures whatever it is pointed at.
+`Sample__Telemetry__Enabled=false` is passed, under the section `apps/sample` binds. It used to be
+`NativeWeb__Telemetry__Enabled`, which the app does not read: telemetry defaults to off, so the run
+was unaffected either way, but the key was measuring nothing. `apps/sample` does register
+OpenTelemetry, through `AddNativeWebWeb`.
 
 ## baseline.json
 

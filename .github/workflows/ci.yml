@@ -286,7 +286,7 @@ jobs:
       # Spec 003 R36: size + time-to-/healthz against scripts/ci/publish-budgets.json.
       # Budgets are null (record-only) until the close-out baseline is recorded.
       - name: Publish budgets (sample)
-        run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath publish/sample/nativeweb.sample.exe -Name nativeweb.sample -Port 5998
+        run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath publish/sample/nativeweb.sample.exe -Name nativeweb.sample -Port 5998 -ConfigPrefix Sample
 
   # ---------------------------------------------------------------------------
   # The skeleton, exercised the only way that proves anything: by stamping a

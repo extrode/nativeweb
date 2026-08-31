@@ -6,7 +6,10 @@
 #   bash db/test-run-lock.sh
 #
 # Exits 0 when every check passes, 1 on the first that does not. Takes the same
-# PGHOST/PGPORT/PGDATABASE/APP_ROLE environment the runner does.
+# PGHOST/PGPORT/PGDATABASE/APP_ROLE environment the runner does -- and, since
+# 2026-08-31, the same MIGRATIONS_DIR: this script drives migrate.sh rather than
+# naming a schema itself, so it followed the runner's retarget onto
+# db/sample/migrations/ without a change of its own.
 #
 # WHY A SHELL SCRIPT AND NOT A TEST IN tests/. This was first written as an
 # xUnit fact in the integration tier and abandoned there, measured 2026-08-18:

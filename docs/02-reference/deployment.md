@@ -1,11 +1,11 @@
-# Deployment runbook — apps/web
+# Deployment runbook
 
-> **The application this runbook deploys left the repository on 2026-08-31**
-> (`../decisions/2026-08-31-007-idp-leaves-nativeweb.md`). `scripts/deploy/` still names
-> `apps/web` and has NOT been retargeted; combined with the warning below — that nothing in it has
-> ever been run on a real host — this is a procedure for an artifact that no longer builds here.
-> It is kept as the shape a stamped product inherits, not as a runbook you can execute today.
-> Retargeting it at `apps/sample` is an open item in `work/todo.md`.
+> **The application this runbook used to deploy left the repository on 2026-08-31**
+> (`../decisions/2026-08-31-007-idp-leaves-nativeweb.md`). `scripts/deploy/` was retargeted the
+> same day: `build.sh` publishes `apps/sample` by default and takes `PROJECT=<csproj>` for a
+> stamped product's own app, and it installs the executable under the fixed name `nativeweb`, so
+> nothing downstream — `deploy.sh`, `nativeweb@.service`, Caddy — names the project. The warning
+> below still stands: nothing here has been run on a real host.
 
 Spec: `../specs/011-production-deployment/011-spec.md`
 Scripts: `../../scripts/deploy/`
@@ -96,7 +96,7 @@ script that has seen them.
 Then, in order:
 
 1. **Fill in `/etc/nativeweb/secrets.env`.** The connection string, the three
-   encryption keys and the SMTP settings. `apps/web` refuses to start outside
+   encryption keys and the SMTP settings. A NativeWeb app refuses to start outside
    Development without `NativeWeb__Smtp__Host`, and degrades **silently** without
    `ContactKey`, `StoreEncryptionKey` or `PairwiseSalt` — see
    [configuration.md](configuration.md), "Required outside Development".

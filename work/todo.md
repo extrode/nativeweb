@@ -1012,26 +1012,31 @@ Seven follow-ups the removal itself created, six of them still live:
   ever used it, so nothing broke — but Django ships password validators and a stamped product will
   want them. Decide whether they come back as a framework lib on the `contrib.auth` side of the
   line, or stay out.
-- **`scripts/deploy/` still targets `apps/web`.** It was never run on a real host (spec 011 T15),
-  so nothing in production is affected, but the toolchain now names a project that does not exist.
-  Retarget at `apps/sample`, or accept that it is only exercised by whatever a stamped product does
-  with its own copy.
+- ~~**`scripts/deploy/` still targets `apps/web`.**~~ **Done 2026-08-31** in `fix/018-deploy-hygiene`
+  (plan 007 T12). `build.sh` publishes `apps/sample` by default and takes `PROJECT=<csproj>`; it
+  installs the executable under the fixed name `nativeweb`, so `deploy.sh`, `nativeweb@.service`
+  and the Caddy files name no project at all. `DeployTargetTests` holds all three to one name and
+  refuses a project path anywhere downstream of the build.
 - **`docs/02-reference/security-baseline.md` was an ASVS checklist for the IdP.** Reframed rather
   than deleted; someone should decide which of its items are framework posture and which left with
   the application.
 - **`libs/epass.auth`, `epass.data`, `epass.mail`, `epass.security` are untracked `obj/`-only
   leftovers** of the 2026-08-19 neutral-naming rename, sitting in `libs/` looking like projects.
   Listed in `scripts/cleanup/extract-idp.ps1`, not removed.
-- **`db/migrate.sh` and `db/test-run-lock.sh` are unreachable.** `MIGRATIONS_DIR` resolves to the
-  deleted `db/migrations/`, and the one superuser step names `0002_extensions.sql` unconditionally,
-  so the runner aborts and the lock test aborts with it. Both say so in their own headers now.
-  Either retarget at `db/sample/migrations/` — which means making the extensions step conditional,
-  a change to the runner — or retire them and let `skeleton/db/migrate.sh` be the only copy.
-- **The OTel-under-AOT gate stopped gating.** `scripts/ci/check-publish-budgets.ps1` sets
-  `NativeWeb__Telemetry__Enabled=true` and was the only place the OpenTelemetry registration path
-  ran inside a real NativeAOT image. `apps/sample` registers no telemetry and no surviving library
-  does, so the variable is inert and an AOT-hostile change to that path would now ship unnoticed.
-  Restoring the coverage means giving `apps/sample` a telemetry registration.
+- ~~**`db/migrate.sh` and `db/test-run-lock.sh` are unreachable.**~~ **Retargeted, not retired,
+  2026-08-31** in `fix/018-deploy-hygiene`. `MIGRATIONS_DIR` defaults to `db/sample/migrations` and
+  takes an override; a missing or migration-less directory is refused before any glob reaches psql;
+  the superuser extensions step runs only if `0002_extensions.sql` is there, and when it is not
+  `EXT_VERSION` is `none` so the apply loop skips nothing. Kept because the locking design is what
+  `skeleton/db/migrate.sh` was derived from. Verified without a database: both guards exit 1.
+- ~~**The OTel-under-AOT gate stopped gating.**~~ **Done 2026-08-31** in `fix/018-deploy-hygiene`,
+  and the diagnosis in this entry was wrong: `apps/sample` DOES register telemetry, through
+  `AddNativeWebWeb` → `AddNativeWebTelemetry`. What broke was the key. The script set
+  `NativeWeb__Telemetry__Enabled`, and the sample binds its options from the `Sample` section, so
+  the value was never read. Measured on the published binary: `Sample__Telemetry__Enabled=maybe`
+  refuses startup with exit 78, `NativeWeb__Telemetry__Enabled=maybe` starts the app normally.
+  Fixed with `-ConfigPrefix`, passed from `ci.yml`, held to the app's own section by
+  `TelemetryGateTests`.
 - ~~**The `Fido2` and `NSec.Cryptography` pins in `Directory.Packages.props` have no consumer.**~~
   **Removed 2026-08-31** on the user's decision, in `chore/drop-webauthn-pins`. Both pins are gone;
   a comment in their place records why the two travel together, so a future reintroduction of
@@ -1458,3 +1463,26 @@ another project's deployment and runbook, not to this repo.
   a 404, which is right for a row that was never there; a back button or a double click on a row
   that *was* deleted now shows an error page where a redirect to the list would read as success.
   Distinguishing the two needs the store to say which happened. Same review.
+
+- **`scripts/deploy/` preflight and `provision.sh` guard the wrong configuration section.**
+  `preflight_config` requires `ConnectionStrings__NativeWeb`, `NativeWeb__WebAuthn__*`,
+  `NativeWeb__DeviceGrant__VerificationUri`, `NativeWeb__ContactKey`, `NativeWeb__StoreEncryptionKey`,
+  `NativeWeb__PairwiseSalt` and `NativeWeb__Smtp__*` — the departed IdP's keys — while `apps/sample`
+  binds `Sample:` and takes `ConnectionStrings:Sample`. Two effects, both from the mismatch the OTel
+  gate had: a deploy is blocked until an operator fills keys the binary never reads, and the keys it
+  *does* read go unchecked and unseeded. `provision.sh:180`'s
+  `NativeWeb__DataProtection__KeyDirectory=/var/lib/nativeweb/keys` is the sharp one — unread under
+  the `Sample` prefix, the key ring falls back to the app directory and a blue/green swap moves it
+  out from under every issued antiforgery token, which is the thing `nativeweb@.service:110-114`
+  says must not happen. The fix is a `-ConfigPrefix` equivalent for the deploy scripts plus a prune
+  of the IdP keys: bigger than T12's retarget, and it wants a decision about what a stamped
+  product's prefix is. Found in the T12 review, 2026-08-31; no host runs these scripts (T15), so
+  nothing is affected today.
+- **`deploy.sh` re-grants world read+execute on the launcher.** `chmod -R g-w,o-rwx "$RELEASE_DIR"`
+  followed by `chmod 0755 "$RELEASE_DIR/nativeweb"` leaves one hole in the release tree's permission
+  intent. Pre-existing, unchanged by T12. Same review.
+- **Nothing re-checks the live colour's launcher name.** A release staged before 2026-08-31 holds
+  `nativeweb.web`, which now fails the unit's `ConditionPathExists` and is skipped *silently* on the
+  next reboot or restart; `deploy.sh` checks only the colour it is staging, and `rollback.sh` notices
+  only after the previous colour has gone inactive. Unreachable today because no host has ever run
+  these scripts. Same review.

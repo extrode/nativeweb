@@ -197,7 +197,7 @@ seed_config "$CONFIG_ROOT/secrets.env" 0640 "root:$SERVICE_GROUP" \
 	'# Secrets. NOT in the repository, NOT world-readable, NOT set with Environment=
 # (which systemctl show would expose to any local user).
 #
-# Fill these in before the first deploy. apps/web refuses to start outside
+# Fill these in before the first deploy. A NativeWeb app refuses to start outside
 # Development without the SMTP host, and degrades SILENTLY without the three keys.
 ConnectionStrings__NativeWeb=
 NativeWeb__ContactKey=

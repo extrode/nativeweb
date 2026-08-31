@@ -179,7 +179,11 @@ export function benchEnv(baseUrl: string): Record<string, string> {
     // line per request is therefore NOT in these numbers; a production deployment at default
     // level pays it.
     Logging__LogLevel__Default: "Warning",
-    NativeWeb__Telemetry__Enabled: "false",
+    // The section apps/sample binds is "Sample", not "NativeWeb" -- the same
+    // mismatch that silently un-gated the OTel-under-AOT check in CI. Telemetry
+    // defaults to off, so the old key changed nothing either way; this one turns
+    // it off on purpose, and keeps doing so if the default ever inverts.
+    Sample__Telemetry__Enabled: "false",
   };
 }
 

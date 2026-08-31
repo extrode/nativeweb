@@ -18,6 +18,14 @@
 # Env:
 #   OUTPUT_DIR   default <repo>/dist
 #   RUNTIME_ID   default linux-x64
+#   PROJECT      default apps/sample/nativeweb.sample.csproj -- the project to
+#                publish, relative to the repo root. A stamped product overrides
+#                it with its own; nothing downstream of this script learns the
+#                name, because the executable is installed under a fixed one (see
+#                below). The old default was apps/web, which left the repo with
+#                the identity provider on 2026-08-31 and took the only deployable
+#                target with it: every run of this script since has failed on a
+#                missing project file.
 #
 # Flags:
 #   --force      build from a dirty working tree anyway (see below)
@@ -27,14 +35,22 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/dist}"
 RUNTIME_ID="${RUNTIME_ID:-linux-x64}"
-PROJECT="apps/web/nativeweb.web.csproj"
+PROJECT="${PROJECT:-apps/sample/nativeweb.sample.csproj}"
+
+# The name the executable is installed under, inside the artifact and on the
+# host. NOT the project's own name: systemd will not expand a variable in the
+# first token of ExecStart, so nativeweb@.service has to name the binary
+# literally -- and a unit file that has to be edited per product is a unit file
+# that will be edited wrongly. One rename here buys a deploy chain that does not
+# care which project produced the binary.
+APP_BINARY="nativeweb"
 FORCE=0
 
 for arg in "$@"; do
 	case "$arg" in
 	--force) FORCE=1 ;;
 	-h | --help)
-		sed -n '2,25p' "${BASH_SOURCE[0]}"
+		sed -n '2,31p' "${BASH_SOURCE[0]}"
 		exit 0
 		;;
 	*)
@@ -45,6 +61,12 @@ for arg in "$@"; do
 done
 
 cd "$REPO_ROOT"
+
+if [[ ! -f "$PROJECT" ]]; then
+	echo "build.sh: PROJECT '$PROJECT' does not exist under $REPO_ROOT." >&2
+	echo "          Pass PROJECT=<path-to-csproj> for the app you mean to deploy." >&2
+	exit 1
+fi
 
 if [[ "$(uname -s)" == MINGW* || "$(uname -s)" == MSYS* || "$(uname -s)" == CYGWIN* ]]; then
 	echo "build.sh: this is a Windows shell. NativeAOT cannot cross-compile to $RUNTIME_ID --" >&2
@@ -110,6 +132,28 @@ dotnet publish "$PROJECT" \
 	-o "$PUBLISH_DIR" \
 	--nologo
 
+# Install the executable under the fixed name the unit file starts. Checked
+# rather than assumed: a publish whose assembly name differs from the project
+# file name would leave the artifact with no launcher at all, and the first
+# thing to notice would be ConditionPathExists silently skipping the unit on the
+# host -- an inactive service that never says why.
+PUBLISHED_EXE="$PUBLISH_DIR/$(basename "$PROJECT" .csproj)"
+if [[ ! -f "$PUBLISHED_EXE" ]]; then
+	echo "build.sh: the publish produced no executable named $(basename "$PUBLISHED_EXE")." >&2
+	echo "          Either the project sets an AssemblyName that differs from its file name," >&2
+	echo "          or the publish did not produce a native binary. Contents:" >&2
+	ls -1 "$PUBLISH_DIR" >&2
+	exit 1
+fi
+# A product whose project is already named nativeweb.csproj publishes straight
+# onto the target name, and `mv x x` fails with "are the same file" -- under
+# set -e, after the whole NativeAOT publish has been paid for. Given the fixed
+# name this script installs, that is a likely name for a product to pick.
+if [[ "$PUBLISHED_EXE" != "$PUBLISH_DIR/$APP_BINARY" ]]; then
+	mv "$PUBLISHED_EXE" "$PUBLISH_DIR/$APP_BINARY"
+fi
+chmod 0755 "$PUBLISH_DIR/$APP_BINARY"
+
 # The stamp. Read by deploy.sh, and by a human on the host asking what is
 # deployed. /version answers the same question from inside the process; this
 # answers it without one running, which is the case that matters after a failed
@@ -121,6 +165,7 @@ branch=$BRANCH
 built_at=$BUILT_AT
 built_by=$(id -un)@$(hostname)
 runtime=$RUNTIME_ID
+project=$PROJECT
 tree=$DIRTY
 EOF
 

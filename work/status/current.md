@@ -6,11 +6,14 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Phase 3 of the readiness plan.** T11 (the scaffold defect batch) is done and merged; T12 is
-  next: retarget `scripts/deploy/` off `apps/web`, decide whether `db/migrate.sh` and
-  `db/test-run-lock.sh` are retargeted or retired, and restore an OTel registration so
-  `check-publish-budgets.ps1` gates OTel-under-AOT again. D2 — whether the generated admin should be
-  closed by default — is open and is the user's call.
+- **Phase 3 of the readiness plan.** T11 (the scaffold defect batch) and T12 (deploy and database
+  hygiene) are both done. T12: the deploy chain publishes `apps/sample` by default and names no
+  project past `build.sh`; `db/migrate.sh` was retargeted at `db/sample/migrations` rather than
+  retired, with the superuser extensions step made optional; and the publish-budget launch now sets
+  `Sample__Telemetry__Enabled`, so the OpenTelemetry registration runs inside the AOT image again —
+  it had been set under the wrong configuration section since `apps/web` left, and nothing was red.
+  Nothing in `scripts/deploy/` has still ever run on a real host: that is T15, below. D2 — whether
+  the generated admin should be closed by default — is open and is the user's call.
 
 - **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
   not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has

@@ -61,6 +61,26 @@ Merged into `dev`, not yet tagged.
   throughput: 11,779 req/s against 18,105 for the same bytes. Nothing was ever being streamed.
 
 ### Fixed
+- **The deploy chain named an application that had left the repository.**
+  `scripts/deploy/build.sh` published `apps/web/nativeweb.web.csproj`, so every run failed on a
+  missing project file. It now publishes `apps/sample` by default, takes `PROJECT=<csproj>` for a
+  stamped product's own app, and installs the executable under the fixed name `nativeweb` —
+  `deploy.sh`, `nativeweb@.service` and the Caddy files name no project at all. systemd will not
+  expand a variable in the first token of `ExecStart`, so one rename in the build is what buys a
+  unit file nobody has to edit per product.
+- **The migration runner pointed at a deleted directory and demanded a migration that need not
+  exist.** `db/migrate.sh` resolved `db/migrations/` and named `0002_extensions.sql`
+  unconditionally, so it aborted on every run and took `db/test-run-lock.sh` with it. It now
+  defaults to `db/sample/migrations`, takes `MIGRATIONS_DIR`, refuses a missing or migration-less
+  directory before any glob reaches `psql`, and applies the superuser extensions step only if the
+  schema has one.
+- **The OTel-under-AOT budget gate had stopped gating.**
+  `scripts/ci/check-publish-budgets.ps1` set `NativeWeb__Telemetry__Enabled`, which was right while
+  the target was `apps/web`; `apps/sample` binds its options from the `Sample` section, so the key
+  was unread and the OpenTelemetry registration — the only one that runs inside a real NativeAOT
+  image — never ran. Nothing was red. Measured on the published binary:
+  `Sample__Telemetry__Enabled=maybe` refuses startup with exit 78 while
+  `NativeWeb__Telemetry__Enabled=maybe` starts the app normally. Fixed with `-ConfigPrefix`.
 - **A rejected form came back showing values nobody typed, under the wrong heading.** The error
   path rebuilt the page from the converted item, so "Views must be a whole number." sat next to a
   field reading `0` — the fallback the validator had just refused — and a rejected *create* was

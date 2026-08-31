@@ -124,11 +124,11 @@ Carried from `work/todo.md` and `work/milestones.md`, not re-derived:
   review -- and has never run against a real
   host (spec 011 T15). Milestone 3 is unmet and every elapsed time in the deployment reference
   reads `NOT YET MEASURED`.
-- **`db/migrate.sh` and `db/test-run-lock.sh` are unreachable** — `MIGRATIONS_DIR` resolves to the
-  deleted `db/migrations/`. Retarget or retire.
-- **The OTel-under-AOT gate stopped gating.** `check-publish-budgets.ps1` was the only place the
-  OpenTelemetry registration path ran inside a real NativeAOT image, and it ran because the target
-  was `apps/web`.
+- ~~**`db/migrate.sh` and `db/test-run-lock.sh` are unreachable**~~ — retargeted at
+  `db/sample/migrations/` on 2026-08-31 (plan 007 T12), with the extensions step made optional.
+- ~~**The OTel-under-AOT gate stopped gating.**~~ — restored 2026-08-31. The registration was never
+  removed: `apps/sample` gets it through `AddNativeWebWeb`. `check-publish-budgets.ps1` was setting
+  the switch under the `NativeWeb` section, which the sample does not bind, so the value was unread.
 - **The generated admin index is never gated, whatever the models say.** `[Auth]`
   (`libs/nativeweb.scaffold/ScaffoldAttributes.cs:57`) emits `RequireAuthorization`
   (`libs/nativeweb.scaffold.generator/ScaffoldEmitter.cs:174-180`) per model — but the emitted
