@@ -185,6 +185,47 @@ public sealed class MaskingTests
         Assert.Equal("•••", Masking.IpAddress("203.0.113."));
     }
 
+    // The regression this method was written for: an IPv4 address carrying a port
+    // used to be read as IPv6 and come back with all four octets visible.
+    [Theory]
+    [InlineData("203.0.113.42:8080")]
+    [InlineData("203.0.113.42:443")]
+    public void IpAddress_Ipv4WithAPort_StillDropsTheLastOctet(string ip)
+    {
+        string masked = Masking.IpAddress(ip);
+
+        Assert.Equal("203.0.113.x", masked);
+        Assert.DoesNotContain("42", masked);
+    }
+
+    [Fact]
+    public void IpAddress_BracketedIpv6WithAPort_DropsTheLastSegment()
+    {
+        string masked = Masking.IpAddress("[2001:db8::abcd]:443");
+
+        Assert.DoesNotContain("abcd", masked);
+        Assert.DoesNotContain("443", masked);
+        Assert.EndsWith("x", masked, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IpAddress_Ipv4MappedIpv6_HidesTheEmbeddedIpv4()
+    {
+        string masked = Masking.IpAddress("::ffff:203.0.113.42");
+
+        Assert.DoesNotContain("42", masked);
+    }
+
+    [Theory]
+    [InlineData("intranet-host")]
+    [InlineData("203.0.113.")]
+    [InlineData("not an address at all")]
+    [InlineData("2001:db8::abcd::1")]
+    public void IpAddress_UnrecognizedShape_FullyMasked(string ip)
+    {
+        Assert.Equal("•••", Masking.IpAddress(ip));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

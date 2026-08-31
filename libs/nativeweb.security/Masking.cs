@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 
 namespace NativeWeb.Security;
@@ -78,14 +80,27 @@ public static class Masking
     {
         ArgumentException.ThrowIfNullOrEmpty(ip);
 
-        char separator = ip.Contains(':', StringComparison.Ordinal) ? ':' : '.';
-        int lastSep = ip.LastIndexOf(separator);
-        if (lastSep <= 0 || lastSep == ip.Length - 1)
+        // Parsed rather than split on a separator character. Choosing ':' whenever the
+        // string contained one made "203.0.113.42:8080" IPv6-shaped, so the masking
+        // dropped the port and returned every octet of the address in the clear --
+        // the opposite of what this method is for. IPEndPoint.TryParse accepts a bare
+        // address as well as host:port and "[v6]:port", and the family it reports is
+        // what decides the separator. Anything it cannot parse is not an address, and
+        // the documented fallback for that is a fully masked token.
+        if (!IPEndPoint.TryParse(ip, out IPEndPoint? endpoint))
         {
             return Bullets;
         }
 
-        return string.Concat(ip.AsSpan(0, lastSep + 1), "x");
+        string address = endpoint.Address.ToString();
+        char separator = endpoint.Address.AddressFamily == AddressFamily.InterNetworkV6 ? ':' : '.';
+        int lastSep = address.LastIndexOf(separator);
+        if (lastSep <= 0 || lastSep == address.Length - 1)
+        {
+            return Bullets;
+        }
+
+        return string.Concat(address.AsSpan(0, lastSep + 1), "x");
     }
 
     private static string MaskLabel(string label)
