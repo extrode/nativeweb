@@ -43,6 +43,7 @@ internal static class OAuthClientFixtures
             RedirectUri = "https://app.test/signin/callback",
             ClientAuthentication = mode,
             StoreEncryptionKey = RandomNumberGenerator.GetBytes(StoreDataProtector.KeyBytes),
+            FailurePath = "/signin-failed",
         };
         options.Validate();
 

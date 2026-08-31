@@ -363,7 +363,9 @@ public static partial class SignInEndpoints
     /// <summary>The failure redirect target. Never carries provider text — only a code this library
     /// owns.</summary>
     private static string Failure(SignInOptions options, string code) =>
-        options.LoginPath + "?" + SignInQuery.Error + "=" + Uri.EscapeDataString(code);
+        options.FailurePath
+        + (options.FailurePath.Contains('?', StringComparison.Ordinal) ? "&" : "?")
+        + SignInQuery.Error + "=" + Uri.EscapeDataString(code);
 
     private static string CodeFor(SignInOutcome outcome) =>
         outcome == SignInOutcome.Unavailable

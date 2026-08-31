@@ -54,24 +54,28 @@ public sealed class Browser(HttpClient client) : IDisposable
     /// <summary>Issues a GET and returns the first response, redirect or not.</summary>
     /// <param name="path">Where to go.</param>
     /// <returns>The response.</returns>
-    public Task<HttpResponseMessage> GetOnceAsync(string path)
+    public async Task<HttpResponseMessage> GetOnceAsync(string path)
     {
+        // Awaited before the request is disposed. The earlier shape was `using var request` in a
+        // non-async method returning the task: the using disposed the message the moment the method
+        // returned, which is while HttpClient still holds it.
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
-        return SendAsync(request);
+        return await SendAsync(request).ConfigureAwait(false);
     }
 
     /// <summary>Issues a form POST and returns the first response.</summary>
     /// <param name="path">Where to post.</param>
     /// <param name="fields">The form body.</param>
     /// <returns>The response.</returns>
-    public Task<HttpResponseMessage> PostAsync(string path, IEnumerable<KeyValuePair<string, string>> fields)
+    public async Task<HttpResponseMessage> PostAsync(
+        string path, IEnumerable<KeyValuePair<string, string>> fields)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, path)
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
         {
             Content = new FormUrlEncodedContent(fields),
         };
 
-        return SendAsync(request);
+        return await SendAsync(request).ConfigureAwait(false);
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)

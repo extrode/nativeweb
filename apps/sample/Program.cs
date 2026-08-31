@@ -83,6 +83,11 @@ public sealed class Program
                 signIn.SignedOutPath = "/welcome";
                 signIn.DefaultReturnPath = "/account";
 
+                // Not LoginPath. That route IS the flow trigger, so a failure sent
+                // there starts the flow again and fails again; the demo's welcome
+                // page is a page, and a page can render ?error=.
+                signIn.FailurePath = "/welcome";
+
                 // A demo's sessions do not outlive the process that minted them, so
                 // there is nothing for a persisted key to protect. A product supplies
                 // one; see the library's README.

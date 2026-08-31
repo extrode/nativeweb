@@ -21,7 +21,7 @@
          there is no runner here and nothing to run: the conformance suites are
          abstract base classes a CONSUMER derives from. The run stays green, so
          this is one line of noise in every full-suite output rather than a
-         failure -- which is worse, because it trains the reader past it. -->
+         failure, which is worse, because it trains the reader past it. -->
     <IsTestProject>false</IsTestProject>
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.SignIn.Testing</PackageId>

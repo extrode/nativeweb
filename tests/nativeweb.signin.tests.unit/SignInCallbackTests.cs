@@ -76,7 +76,7 @@ public sealed class SignInCallbackTests
         DefaultHttpContext replay = await fixture.Callback();
 
         Assert.Equal(exchangesAfterTheFirst, fixture.Provider.Exchanges.Count);
-        Assert.Equal("/signin?error=state_used", replay.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=state_used", replay.Response.Headers.Location.ToString());
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public sealed class SignInCallbackTests
         DefaultHttpContext context = await fixture.Callback(state: "never-minted");
 
         Assert.Empty(fixture.Provider.Exchanges);
-        Assert.Equal("/signin?error=state_used", context.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=state_used", context.Response.Headers.Location.ToString());
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public sealed class SignInCallbackTests
         DefaultHttpContext context = await fixture.Callback();
 
         Assert.Empty(fixture.Provider.Exchanges);
-        Assert.Equal("/signin?error=state_expired", context.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=state_expired", context.Response.Headers.Location.ToString());
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class SignInCallbackTests
         DefaultHttpContext context = await fixture.Callback(code: "");
 
         Assert.Equal(
-            "/signin?error=callback_incomplete",
+            "/signin-failed?error=callback_incomplete",
             context.Response.Headers.Location.ToString());
     }
 
@@ -122,7 +122,7 @@ public sealed class SignInCallbackTests
         DefaultHttpContext context = await fixture.Callback(state: "");
 
         Assert.Equal(
-            "/signin?error=callback_incomplete",
+            "/signin-failed?error=callback_incomplete",
             context.Response.Headers.Location.ToString());
     }
 
@@ -134,7 +134,7 @@ public sealed class SignInCallbackTests
         DefaultHttpContext context = await fixture.Callback(code: new string('a', 513));
 
         Assert.Equal(
-            "/signin?error=callback_incomplete",
+            "/signin-failed?error=callback_incomplete",
             context.Response.Headers.Location.ToString());
         Assert.Equal(FlowTake.Taken, (await fixture.Flows.TakeAsync(fixture.State, default)).Outcome);
     }
@@ -146,7 +146,7 @@ public sealed class SignInCallbackTests
 
         DefaultHttpContext context = await fixture.Callback(code: "", error: "access_denied");
 
-        Assert.Equal("/signin?error=signin_failed", context.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=signin_failed", context.Response.Headers.Location.ToString());
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public sealed class SignInCallbackTests
 
         DefaultHttpContext context = await fixture.Callback();
 
-        Assert.Equal("/signin?error=signin_failed", context.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=signin_failed", context.Response.Headers.Location.ToString());
         Assert.Equal(0, fixture.Sessions.Count);
     }
 
@@ -171,7 +171,7 @@ public sealed class SignInCallbackTests
         DefaultHttpContext context = await fixture.Callback();
 
         Assert.Equal(
-            "/signin?error=provider_unavailable",
+            "/signin-failed?error=provider_unavailable",
             context.Response.Headers.Location.ToString());
     }
 
@@ -184,7 +184,7 @@ public sealed class SignInCallbackTests
 
         DefaultHttpContext context = await fixture.Callback();
 
-        Assert.Equal("/signin?error=signin_failed", context.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=signin_failed", context.Response.Headers.Location.ToString());
         Assert.Equal(0, fixture.Sessions.Count);
     }
 
@@ -205,7 +205,7 @@ public sealed class SignInCallbackTests
 
         DefaultHttpContext context = await fixture.Callback();
 
-        Assert.Equal("/signin?error=state_unknown", context.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=state_unknown", context.Response.Headers.Location.ToString());
         Assert.Empty(fixture.Provider.Exchanges);
     }
 

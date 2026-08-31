@@ -119,7 +119,7 @@ public sealed class AddSignInTests
         Assert.InRange(
             resolved.FindIndex(static s => s is SignInStartupCheck),
             0,
-            resolved.FindIndex(static s => s is LoginFlowSweeper) - 1);
+            resolved.FindIndex(static s => s is SignInSweeper) - 1);
     }
 
     [Fact]

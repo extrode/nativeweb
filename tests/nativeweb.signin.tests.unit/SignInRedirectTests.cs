@@ -154,7 +154,7 @@ public sealed class SignInRedirectTests
 
         Assert.Equal(302, context.Response.StatusCode);
         Assert.Equal(
-            "/signin?error=provider_unavailable",
+            "/?error=provider_unavailable",
             context.Response.Headers.Location.ToString());
     }
 

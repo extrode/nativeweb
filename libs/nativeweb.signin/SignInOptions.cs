@@ -184,6 +184,28 @@ public sealed class SignInOptions
     public string SignedOutPath { get; set; } = "/";
 
     /// <summary>
+    /// Where a failed sign-in lands, carrying <c>?error=</c> and a <see cref="SignInFailureCode"/>.
+    /// A page the CONSUMER owns and renders.
+    /// </summary>
+    /// <remarks>
+    /// It cannot be <see cref="LoginPath"/>, and that is the whole reason this setting exists. The
+    /// library owns <c>GET LoginPath</c> — that route IS the flow trigger — and the handler never
+    /// reads <c>?error=</c>, so a failure redirected there is a request to start the flow again.
+    /// An unconfigured provider, a refusing <c>SignInPolicy</c> and a resolver returning null all
+    /// fail the same way on every attempt, so the browser bounces until it gives up:
+    /// <c>ERR_TOO_MANY_REDIRECTS</c>, no page, and the failure code delivered to a handler that
+    /// discards it. <see cref="Validate"/> refuses that pairing rather than leaving it to be found
+    /// in production.
+    /// <para>
+    /// The default is <see cref="DefaultReturnPath"/>'s value, <c>"/"</c>: a page the consumer
+    /// certainly has, so the default never loops. A consumer that does not read <c>?error=</c>
+    /// there shows a home page instead of an explanation — the failure is silent, not broken. Point
+    /// this at a real page and read the code.
+    /// </para>
+    /// </remarks>
+    public string FailurePath { get; set; } = "/";
+
+    /// <summary>
     /// Where sign-in lands when the requested return path is missing or off-site. Validated with
     /// <see cref="ReturnPath.IsUsableFallback"/>: a fallback of <c>https://evil.test</c> would
     /// make every rejected candidate redirect off-site, which is the open redirect wearing the
@@ -237,6 +259,20 @@ public sealed class SignInOptions
         RequireRelative(CallbackPath, nameof(CallbackPath));
         RequireRelative(LogoutPath, nameof(LogoutPath));
         RequireRelative(SignedOutPath, nameof(SignedOutPath));
+        RequireRelative(FailurePath, nameof(FailurePath));
+
+        // The two routes the library owns as GET endpoints. Either one as the failure target is an
+        // infinite redirect: LoginPath restarts the flow and CallbackPath refuses again, both
+        // redirecting straight back here.
+        if (string.Equals(FailurePath, LoginPath, StringComparison.Ordinal)
+            || string.Equals(FailurePath, CallbackPath, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(FailurePath)} is \"{FailurePath}\", which is a route this library owns. A "
+                + "failure redirected to the library's own GET endpoint restarts the flow and fails "
+                + "again, so the browser loops until it gives up and the error code reaches nothing "
+                + $"that reads it. Point {nameof(FailurePath)} at a page the application renders.");
+        }
 
         RequirePositive(FlowLifetime, nameof(FlowLifetime));
         RequirePositive(SessionLifetime, nameof(SessionLifetime));

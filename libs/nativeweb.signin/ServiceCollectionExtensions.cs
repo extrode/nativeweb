@@ -147,11 +147,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IHostedService>(sp => new SignInStartupCheck(
             sp.GetRequiredService<IServiceScopeFactory>(), scheme));
 
-        // Garbage collection for the flow table. No security property depends on it having run; see
-        // LoginFlowSweeper.
-        services.AddSingleton<IHostedService>(sp => new LoginFlowSweeper(
+        // Garbage collection for the flow table, the session table and the introspection cache. No
+        // security property depends on it having run; see SignInSweeper.
+        services.AddSingleton<IHostedService>(sp => new SignInSweeper(
             sp.GetRequiredService<IServiceScopeFactory>(),
-            sp.GetRequiredService<ILogger<LoginFlowSweeper>>(),
+            sp.GetRequiredService<ILogger<SignInSweeper>>(),
             sp.GetRequiredService<TimeProvider>(),
             scheme));
 

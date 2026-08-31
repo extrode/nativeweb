@@ -75,6 +75,7 @@ public static class SignInConfiguration
         options.LogoutPath = Text(section, "LogoutPath", options.LogoutPath);
         options.SignedOutPath = Text(section, "SignedOutPath", options.SignedOutPath);
         options.DefaultReturnPath = Text(section, "DefaultReturnPath", options.DefaultReturnPath);
+        options.FailurePath = Text(section, "FailurePath", options.FailurePath);
 
         options.ClientAuthentication = Mode(section, options.ClientAuthentication);
         options.RetainTokens = Flag(section, "RetainTokens", options.RetainTokens);

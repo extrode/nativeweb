@@ -78,6 +78,7 @@ that will not parse throws at startup naming its own full path, not at the first
 | `LogoutPath` | no | `/signout` | POST only, antiforgery-checked. |
 | `SignedOutPath` | no | `/` | Where sign-out lands. |
 | `DefaultReturnPath` | no | `/` | Where a sign-in with no `returnTo` lands. |
+| `FailurePath` | no | `/` | Where a FAILED sign-in lands, carrying `?error=`. Cannot be `LoginPath` or `CallbackPath`; startup refuses either. |
 | `FlowLifetimeSeconds` | no | 900 | How long an in-flight sign-in may take. |
 | `SessionLifetimeSeconds` | no | 1209600 | Fourteen days. |
 | `RefreshSkewSeconds` | no | 120 | How early an access token is refreshed. |
@@ -122,12 +123,21 @@ that acts.
 — an absolute URL, a scheme-relative one and a backslash-smuggled one all fall back to
 `DefaultReturnPath`, so the endpoint is not an open redirect.
 
-A failed sign-in comes back to `LoginPath` as `?error=<code>`, one of
+A failed sign-in lands at `FailurePath` as `?error=<code>`, one of
 `callback_incomplete`, `state_used`, `state_expired`, `state_unknown`, `signin_failed`,
 `provider_unavailable`, `refused` (`SignInFailureCode`). **No provider-supplied string is ever
 rendered**: the provider's own `error` and `error_description` are upstream text, and a page that
 echoes them is a page that renders whatever the provider felt like sending. Render your own copy
 per code.
+
+**`FailurePath` cannot be `LoginPath`, and startup refuses the pairing.** `GET LoginPath` is the
+flow trigger this library owns; it never reads `?error=`, so a failure delivered there starts the
+flow over. Anything that fails the same way every time — an unconfigured provider, a `SignInPolicy`
+that refuses, a `SignInResolver` returning null — then bounces the browser until it gives up with
+`ERR_TOO_MANY_REDIRECTS`, and the code reaches nothing that reads it.
+
+The default is `/`, which never loops but is also unlikely to explain anything. Point it at a page
+you render and read the code there.
 
 ## API endpoints: bearer introspection
 

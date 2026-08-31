@@ -28,6 +28,50 @@ public sealed class SignInOptionsTests
         Assert.False(options.IsConfigured);
     }
 
+    [Fact]
+    public void Validate_FailurePathIsTheLoginPath_Throws()
+    {
+        SignInOptions options = Valid();
+        options.FailurePath = options.LoginPath;
+
+        InvalidOperationException thrown = Assert.Throws<InvalidOperationException>(options.Validate);
+
+        Assert.Contains(nameof(SignInOptions.FailurePath), thrown.Message, StringComparison.Ordinal);
+        Assert.Contains("loops", thrown.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_FailurePathIsTheCallbackPath_Throws()
+    {
+        SignInOptions options = Valid();
+        options.FailurePath = options.CallbackPath;
+
+        Assert.Throws<InvalidOperationException>(options.Validate);
+    }
+
+    [Theory]
+    [InlineData("https://evil.test/oops")]
+    [InlineData("//evil.test")]
+    [InlineData("")]
+    public void Validate_FailurePathOffSite_Throws(string path)
+    {
+        SignInOptions options = Valid();
+        options.FailurePath = path;
+
+        Assert.Throws<InvalidOperationException>(options.Validate);
+    }
+
+    [Fact]
+    public void Validate_FailurePathIsItsOwnPage_Passes()
+    {
+        SignInOptions options = Valid();
+        options.FailurePath = "/signin-failed";
+
+        options.Validate();
+
+        Assert.Equal("/signin-failed", options.FailurePath);
+    }
+
     [Theory]
     [InlineData("session")]
     [InlineData("")]
@@ -359,6 +403,8 @@ public sealed class SignInOptionsTests
         Assert.Equal("/signout", options.LogoutPath);
         Assert.Equal("/", options.SignedOutPath);
         Assert.Equal("/", options.DefaultReturnPath);
+        Assert.Equal("/", options.FailurePath);
+        Assert.NotEqual(options.LoginPath, options.FailurePath);
         Assert.Equal("__Host-signin", options.CookieName);
         Assert.True(options.RetainTokens);
         Assert.Equal(["openid", "profile", "email"], options.Scopes);

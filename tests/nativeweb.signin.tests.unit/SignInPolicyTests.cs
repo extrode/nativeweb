@@ -25,7 +25,7 @@ public sealed class SignInPolicyTests
         DefaultHttpContext context = await Login(flows, Refuse);
 
         Assert.Equal(302, context.Response.StatusCode);
-        Assert.Equal("/signin?error=refused", context.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=refused", context.Response.Headers.Location.ToString());
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class SignInPolicyTests
         DefaultHttpContext context = await Login(
             flows, (_, _) => throw new InvalidOperationException("a broken policy"));
 
-        Assert.Equal("/signin?error=refused", context.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=refused", context.Response.Headers.Location.ToString());
         Assert.Equal(0, flows.Starts);
     }
 
@@ -184,7 +184,7 @@ public sealed class SignInPolicyTests
         Fixture fixture = await Signed((_, _, _, _) => ValueTask.FromResult<string?>(null));
 
         Assert.Equal(
-            "/signin?error=refused",
+            "/signin-failed?error=refused",
             fixture.Context.Response.Headers.Location.ToString());
     }
 

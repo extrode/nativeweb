@@ -262,7 +262,11 @@ public sealed class RoundTripTests
 
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
 
-        using HttpResponseMessage after = await browser.GetAsync("/private");
+        // GetOnceAsync, not GetAsync. GetAsync follows redirects, and the demo provider approves
+        // without asking, so a session that HAD been ended would redirect to /signin, walk the
+        // whole flow again and arrive at /private with a 200 — the same assertion, passing for the
+        // opposite reason. One hop is what distinguishes "still signed in" from "signed in again".
+        using HttpResponseMessage after = await browser.GetOnceAsync("/private");
         Assert.Equal(HttpStatusCode.OK, after.StatusCode);
     }
 
