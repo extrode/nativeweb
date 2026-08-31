@@ -4,12 +4,12 @@ Plan: ./015-plan.md
 
 T1 gates everything after it. Nothing moves until the invariants are asserted and green.
 
-- [ ] **T1** Create `tests/nativeweb.web.tests.unit` and assert the spec-006 triangle against the
+- [x] **T1** Create `tests/nativeweb.web.tests.unit` and assert the spec-006 triangle against the
   skeleton's middleware as they stand — files: new test project, referencing the skeleton sources
   — covers: R1, R10 — done when: anonymous responses are byte-stable, mint no token and set no
   cookie; an authenticated request is not served a shared entry; locale separates entries; each
   assertion fails when its invariant is broken.
-- [ ] **T2** Assert the pipeline order — files: same tier — covers: R5 — done when: the rate
+- [x] **T2** Assert the pipeline order — files: same tier — covers: R5 — done when: the rate
   limiter is asserted to precede the public-page cache and the test fails when they are swapped.
 - [ ] **T3** Move the skeleton's five unit test files into the new tier — files:
   `skeleton/tests/__product__.tests.unit/*.cs` → `tests/nativeweb.web.tests.unit/` — covers: R10 —

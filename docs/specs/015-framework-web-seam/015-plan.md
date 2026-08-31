@@ -30,6 +30,30 @@ every file named in the spec now exists only under `skeleton/apps/__product__/`.
 directory no local build compiles, and the first real exercise of the moved code is in CI on a
 stamped product — which is the position this spec exists to end.
 
+## Constraint found in T1: `Chrome` binds to a per-product generated symbol
+
+`Chrome.For` and `Chrome.Anonymous` both call `Locales.Get(context.GetLocale())`
+(`skeleton/apps/__product__/Render/Chrome.cs:33,65`). `Locales` is not a framework type — the
+render generator emits it into `build_property.RootNamespace` from that project's own
+`locales/*.json` (`libs/nativeweb.render.generator/TemplateEmitter.cs:222-224`), so it exists once
+per product and nowhere else. **`Chrome` therefore cannot move into `libs/nativeweb.web`
+unchanged**, because a framework library has no `locales/` to generate from.
+
+Found by compiling the skeleton sources into `tests/nativeweb.web.tests.unit` and getting two
+CS0103s. The test project works around it the way a product does — `RootNamespace` set to
+`__PRODUCT__` and its own `locales/en.json` plus an `fr.json` the locale-separation assertion
+needs — which proves the coupling rather than removing it.
+
+Two ways out for T4, to be decided there rather than here:
+
+- **The caller supplies the catalog.** `Chrome.For(context, assets, antiforgery, LocaleCatalog)`.
+  The framework stops knowing about `Locales` at all; every call site gains an argument.
+- **`Chrome` stays product-side.** It is 66 lines and its anonymous/authenticated split is the
+  product's own decision about what a page shows. R2 lists it as moving, so choosing this is a
+  spec amendment, not a silent narrowing.
+
+Either way T1's assertions hold unchanged, which is what writing them first bought.
+
 ## Tech / dependencies
 
 No new dependencies. `libs/nativeweb.web` targets the same `net10.0`, `IsAotCompatible`, and
