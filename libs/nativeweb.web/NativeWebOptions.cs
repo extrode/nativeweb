@@ -191,26 +191,20 @@ public sealed record NativeWebOptions
     // is what separates "does not exist yet" from "will never be writable" --
     // ProtectSystem=strict makes the release directory readable and not writable,
     // which no existence check can tell apart from a fresh install.
+    //
+    // What is NOT done here is removing the directory again. An earlier version
+    // deleted it when the probe had created it, to leave a test that only binds
+    // options no litter; four test hosts binding at once then raced -- one deleted
+    // the directory while another was writing its probe into it, and the loser
+    // refused to start. The probe file carries a random name for the same reason.
     private static bool CanPersistKeys(string directory)
     {
         try
         {
-            bool existed = Directory.Exists(directory);
-
             Directory.CreateDirectory(directory);
-            string probe = Path.Combine(directory, ".nativeweb-key-directory-probe");
+            string probe = Path.Combine(directory, $".nativeweb-probe-{Path.GetRandomFileName()}");
             File.WriteAllBytes(probe, []);
             File.Delete(probe);
-
-            // Binding options is not the same act as starting the key ring, so a
-            // probe that succeeds leaves nothing behind. The ring creates this
-            // directory itself moments later in a real host; in a test that only
-            // binds, it would be litter in someone's home directory.
-            if (!existed)
-            {
-                Directory.Delete(directory);
-            }
-
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
