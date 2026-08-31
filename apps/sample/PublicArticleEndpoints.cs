@@ -104,7 +104,10 @@ internal static class PublicArticleEndpoints
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
 
-        return Templates.Articles.Index.Result(locale: locale, Title: locale["title.articles"], AntiforgeryToken: tokens.RequestToken ?? "",
+        return Templates.Articles.Index.Result(
+            locale: locale,
+            Title: locale["title.articles"],
+            AntiforgeryToken: tokens.RequestToken ?? "",
             Query: query ?? "",
             Take: take,
             AntiforgeryFieldName: tokens.FormFieldName,
