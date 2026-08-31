@@ -41,7 +41,10 @@ public sealed class Program
             ConnectionString = builder.Configuration.GetConnectionString("Sample"),
         };
 
-        builder.AddNativeWebWeb(options);
+        // typeof(Program).Assembly, not the entry assembly: under the integration
+        // tier the entry assembly is testhost, and /version would report its
+        // version rather than this app's.
+        builder.AddNativeWebWeb(options, typeof(Program).Assembly);
 
         // Antiforgery and authorization, which every scaffolded route needs.
         builder.Services.AddScaffolding();
@@ -136,7 +139,7 @@ public sealed class Program
         // /healthz, /version, /readyz, /csp-report and /.well-known/security.txt.
         // /healthz used to be a MapGet on this line; it is the framework's now, and
         // /readyz probes the same pooled data source the stores above read through.
-        app.MapNativeWebEndpoints(options);
+        app.MapNativeWebEndpoints(options, typeof(Program).Assembly);
 
         // Demo sign-in. Gated to Development because it grants the admin role for the
         // asking, which is only acceptable in something nobody deploys.

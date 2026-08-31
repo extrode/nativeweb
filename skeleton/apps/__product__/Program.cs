@@ -30,7 +30,10 @@ public sealed class Program
         // malformed value stops startup here with a named error rather than
         // becoming a silent default.
         var options = NativeWebOptions.FromConfiguration(builder.Configuration, "__PRODUCT__");
-        builder.AddNativeWebWeb(options);
+        // typeof(Program).Assembly is what /version and the telemetry service
+        // version read from. Under the integration tier the entry assembly is
+        // testhost, so naming this one is what keeps the stamped version honest.
+        builder.AddNativeWebWeb(options, typeof(Program).Assembly);
 
         WebApplication app = builder.Build();
 
@@ -74,7 +77,7 @@ public sealed class Program
         }).RequireRateLimiting(NativeWebPipeline.GeneralRateLimitPolicy).AsPublicPage(homeCsp);
 
         // /healthz, /version, /readyz, /csp-report and /.well-known/security.txt.
-        app.MapNativeWebEndpoints(options);
+        app.MapNativeWebEndpoints(options, typeof(Program).Assembly);
 
         app.Run();
     }

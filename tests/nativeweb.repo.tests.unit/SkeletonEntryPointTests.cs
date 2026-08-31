@@ -54,9 +54,9 @@ public sealed class SkeletonEntryPointTests
         string source = File.ReadAllText(
             Path.Combine(RepoRoot(), "skeleton", "apps", "__product__", "Program.cs"));
 
-        Assert.Contains("AddNativeWebWeb(options)", source, StringComparison.Ordinal);
+        Assert.Contains("AddNativeWebWeb(options, typeof(Program).Assembly)", source, StringComparison.Ordinal);
         Assert.Contains("UseNativeWebPipeline(Locales.All)", source, StringComparison.Ordinal);
-        Assert.Contains("MapNativeWebEndpoints(options)", source, StringComparison.Ordinal);
+        Assert.Contains("MapNativeWebEndpoints(options, typeof(Program).Assembly)", source, StringComparison.Ordinal);
         Assert.Contains("app.MapStaticAssets()", source, StringComparison.Ordinal);
         Assert.Contains("app.MapGet(\"/\"", source, StringComparison.Ordinal);
         Assert.Contains("app.Run()", source, StringComparison.Ordinal);

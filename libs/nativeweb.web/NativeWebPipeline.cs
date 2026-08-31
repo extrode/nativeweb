@@ -60,8 +60,16 @@ public static class NativeWebPipeline
     /// behind would have meant the product keeping the one line that bounds a
     /// flood.
     /// </remarks>
+    /// <param name="builder">The host being configured.</param>
+    /// <param name="options">Everything the eleven steps below read.</param>
+    /// <param name="productAssembly">
+    /// The product's own assembly, for the version telemetry reports. Pass
+    /// <c>typeof(Program).Assembly</c>; null falls back to the entry assembly,
+    /// which is the product everywhere except under a test host. See
+    /// <see cref="InformationalVersion(Assembly?)"/>.
+    /// </param>
     public static WebApplicationBuilder AddNativeWebWeb(
-        this WebApplicationBuilder builder, NativeWebOptions options)
+        this WebApplicationBuilder builder, NativeWebOptions options, Assembly? productAssembly = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(options);
@@ -73,7 +81,7 @@ public static class NativeWebPipeline
         builder.Services.AddNativeWebDataSource(options);
         builder.Services.AddNativeWebForwardedHeaders(options);
         builder.Services.AddNativeWebResponseCompression();
-        builder.Services.AddNativeWebTelemetry(options, ProductAssembly(builder.Environment));
+        builder.Services.AddNativeWebTelemetry(options, productAssembly);
         builder.Services.AddNativeWebDataProtection(options);
         builder.Services.AddNativeWebAntiforgery(options, builder.Environment);
         builder.Services.AddNativeWebBotTraps(options);
@@ -489,12 +497,17 @@ public static class NativeWebPipeline
     /// </summary>
     /// <param name="app">The application being composed.</param>
     /// <param name="options">Where the security contact and the readiness window come from.</param>
-    public static WebApplication MapNativeWebEndpoints(this WebApplication app, NativeWebOptions options)
+    /// <param name="productAssembly">
+    /// The assembly <c>/version</c> reports. Pass <c>typeof(Program).Assembly</c>;
+    /// null falls back to the entry assembly.
+    /// </param>
+    public static WebApplication MapNativeWebEndpoints(
+        this WebApplication app, NativeWebOptions options, Assembly? productAssembly = null)
     {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(options);
 
-        Assembly? version = ProductAssembly(app.Environment);
+        Assembly? version = productAssembly ?? Assembly.GetEntryAssembly();
 
         app.MapCspReportEndpoint();
         app.MapSecurityTxtEndpoint(options.SecurityContact);
@@ -579,33 +592,28 @@ public static class NativeWebPipeline
     /// The product's assembly, or null to fall back to the entry assembly.
     /// </param>
     /// <remarks>
-    /// Named rather than always taken from <see cref="Assembly.GetEntryAssembly"/>,
+    /// Takeable rather than always <see cref="Assembly.GetEntryAssembly"/>,
     /// because under a test host the entry assembly is the test host: a stamped
     /// product's integration tier reported <c>/version</c> as <c>18.7.0</c>,
     /// testhost's own version, and the regex asserting <c>Version+shortsha</c>
-    /// was the only thing that noticed. Callers inside this library pass the
-    /// assembly resolved from <c>IHostEnvironment.ApplicationName</c>, which is
-    /// the product's in both cases.
+    /// was the only thing that noticed.
+    /// <para>
+    /// A product passes <c>typeof(Program).Assembly</c> — a static reference the
+    /// compiler resolves, which is why this is a parameter and not a lookup. It
+    /// was <c>Assembly.Load(new AssemblyName(environment.ApplicationName))</c>
+    /// until 2026-08-31. That form does work under NativeAOT (measured: the
+    /// published binary answered <c>/version</c> with the stamped value, and the
+    /// AOT analyzers `IsAotCompatible` turns on repo-wide flagged nothing),
+    /// because the assembly is in the image and there is nothing to load. It
+    /// went anyway: a name lookup that catches four exception types and falls
+    /// back is a silent wrong answer waiting for a rename, and a parameter is
+    /// the same fact stated where the compiler can check it.
+    /// </para>
     /// </remarks>
     public static string InformationalVersion(Assembly? assembly = null) =>
         (assembly ?? Assembly.GetEntryAssembly())
             ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion ?? "unknown";
-
-    /// <summary>
-    /// The product's own assembly, by the name the host was configured with.
-    /// </summary>
-    private static Assembly? ProductAssembly(IHostEnvironment environment)
-    {
-        try
-        {
-            return Assembly.Load(new AssemblyName(environment.ApplicationName));
-        }
-        catch (Exception ex) when (ex is FileNotFoundException or FileLoadException or BadImageFormatException or ArgumentException)
-        {
-            return Assembly.GetEntryAssembly();
-        }
-    }
 
     /// <summary>
     /// The rate-limit partition key. IPv6 is bucketed to its /64; IPv4 and
