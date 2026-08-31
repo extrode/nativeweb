@@ -244,9 +244,35 @@ public sealed class StoreDataProtectorTests
     [InlineData("legacy plaintext row")]
     [InlineData("enc:v2:AAAA")]
     [InlineData("ENC:V1:AAAA")]
-    public void Unprotect_NoV1Prefix_ReturnsValueUnchanged(string stored)
+    public void Unprotect_NoV1Prefix_ThrowsAndNamesTheOptIn(string stored)
     {
-        Assert.Equal(stored, _protector.Unprotect(stored));
+        CryptographicException ex =
+            Assert.Throws<CryptographicException>(() => _protector.Unprotect(stored));
+
+        Assert.Contains(StoreDataProtector.Prefix, ex.Message, StringComparison.Ordinal);
+        Assert.Contains("allowLegacyPlaintext", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("legacy plaintext row")]
+    [InlineData("enc:v2:AAAA")]
+    [InlineData("ENC:V1:AAAA")]
+    public void Unprotect_NoV1Prefix_WithLegacyOptIn_ReturnsValueUnchanged(string stored)
+    {
+        var legacy = new StoreDataProtector(SequentialKey(), allowLegacyPlaintext: true);
+
+        Assert.Equal(stored, legacy.Unprotect(stored));
+    }
+
+    [Fact]
+    public void Unprotect_LegacyOptIn_StillRejectsATamperedEnvelope()
+    {
+        var legacy = new StoreDataProtector(SequentialKey(), allowLegacyPlaintext: true);
+        byte[] envelope = EnvelopeOf("attack at dawn");
+        envelope[^1] ^= 0x01;
+
+        Assert.ThrowsAny<CryptographicException>(() => legacy.Unprotect(ToStored(envelope)));
     }
 
     private byte[] EnvelopeOf(string plaintext)

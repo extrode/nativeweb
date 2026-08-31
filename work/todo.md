@@ -18,19 +18,25 @@ wish list; the value is in recording the ones nobody has got to yet.
   its separator by looking for a colon, so an IPv4 address with a port came back unmasked; and
   `EmailTemplates.ParseRecipient` accepts a line break immediately before the `@`, which MimeKit
   folds away — the test asserts the result carries no line break rather than a rejection that does
-  not happen. **Still open from that work:**
+  not happen.
+
+  **The three API decisions that came out of it were taken on 2026-09-01 and are done.**
+  `StoreDataProtector.Unprotect` now throws on a missing `enc:v1:` prefix, with
+  `allowLegacyPlaintext: true` as the opt-in for a product carrying rows from before its own
+  encryption rollout; `ContactProtector`'s `realmId` is `scopeId` with the epass table names gone
+  from its comments; and `FakeMaskDigest` and its `"fakemask"` subkey were removed as identity
+  provider flow rather than primitive. Checked first: no sibling repo is affected — epass.io has
+  its own `libs/epass.security` copies and the one app of its that references
+  `nativeweb.security` uses none of these types.
+
+  **Still open from that work:**
   - `Passphrases.NeedsRehash` has the same unguarded Geralt call `Verify` had. It is only ever
     called after a successful `Verify` today, so nothing reaches it with a malformed hash, but the
     asymmetry is a trap for the next caller.
-  - `StoreDataProtector.Unprotect`'s legacy-plaintext passthrough. Fable's read (2026-08-31): for
-    a framework primitive with no legacy rows anywhere — they left with the identity provider —
-    the passthrough turns two failure modes into apparent success, and the right default is to
-    throw on a missing prefix with passthrough as an opt-in for a product that has a migration to
-    run. A behaviour change on a public API, so it needs the user's call.
-  - `ContactProtector`'s `realmId` parameter and `FakeMaskDigest`. Fable: the parameter is a
-    generic primitive wearing epass vocabulary and should be `scopeId`, and a single-tenant product
-    passing 0 gets a correct index; `FakeMaskDigest` (lines 87-97) is the identity provider's
-    enumeration-defence flow and no rename turns it into a primitive. Both need the user's call.
+  - Stale `obj/` build residue under `libs/nativeweb.security` and `libs/nativeweb.mail` still
+    carries `epass.security` / `epass.mail` AssemblyInfo from before the 2026-07-26 rename.
+    Untracked and ignored, so it affects nothing but a grep; `scripts/cleanup/stale-epass-obj.ps1`
+    removes it.
 
 - **Three-lens repo audit, 2026-08-31: 29 findings, none fixed yet.** Fable (`review-deep`,
   architecture-to-promise), glm-5.3 (`glm-think`, the untested security library) and qwen3.8-max

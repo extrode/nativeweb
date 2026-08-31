@@ -86,8 +86,8 @@ public static partial class BotTraps
     }
 
     /// <summary>
-    /// The full trap block as markup, for renderers that build HTML in C#
-    /// (the IdP's inline pages). Template-based apps mirror this markup in
+    /// The full trap block as markup, for a renderer that builds HTML in C#
+    /// rather than from a template. Template-based apps mirror this markup in
     /// their shared/bot-traps partial instead.
     /// </summary>
     public static string Fields(HttpContext context)

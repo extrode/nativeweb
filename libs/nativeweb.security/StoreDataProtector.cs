@@ -3,11 +3,10 @@ using System.Text;
 
 namespace NativeWeb.Security;
 
-// Authenticated encryption for the BFF durable store's `data` column. The store
-// holds material that MUST round-trip in plaintext to the server (live access/
-// refresh tokens for opaque sessions, and the in-flight registration passphrase),
-// so hashing is not an option — the correct at-rest protection is encryption with
-// a key held outside the database. AES-256-GCM keyed by a 32-byte app secret;
+// Authenticated encryption for a database column holding material that MUST round-trip
+// in plaintext to the server -- a live token, a value in flight through a multi-step
+// flow -- so hashing is not an option and the correct at-rest protection is encryption
+// with a key held outside the database. AES-256-GCM keyed by a 32-byte app secret;
 // ciphertext is `enc:v1:` + base64(nonce(12) || ciphertext || tag(16)).
 public sealed class StoreDataProtector
 {
@@ -18,14 +17,22 @@ public sealed class StoreDataProtector
     private const int TagBytes = 16;
 
     private readonly byte[] _key;
+    private readonly bool _allowLegacyPlaintext;
 
-    public StoreDataProtector(byte[] key)
+    /// <param name="key">The 32-byte encryption key.</param>
+    /// <param name="allowLegacyPlaintext">
+    /// When <see langword="true"/>, <see cref="Unprotect"/> returns a value without the
+    /// <see cref="Prefix"/> unchanged instead of throwing. Set this only for a store that
+    /// holds rows written before encryption was introduced, and only until they age out.
+    /// </param>
+    public StoreDataProtector(byte[] key, bool allowLegacyPlaintext = false)
     {
         if (key.Length != KeyBytes)
         {
             throw new ArgumentException($"Store encryption key must be {KeyBytes} bytes.", nameof(key));
         }
         _key = key;
+        _allowLegacyPlaintext = allowLegacyPlaintext;
     }
 
     // Derives a 32-byte key from a configured secret. A base64/hex value of exactly
@@ -65,16 +72,25 @@ public sealed class StoreDataProtector
         return Prefix + Convert.ToBase64String(envelope);
     }
 
-    // Reverses Protect. A value without the versioned prefix is legacy plaintext
-    // (written before encryption was introduced) and is returned unchanged so
-    // pre-existing rows keep working until they age out via their TTL.
+    // Reverses Protect. A value without the versioned prefix is refused: in a store this
+    // type has always protected, the only ways to reach that branch are a column that was
+    // never encrypted and a value that has been replaced, and returning it verbatim
+    // reports both as success. The passthrough is still available to a product carrying
+    // rows that predate its own encryption rollout, but it is now that product's decision
+    // (allowLegacyPlaintext) rather than this library's default. Changed 2026-09-01: the
+    // rows the old default existed for left with the identity provider.
     public string Unprotect(string stored)
     {
         ArgumentNullException.ThrowIfNull(stored);
 
         if (!stored.StartsWith(Prefix, StringComparison.Ordinal))
         {
-            return stored;
+            return _allowLegacyPlaintext
+                ? stored
+                : throw new CryptographicException(
+                    $"Stored value does not carry the '{Prefix}' prefix. Construct the protector "
+                    + "with allowLegacyPlaintext: true if the store holds rows written before "
+                    + "encryption was introduced.");
         }
 
         byte[] envelope = Convert.FromBase64String(stored[Prefix.Length..]);

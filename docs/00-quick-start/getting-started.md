@@ -124,13 +124,13 @@ The full set, and what each returned on the verification run:
 | `tests/nativeweb.render.tests.unit` | 161 | the template generator and its runtime |
 | `tests/nativeweb.web.tests.unit` | 94 | the pipeline, middleware and startup guards |
 | `tests/nativeweb.forms.tests.unit` | 85 | form binding and the antiforgery analyzer |
-| `tests/nativeweb.security.tests.unit` | 174 | Argon2id, AES-GCM, opaque tokens, blind indexes, bot traps |
+| `tests/nativeweb.security.tests.unit` | 175 | Argon2id, AES-GCM, opaque tokens, blind indexes, bot traps |
 | `tests/nativeweb.mail.tests.unit` | 53 | address parsing, header-injection defence, SMTP options |
 | `tests/nativeweb.scaffold.tests.unit` | 109 | the CRUD generator |
 | `tests/nativeweb.scaffold.tests.integration` | 60 | the generated admin through a real pipeline |
 | `tests/nativeweb.scaffold.tests.e2e` | 14 | a real browser, including the no-JavaScript path |
 | `tests/nativeweb.sample.tests.unit` | 47 | the reference application |
-| **Total** | **884 — 0 failed, 0 skipped** | |
+| **Total** | **885 — 0 failed, 0 skipped** | |
 
 Measured 2026-08-31 from a clean tree, one tier at a time. The ten projects above are every test
 project in `NativeWeb.slnx`; nothing else under `tests/` is real.
