@@ -1435,3 +1435,26 @@ another project's deployment and runbook, not to this repo.
   *malformed* input an error; an omitted `int` field is still 0 and an omitted non-nullable
   `DateTime` is still `DateTime.UtcNow`. Making blank "required" the way a non-nullable string is
   would be the consistent rule, and it is a behaviour change for every existing form. Same batch.
+
+- **Scaffold: a key equal to a literal route segment collides with the route.** A store that
+  returns `new` as a row key gives that row the URL `/admin/articles/new`, which is the create
+  form's route and wins by registration order — the row becomes unreachable and unentry-editable.
+  A framework fix is either a reserved-key check in the generated create, or moving the create form
+  off a path segment (`/admin/articles?new`). Found in the T11 review, 2026-08-31.
+
+- **Scaffold: `JauntyArticleStore` accepts `searchFields` and ignores it.** T11 made
+  `[ScaffoldSearch]` reach the store, and the memory store honours it; the SQL path still has the
+  columns fixed in `db/sample/queries/Articles/List.sql`, so removing the attribute changes the
+  placeholder and not the query. Honouring it properly needs either generated SQL or a JauntyQ
+  query that takes a column list. Same review.
+
+- **Scaffold: labels are C#-escaped but not HTML-encoded into the emitted markup.** `Escape` makes
+  a label safe as a C# string literal; a `Display` or `ScaffoldList(Label = ...)` carrying `<` or a
+  quote lands in the generated HTML unencoded. The values come from a developer's own attributes,
+  not from a request, so the reach is a broken page rather than injection — but the encoder exists
+  and the emitter should use it. Same review.
+
+- **Scaffold: a repeated delete answers 404 rather than the list.** T11 made `DeleteAsync`'s false
+  a 404, which is right for a row that was never there; a back button or a double click on a row
+  that *was* deleted now shows an error page where a redirect to the list would read as success.
+  Distinguishing the two needs the store to say which happened. Same review.

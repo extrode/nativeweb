@@ -61,6 +61,24 @@ Merged into `dev`, not yet tagged.
   throughput: 11,779 req/s against 18,105 for the same bytes. Nothing was ever being streamed.
 
 ### Fixed
+- **A rejected form came back showing values nobody typed, under the wrong heading.** The error
+  path rebuilt the page from the converted item, so "Views must be a whole number." sat next to a
+  field reading `0` — the fallback the validator had just refused — and a rejected *create* was
+  titled "Edit Article" for a row that had never existed. The submitted form is now carried down
+  and rendered; the create path passes no row.
+- **A store that returned no key made a create look successful.** The empty string produced a
+  redirect to `BasePath + "/"`, which is the list route, so the visitor landed on a page that did
+  not contain their row. The contract says the implementation assigns the key; a store that breaks
+  it now gets an `InvalidOperationException` naming it.
+- **A nullable `bool` property emitted `row is not null && row.Flag`** — `bool?` and `bool` under
+  `&&`, which does not compile. Now `row?.Flag == true`.
+- **`SearchFields` was emitted as a collection expression.** Generated source is compiled with the
+  *consumer's* `LangVersion`, so a product on C# 11 got source that would not build. Emitted as an
+  explicit array.
+- **`DemoStore.UpdateAsync` was check-then-act on a `ConcurrentDictionary`.** It tested
+  `ContainsKey` and then assigned through the indexer, so a row deleted between the two came back
+  and the handler reported success — the exact race the new 404-on-false exists to report. Now
+  `TryGetValue` plus `TryUpdate` against the row it read.
 - **The generated admin index listed every model to everyone.** Each per-model route was guarded and
   the index was not, so an anonymous visitor read off the name and URL of every guarded model and
   was refused only on the click. A link is now emitted only when the caller satisfies that model's
