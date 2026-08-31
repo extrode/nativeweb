@@ -20,6 +20,7 @@
     <Project Path="tests/nativeweb.scaffold.tests.integration/nativeweb.scaffold.tests.integration.csproj" />
     <Project Path="tests/nativeweb.scaffold.tests.e2e/nativeweb.scaffold.tests.e2e.csproj" />
     <Project Path="tests/nativeweb.sample.tests.unit/nativeweb.sample.tests.unit.csproj" />
+    <Project Path="tests/nativeweb.web.tests.unit/nativeweb.web.tests.unit.csproj" />
   </Folder>
   <Project Path="../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj" />
   <Project Path="../jauntyq/src/JauntyQ.Runtime/JauntyQ.Runtime.csproj" />

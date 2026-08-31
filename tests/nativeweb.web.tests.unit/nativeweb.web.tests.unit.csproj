@@ -1,0 +1,92 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- __PRODUCT__, not NativeWeb.Web.Tests.Unit, because the render generator
+         emits Locales into build_property.RootNamespace and the linked skeleton
+         sources live in __PRODUCT__.Render, where they resolve Locales as a
+         sibling. Test files below declare their own namespace, so this affects
+         only where the generated code lands. -->
+    <RootNamespace>__PRODUCT__</RootNamespace>
+    <!-- Same test-project conventions as the sibling suites. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- The Web SDK's implicit usings, restated. The linked sources below were
+         written under Microsoft.NET.Sdk.Web and rely on them; this project is
+         Microsoft.NET.Sdk, because a test project is not a web application and
+         switching SDKs to borrow eight using directives would bring an
+         apphost, a launch profile and a static-web-assets pipeline with it. -->
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <!-- The subject under test, compiled from where it lives today.
+
+       This is spec 015 T1, and the linking is the point rather than a shortcut.
+       The invariants have to be asserted BEFORE the files move to
+       libs/nativeweb.web, because the whole risk of that move is breaking a
+       property nothing was checking; a test written after the move asserts what
+       the moved code does, which begs the question it is meant to answer.
+
+       Compiling the sources in place gives assertions that are identical before
+       and after. When T4 moves the files, this ItemGroup becomes a
+       ProjectReference and not one line of the test files changes, so a green
+       run after the move means the same facts, not new ones.
+
+       Two files are excluded. Program.cs is top-level statements and would
+       collide with the test host's entry point; asserting the composition it
+       performs is what T2 is for, against UseNativeWebPipeline rather than
+       against a copy of it. QueryRedactingProcessor.cs needs the OpenTelemetry
+       package, and it is a trace processor rather than a pipeline invariant, so
+       it is linked when it moves in T4 rather than pulling a dependency in here
+       for nothing to assert about. -->
+  <ItemGroup>
+    <Compile Include="..\..\skeleton\apps\__product__\Middleware\*.cs" LinkBase="Subject\Middleware" />
+    <Compile Include="..\..\skeleton\apps\__product__\Render\*.cs" LinkBase="Subject\Render" />
+    <Compile Include="..\..\skeleton\apps\__product__\Flash.cs" LinkBase="Subject" />
+    <Compile Include="..\..\skeleton\apps\__product__\ReadinessCache.cs" LinkBase="Subject" />
+    <Compile Include="..\..\skeleton\apps\__product__\StartupConfigGuards.cs" LinkBase="Subject" />
+    <Compile Include="..\..\skeleton\apps\__product__\CspReportEndpoint.cs" LinkBase="Subject" />
+    <Compile Include="..\..\skeleton\apps\__product__\SecurityTxtEndpoint.cs" LinkBase="Subject" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\nativeweb.render\nativeweb.render.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.security\nativeweb.security.csproj" />
+    <!-- Chrome.For calls Locales.Get, and Locales is generated per product from
+         that product's locales/*.json. This project therefore has to supply one,
+         exactly as a stamped product does.
+
+         Which is itself the first finding of this spec, recorded here because it
+         constrains T4: Chrome cannot move into libs/nativeweb.web unchanged. A
+         framework library has no locales/ of its own, so either the catalog is
+         passed in by the caller or Chrome stays product-side. The tests below
+         hold the behaviour either way, which is the whole point of writing them
+         before the move. -->
+    <ProjectReference Include="..\..\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="locales\*.json" />
+  </ItemGroup>
+
+</Project>
