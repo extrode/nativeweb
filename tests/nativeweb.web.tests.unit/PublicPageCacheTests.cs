@@ -4,7 +4,7 @@ using __PRODUCT__.Middleware;
 
 using Xunit;
 
-namespace __PRODUCT__.Tests.Unit;
+namespace NativeWeb.Web.Tests.Unit;
 
 // Spec 006: the contract that decides whether a response is a shareable public
 // page, and what CSP and caching headers it then carries. Pattern-copied across
@@ -95,16 +95,11 @@ public class PublicPageCacheTests
         Assert.DoesNotContain("''", csp, StringComparison.Ordinal);
     }
 
-    // The home page is declared public, so its own generated hashes must be the
-    // ones the CSP carries -- this is the join that keeps the two from drifting.
-    [Fact]
-    public void TheHomeTemplatesHashes_AllReachItsCsp()
-    {
-        string[] hashes = Templates.Home.Index.InlineScriptCspHashes;
-        Assert.NotEmpty(hashes);
-        Assert.All(hashes, h => Assert.StartsWith("sha256-", h, StringComparison.Ordinal));
-
-        string csp = PublicPageCache.Csp(hashes);
-        Assert.All(hashes, h => Assert.Contains($"'{h}'", csp, StringComparison.Ordinal));
-    }
+    // TheHomeTemplatesHashes_AllReachItsCsp was the sixth fact here until spec
+    // 015 T3. It reads Templates.Home.Index.InlineScriptCspHashes, which the
+    // render generator emits from the product's own templates/home/index.html,
+    // so it is a fact about a product rather than about this contract and it
+    // stayed behind in skeleton/tests/__product__.tests.unit/. Spec 015 R6 is
+    // the requirement that keeps it there: per-product CSP hashes come from the
+    // product's compiled templates, and a framework tier has none.
 }

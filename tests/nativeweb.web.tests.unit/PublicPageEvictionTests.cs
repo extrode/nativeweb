@@ -9,7 +9,7 @@ using __PRODUCT__.Middleware;
 
 using Xunit;
 
-namespace __PRODUCT__.Tests.Unit;
+namespace NativeWeb.Web.Tests.Unit;
 
 // Spec 006 R6. The two properties that decide whether an eviction actually
 // happens are invisible from the outside -- the response looks the same either

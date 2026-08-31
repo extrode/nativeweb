@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Http;
 
+using __PRODUCT__;
+
 using Xunit;
 
-namespace __PRODUCT__.Tests.Unit;
+namespace NativeWeb.Web.Tests.Unit;
 
 // Flash is a cookie roundtrip: Set writes the __Host- cookie on one response,
 // the browser echoes it, Take on the next request reads it once and expires it.

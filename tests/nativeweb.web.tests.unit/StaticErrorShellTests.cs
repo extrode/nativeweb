@@ -4,7 +4,7 @@ using __PRODUCT__.Middleware;
 
 using Xunit;
 
-namespace __PRODUCT__.Tests.Unit;
+namespace NativeWeb.Web.Tests.Unit;
 
 public class StaticErrorShellTests
 {

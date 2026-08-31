@@ -6,7 +6,7 @@ using __PRODUCT__.Middleware;
 
 using Xunit;
 
-namespace __PRODUCT__.Tests.Unit;
+namespace NativeWeb.Web.Tests.Unit;
 
 // Direct coverage of the error-rendering seams: the middleware is carried
 // verbatim from the NativeWeb skeleton, so it arrives with the tests that

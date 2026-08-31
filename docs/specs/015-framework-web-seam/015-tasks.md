@@ -11,7 +11,7 @@ T1 gates everything after it. Nothing moves until the invariants are asserted an
   assertion fails when its invariant is broken.
 - [x] **T2** Assert the pipeline order — files: same tier — covers: R5 — done when: the rate
   limiter is asserted to precede the public-page cache and the test fails when they are swapped.
-- [ ] **T3** Move the skeleton's five unit test files into the new tier — files:
+- [x] **T3** Move the skeleton's five unit test files into the new tier — files:
   `skeleton/tests/__product__.tests.unit/*.cs` → `tests/nativeweb.web.tests.unit/` — covers: R10 —
   done when: all five pass in the new tier and the skeleton keeps only its product-specific tests.
 - [ ] **T4** Create `libs/nativeweb.web` and move the ten middleware plus `Chrome`, `AssetUrls`,
