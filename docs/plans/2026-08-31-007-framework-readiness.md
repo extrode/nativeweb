@@ -124,7 +124,15 @@ not compile (`ScaffoldEmitter.cs:402-427`); `[ScaffoldSearch]` never reaching th
 (`ScaffoldValues.cs:23-65`); `DeleteAsync` reporting success on a `false` (`ScaffoldEmitter.cs:311`).
 Each is small and independent; they can run in parallel with Phase 2.
 
-**T12. Deploy and database hygiene.** Retarget `scripts/deploy/` off `apps/web` (7 occurrences
+**T12. Deploy and database hygiene.** *Done 2026-08-31 on `fix/018-deploy-hygiene`.* All three
+parts. The deploy chain was retargeted at `apps/sample` and, past `build.sh`, at no project at all:
+the executable is installed under the fixed name `nativeweb`, because systemd will not expand a
+variable in `ExecStart`. `db/migrate.sh` was **retargeted rather than retired** — the locking design
+is what `skeleton/db/migrate.sh` was derived from — with `MIGRATIONS_DIR` overridable and the
+superuser extensions step made optional. The OTel gate's diagnosis in the task line below turned out
+to be wrong: `apps/sample` does register telemetry, through `AddNativeWebWeb`; the CI script set a
+key in the wrong configuration section, so it was unread. Fixed with `-ConfigPrefix` and held there
+by a repo-tier fact. Original task: retarget `scripts/deploy/` off `apps/web` (7 occurrences
 across 5 files); decide whether `db/migrate.sh` and `db/test-run-lock.sh` are retargeted or retired
 — retirement is a cleanup script the user runs; restore an OTel registration so
 `check-publish-budgets.ps1` gates OTel-under-AOT again.
