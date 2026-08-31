@@ -24,7 +24,7 @@ each one records a finding from spec 008 or 009.
 ## Provider client
 
 - [x] **T8** Code exchange and userinfo — files: `libs/nativeweb.signin/OAuthClient.cs`, `tests/nativeweb.signin.tests.unit/OAuthClientExchangeTests.cs` — covers: R1, R30 — done when: `ExchangeCodeAsync` and `GetUserInfoAsync` work against a stub `HttpMessageHandler`; the recovered `SendAsync`/`ReadErrorAsync` refused-vs-unavailable split is kept; and a test per client-authentication mode asserts credentials appear in the Authorization header, in the form body, or nowhere, and nowhere else.
-- [ ] **T9** Refresh and introspection calls — files: `libs/nativeweb.signin/OAuthClient.cs`, `tests/nativeweb.signin.tests.unit/OAuthClientRefreshTests.cs` — covers: R13, R14 — done when: `RefreshAsync` posts `grant_type=refresh_token` and returns the rotated pair, `IntrospectAsync` posts a form-encoded `token` with confidential-client auth, and a provider `invalid_grant` is surfaced as refused rather than thrown.
+- [x] **T9** Refresh and introspection calls — files: `libs/nativeweb.signin/OAuthClient.cs`, `tests/nativeweb.signin.tests.unit/OAuthClientRefreshTests.cs` — covers: R13, R14 — done when: `RefreshAsync` posts `grant_type=refresh_token` and returns the rotated pair, `IntrospectAsync` posts a form-encoded `token` with confidential-client auth, and a provider `invalid_grant` is surfaced as refused rather than thrown.
 
 ## Session
 

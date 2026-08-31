@@ -1,12 +1,10 @@
 using System.Net;
-using System.Security.Cryptography;
 
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NativeWeb.Security;
 using NativeWeb.SignIn;
 
 using Xunit;
+
+using static NativeWeb.SignIn.Tests.Unit.OAuthClientFixtures;
 
 namespace NativeWeb.SignIn.Tests.Unit;
 
@@ -181,7 +179,7 @@ public sealed class OAuthClientExchangeTests
         var client = new OAuthClient(
             new HttpClient(handler),
             new SignInOptions { AllowEphemeralStoreEncryptionKey = true },
-            NullLogger<OAuthClient>.Instance);
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<OAuthClient>.Instance);
 
         SignInResult<ProviderTokens> result = await client.ExchangeCodeAsync("code-1", "verifier-1", default);
 
@@ -274,86 +272,5 @@ public sealed class OAuthClientExchangeTests
         Assert.DoesNotContain("a@example.test", text, StringComparison.Ordinal);
         Assert.DoesNotContain("A Person", text, StringComparison.Ordinal);
         Assert.Contains("subject-1", text, StringComparison.Ordinal);
-    }
-
-    private static T Value<T>(SignInResult<T> result)
-        where T : class =>
-        result.Match(
-            value => value,
-            reason => throw new Xunit.Sdk.XunitException($"refused: {reason}"),
-            () => throw new Xunit.Sdk.XunitException("unavailable"));
-
-    private static string Decode(string base64) =>
-        System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(base64));
-
-    private static HttpResponseMessage Json(HttpStatusCode status, string body) =>
-        new(status) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
-
-    private static OAuthClient ClientFor(
-        StubHandler handler,
-        ClientAuthenticationMode mode = ClientAuthenticationMode.ClientSecretBasic)
-    {
-        var options = new SignInOptions
-        {
-            AuthorizationEndpoint = "https://provider.test/authorize",
-            TokenEndpoint = "https://provider.test/token",
-            UserInfoEndpoint = "https://provider.test/userinfo",
-            IntrospectionEndpoint = "https://provider.test/introspect",
-            ClientId = "client-id",
-            ClientSecret = "client-secret",
-            RedirectUri = "https://app.test/signin/callback",
-            ClientAuthentication = mode,
-            StoreEncryptionKey = RandomNumberGenerator.GetBytes(StoreDataProtector.KeyBytes),
-        };
-        options.Validate();
-
-        return new OAuthClient(new HttpClient(handler), options, NullLogger<OAuthClient>.Instance);
-    }
-
-    private sealed class StubHandler : HttpMessageHandler
-    {
-        private readonly HttpResponseMessage? _response;
-        private readonly Exception? _throw;
-
-        public StubHandler(HttpResponseMessage response) => _response = response;
-
-        public StubHandler(Exception toThrow) => _throw = toThrow;
-
-        public int Calls { get; private set; }
-
-        public HttpMethod? Method { get; private set; }
-
-        public string? RequestUri { get; private set; }
-
-        public string Body { get; private set; } = "";
-
-        public string? AuthorizationScheme { get; private set; }
-
-        public string? AuthorizationParameter { get; private set; }
-
-        public Dictionary<string, string> Form { get; } = new(StringComparer.Ordinal);
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Calls++;
-            Method = request.Method;
-            RequestUri = request.RequestUri?.ToString();
-            AuthorizationScheme = request.Headers.Authorization?.Scheme;
-            AuthorizationParameter = request.Headers.Authorization?.Parameter;
-
-            if (request.Content is not null)
-            {
-                Body = await request.Content.ReadAsStringAsync(cancellationToken);
-                foreach (string pair in Body.Split('&', StringSplitOptions.RemoveEmptyEntries))
-                {
-                    string[] parts = pair.Split('=', 2);
-                    Form[Uri.UnescapeDataString(parts[0])] =
-                        parts.Length > 1 ? Uri.UnescapeDataString(parts[1].Replace('+', ' ')) : "";
-                }
-            }
-
-            return _throw is not null ? throw _throw : _response!;
-        }
     }
 }

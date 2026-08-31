@@ -147,6 +147,82 @@ public sealed partial class OAuthClient(HttpClient http, SignInOptions options, 
     }
 
     /// <summary>
+    /// Redeems a refresh token for a fresh pair.
+    /// </summary>
+    /// <remarks>
+    /// The returned <see cref="ProviderTokens.RefreshToken"/> is the one to store from here on.
+    /// A provider that rotates issues a new refresh token on every redemption and treats a
+    /// re-presented one as theft, revoking the whole family — so keeping the old value after a
+    /// successful refresh is what ends a healthy session, and the caller must replace it.
+    /// <para>
+    /// A refusal is final: <c>invalid_grant</c> means this session cannot be continued, and the
+    /// caller ends it rather than retrying. Only <see cref="SignInOutcome.Unavailable"/> is worth
+    /// a second attempt.
+    /// </para>
+    /// </remarks>
+    /// <param name="refreshToken">The refresh token stored for this session.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The rotated token pair.</returns>
+    public async Task<SignInResult<ProviderTokens>> RefreshAsync(
+        string refreshToken,
+        CancellationToken cancellationToken)
+    {
+        if (!IsConfigured)
+        {
+            return SignInResult<ProviderTokens>.Unavailable("not_configured");
+        }
+
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["grant_type"] = "refresh_token",
+            ["refresh_token"] = refreshToken,
+        };
+
+        using HttpRequestMessage request = TokenRequest(options.TokenEndpoint, fields);
+
+        return await SendAsync(
+            request,
+            OAuthJsonContext.Default.TokenResponse,
+            static parsed => ProviderTokens.From(parsed),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Asks the provider whether a bearer token is live, per RFC 7662.
+    /// </summary>
+    /// <remarks>
+    /// An inactive token is a successful call that reports <c>active: false</c>, not a refusal:
+    /// the provider answered, and the answer is a fact about the token rather than a rejection of
+    /// this client. Refusals here are about the CLIENT — bad credentials, malformed request — and
+    /// a caller that conflates the two turns an outage into "everyone's token is invalid".
+    /// </remarks>
+    /// <param name="token">The bearer token presented by the caller.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>What the provider says about the token.</returns>
+    public async Task<SignInResult<TokenIntrospection>> IntrospectAsync(
+        string token,
+        CancellationToken cancellationToken)
+    {
+        if (!IsConfigured || string.IsNullOrWhiteSpace(options.IntrospectionEndpoint))
+        {
+            return SignInResult<TokenIntrospection>.Unavailable("not_configured");
+        }
+
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["token"] = token,
+        };
+
+        using HttpRequestMessage request = TokenRequest(options.IntrospectionEndpoint, fields);
+
+        return await SendAsync(
+            request,
+            OAuthJsonContext.Default.IntrospectionResponse,
+            static parsed => TokenIntrospection.From(parsed),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// One send, one classification. Everything that is not a 2xx with a parseable body is either
     /// a refusal or an outage, and this is the single place that decides which — so a new call
     /// site cannot invent a fourth answer.
@@ -353,6 +429,32 @@ public sealed record ProviderTokens(string AccessToken, string? RefreshToken, in
     /// </summary>
     public override string ToString() =>
         $"ProviderTokens {{ AccessToken = (redacted), RefreshToken = (redacted), ExpiresIn = {ExpiresIn} }}";
+}
+
+/// <summary>What the provider says about a bearer token.</summary>
+/// <param name="Active">
+/// Whether the token is live. The only field a refusal may be decided on, and the only one a
+/// provider is required to send.
+/// </param>
+/// <param name="Subject">The subject the token was issued for, when the provider sent one.</param>
+/// <param name="Scope">The space-delimited scopes the token carries, when the provider sent them.</param>
+/// <param name="ExpiresAt">
+/// When the token stops being valid, when the provider sent an <c>exp</c>. This is the ceiling on
+/// how long the result may be cached: a cache that outlives it accepts a token the provider has
+/// already retired.
+/// </param>
+public sealed record TokenIntrospection(
+    bool Active,
+    string? Subject,
+    string? Scope,
+    DateTimeOffset? ExpiresAt)
+{
+    internal static TokenIntrospection From(IntrospectionResponse response) =>
+        new(
+            response.Active,
+            response.Sub,
+            response.Scope,
+            response.Exp is { } exp ? DateTimeOffset.FromUnixTimeSeconds(exp) : null);
 }
 
 /// <summary>Who the provider says the token holder is.</summary>
