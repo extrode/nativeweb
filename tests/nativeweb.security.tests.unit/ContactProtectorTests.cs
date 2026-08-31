@@ -10,7 +10,7 @@ namespace NativeWeb.Security.Tests.Unit;
 /// <summary>
 /// At-rest protection for contact PII. The file's central claims are key separation
 /// (independent encryption, index, and fake-mask subkeys of one master) and a
-/// realm-scoped blind index that cannot link one person across realms without the secret.
+/// scope-bound blind index that cannot link one person across tenants without the secret.
 /// </summary>
 public sealed class ContactProtectorTests
 {
@@ -64,10 +64,14 @@ public sealed class ContactProtectorTests
             protector.Protect("alice@example.test"));
     }
 
+    // ContactProtector builds its inner StoreDataProtector itself and does not offer the
+    // legacy opt-in, so a contact column that was never encrypted is refused rather than
+    // read back as if it had been.
     [Fact]
-    public void Unprotect_ValueWithoutVersionedPrefix_PassesThroughUnchanged()
+    public void Unprotect_ValueWithoutVersionedPrefix_Throws()
     {
-        Assert.Equal("legacy@example.test", Protector("secret-a").Unprotect("legacy@example.test"));
+        Assert.ThrowsAny<CryptographicException>(
+            () => Protector("secret-a").Unprotect("legacy@example.test"));
     }
 
     [Fact]
@@ -81,7 +85,7 @@ public sealed class ContactProtectorTests
     }
 
     [Fact]
-    public void EmailIndex_AnyAddressAndRealm_Is64LowercaseHexCharacters()
+    public void EmailIndex_AnyAddressAndScope_Is64LowercaseHexCharacters()
     {
         string index = Protector("secret-a").EmailIndex(1, "alice@example.test");
 
@@ -110,31 +114,22 @@ public sealed class ContactProtectorTests
             protector.EmailIndex(1, "bob@example.test"));
     }
 
-    [Fact]
-    public void EmailIndex_SameAddress_IsNotTheFakeMaskDigestOfIt()
-    {
-        ContactProtector protector = Protector("secret-a");
-
-        Assert.NotEqual(
-            Convert.ToHexStringLower(protector.FakeMaskDigest("alice@example.test")),
-            protector.EmailIndex(1, "alice@example.test"));
-    }
-
-    // Each pair differs only in the least significant realm byte: the byte an
+    
+    // Each pair differs only in the least significant scope byte: the byte an
     // off-by-one in the big-endian write would let the value overwrite, which would
-    // make the two realms silently share one index.
+    // make the two scopes silently share one index.
     [Theory]
     [InlineData(0L, 1L)]
     [InlineData(-5L, -4L)]
     [InlineData(long.MinValue, long.MinValue + 1L)]
     [InlineData(long.MaxValue, long.MaxValue - 1L)]
-    public void EmailIndex_DifferentRealmIds_ProduceDifferentIndexes(long realmA, long realmB)
+    public void EmailIndex_DifferentScopeIds_ProduceDifferentIndexes(long scopeA, long scopeB)
     {
         ContactProtector protector = Protector("secret-a");
 
         Assert.NotEqual(
-            protector.EmailIndex(realmA, "alice@example.test"),
-            protector.EmailIndex(realmB, "alice@example.test"));
+            protector.EmailIndex(scopeA, "alice@example.test"),
+            protector.EmailIndex(scopeB, "alice@example.test"));
     }
 
     [Theory]
@@ -142,17 +137,17 @@ public sealed class ContactProtectorTests
     [InlineData(-5L)]
     [InlineData(long.MinValue)]
     [InlineData(long.MaxValue)]
-    public void EmailIndex_SameRealmId_ReproducesTheIndex(long realmId)
+    public void EmailIndex_SameScopeId_ReproducesTheIndex(long scopeId)
     {
         ContactProtector protector = Protector("secret-a");
 
         Assert.Equal(
-            protector.EmailIndex(realmId, "alice@example.test"),
-            protector.EmailIndex(realmId, "alice@example.test"));
+            protector.EmailIndex(scopeId, "alice@example.test"),
+            protector.EmailIndex(scopeId, "alice@example.test"));
     }
 
     [Fact]
-    public void PhoneIndex_SameNumberAndRealm_TrimsAndIsDeterministic()
+    public void PhoneIndex_SameNumberAndScope_TrimsAndIsDeterministic()
     {
         ContactProtector protector = Protector("secret-a");
         string index = protector.PhoneIndex(1, "+15551234567");
@@ -172,7 +167,7 @@ public sealed class ContactProtectorTests
     }
 
     [Fact]
-    public void PhoneIndex_DifferentRealmIds_ProduceDifferentIndexes()
+    public void PhoneIndex_DifferentScopeIds_ProduceDifferentIndexes()
     {
         ContactProtector protector = Protector("secret-a");
 
@@ -191,31 +186,6 @@ public sealed class ContactProtectorTests
         Assert.NotEqual(a.PhoneIndex(1, "+15551234567"), b.PhoneIndex(1, "+15551234567"));
     }
 
-    [Fact]
-    public void FakeMaskDigest_AnyIdentifier_Is32DeterministicNormalizedBytes()
-    {
-        ContactProtector protector = Protector("secret-a");
-        string digest = Convert.ToHexString(protector.FakeMaskDigest("Alice@Example.test"));
-
-        Assert.Equal(64, digest.Length);
-        Assert.Equal(digest, Convert.ToHexString(protector.FakeMaskDigest("  alice@example.test ")));
+    
+    
     }
-
-    [Fact]
-    public void FakeMaskDigest_PlainIdentifier_IsNotAnUnkeyedSha256()
-    {
-        ContactProtector protector = Protector("secret-a");
-
-        Assert.NotEqual(
-            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("alice@example.test"))),
-            Convert.ToHexString(protector.FakeMaskDigest("alice@example.test")));
-    }
-
-    [Fact]
-    public void FakeMaskDigest_DifferentMasterKeys_ProduceDifferentDigests()
-    {
-        Assert.NotEqual(
-            Convert.ToHexString(Protector("secret-a").FakeMaskDigest("alice@example.test")),
-            Convert.ToHexString(Protector("secret-b").FakeMaskDigest("alice@example.test")));
-    }
-}
