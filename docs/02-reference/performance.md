@@ -18,17 +18,23 @@ anything about a page.
 
 | Date | Change | `articles` req/s | p50 | p99 | `healthz` req/s | peak RSS | `articles`/`healthz` |
 |---|---|---|---|---|---|---|---|
-| 2026-08-31 | **Content-Length declared** on template pages | **19,051.8** | 0.69ms | 2.30ms | 22,655.4 | 35.4 MB | **0.841** |
+| 2026-08-31 | Phase 1 close: review fixes (author match, `Take` echoed) | **18,958.6** | 0.70ms | 2.30ms | 23,324.5 | 35.6 MB | 0.813 |
+| 2026-08-31 | **Content-Length declared** on template pages | 19,051.8 | 0.69ms | 2.30ms | 22,655.4 | 35.4 MB | 0.841 |
 | 2026-08-31 | Rendering through compiled templates (T3/T4) | 12,124.2 | 1.18ms | 3.76ms | 22,523.7 | 38.7 MB | 0.538 |
 | 2026-08-31 | Design system + styled page (T1/T2) | 18,453.4 | 0.67ms | 2.74ms | 20,953.5 | 47.0 MB | 0.881 |
 | 2026-08-31 | Baseline, hand-written StringBuilder renderer | 19,937.6 | — | — | 23,068.6 | 45.0 MB | 0.864 |
 
 Zero errors in every run of every row.
 
-**Where it stands.** `articles` is 4.4% under the pre-Phase-1 baseline and `healthz` is 8.1% over
-it; both sit inside the 16.3% cross-session spread the harness documents, and the ratio is back to
-0.841 against the baseline's 0.864. A page that renders twenty rows through the layout, the
-template engine and an antiforgery mint costs about 16% against a route that renders nothing.
+**Where it stands.** `articles` is 4.9% under the pre-Phase-1 baseline and `healthz` is 1.1% over
+it; both sit inside the 16.3% cross-session spread the harness documents, against a baseline ratio
+of 0.864. A page that renders twenty rows through the layout, the template engine and an
+antiforgery mint costs about 19% against a route that renders nothing.
+
+The last row's changes are two behavioural fixes, not a perf change: matching authors as well as
+titles adds one null-checked `Contains` per row over at most twenty rows, and echoing `Take` adds
+one integer to the render. Both are inside the noise, which the ratio moving 0.841 → 0.813 across
+adjacent runs of near-identical code is itself a measure of.
 
 ## Bottlenecks found, in the order they were found
 

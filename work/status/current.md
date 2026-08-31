@@ -8,8 +8,9 @@ worth seeing here rather than hiding, but it is the exception.
 
 - **Phase 1 — a visible UI and a working edit loop** — `feat/phase1-visible-ui`, 2026-08-31.
   T1–T6 of `docs/plans/2026-08-31-007-framework-readiness.md`. `apps/sample` is styled, renders
-  through the framework's own compiled templates, and filters over htmx. **461 facts across seven
-  tiers, 0 failed, 0 skipped**; every new fact mutation-checked.
+  through the framework's own compiled templates, and filters over htmx. **468 facts across seven
+  tiers, 0 failed, 0 skipped**; every new fact mutation-checked. Structure-audit 0 errors, 3
+  pre-existing warnings.
   - **The reference application did not use the framework's renderer.** It hand-built HTML in a
     `StringBuilder` while `nativeweb.render` — the largest library here — was exercised only by its
     own unit tier. `GET /articles` now renders `layout/page` + `articles/index`; a filter POST with
@@ -28,9 +29,16 @@ worth seeing here rather than hiding, but it is the exception.
     req/s**, buffered no length **11,778**, buffered with length **18,105**. The middle row rules
     out the write pattern and leaves the framing. Guarded by `TemplateHtmlResultTests`, because no
     assertion about markup can tell a chunked page from a measured one.
-  - **After the fix, `articles` is 19,051.8 req/s / 0.69 ms p50 / 35.4 MB** against a pre-Phase-1
-    baseline of 19,937.6, with the `healthz` control at 22,655.4 against 23,068.6. Zero errors.
+  - **At close, `articles` is 18,958.6 req/s / 0.70 ms p50 / 35.6 MB** against a pre-Phase-1
+    baseline of 19,937.6, with the `healthz` control at 23,324.5 against 23,068.6. Zero errors.
     Every measurement and both open bottlenecks are in `docs/02-reference/performance.md`.
+  - **Fable's verification found two real defects in this branch's own work**, both introduced by
+    it and both fixed here: the box gained `placeholder="Title or author"` while `Matching`
+    filtered titles only, and `max` was hard-coded at 20 in the template so a no-JS POST asking for
+    5 answered with five rows above a box reading 20. It also caught wrong arithmetic in a doc
+    comment (describing `HtmlEncoder.Default`, which this code does not use) and a form assertion
+    weakened to three page-wide `Contains` that three separate elements could satisfy. Asset parity
+    covered css only; `boot.js` and the third-party vendor trees are guarded now too.
   - **`dotnet watch` needed two things, both measured.** Templates are `AdditionalFiles`, which its
     default globs do not cover, so they need matching `Watch` items; and under the default
     hot-reload session this project detected nothing at all, template or `.cs`, while a scratch
