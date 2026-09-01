@@ -6,13 +6,26 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 017 — scaffold list sorting and cursor pagination.** Building
-  `docs/specs/017-scaffold-sorting-and-cursor-pagination/017-tasks.md`, seventeen tasks. Closes
-  backlog gap **G5** (`IScaffoldStore<T>.ListAsync` has no ordering parameter, and three consumers
-  hand-rolled the missing piece) and gap **G2** on the way, since the seam change is breaking and
-  `docs/breaking-changes.md` is written as part of it. Four decisions were taken before the spec:
-  no structured filtering, the seam breaks rather than being shimmed, sortable columns are
-  declared by `[ScaffoldSort]`, and the numbered pager becomes Newer/Older with the total kept.
+- **Spec 017 — scaffold list sorting and cursor pagination**, on
+  `feat/017-scaffold-sorting-and-cursor-pagination`. T1-T13, T15 and T16 are done: the seam,
+  the generator, three stores, eight keyset `.sql` files, three composite indexes, the unit tier
+  (162 + 65 green) and the integration tier over real PostgreSQL (78 green). **T14, the Playwright
+  tier, is the one in flight** — 2 of its 5 pass and the three that use column headings are being
+  rewritten off accessible-name lookup onto column position. T17 is the AOT gate and the last of
+  the visibility files. Closes backlog gap **G5** and gap **G2**; the breaking-change log is
+  `docs/02-reference/breaking-changes.md`, linked from the README.
+
+  Four decisions taken before the spec: no structured filtering, the seam breaks rather than being
+  shimmed, sortable columns are declared by `[ScaffoldSort]`, and the numbered pager becomes
+  Previous/Next with the total kept. Two defects the tests found rather than confirmed:
+  `Base64Url.TryDecodeFromChars` throws on a character outside the alphabet, so a mangled `?after=`
+  was a 500 until `IsValid` was put in front of it; and the cursor's key was written in display
+  form, which rounds a timestamp to the minute.
+
+  **A cleanup script exists and has not been run:**
+  `scripts/cleanup/017-scaffold-sorting-and-cursor-pagination.ps1`. Dry run lists 728 KB of scratch
+  under `tmp/`, 4,242 accumulated test rows in `nativeweb_sample_test` behind `-DropTestRows`, and
+  the superseded `db/sample/queries/Articles/List.sql` behind `-RemoveSupersededQuery`.
 
 - **Phase 3 of the readiness plan.** T11 (the scaffold defect batch) and T12 (deploy and database
   hygiene) are both done. T12: the deploy chain publishes `apps/sample` by default and names no
