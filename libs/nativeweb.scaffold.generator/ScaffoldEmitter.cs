@@ -315,10 +315,10 @@ internal static class ScaffoldEmitter
         sb.AppendLine();
         sb.AppendLine("        sb.Append(\"</tbody></table>\");");
         sb.AppendLine("        string? previousToken = rows.Count > 0 && hasPrevious");
-        sb.AppendLine("            ? new ScaffoldCursor(sort.Property, sort.Direction, SortTextOf(rows[0], sort.Property), ScaffoldValues.Display(rows[0]." + model.KeyProperty + "), true).Encode()");
+        sb.AppendLine("            ? new ScaffoldCursor(sort.Property, sort.Direction, SortTextOf(rows[0], sort.Property), ScaffoldValues.CursorText(rows[0]." + model.KeyProperty + ") ?? \"\", true).Encode()");
         sb.AppendLine("            : null;");
         sb.AppendLine("        string? nextToken = rows.Count > 0 && hasNext");
-        sb.AppendLine("            ? new ScaffoldCursor(sort.Property, sort.Direction, SortTextOf(rows[rows.Count - 1], sort.Property), ScaffoldValues.Display(rows[rows.Count - 1]." + model.KeyProperty + "), false).Encode()");
+        sb.AppendLine("            ? new ScaffoldCursor(sort.Property, sort.Direction, SortTextOf(rows[rows.Count - 1], sort.Property), ScaffoldValues.CursorText(rows[rows.Count - 1]." + model.KeyProperty + ") ?? \"\", false).Encode()");
         sb.AppendLine("            : null;");
         sb.AppendLine("        sb.Append(ScaffoldLayout.Pager(BasePath, search, sort, total, previousToken, nextToken));");
         sb.AppendLine("        return ScaffoldLayout.Page(http, Display, sb.ToString());");

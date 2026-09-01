@@ -152,8 +152,13 @@ public readonly record struct ScaffoldCursor(
             return false;
         }
 
+        // IsValid first, because TryDecodeFromChars is "try" about the destination
+        // buffer only: handed a character outside the alphabet, or a length that
+        // cannot be a base64url payload, it throws FormatException. The argument here
+        // is a query-string value, so that would be a 500 on an edited URL.
         Span<byte> payload = stackalloc byte[MaxDecodedBytes];
-        if (!Base64Url.TryDecodeFromChars(value.AsSpan(), payload, out int decoded))
+        if (!Base64Url.IsValid(value.AsSpan())
+            || !Base64Url.TryDecodeFromChars(value.AsSpan(), payload, out int decoded))
         {
             return false;
         }
