@@ -120,6 +120,11 @@ its checkout is probed relative to the NativeWeb one:</p>
 <p>Without <code>jauntyq/</code> the first build stops at <code>JauntyQ checkout not found at '&lt;...&gt;\..\jauntyq'</code> before any of your own code compiles. <code>-p:JauntyQRoot=&lt;path&gt;</code> overrides the
 location. Do not reach for <code>-p:JauntyQUsePackages=true</code>: that path exists for this repository's
 CI and the packages are not available to you.</p>
+<p><strong>JauntyQ is not public, and this is the step that stops an outside team.</strong> It is licensed for
+self-hosted-SaaS use of its generated output; its source and binaries are not redistributable,
+so no link here would help you and none is given. If you do not already have a checkout, that is
+a licensing conversation to have before starting, not a step to work around. Everything below
+assumes you have one.</p>
 <p>Then add to your product's <code>Directory.Build.props</code>. Both casings are probed because both are in
 the wild: the repository is <code>nativeweb</code> on disk, and <code>getting-started.md</code> has long told people
 to clone it as <code>NativeWeb</code>.</p>
@@ -144,8 +149,9 @@ to clone it as <code>NativeWeb</code>.</p>
 &lt;/Target&gt;
 </code></pre>
 </div>
-<p>The guard matters. An unresolved root silently drops the project references and surfaces as a
-pile of <code>CS0246</code>s pointing at your own code — <code>MSB9008</code>, and it wastes an afternoon every time.
+<p>The guard matters. An unresolved root drops the project references with nothing worse than
+warning <code>MSB9008</code>, so the build carries on and fails later as a pile of <code>CS0246</code>s pointing at
+your own code. Without the guard, the error you read is never the error you have.
 <code>skeleton/Directory.Build.props</code> carries the full version of this block, including package mode,
 and is the file to copy from.</p>
 <p><strong>Probe relatively, and name no parent directory.</strong> An earlier version of this block hard-coded
@@ -361,6 +367,14 @@ wrong root is visible in the log rather than at the first <code>CS0246</code>. T
 </table>
 <p>Those four are what this guide was checked against: a stock <code>dotnet new web</code> project taken
 through every step above, serving a generated template page.</p>
+<p><strong>Before you deploy behind a proxy, set <code>{Section}:ForwardedHeaders:KnownProxies</code>.</strong> This is the
+one step whose omission the table above cannot see: without it the app builds, boots, serves
+every page and is wrong about who is calling. <code>RemoteIpAddress</code> is the proxy's address rather
+than the client's, so every request lands in one rate-limit partition and every access log names
+the same host. Nothing fails and nothing warns. Set it to the comma-separated addresses of the
+hops in front of you, and confirm by logging <code>HttpContext.Connection.RemoteIpAddress</code> on one
+request from outside. This repository's own <code>deploy.sh</code> refuses to promote a release without it;
+your deployment has no such guard unless you write one.</p>
 <p>To assert them rather than eyeball them, reference <code>Microsoft.AspNetCore.Mvc.Testing</code> from a test
 project and drive the four through a <code>WebApplicationFactory&lt;Program&gt;</code>. Top-level statements make
 <code>Program</code> internal, so add <code>public partial class Program;</code> to the end of the file or the factory

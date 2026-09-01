@@ -28,6 +28,12 @@ Without `jauntyq/` the first build stops at `JauntyQ checkout not found at
 location. Do not reach for `-p:JauntyQUsePackages=true`: that path exists for this repository's
 CI and the packages are not available to you.
 
+**JauntyQ is not public, and this is the step that stops an outside team.** It is licensed for
+self-hosted-SaaS use of its generated output; its source and binaries are not redistributable,
+so no link here would help you and none is given. If you do not already have a checkout, that is
+a licensing conversation to have before starting, not a step to work around. Everything below
+assumes you have one.
+
 Then add to your product's `Directory.Build.props`. Both casings are probed because both are in
 the wild: the repository is `nativeweb` on disk, and `getting-started.md` has long told people
 to clone it as `NativeWeb`.
@@ -49,8 +55,9 @@ to clone it as `NativeWeb`.
 </Target>
 ```
 
-The guard matters. An unresolved root silently drops the project references and surfaces as a
-pile of `CS0246`s pointing at your own code — `MSB9008`, and it wastes an afternoon every time.
+The guard matters. An unresolved root drops the project references with nothing worse than
+warning `MSB9008`, so the build carries on and fails later as a pile of `CS0246`s pointing at
+your own code. Without the guard, the error you read is never the error you have.
 `skeleton/Directory.Build.props` carries the full version of this block, including package mode,
 and is the file to copy from.
 
@@ -223,6 +230,15 @@ wrong root is visible in the log rather than at the first `CS0246`. Then run you
 
 Those four are what this guide was checked against: a stock `dotnet new web` project taken
 through every step above, serving a generated template page.
+
+**Before you deploy behind a proxy, set `{Section}:ForwardedHeaders:KnownProxies`.** This is the
+one step whose omission the table above cannot see: without it the app builds, boots, serves
+every page and is wrong about who is calling. `RemoteIpAddress` is the proxy's address rather
+than the client's, so every request lands in one rate-limit partition and every access log names
+the same host. Nothing fails and nothing warns. Set it to the comma-separated addresses of the
+hops in front of you, and confirm by logging `HttpContext.Connection.RemoteIpAddress` on one
+request from outside. This repository's own `deploy.sh` refuses to promote a release without it;
+your deployment has no such guard unless you write one.
 
 To assert them rather than eyeball them, reference `Microsoft.AspNetCore.Mvc.Testing` from a test
 project and drive the four through a `WebApplicationFactory<Program>`. Top-level statements make

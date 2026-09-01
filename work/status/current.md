@@ -36,6 +36,31 @@ worth seeing here rather than hiding, but it is the exception.
   exits 78, `UseNativeWebPipeline` takes the locale list rather than the options, and generated code
   lands in the `RootNamespace` where a `using` will not reach it. All five are now in the guide.
 
+  **Then a fable review of the merged branch found the guard weaker than it reads**, and
+  `fix/019-docs-guard-gaps` closed it (2026-09-02). Four ways `DocsClaimsTests` could stay green
+  over drift: the reverse key check saw no sign-in key, because sign-in keys are written bare
+  rather than section-relative and the extractor wanted `{Section}:`; `PresentTenseDocs` was
+  filtered through `File.Exists`, so renaming a document silently narrowed the guard instead of
+  failing it; `EveryLibraryReadme_IsCovered` built both sides of its assertion from the same
+  enumeration and could not fail, and is now `EveryRuntimeLibrary_HasAReadme`, which is the check a
+  sweep of READMEs cannot make; and symbol claims were a substring search, so `Take` passed on
+  `TakeAsync`. Tightening the last one found a false claim already in the tree — the scaffold
+  README named a `RequireForm()` filter that does not exist, passing on `RequireFormAntiforgery`.
+
+  **The extractors now have a canary.** They match five call shapes, and a key read through a sixth
+  would bind while the reference never named it, with every other check green — the same failure
+  one level down. Any key-shaped string literal in either binder must now be reachable by an
+  extractor or listed in `NotKeys` with a reason. Six mutations were run and each went red
+  distinctly, including a `section.GetValue<bool>("...")` read that no extractor matches.
+
+  The review also refuted one of its own leads (`scripts/cleanup/015-framework-web-seam.ps1` exists)
+  and corrected three documentation claims: the `AddNativeWebKestrel` row named timeouts it does not
+  register, the `MSB9008` sentence read as if MSB9008 were the `CS0246` pile, and the adoption guide
+  never said `KnownProxies` must be set behind a proxy — omitting it builds, boots, serves every
+  page and collapses every client into one rate-limit partition, with nothing failing or warning.
+  Spec 018's fourth acceptance criterion claimed a test fails whenever a named type or path moves;
+  that absolute is not met and now states its limits in place.
+
 - **Plan 008 — mutation-driven test strategy for the paging seam. Done and merged into `dev`,
   unpushed (2026-09-01).** `test/018-paging-property-tests`, prompted by the user's
   `testing-strategy-handover.md` and by the fact below: 017 shipped eight defects and **no test
