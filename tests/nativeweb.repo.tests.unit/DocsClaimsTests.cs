@@ -41,6 +41,7 @@ public sealed partial class DocsClaimsTests
     [
         "docs/02-reference/configuration.md",
         "docs/00-quick-start/adopting-in-an-existing-app.md",
+        "docs/README.md",
     ];
 
     private static readonly string[] RepoRoots =
@@ -60,6 +61,11 @@ public sealed partial class DocsClaimsTests
         ["libs/nativeweb.assets/README.md"] =
         [
             ("apps/web", "Past tense: names the application that served these assets before it left on 2026-08-31."),
+        ],
+        ["docs/README.md"] =
+        [
+            ("scripts/cleanup/cleanup-<milestone>.ps1",
+             "A naming pattern quoted from conventions.md, in the footnote reporting that nothing in the tree is named that way. A path that resolved would falsify the sentence."),
         ],
     };
 
@@ -375,10 +381,21 @@ public sealed partial class DocsClaimsTests
         // the test method. Excluding it made EveryLibraryReadme_IsCovered's own subject --
         // libs/nativeweb.scaffold/README.md, which cites a test by name -- report a symbol
         // that exists.
-        foreach (string area in (string[])["libs", "apps", "tests"])
+        foreach (string area in (string[])["libs", "apps", "tests", "skeleton"])
         {
-            foreach (string file in Directory.EnumerateFiles(Path.Combine(root, area), "*.cs", SearchOption.AllDirectories))
+            // Build files as well as sources: an adoption guide names MSBuild properties --
+            // PackageId, NativeWebRoot, ReferenceOutputAssembly -- and those are as real as a
+            // method name and as capable of being wrong.
+            foreach (string file in Directory.EnumerateFiles(Path.Combine(root, area), "*.*", SearchOption.AllDirectories))
             {
+                if (!file.EndsWith(".cs", StringComparison.Ordinal)
+                    && !file.EndsWith(".csproj", StringComparison.Ordinal)
+                    && !file.EndsWith(".props", StringComparison.Ordinal)
+                    && !file.EndsWith(".targets", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                     || file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
                 {
@@ -413,6 +430,14 @@ public sealed partial class DocsClaimsTests
             // OpenTelemetry SDK and named nowhere in this repository's sources.
             if (claim.Contains('_', StringComparison.Ordinal)
                 && !claim.Any(char.IsLower))
+            {
+                continue;
+            }
+
+            // A diagnostic id, not a symbol. Ours (NWT001, NWF010) appear in the generator
+            // sources and pass on their own; the ones documented here that do not are
+            // Microsoft's -- CS0246 from Roslyn, MSB9008 from MSBuild.
+            if (DiagnosticId().IsMatch(claim))
             {
                 continue;
             }
@@ -476,6 +501,9 @@ public sealed partial class DocsClaimsTests
 
     [GeneratedRegex(@"^[A-Z][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*")]
     private static partial Regex SymbolShape();
+
+    [GeneratedRegex(@"^[A-Z]{2,5}[0-9]{3,5}$")]
+    private static partial Regex DiagnosticId();
 
     [GeneratedRegex(@"Key\(""([^""]+)""\)")]
     private static partial Regex FrameworkKey();
