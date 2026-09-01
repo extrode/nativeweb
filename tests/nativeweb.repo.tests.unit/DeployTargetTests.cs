@@ -116,6 +116,66 @@ public sealed class DeployTargetTests
                 + "every host that has ever run this unit.");
     }
 
+    // Four files have to agree on one path for /docs to serve anything: build.sh
+    // fixes the destination inside the artifact, deploy.sh links it, rollback.sh
+    // links it back, and the Caddyfile roots at the link. Three of the four spell
+    // it as a literal, so nothing but this test notices when one of them moves.
+    [Fact]
+    public void TheDocsSite_TravelsToOnePathTheWholeChainNames()
+    {
+        string build = Read("scripts", "deploy", "build.sh");
+        string deploy = Read("scripts", "deploy", "deploy.sh");
+        string rollback = Read("scripts", "deploy", "rollback.sh");
+        string caddy = Read("scripts", "deploy", "caddy", "Caddyfile");
+
+        // build.sh assigns ARTIFACT_DOCS_DIR twice: empty at the top, because
+        // absent docs are not an error, and then the real destination inside the
+        // branch that found a site. The first is the declaration, not the value.
+        const string marker = "ARTIFACT_DOCS_DIR=\"";
+        List<string> assigned = [];
+        for (int at = build.IndexOf(marker, StringComparison.Ordinal); at >= 0;
+            at = build.IndexOf(marker, at + marker.Length, StringComparison.Ordinal))
+        {
+            int from = at + marker.Length;
+            assigned.Add(build[from..build.IndexOf('"', from)]);
+        }
+
+        Assert.True(assigned.Count >= 1, "build.sh no longer fixes the artifact's docs destination.");
+
+        string inArtifact = assigned.Find(v => v.Length > 0)
+            ?? throw new InvalidOperationException(
+                "build.sh assigns ARTIFACT_DOCS_DIR only the empty string, so no artifact ever carries docs.");
+
+        Assert.Contains($"cp -r \"$DOCS_DIR\" \"$PUBLISH_DIR/$ARTIFACT_DOCS_DIR\"", build, StringComparison.Ordinal);
+        Assert.Contains("docs_dir=$ARTIFACT_DOCS_DIR", build, StringComparison.Ordinal);
+
+        Assert.Contains("sed -n 's/^docs_dir=//p' \"$STAGE/RELEASE\"", deploy, StringComparison.Ordinal);
+
+        const string link = "/opt/nativeweb/docs";
+        Assert.Contains($"ln -sfn \"/opt/nativeweb/$IDLE/$DOCS_DIR\" {link}", deploy, StringComparison.Ordinal);
+        Assert.Contains($"ln -sfn \"/opt/nativeweb/$PREVIOUS_COLOUR/{inArtifact}\" {link}", rollback, StringComparison.Ordinal);
+        Assert.Contains($"root * {link}", caddy, StringComparison.Ordinal);
+    }
+
+    // The release root is chmod'd o=, and Caddy is not in the nativeweb group, so
+    // without a widening step /docs is a 403 that reads as a web-server bug. The
+    // traversal bit on the release root has to come with it: a world-readable
+    // subtree under a 0750 parent is unreachable.
+    [Fact]
+    public void TheDocsSubtree_IsReadableByTheProcessThatServesIt()
+    {
+        string deploy = Read("scripts", "deploy", "deploy.sh");
+
+        int restrict = deploy.IndexOf("chmod -R u=rwX,g=rX,o= \"$RELEASE_DIR\"", StringComparison.Ordinal);
+        Assert.True(restrict >= 0, "deploy.sh no longer restricts the release directory; this test reads the wrong mechanism.");
+
+        int traverse = deploy.IndexOf("chmod o=x \"$RELEASE_DIR\"", StringComparison.Ordinal);
+        int widen = deploy.IndexOf("chmod -R a=rX,u=rwX \"$RELEASE_DIR/$DOCS_DIR\"", StringComparison.Ordinal);
+
+        Assert.True(traverse > restrict, "deploy.sh does not grant traversal on the release root after restricting it, so the docs are unreachable through a 0750 parent.");
+        Assert.True(widen > restrict, "deploy.sh does not widen the docs subtree after restricting the release root, so Caddy gets a 403 on every page.");
+    }
+
     // cp -a copies the source directory's own mode onto the destination, and the
     // stage is mktemp -d, which is 0700. A subtractive chmod cannot add back a
     // group bit that was never granted, so the release directory stayed

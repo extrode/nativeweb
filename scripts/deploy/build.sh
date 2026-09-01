@@ -62,6 +62,15 @@ CONFIG_PREFIX="${CONFIG_PREFIX:-Sample}"
 DB_DIR="${DB_DIR:-db}"
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-db/sample/migrations}"
 
+# The rendered documentation site, served at /docs by the host's Caddy. Unlike
+# the three above this one is OPTIONAL and absent is not an error: a stamped
+# product need not have run scripts/build-docs.sh, and refusing to release
+# because nobody rendered the docs would be a strange thing for a build script to
+# do. When the directory is missing the stamp below is empty and deploy.sh
+# installs nothing, leaving whatever is already at /docs alone.
+DOCS_DIR="${DOCS_DIR:-docs-site}"
+DOCS_DIR="${DOCS_DIR%/}"
+
 # Overriding PROJECT without the other three is the silent case: a stamped
 # product would build its own binary and then be preflighted against Sample's
 # key names, which pass while the binary reads none of them -- Consequence B of
@@ -90,10 +99,25 @@ fi
 DB_DIR="${DB_DIR%/}"
 MIGRATIONS_DIR="${MIGRATIONS_DIR%/}"
 
-if [[ "$DB_DIR" = /* || "$MIGRATIONS_DIR" = /* ]]; then
-	echo "ERROR: DB_DIR and MIGRATIONS_DIR are paths inside this repository, relative to its" >&2
-	echo "       root. Got DB_DIR=$DB_DIR MIGRATIONS_DIR=$MIGRATIONS_DIR." >&2
+if [[ "$DB_DIR" = /* || "$MIGRATIONS_DIR" = /* || "$DOCS_DIR" = /* ]]; then
+	echo "ERROR: DB_DIR, MIGRATIONS_DIR and DOCS_DIR are paths inside this repository, relative" >&2
+	echo "       to its root. Got DB_DIR=$DB_DIR MIGRATIONS_DIR=$MIGRATIONS_DIR DOCS_DIR=$DOCS_DIR." >&2
 	exit 1
+fi
+
+# Absent is fine; present-but-not-a-site is not. A DOCS_DIR that exists without a
+# versions.json is either the wrong directory or a build that died partway, and
+# shipping it would put a directory listing at /docs under the product's own
+# hostname. Named rather than skipped, because the operator asked for it.
+ARTIFACT_DOCS_DIR=""
+if [[ -d "$REPO_ROOT/$DOCS_DIR" ]]; then
+	if [[ ! -f "$REPO_ROOT/$DOCS_DIR/versions.json" ]]; then
+		echo "ERROR: DOCS_DIR is $DOCS_DIR, which has no versions.json." >&2
+		echo "       That is a versioned site's manifest, so this is not one. Run" >&2
+		echo "       scripts/build-docs.sh, or set DOCS_DIR to a directory that has run it." >&2
+		exit 1
+	fi
+	ARTIFACT_DOCS_DIR="docs"
 fi
 
 if [[ ! -d "$REPO_ROOT/$MIGRATIONS_DIR" ]]; then
@@ -244,6 +268,7 @@ runtime=$RUNTIME_ID
 project=$PROJECT
 config_prefix=$CONFIG_PREFIX
 migrations_dir=$ARTIFACT_MIGRATIONS_DIR
+docs_dir=$ARTIFACT_DOCS_DIR
 tree=$DIRTY
 EOF
 
@@ -257,6 +282,13 @@ EOF
 # db/ inside the artifact, because deploy.sh resolves migrations_dir relative to
 # the release directory and that layout is the artifact's contract.
 cp -r "$DB_DIR" "$PUBLISH_DIR/db"
+
+# The docs travel the same way and for the same reason: there is no checkout on
+# the host. Fixed destination inside the artifact, like db/, so deploy.sh reads
+# one layout regardless of where the operator keeps the source.
+if [[ -n "$ARTIFACT_DOCS_DIR" ]]; then
+	cp -r "$DOCS_DIR" "$PUBLISH_DIR/$ARTIFACT_DOCS_DIR"
+fi
 
 mkdir -p "$OUTPUT_DIR"
 ARTIFACT="$OUTPUT_DIR/nativeweb-$SHORT_SHA.tar.zst"
