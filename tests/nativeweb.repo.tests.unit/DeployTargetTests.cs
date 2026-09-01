@@ -155,6 +155,13 @@ public sealed class DeployTargetTests
         Assert.Contains($"ln -sfn \"/opt/nativeweb/$IDLE/$DOCS_DIR\" {link}", deploy, StringComparison.Ordinal);
         Assert.Contains($"ln -sfn \"/opt/nativeweb/$PREVIOUS_COLOUR/{inArtifact}\" {link}", rollback, StringComparison.Ordinal);
         Assert.Contains($"root * {link}", caddy, StringComparison.Ordinal);
+
+        // Without the redirect, /docs is served the index directly -- handle_path
+        // strips the prefix, so file_server sees "/" and has no directory path to
+        // redirect. The index's links are relative and then resolve one level too
+        // high. Measured: /docs 200, the link it carried 404.
+        Assert.Contains("redir /docs /docs/ 308", caddy, StringComparison.Ordinal);
+        Assert.Contains("handle_path /docs/* {", caddy, StringComparison.Ordinal);
     }
 
     // The release root is chmod'd o=, and Caddy is not in the nativeweb group, so
