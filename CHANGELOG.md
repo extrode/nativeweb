@@ -14,6 +14,18 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Scaffolded lists sort and page by cursor.** `[ScaffoldSort]` mirrors `[ScaffoldSearch]`: a
+  marked column's heading becomes a direction-toggling link carrying `aria-sort`, and the generator
+  hands the store a compiled-in allow-list, so a `?sort=` naming anything else falls back to the key
+  ascending and a client cannot name an arbitrary column. In a JauntyQ store a validated name
+  selects which static `.sql` file runs rather than composing one, which is why the reference app
+  gained eight query files and three composite indexes rather than a query builder.
+  Free-text `[ScaffoldSearch]` filtering is unchanged and stays the only filtering — no structured
+  per-field filters, no operators, no query language. Closes consumer-readiness gaps G5 and G2.
+- **`docs/02-reference/breaking-changes.md`**, linked from the README. Dated and identified by
+  commit rather than by version, because the libraries are not packaged yet. Three entries: the
+  `ListAsync` change below, and retrospectively the 2026-08-31 removals of `nativeweb.signin.epass`
+  and `nativeweb.auth`, which broke a downstream product with nothing here recording it.
 - **The docs site is versioned and committed.** `scripts/build-docs.sh` passes `--versioned` to the
   shared Docs generator, so `docs-site/` is a root holding one frozen site per release rather than a
   flat directory overwritten on every build — and unlike every other consumer of that generator, it
@@ -130,6 +142,20 @@ Merged into `dev`, not yet tagged.
   configuration value. The `IFileProvider` overload still throws and stays the unit tier's.
 
 ### Changed
+- **Breaking: `IScaffoldStore<T>.ListAsync` takes an ordering and a cursor instead of `skip`.**
+  `(search, searchFields, skip, take, ct)` becomes
+  `(search, searchFields, sort, sortFields, after, take, ct)`; the other five methods are unchanged.
+  Broken rather than shimmed, because a shim outlives the reason for it and the next reader cannot
+  tell which overload to write against. The seam now states the two obligations it cannot enforce:
+  the key is the final tiebreaker on every order, and a nullable sorted column has to fix where its
+  NULLs go — `(author, id) > (@a, @id)` is NULL rather than true for an author-less row, so `WHERE`
+  drops it and every page after the first silently omits every one of them, which is invisible on a
+  table small enough to fit one page. Migration steps are in
+  [`breaking-changes.md`](docs/02-reference/breaking-changes.md).
+- **The generated list's `?page=` offset clamp is gone**, along with the arithmetic it guarded.
+  `(page - 1) * PageSize` was unchecked int arithmetic reachable from an anonymous GET; a cursor
+  cannot express an offset, so the class of defect is absent rather than guarded. A bookmarked
+  `?page=` is ignored, not rejected.
 - **The epass.io cutover is closed as a NativeWeb concern, and the term is retired here.**
   Checked against the real sibling checkout on 2026-08-31 rather than taken on report: epass.io has
   built and merged its own browser surface and is ahead of this repo on it, consumes only

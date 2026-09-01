@@ -93,7 +93,7 @@ never writes to this repository. Provisioning, reading a digest and triaging are
 | `libs/` | Framework libraries: render, forms, scaffold and their generators, security, mail, assets |
 | `tests/` | Up to three tiers per library: `*.tests.unit`, `*.tests.integration`, `*.tests.e2e` |
 | `work/` | Current work: tasklist, status window, backlog, milestones |
-| `docs/` | Specs, plans, architecture, decisions, conventions, lessons, and [`configuration.md`](docs/02-reference/configuration.md) |
+| `docs/` | Specs, plans, architecture, decisions, conventions, lessons, [`configuration.md`](docs/02-reference/configuration.md) and [`breaking-changes.md`](docs/02-reference/breaking-changes.md) |
 | `scripts/` | Operational scripts. `scripts/cleanup/` is written but never run |
 
 Agent instructions are in `AGENTS.md`. `CLAUDE.md` is a one-line shim that imports it.

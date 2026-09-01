@@ -34,9 +34,9 @@ to it rather than shimmed.
 
 - [ ] T14 End-to-end tier — files: `tests/nativeweb.scaffold.tests.e2e/*` — covers: R10, R12, R13, R16 — done when: Playwright clicks a header and asserts order and `aria-sort`; Older then Newer returns to the same rows; a listed-but-unsortable column offers no link; a copied URL reproduces search, sort and position in a fresh context.
 
-- [ ] T15 The breaking-change log — files: `docs/breaking-changes.md` (new), `README.md` — covers: R14 — done when: the document exists with three entries newest-first — this `ListAsync` change, and retrospectively the 2026-08-31 removals of `nativeweb.signin.epass` and `nativeweb.auth` — each naming the seam, what changed and the before/after a consumer migrates by, and the repository README links it. This closes backlog gap G2.
+- [x] T15 The breaking-change log — files: `docs/breaking-changes.md` (new), `README.md` — covers: R14 — done when: the document exists with three entries newest-first — this `ListAsync` change, and retrospectively the 2026-08-31 removals of `nativeweb.signin.epass` and `nativeweb.auth` — each naming the seam, what changed and the before/after a consumer migrates by, and the repository README links it. This closes backlog gap G2.
 
-- [ ] T16 Scaffold documentation — files: `libs/nativeweb.scaffold/README.md` — covers: R1, R13 — done when: the attribute table lists `[ScaffoldSort]`, the list section describes cursor paging, and the store's tiebreaker and NULLS obligations are stated where an implementer reads them rather than only in XML docs.
+- [x] T16 Scaffold documentation — files: `libs/nativeweb.scaffold/README.md` — covers: R1, R13 — done when: the attribute table lists `[ScaffoldSort]`, the list section describes cursor paging, and the store's tiebreaker and NULLS obligations are stated where an implementer reads them rather than only in XML docs.
 
 - [ ] T17 AOT and visibility — files: `CHANGELOG.md`, `work/todo.md`, `work/status/current.md`, `work/tasklist.md` — covers: R15 — done when: the AOT publish gate passes with no new trim or AOT warnings, G5 and G2 are struck from `work/todo.md` with what closed them, the change is under `## [Unreleased]`, and `structure-audit.js` exits 0.
 

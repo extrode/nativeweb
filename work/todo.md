@@ -24,11 +24,16 @@ wish list; the value is in recording the ones nobody has got to yet.
     nothing packs them; the repository has one tag ever, and it is not a release. Decision 004
     approved package mode on 2026-08-30 and listed four obligations; none is done. Until one is,
     every consumer builds against whatever `dev` happens to be.
-  - **G2 — a breaking-change log in `docs/`.** Removing `nativeweb.signin.epass` and
-    `nativeweb.auth` broke a downstream product and nothing here could have known.
-  - **G5 — list primitives.** `IScaffoldStore<T>.ListAsync` still takes no ordering parameter;
-    ghosthive hand-rolled `ListQueryParser`, `FilterComposer` and a keyset `Cursor` and then went
-    without them on its own control-plane lists. Sorting, filtering and cursor pagination.
+  - ~~**G2 — a breaking-change log in `docs/`.**~~ **Closed 2026-09-01 by spec 017:**
+    `docs/02-reference/breaking-changes.md`, linked from the README, opening with the 017
+    `ListAsync` change and carrying the 2026-08-31 removals of `nativeweb.signin.epass` and
+    `nativeweb.auth` retrospectively.
+  - ~~**G5 — list primitives.**~~ **Closed 2026-09-01 by spec 017:** `[ScaffoldSort]`, an
+    allow-listed `?sort=`/`?dir=`, and keyset paging on an opaque cursor, replacing offset
+    `skip`/`take` throughout. **Filtering was scoped out and stays out** — free-text
+    `[ScaffoldSearch]` only, no structured per-field filters, no operators, no query language,
+    because NativeWeb has no ORM and JauntyQ owns data access. What ghosthive hand-rolled as
+    `ListQueryParser` and `FilterComposer` is not coming here; its keyset `Cursor` is.
   - **G6 — READMEs for the six libraries without one**, `nativeweb.web` first: it is the largest
     seam and the one a consumer has already reimplemented by hand for want of knowing it exists.
     `nativeweb.signin` got its own with spec 016 on 2026-09-01.

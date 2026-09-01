@@ -21,12 +21,25 @@ form-value converters the generated code calls. The **build-time** half is
 public sealed class Article
 {
     [ScaffoldKey]                        public string Id { get; set; } = "";
-    [ScaffoldList][ScaffoldSearch]       public string Title { get; set; } = "";
+    [ScaffoldList][ScaffoldSearch]
+    [ScaffoldSort]                       public string Title { get; set; } = "";
     [ScaffoldMultiline]                  public string Body { get; set; } = "";
     [ScaffoldList]                       public bool Published { get; set; }
-    [ScaffoldList][ScaffoldReadOnly]     public DateTime CreatedAt { get; set; }
+    [ScaffoldList][ScaffoldReadOnly]
+    [ScaffoldSort]                       public DateTime CreatedAt { get; set; }
 }
 ```
+
+| Attribute | On | Effect |
+| --- | --- | --- |
+| `[Scaffold]` | class | Emits the routes. `Display` names the UI, `Route` the path segment |
+| `[Auth]` | class | Role per operation; omitted means open |
+| `[ScaffoldKey]` | property | The identity in every URL, and the tiebreaker in every order |
+| `[ScaffoldList]` | property | A column. `Label` overrides the heading |
+| `[ScaffoldSearch]` | property | Free-text search reaches it. No operators, no query language |
+| `[ScaffoldSort]` | property | The list may be ordered by it, and its heading becomes a link |
+| `[ScaffoldMultiline]` | property | `<textarea>` rather than `<input>` |
+| `[ScaffoldReadOnly]` | property | Shown, never editable, no form input emitted |
 
 Implement `IScaffoldStore<Article>` (six methods, no query language — JauntyQ owns data access),
 register it, and call `app.MapScaffolding()`. That is the entire wiring. See `apps/sample`.
@@ -35,7 +48,7 @@ Routes emitted per model, under `/admin/{route}`:
 
 | Method | Path | Operation | Role from |
 | --- | --- | --- | --- |
-| GET | `/` | list, search, page | `Read` → `Role` |
+| GET | `/` | list, search, sort, page | `Read` → `Role` |
 | GET | `/new` | create form | `Write` → `Role` |
 | POST | `/` | create | `Write` → `Role` |
 | GET | `/{id}` | edit form | `Write` → `Role` |
@@ -103,6 +116,35 @@ all three POSTs; the guard cannot be forgotten because nobody writes it.
 **The content-type check lives inside `BindAsync`.** Argument binding runs *before* the
 endpoint-filter pipeline, so a `RequireForm()` filter cannot protect a bind. The binder raises
 `BadHttpRequestException(415)` itself.
+
+## Sorting and paging, and the two things the store owes
+
+The list orders by `?sort=` and `?dir=`, and pages by an opaque `?after=` cursor. A `?sort=` naming
+anything outside the model's `[ScaffoldSort]` set falls back to the key ascending, so a client
+cannot name an arbitrary column — the allow-list is compiled in, and in a JauntyQ store a validated
+name selects *which static `.sql` file runs* rather than composing one.
+
+A page is "the rows after this one in this order", not "rows 40 to 60". That is the point of the
+cursor: with an offset, a row inserted ahead of a reader pushes one row from the page they are on
+to the page they are about to request, and they never see it. The cost is that keyset paging cannot
+express "page 7", which is why the pager is Previous / *N* items / Next.
+
+`ScaffoldCursor` is **not a security boundary and is not signed.** It is opaque so that no client
+builds one, not so that none can. A forged cursor repositions a reader inside rows they were
+already permitted to list, and its values reach the database as parameters. What is guaranteed is
+that no string in `?after=` can crash the list: `TryDecode` returns false for every malformed
+shape, and the list renders from the beginning.
+
+**Two obligations the framework cannot enforce**, both stated on `IScaffoldStore<T>.ListAsync` and
+both silent when broken:
+
+1. **End every order with the key.** A page boundary inside a block of equal sort values has no
+   single answer without a tiebreaker, and the rows sitting there repeat or vanish.
+2. **Fix where NULLs go on a nullable sorted column,** in the query. `(author, id) > (@a, @id)` is
+   `NULL` — not true — for an author-less row, so `WHERE` drops it and every page after the first
+   omits every one of them. `db/sample/queries/Articles/ListByAuthorAsc.sql` carries the widened
+   predicate. **This is invisible on a table small enough to fit one page**, which is why the
+   reference app sorts by a nullable column on purpose.
 
 ## Wiring, and how to opt out of it
 
