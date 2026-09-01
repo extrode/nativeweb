@@ -76,7 +76,8 @@ Merged into `dev`, not yet tagged.
   hour after such a run a leaked row lands between the test's own two. It now finds its two titles
   in the rendered list and asserts one is above the other, keeping the real HTML parse of the
   NativeAOT binary's output and printing the titles it saw when it fails.
-  `scripts/cleanup/018-paging-property-tests.ps1` lists the leaked rows; it has not been run.
+  `scripts/cleanup/018-paging-property-tests.ps1` listed the leaked rows and the operator ran it
+  on 2026-09-01, removing all five.
 - **`ScaffoldCursor.TryDecode` accepted a tampered token.** `Encoding.UTF8.GetString` substitutes
   U+FFFD for a malformed sequence rather than refusing it, so flipping one character of a cursor
   produced one the decoder reported as valid — against its documented contract of returning true
@@ -182,6 +183,14 @@ Merged into `dev`, not yet tagged.
   and `IOException` and routes both to `FailStartup`, so a missing or unreadable
   `wwwroot/pages/error.html` leaves by the same stderr message and exit code as a refused
   configuration value. The `IFileProvider` overload still throws and stays the unit tier's.
+
+### Removed
+- **`db/sample/queries/Articles/List.sql`, superseded by the eight keyset queries.** Spec 017
+  replaced the offset list with `ListBy{Key,Title,Author,Created}{Asc,Desc}.sql`, and nothing has
+  called the method this file generated since. `Count.sql` is untouched — the pager still reports
+  a total. Removed by `scripts/cleanup/017-scaffold-sorting-and-cursor-pagination.ps1
+  -RemoveSupersededQuery`; the solution builds with 0 warnings and the four affected suites are
+  green (376 tests).
 
 ### Changed
 - **Breaking: `IScaffoldStore<T>.ListAsync` takes an ordering and a cursor instead of `skip`.**
