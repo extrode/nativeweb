@@ -7,11 +7,12 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Both facts are about text in shell and unit files that no suite executes: the
-/// deploy scripts have never run on a real host (spec 011 T15), so a stale target
-/// in them is invisible until an operator is halfway through a release. That is
-/// how <c>build.sh</c> came to publish <c>apps/web/nativeweb.web.csproj</c> for
-/// the whole of the day after <c>apps/web</c> left the repository.
+/// Both facts are about text in shell and unit files that no suite executes, so a
+/// stale target in them is invisible until an operator is halfway through a
+/// release. That is how <c>build.sh</c> came to publish
+/// <c>apps/web/nativeweb.web.csproj</c> for the whole of the day after
+/// <c>apps/web</c> left the repository. The chain first ran against a real host on
+/// 2026-09-01 (spec 011 T15).
 /// </para>
 /// <para>
 /// The binary name is the sharper of the two. systemd will not expand a variable
@@ -68,6 +69,51 @@ public sealed class DeployTargetTests
         string unit = Read("scripts", "deploy", "systemd", "nativeweb@.service");
         Assert.Contains($"ExecStart=/opt/nativeweb/%i/{Binary}\n", unit, StringComparison.Ordinal);
         Assert.Contains($"ConditionPathExists=/opt/nativeweb/%i/{Binary}\n", unit, StringComparison.Ordinal);
+    }
+
+    // Presence is not placement, and the assertion above only ever checked presence.
+    // Condition*, Assert* and StartLimit* are [Unit] options: in [Service] systemd
+    // logs "Unknown key name" and ignores the line. ConditionPathExists sat in
+    // [Service] from the file's creation until 2026-09-01, when the first real
+    // deploy printed that warning six times and started a colour whose release
+    // directory the condition was supposed to have checked.
+    [Fact]
+    public void UnitOnlyDirectives_AreInTheUnitSection()
+    {
+        string unit = Read("scripts", "deploy", "systemd", "nativeweb@.service");
+        string section = "(none)";
+        List<string> misplaced = [];
+
+        foreach (string raw in unit.Split('\n'))
+        {
+            string line = raw.Trim();
+            if (line.StartsWith('[') && line.EndsWith(']'))
+            {
+                section = line;
+                continue;
+            }
+
+            if (line.Length == 0 || line.StartsWith('#') || !line.Contains('='))
+            {
+                continue;
+            }
+
+            string key = line[..line.IndexOf('=', StringComparison.Ordinal)];
+            bool unitOnly = key.StartsWith("Condition", StringComparison.Ordinal)
+                || key.StartsWith("Assert", StringComparison.Ordinal)
+                || key.StartsWith("StartLimit", StringComparison.Ordinal);
+
+            if (unitOnly && section != "[Unit]")
+            {
+                misplaced.Add($"{key} in {section}");
+            }
+        }
+
+        Assert.True(
+            misplaced.Count == 0,
+            $"nativeweb@.service puts {string.Join(", ", misplaced)}. systemd reads these only in "
+                + "[Unit]; elsewhere it warns and ignores them, so the directive does nothing on "
+                + "every host that has ever run this unit.");
     }
 
     // The project name must not reappear anywhere downstream of the publish: the
