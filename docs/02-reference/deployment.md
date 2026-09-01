@@ -14,12 +14,24 @@ The one document for provisioning, releasing, rolling back, backing up and
 recovering a NativeWeb production host. Everything here is a command to run or a
 decision with a stated default.
 
-> **Two things in this document have never been executed.** The provisioning
-> walkthrough and the restore drill are written and untested — spec 011 T15.
-> Every elapsed time below reads `NOT YET MEASURED`, and that is literal:
-> nobody has provisioned a host from this document or restored a backup taken by
-> `backup.sh`. Until they have, R1, R16 and R17 are unmet and this runbook is a
-> plan rather than a procedure.
+> **Releasing has now been executed for real; restoring and disaster recovery
+> have not.** On 2026-09-01 a `linux-x64` artifact built by `build.sh` was
+> deployed by `deploy.sh` to `nativeweb-dev` (10.0.0.30, Debian 12, an Incus
+> guest on `incus-host`) and promoted to blue, and the result is public at
+> `https://nw-dev.example.com`. That closes R1. **R16 and R17 remain unmet** —
+> nobody has restored a backup taken by `backup.sh`, and the elapsed times in
+> **Restoring** and **Disaster recovery** below still read `NOT YET MEASURED`
+> because they are literal.
+>
+> **Three attempts were needed and two of them were defects in these scripts,**
+> which is what a first real run is for. Both are fixed and both now have a test:
+> `ConditionPathExists` sat in `[Service]`, where systemd logs "Unknown key name"
+> and ignores it, so the skip it promises had never happened on any host; and
+> `chmod -R g-w,o-rwx` could not restore group bits that `cp -a` from a `mktemp -d`
+> stage never granted, so the release directory arrived `drwx------` and systemd
+> failed the unit at `status=200/CHDIR`. The third refusal was not a defect — the
+> host carried `NativeWeb__*` keys from a provisioning run predating the config
+> prefix, and the preflight said so and stopped, which is the behaviour it is for.
 >
 > **2026-08-30: an audit sweep read the scripts and found eight defects, four of
 > which would have stopped this walkthrough dead on a clean Debian** — Caddy never
@@ -57,8 +69,8 @@ never reaches the public.
 Both are R7's, and both are choices rather than defaults.
 
 - **Distribution: Debian stable, x86-64.** `provision.sh` targets apt and systemd;
-  Ubuntu LTS works unchanged. Record the tested version here once T15 runs:
-  `TESTED ON: NOT YET MEASURED`.
+  Ubuntu LTS works unchanged. `TESTED ON: Debian 12 (bookworm), x86-64,
+  2026-09-01` — an Incus guest, provisioned and deployed to.
 - **`unattended-upgrades` is on, security pocket only, and does NOT reboot.**
   There is one host and no failover, so an unattended 03:00 reboot is an
   unannounced outage. Kernel and libc updates therefore wait for an operator:
@@ -191,6 +203,26 @@ untouched**:
    in-flight requests finish on the old colour.
 8. Records the promotion and prunes old release directories.
 
+Measured on the first real release, `nativeweb-dev`, 2026-09-01 — the fourth
+attempt, after the two defects in the note at the top of this document were
+fixed. A cold host: nothing was serving, so step 3 had no live colour to compare
+against and step 8 had nothing to prune.
+
+| Measure | Value |
+|---|---|
+| `deploy.sh`, artifact on the host to promoted | **1.774 s** |
+| Release | `7436517`, promoted to blue |
+| `/version` after promotion | `0.1.0+743651707dbfdce70f3bc723f845446d6128088e` |
+| `/readyz` through the public origin | `200`, body `ready`, 0.022 s |
+| `/healthz` | `200`, 0.023 s |
+| `/` | `302` to `/admin`, 0.050 s |
+| Date last exercised | 2026-09-01 |
+
+The timings are from `incus-host` over the LAN and through the edge, so they
+include Caddy and TLS but not a WAN round trip. Build time is not recorded here:
+the publish ran on `build-host` rather than the workstation, and one
+measurement on one build box is not a figure this runbook should quote.
+
 Exit 78 in step 6's log is `EX_CONFIG`: a configuration error, not a crash. The
 unit will not restart it (`RestartPreventExitStatus=78`), because the config will
 not have changed by the time it comes back.
@@ -321,9 +353,10 @@ whole way back, from nothing but this repository and the backup bucket:
 
 | Gap | Status |
 |---|---|
-| Provisioning has never been run on a real host | T15, outstanding — R1 unmet |
+| ~~Provisioning has never been run on a real host~~ | **Closed 2026-09-01** — provisioned and deployed to on `nativeweb-dev`. R1 met |
 | The restore drill has never been run | T15, outstanding — R16 unmet |
 | Disaster recovery has never been exercised | T15, outstanding — R17 unmet |
+| The nightly backup fails on `nativeweb-dev` | `BACKUP_S3_BUCKET` and its credentials are unset in `/etc/nativeweb/backup.env`, so the 03:17 timer fails daily. An operator's key, not a script defect |
 | `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
 | `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it |
 | CI cannot restore in package mode | Deferred; `build.sh` pins checkout mode and says why |

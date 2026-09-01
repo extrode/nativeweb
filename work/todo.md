@@ -1680,3 +1680,24 @@ an answer different from the one the audit assumed.
   register an authentication scheme on the grounds that "a default supplied from a library is one
   nobody reviews", and a posture supplied by omission is equally unreviewed. If a stamped product
   ever ships an unguarded model by accident, this is the entry to reopen.
+
+## Found during the first real deploy, 2026-09-01 — not fixed
+
+- **`docs/02-reference/configuration.md` documents an app that left the repository.** Its title
+  is "Configuration reference — apps/web", every key it lists is `NativeWeb:`-prefixed, and the
+  sections it is built out of — OAuth, WebAuthn, Mail, Breach checking, Passphrase reset,
+  `/oauth/introspect`, `bff_store` — went with the identity provider on 2026-08-31.
+  `apps/sample` binds `Sample:`. 302 lines, and nothing in the tree reads a single one of the
+  keys under Site identity: `CanonicalBaseUrl` and `SecurityContact` appear nowhere in `libs/`,
+  `apps/` or `scripts/`.
+- **`/robots.txt` returns 404 on the deployed app, and that is right.** Nothing serves it — the
+  endpoint left with `apps/web`. The 404 only looked like a defect because
+  `/etc/nativeweb/app.env` on `nativeweb-dev`, written by a provisioning run predating the
+  removal, still calls `CanonicalBaseUrl` "REQUIRED, emitted by robots.txt and sitemap.xml".
+  Whether a framework should ship `robots.txt`, `sitemap.xml` and `security.txt` as generic
+  primitives is a real question and the answer is not obviously no; it belongs in a spec, not
+  in a doc fix.
+- **`nativeweb-dev` carries dead keys from that same run.** `app.env` still sets
+  `Sample__WebAuthn__ServerDomain`, `Sample__WebAuthn__Origins` and
+  `Sample__DeviceGrant__VerificationUri`; `secrets.env` carries five dead SMTP and IdP keys.
+  Nothing reads any of them. Host state, not repo state — an operator's edit.

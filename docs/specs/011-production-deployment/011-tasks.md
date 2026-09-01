@@ -124,6 +124,12 @@ for itself.
   seccomp filter, different kernel — recorded in the unit file and the runbook.
 
 - [ ] **T15 Operator-executed: provisioning walkthrough, restore drill, disaster recovery**
+  — **one third done, 2026-09-01.** `nativeweb-dev` was provisioned and deployed to for real,
+  and `https://nw-dev.example.com` serves `apps/sample`: **R1 is met**, and the measured release
+  time is in the runbook. R16 and R17 are untouched — no backup has been restored and no host has
+  been rebuilt — so this box stays unchecked. The run took four attempts and found two defects in
+  the deploy scripts, both fixed with tests on `fix/deploy-unit-section`; the runbook's opening
+  note names them.
   — files: `docs/02-reference/deployment.md` — covers: R1, R16, R17 — done when: a person has
   followed the provisioning document start to finish on a real host, restored a real backup onto a
   clean database and signed in as an account that existed at backup time, and rebuilt a serving host
