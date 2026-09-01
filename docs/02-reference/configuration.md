@@ -36,10 +36,10 @@ with the key named on stderr, and the rest fall back silently.
 | `{Section}:Db:ConnectionString` | none | Null. The app answers `/healthz` but reports not-ready |
 | `{Section}:Db:CommandTimeoutSeconds` | driver default | Ignored unless a positive integer |
 | `{Section}:Db:MaxAutoPrepare` | `20` | Falls back to 20 |
-| `{Section}:ForwardedHeaders:KnownProxies` | empty | Unparseable entries are **skipped, not fatal** — a typo costs a degraded rate-limit partition, not an outage |
+| `{Section}:ForwardedHeaders:KnownProxies` | empty | Unparseable entries are **skipped, not fatal** — a typo costs a degraded rate-limit partition, not an outage. **Required behind a proxy**: `deploy.sh` refuses to promote a release without it, because unset means ASP.NET Core trusts loopback only, `RemoteIpAddress` is the proxy hop, and every client shares one rate-limit partition with nothing logged |
 | `{Section}:Telemetry:Enabled` | `false` | **Fails startup.** `"1"`, `"yes"` and `"Enabled"` are all things an operator writes meaning on, and every one of them would read as off under an equality check |
-| `{Section}:DataProtection:KeyDirectory` | a directory under the process's home | **Fails startup** when the value names nowhere writable and no home exists to fall back to |
-| `{Section}:BotTraps:MinAgeSeconds` | unset, no timing trap | **Fails startup** unless a non-negative number |
+| `{Section}:DataProtection:KeyDirectory` | a directory under the process's home | A **configured** value is taken as given and never probed — an operator's explicit statement, checked instead by `deploy.sh`'s preflight against `ReadWritePaths`. Only the fallback is proved, and **fails startup** when there is no home to fall back to |
+| `{Section}:BotTraps:MinAgeSeconds` | unset, and the trap still runs: `BotTrapOptions.MinAge` is 3 s and the binder overrides it only when the key is set | **Fails startup** unless a non-negative number |
 | `{Section}:RateLimit:General:PermitLimit` | `120` | Falls back to 120; `0` and negatives take the default rather than opening or closing the policy |
 | `{Section}:RateLimit:CspReport:PermitLimit` | `10` | Falls back to 10 |
 | `{Section}:Readiness:CacheSeconds` | `1` | Clamped to a 30-second maximum |
@@ -59,7 +59,9 @@ with the key named on stderr, and the rest fall back silently.
 than defaulting, and each for the same reason: the silent version of the failure is invisible.
 Telemetry an operator believes is exporting and is not; a key ring that cannot persist, so every
 restart remints the antiforgery keys and every form POST answers 400 after a deploy while
-`/readyz` stays green; a `/security.txt` nobody can act on. The exit is code 78 with the key
+`/readyz` stays green; a `/security.txt` nobody can act on. `KeyDirectory` is the partial case:
+what stops the process is having no usable fallback, not a configured directory that turns out to
+be unwritable, which the deploy preflight catches rather than startup. The exit is code 78 with the key
 named on stderr — never a modal dialog, which under NativeAOT on Windows a supervisor reads as
 a hung service.
 
@@ -94,12 +96,12 @@ section the product names when it calls `AddSignIn`. See
 | `RefreshSkewSeconds` | 2 minutes |
 | `IntrospectionCacheLifetimeSeconds` | 30 seconds |
 | `RetainTokens` | `true` |
-| `StoreEncryptionKey` | none. Base64, because that is what a secret manager hands back and the only encoding that survives an environment variable without a length surprise |
+| `StoreEncryptionKey` | none. Base64, because that is what a secret manager hands back and the only encoding that survives an environment variable without a length surprise. It must decode to exactly `StoreDataProtector.KeyBytes`, and a single repeated byte is refused outright — `new byte[32]` is what a placeholder and a copied example both look like, and it boots a host whose stored provider tokens anyone can decrypt. Generate one with `RandomNumberGenerator.GetBytes(32)` |
 | `AllowEphemeralStoreEncryptionKey` | `false` |
 
 ## What a provisioned host holds
 
-`scripts/deploy/provision.sh` seeds four files under `/etc/nativeweb/`. It writes them empty
+`scripts/deploy/provision.sh` seeds five files under `/etc/nativeweb/`. It writes them empty
 where a value is a secret: a script that generates a production credential is a script that has
 seen it.
 

@@ -162,7 +162,7 @@ worktree fails:</p>
 </code></pre>
 </div>
 <h3 id="why-not-packages">Why not packages</h3>
-<p>The eight libraries carry <code>IsPackable</code> and a <code>PackageId</code>, and
+<p>The eleven projects under <code>libs/</code> carry <code>IsPackable</code> and a <code>PackageId</code>, and
 <code>skeleton/Directory.Build.props</code> already has a <code>-p:NativeWebUsePackages=true</code> mode. <strong>Do not use
 it yet.</strong> Package mode is approved and not working: it has never restored end to end, and the
 repository has no release process for a consumed library — no stated semver guarantee, no
@@ -187,6 +187,18 @@ pulling.</p>
 </div>
 <p>A generator is referenced as an <strong>analyzer</strong>, with <code>ReferenceOutputAssembly=&quot;false&quot;</code>. Reference
 it as an ordinary project and it compiles into your output and generates nothing.</p>
+<p><strong>Import the assets targets by hand.</strong> A <code>PackageReference</code> would pick this up on its own; a
+<code>ProjectReference</code> does not, so nothing contributes the framework's <code>wwwroot/</code> — HTMX, Alpine and
+the design-system stylesheets — to your static web assets, and every one of them 404s at run time
+with no build error:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml">&lt;Import Project=&quot;$(NativeWebRoot)\libs\nativeweb.web\build\NativeWeb.Web.targets&quot; /&gt;
+</code></pre>
+</div>
 <h3 id="declare-your-templates">Declare your templates</h3>
 <p>The render generator never reads disk — it sees only what the compiler hands it, so your
 templates and locale catalogs have to be <code>AdditionalFiles</code>. Nothing warns when this is missing:
@@ -349,6 +361,11 @@ wrong root is visible in the log rather than at the first <code>CS0246</code>. T
 </table>
 <p>Those four are what this guide was checked against: a stock <code>dotnet new web</code> project taken
 through every step above, serving a generated template page.</p>
+<p>To assert them rather than eyeball them, reference <code>Microsoft.AspNetCore.Mvc.Testing</code> from a test
+project and drive the four through a <code>WebApplicationFactory&lt;Program&gt;</code>. Top-level statements make
+<code>Program</code> internal, so add <code>public partial class Program;</code> to the end of the file or the factory
+will not close over it — and this is where passing <code>typeof(Program).Assembly</code> earns its keep,
+because the entry assembly under a factory is <code>testhost</code>.</p>
 <h2 id="if-you-get-stuck">If you get stuck</h2>
 <ul>
 <li><code>../../libs/nativeweb.web/README.md</code> — the pipeline in

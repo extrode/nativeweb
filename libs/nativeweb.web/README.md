@@ -29,11 +29,17 @@ NativeWebOptions options = NativeWebOptions.FromConfiguration(builder.Configurat
 builder.AddNativeWebWeb(options, typeof(Program).Assembly);
 
 WebApplication app = builder.Build();
-app.UseNativeWebPipeline(options);
-app.MapNativeWebEndpoints(options);
+app.UseNativeWebPipeline(Locales.All);
+app.MapNativeWebEndpoints(options, typeof(Program).Assembly);
 
 app.Run();
 ```
+
+The two take different arguments. `UseNativeWebPipeline` takes the locale ids the application
+ships — `Locales.All`, generated from its own `locales/*.json` — and an optional
+`Action<IApplicationBuilder>` that registers authentication at the one position where antiforgery
+validation still sees the user. `MapNativeWebEndpoints` takes the options, which carry the
+security contact and the readiness window, and the assembly `/version` reports.
 
 `AddNativeWebWeb` registers eleven things and hides none of them. Each is a public extension
 method on `NativeWebPipeline`, so an application that needs to sit between two of them writes

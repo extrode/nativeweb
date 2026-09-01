@@ -171,7 +171,7 @@ with the key named on stderr, and the rest fall back silently.</p>
 <tr>
 <td><code>{Section}:ForwardedHeaders:KnownProxies</code></td>
 <td>empty</td>
-<td>Unparseable entries are <strong>skipped, not fatal</strong> — a typo costs a degraded rate-limit partition, not an outage</td>
+<td>Unparseable entries are <strong>skipped, not fatal</strong> — a typo costs a degraded rate-limit partition, not an outage. <strong>Required behind a proxy</strong>: <code>deploy.sh</code> refuses to promote a release without it, because unset means ASP.NET Core trusts loopback only, <code>RemoteIpAddress</code> is the proxy hop, and every client shares one rate-limit partition with nothing logged</td>
 </tr>
 <tr>
 <td><code>{Section}:Telemetry:Enabled</code></td>
@@ -181,11 +181,11 @@ with the key named on stderr, and the rest fall back silently.</p>
 <tr>
 <td><code>{Section}:DataProtection:KeyDirectory</code></td>
 <td>a directory under the process's home</td>
-<td><strong>Fails startup</strong> when the value names nowhere writable and no home exists to fall back to</td>
+<td>A <strong>configured</strong> value is taken as given and never probed — an operator's explicit statement, checked instead by <code>deploy.sh</code>'s preflight against <code>ReadWritePaths</code>. Only the fallback is proved, and <strong>fails startup</strong> when there is no home to fall back to</td>
 </tr>
 <tr>
 <td><code>{Section}:BotTraps:MinAgeSeconds</code></td>
-<td>unset, no timing trap</td>
+<td>unset, and the trap still runs: <code>BotTrapOptions.MinAge</code> is 3 s and the binder overrides it only when the key is set</td>
 <td><strong>Fails startup</strong> unless a non-negative number</td>
 </tr>
 <tr>
@@ -242,7 +242,9 @@ with the key named on stderr, and the rest fall back silently.</p>
 than defaulting, and each for the same reason: the silent version of the failure is invisible.
 Telemetry an operator believes is exporting and is not; a key ring that cannot persist, so every
 restart remints the antiforgery keys and every form POST answers 400 after a deploy while
-<code>/readyz</code> stays green; a <code>/security.txt</code> nobody can act on. The exit is code 78 with the key
+<code>/readyz</code> stays green; a <code>/security.txt</code> nobody can act on. <code>KeyDirectory</code> is the partial case:
+what stops the process is having no usable fallback, not a configured directory that turns out to
+be unwritable, which the deploy preflight catches rather than startup. The exit is code 78 with the key
 named on stderr — never a modal dialog, which under NativeAOT on Windows a supervisor reads as
 a hung service.</p>
 <h3 id="not-read-despite-appearances">Not read, despite appearances</h3>
@@ -321,7 +323,7 @@ section the product names when it calls <code>AddSignIn</code>. See
 </tr>
 <tr>
 <td><code>StoreEncryptionKey</code></td>
-<td>none. Base64, because that is what a secret manager hands back and the only encoding that survives an environment variable without a length surprise</td>
+<td>none. Base64, because that is what a secret manager hands back and the only encoding that survives an environment variable without a length surprise. It must decode to exactly <code>StoreDataProtector.KeyBytes</code>, and a single repeated byte is refused outright — <code>new byte[32]</code> is what a placeholder and a copied example both look like, and it boots a host whose stored provider tokens anyone can decrypt. Generate one with <code>RandomNumberGenerator.GetBytes(32)</code></td>
 </tr>
 <tr>
 <td><code>AllowEphemeralStoreEncryptionKey</code></td>
@@ -330,7 +332,7 @@ section the product names when it calls <code>AddSignIn</code>. See
 </tbody>
 </table>
 <h2 id="what-a-provisioned-host-holds">What a provisioned host holds</h2>
-<p><code>scripts/deploy/provision.sh</code> seeds four files under <code>/etc/nativeweb/</code>. It writes them empty
+<p><code>scripts/deploy/provision.sh</code> seeds five files under <code>/etc/nativeweb/</code>. It writes them empty
 where a value is a secret: a script that generates a production credential is a script that has
 seen it.</p>
 <table>

@@ -13,7 +13,7 @@ the day before the library that provides them completed.
 ## 1. Reference the framework
 
 **Checkout mode is what works today.** Clone this repository as a **sibling** of your product —
-and clone [JauntyQ](../jauntyq) beside it too, because NativeWeb's own libraries reference it and
+and clone JauntyQ beside it too, because NativeWeb's own libraries reference it and
 its checkout is probed relative to the NativeWeb one:
 
 ```
@@ -67,7 +67,7 @@ worktree fails:
 
 ### Why not packages
 
-The eight libraries carry `IsPackable` and a `PackageId`, and
+The eleven projects under `libs/` carry `IsPackable` and a `PackageId`, and
 `skeleton/Directory.Build.props` already has a `-p:NativeWebUsePackages=true` mode. **Do not use
 it yet.** Package mode is approved and not working: it has never restored end to end, and the
 repository has no release process for a consumed library — no stated semver guarantee, no
@@ -91,6 +91,15 @@ Add the ones you need. `nativeweb.render` and its generator are the minimum for 
 
 A generator is referenced as an **analyzer**, with `ReferenceOutputAssembly="false"`. Reference
 it as an ordinary project and it compiles into your output and generates nothing.
+
+**Import the assets targets by hand.** A `PackageReference` would pick this up on its own; a
+`ProjectReference` does not, so nothing contributes the framework's `wwwroot/` — HTMX, Alpine and
+the design-system stylesheets — to your static web assets, and every one of them 404s at run time
+with no build error:
+
+```xml
+<Import Project="$(NativeWebRoot)\libs\nativeweb.web\build\NativeWeb.Web.targets" />
+```
 
 ### Declare your templates
 
@@ -180,7 +189,7 @@ be output-cached, which a hand-rolled shell usually does not do.
 ## 4. What you must keep
 
 - **Your own routes, data access and domain.** NativeWeb has no ORM. Data access is
-  [JauntyQ](../jauntyq), source-generated over PostgreSQL, and it is a separate adoption
+  JauntyQ, source-generated over PostgreSQL, and it is a separate adoption
   decision from this one.
 - **Your `wwwroot`.** Framework assets arrive through an MSBuild `.targets` that contributes
   them to your static web assets; you do not copy them.

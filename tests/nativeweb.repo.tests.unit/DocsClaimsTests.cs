@@ -218,11 +218,13 @@ public sealed partial class DocsClaimsTests
 
         foreach (string key in BoundKeys(root))
         {
+            // Backticked forms only. A bare substring search over the whole file passes on a
+            // mention in prose, and worse, passes on any superstring: documenting
+            // `ClientAuthenticationZ` would satisfy a search for ClientAuthentication and the
+            // key would read as documented while nothing described it.
             Assert.True(
                 reference.Contains($"`{key}`", StringComparison.Ordinal)
-                    || reference.Contains($"`{{Section}}:{key}`", StringComparison.Ordinal)
-                    || reference.Contains($"`{key}`,", StringComparison.Ordinal)
-                    || reference.Contains(key, StringComparison.Ordinal),
+                    || reference.Contains($"`{{Section}}:{key}`", StringComparison.Ordinal),
                 $"{ConfigurationReference} does not document `{key}`, which a binder reads. A setting that "
                 + "lands undocumented is one an operator finds by reading source.");
         }
@@ -300,11 +302,29 @@ public sealed partial class DocsClaimsTests
             yield return resolved!;
         }
 
+        // Not every root-level read goes through Key(): the OpenTelemetry service name is read
+        // off the configuration root by its standard name, so the section-relative patterns
+        // above cannot see it.
+        foreach (Match match in RootKey().Matches(options))
+        {
+            yield return match.Groups[1].Value;
+        }
+
         string signIn = File.ReadAllText(Path.Combine(root, "libs/nativeweb.signin/SignInConfiguration.cs"));
 
         foreach (Match match in SignInKey().Matches(signIn))
         {
             yield return match.Groups[2].Value;
+        }
+
+        // The helper calls above are the common shape, not the only one. Three keys are read
+        // straight off the section -- an indexer and a GetSection -- and a fourth is passed to
+        // Mode() as a variable rather than a literal, so the helper pattern matches nothing for
+        // it. Extracting only the tidy shape is how a key gets added to a settings class and
+        // never to the reference, with this test green throughout.
+        foreach (Match match in SectionKey().Matches(signIn))
+        {
+            yield return match.Groups[1].Value;
         }
     }
 
@@ -516,6 +536,12 @@ public sealed partial class DocsClaimsTests
 
     [GeneratedRegex(@"(Text|Flag|Seconds|Mode)\(\s*section,\s*""([^""]+)""")]
     private static partial Regex SignInKey();
+
+    [GeneratedRegex(@"section(?:\[|\.GetSection\()\s*""([^""]+)""")]
+    private static partial Regex SectionKey();
+
+    [GeneratedRegex(@"configuration\[\s*""([^"":]+)""\s*\]")]
+    private static partial Regex RootKey();
 
     [GeneratedRegex(@"`\{Section\}:([^`]+)`")]
     private static partial Regex SectionRelativeKey();
