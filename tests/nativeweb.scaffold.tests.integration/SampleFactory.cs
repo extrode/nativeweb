@@ -67,11 +67,21 @@ internal static class Forms
         page.EnsureSuccessStatusCode();
 
         string html = await page.Content.ReadAsStringAsync();
-        Match match = TokenPattern.Match(html);
 
-        return match.Success
-            ? new KeyValuePair<string, string>(match.Groups[1].Value, match.Groups[2].Value)
-            : throw new InvalidOperationException($"No antiforgery field on {path}.");
+        // By name, not by position. This took the first hidden input on the page until
+        // spec 017, when the list's search form gained hidden sort and dir fields that
+        // render ahead of the token -- so every post from the list page carried "sort"
+        // as its antiforgery token and came back 400. The framework's own field is the
+        // "__"-prefixed one; every other hidden input on these pages is app-declared.
+        foreach (Match match in TokenPattern.Matches(html))
+        {
+            if (match.Groups[1].Value.StartsWith("__", StringComparison.Ordinal))
+            {
+                return new KeyValuePair<string, string>(match.Groups[1].Value, match.Groups[2].Value);
+            }
+        }
+
+        throw new InvalidOperationException($"No antiforgery field on {path}.");
     }
 
     internal static async Task<HttpResponseMessage> PostAsync(
