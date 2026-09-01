@@ -51,6 +51,25 @@ wish list; the value is in recording the ones nobody has got to yet.
   JSON-only control plane. That may be the right boundary; the framework should say so rather than
   leave it implied.
 
+- **Spec 011's backup and restore drill — R16 and R17, parked here on 2026-09-01 at the user's
+  request.** Spec 011 is `Status: draft` for this and nothing else: T15's first third ran for
+  real (`nativeweb-dev` serves `apps/sample` at `nw-dev.example.com`, two blue/green releases at
+  1.774 s and 1.888 s), and the restore drill cannot start because no backup exists. Every key in
+  `/etc/nativeweb/backup.env` on that host is present and empty, so the 03:17 timer fails nightly
+  on `BACKUP_S3_BUCKET: set BACKUP_S3_BUCKET`.
+
+  **An open question sits in front of the work, and it may delete some of it.** The user asked
+  whether `pg_dump` earns its place given the VM is snapshotted, and is checking whether
+  incus-host's Incus/ZFS snapshots leave the box. If they do, the nightly dump is largely
+  redundant for disaster recovery and R16 is better restated as a snapshot-restore drill; if they
+  do not, an offsite encrypted dump does work no snapshot does. **Answer that before building
+  anything here** — it decides whether the deliverable is a drill or a deletion.
+
+  Whatever the answer, the credentials step is the operator's: a bucket, its keys, and an age
+  keypair from `age-keygen -o /etc/nativeweb/backup-age.key` run **on the host**. A session must
+  not generate that key, because the private half decrypts every backup ever taken. R15 stays
+  conditional on `BACKUP_HEARTBEAT_URL`. `nativeweb-prod` is out of scope and untouched.
+
 - **The security and mail tiers exist now — 227 facts, written 2026-08-31.**
   `tests/nativeweb.security.tests.unit` (174) and `tests/nativeweb.mail.tests.unit` (53) close the
   coverage gap recorded below; nine mutations across the two libraries were checked to confirm the
