@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Constitution — NativeWeb — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  try {
+    var t = localStorage.getItem('dg-theme');
+    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+    var s = parseFloat(localStorage.getItem('dg-fs'));
+    if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Constitution — NativeWeb</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html" class="active" aria-current="page">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">quick-start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+</div>
+
+      </div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#stack-constraints">Stack constraints</a><a class="toc-l2" href="#architecture-invariants">Architecture invariants</a><a class="toc-l2" href="#security-data">Security / data</a><a class="toc-l2" href="#testing">Testing</a><a class="toc-l2" href="#governance">Governance</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Constitution — NativeWeb</nav>
+        <article>
+<h1 id="constitution-nativeweb">Constitution — NativeWeb</h1>
+<p>Binding project rules. These are the WON'T-change decisions. Agents and humans obey them;
+changing one is a deliberate governance act, not a casual edit. This is NOT lessons-learned
+(see docs/lessons/) and NOT mechanical conventions (see docs/conventions.md).</p>
+<p>Status: draft · Last reviewed: <date></p>
+<h2 id="stack-constraints">Stack constraints</h2>
+<ul>
+<li>(e.g. &quot;No React.&quot; / &quot;No Node.&quot; / &quot;NativeAOT — source-gen JSON only, no reflection.&quot;)</li>
+</ul>
+<h2 id="architecture-invariants">Architecture invariants</h2>
+<ul>
+<li>(e.g. &quot;Every mutating flow is an HTML form action; app works with JS disabled.&quot;)</li>
+</ul>
+<h2 id="security-data">Security / data</h2>
+<ul>
+<li>(e.g. &quot;AWS surface is SES+S3+SNS only.&quot; / rules for auth, input handling, data exposure)</li>
+</ul>
+<h2 id="testing">Testing</h2>
+<ul>
+<li>(e.g. &quot;Core is zero-dependency; tests may use Testcontainers.&quot;)</li>
+</ul>
+<h2 id="governance">Governance</h2>
+<ul>
+<li>Supersedes ad-hoc practices. To change a rule: record the change + date + why, right here.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><span></span><a class="pn-next" href="conventions.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Conventions</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+  </footer>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "versions": [
+    {
+      "prefix": "unversioned",
+      "tag": null,
+      "release": false,
+      "built": "2026-08-31T23:57:39Z"
+    }
+  ],
+  "latest": "unversioned"
+}

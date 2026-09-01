@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conventions — NativeWeb — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  try {
+    var t = localStorage.getItem('dg-theme');
+    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+    var s = parseFloat(localStorage.getItem('dg-fs'));
+    if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Conventions — NativeWeb</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html" class="active" aria-current="page">Conventions</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">quick-start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+</div>
+
+      </div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#file-directory-naming">File &amp; directory naming</a><a class="toc-l2" href="#git-workflow">Git workflow</a><a class="toc-l2" href="#cleanup-policy">Cleanup policy</a><a class="toc-l2" href="#docs-layout">Docs layout</a><a class="toc-l2" href="#project-visibility">Project visibility</a><a class="toc-l2" href="#readmes">READMEs</a><a class="toc-l2" href="#instruction-file">Instruction file</a><a class="toc-l2" href="#specs-freshness">Specs freshness</a><a class="toc-l2" href="#response-compression-and-breach-spec-003-r32">Response compression and BREACH (spec 003 R32)</a><a class="toc-l2" href="#caching-of-token-bearing-pages-spec-003-r30">Caching of token-bearing pages (spec 003 R30)</a><a class="toc-l2" href="#options-validation-spec-003-r34">Options validation (spec 003 R34)</a><a class="toc-l2" href="#progressive-enhancement-specs-004-005">Progressive enhancement (specs 004, 005)</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Conventions — NativeWeb</nav>
+        <article>
+<h1 id="conventions-nativeweb">Conventions — NativeWeb</h1>
+<p>Mechanical how-we-work rules. Defaults are inherited from ~/.claude/templates/project-rules.md;
+this file records project-specific deltas. Binding principles live in docs/constitution.md;
+project memory lives in docs/lessons/.</p>
+<h2 id="file-directory-naming">File &amp; directory naming</h2>
+<ul>
+<li>kebab-case for files and dirs: <code>mail-pipeline.md</code>, <code>data-model.sql</code>.</li>
+<li>Except where an established convention dictates otherwise: <code>README.md</code>, <code>CHANGELOG.md</code>,
+<code>LICENSE.md</code>, <code>Directory.Build.props</code>, or language-mandated casing (C# <code>PascalCase.cs</code>).</li>
+<li>Unsure? Match the nearest existing sibling file.</li>
+</ul>
+<h2 id="git-workflow">Git workflow</h2>
+<ul>
+<li><code>main</code> is release-only; <code>dev</code> is integration. Never commit directly to either.</li>
+<li>All work on named branches off <code>dev</code> (<code>feat/ fix/ chore/ docs/ refactor/ test/</code>). Commit often.</li>
+<li>Merge completed branches back to <code>dev</code> with <code>--no-ff</code>. Always merge once a branch is complete —
+never leave finished work unmerged.</li>
+<li>Release: <code>dev</code> -&gt; <code>main</code> <code>--no-ff</code> + semver tag. No AI attribution. Ask before deleting branches.</li>
+</ul>
+<h2 id="cleanup-policy">Cleanup policy</h2>
+<ul>
+<li>NEVER auto-delete files, branches, or artifacts (the guards block it anyway).</li>
+<li>Instead: append every cleanup candidate to a running list, then generate a reviewed PowerShell
+script at <code>scripts/cleanup/cleanup-&lt;milestone&gt;.ps1</code> for the user to run manually.</li>
+<li><strong>Fixed interface, every script, both shells.</strong> Dry run is what a bare invocation does — there
+is no flag to request one. <code>--execute</code> / <code>-e</code> is the only way to act; not <code>-Apply</code>, <code>-Force</code>,
+<code>--yes</code> or <code>-WhatIf</code>. Anything irreversible beyond that (deleting untracked files, <code>git rm</code>,
+dropping tables, rewriting history) needs a second flag named for what it does, on top of
+<code>--execute</code>. A dry run always exits 0; <code>--execute</code> with a failed precondition exits non-zero.</li>
+<li>Script rules: <code>$ErrorActionPreference='Stop'</code> (or <code>set -euo pipefail</code>); safety gate (refuse if
+not on the expected branch); numbered sections; <code>git branch -d</code> (never <code>-D</code>); print the
+remaining state at the end; header comment naming the work and date that produced it.</li>
+</ul>
+<h2 id="docs-layout">Docs layout</h2>
+<p>Specs, plans, designs and architecture notes live under <code>docs/</code>, committed, never in a
+dot-directory and never untracked — they exist to be reviewed in a diff.</p>
+<pre><code>docs/
+  specs/001-a-new-way-for-the-api/          # one dir per spec
+    001-spec.md  001-plan.md  001-tasks.md
+  plans/2026-07-28-001-workflow-routing.md  # plan-mode work with no spec
+  architecture/001-storage-model.md
+</code></pre>
+<ul>
+<li>Numbered always, zero-padded to three, next number allocated by scanning the directory.</li>
+<li>Dated as well where entries accumulate rather than being revised (<code>plans/</code>, <code>decisions/</code>);
+not in <code>specs/</code>, where a spec is updated in place. Date first, <code>YYYY-MM-DD</code>, so it sorts.</li>
+<li>An approved plan-mode plan is promoted out of its generated scratch name into <code>docs/plans/</code>
+and committed with the branch's first commit.</li>
+</ul>
+<h2 id="project-visibility">Project visibility</h2>
+<p><code>work/</code> holds the files that answer &quot;what is going on here&quot; without reading the code.
+They are updated as part of the work, in the same branch, not batched to the end of a session.</p>
+<pre><code>CHANGELOG.md            # what shipped. At the ROOT, and written at release, not per commit.
+work/
+  tasklist.md           # every task for the body of work underway. Stays put.
+  milestones.md         # where this is going. Coarse; changes rarely.
+  todo.md               # unscheduled backlog. Out-of-scope notes land here.
+  status/
+    previous.md         # the task that just finished
+    current.md          # the ONE task in flight
+    next.md             # the ONE task queued
+  archive/
+    2026-07-28-storage-move.md   # a completed tasklist, one per shipped body of work
+</code></pre>
+<p><code>tasklist.md</code> is the task breakdown for the work currently underway. The <code>status/</code> trio is a
+three-deep sliding window over it, one task each: <code>current</code> -&gt; <code>previous</code>, <code>next</code> -&gt; <code>current</code>,
+next unchecked tasklist entry -&gt; <code>next</code>. The tasklist does not rotate; it is emptied and refilled
+when that body of work ships. Durable-tier work already has one at
+<code>docs/specs/&lt;NNN&gt;-*/&lt;NNN&gt;-tasks.md</code> — point at it rather than keeping a second copy.</p>
+<p>An item's path is <code>todo.md</code> -&gt; <code>tasklist.md</code> -&gt; <code>status/next.md</code> -&gt; <code>status/current.md</code> -&gt;
+<code>status/previous.md</code> -&gt; <code>CHANGELOG.md</code>.</p>
+<p>When <code>tasklist.md</code> is fully ticked: summarise it into <code>CHANGELOG.md</code> under <code>## [Unreleased]</code>, move
+it to <code>work/archive/YYYY-MM-DD-&lt;slug&gt;.md</code>, and start a fresh one.</p>
+<p><code>/status</code> shows the rotation and flags staleness; <code>/status roll</code> advances it. <code>docs/project/</code> and
+<code>docs/status/</code> are the pre-2026-07-28 locations — read them if that is what the repo has, but do
+not move them without being asked, because the paths are referenced elsewhere.</p>
+<p><strong>Check the layout after every task, not at the end of the body of work.</strong> A file left in the
+wrong place for six tasks is a file nobody will move.</p>
+<h2 id="readmes">READMEs</h2>
+<p><code>README.md</code> at the repo root, always: what this is, how to run it, how to build it, and the
+layout table. Someone arriving cold should not have to read code to learn what the project is.</p>
+<p>A local <code>README.md</code> in any subdirectory whose purpose is not obvious from its name — a few lines
+saying what belongs there, what does not, and the naming rule if there is one. The test: if
+someone would have to open three files to work out what a directory is for, write one.</p>
+<p>Not every directory. <code>src/</code> and <code>tests/</code> explain themselves; <code>work/archive/</code> and
+<code>scripts/cleanup/</code> do not.</p>
+<h2 id="instruction-file">Instruction file</h2>
+<p><code>AGENTS.md</code> is the instruction file. <code>CLAUDE.md</code> beside it holds the single line <code>@AGENTS.md</code>.</p>
+<p>Claude Code injects <code>CLAUDE.md</code> into context at load and does <strong>not</strong> inject <code>AGENTS.md</code> — but it
+does honour the <code>@</code> import inside <code>CLAUDE.md</code>, which pulls the real file in with no tool call.
+Verified empirically with a canary in each file, both directions. Every other agent tool reads
+<code>AGENTS.md</code> directly. So there is one source of truth and a one-line shim nobody edits.</p>
+<h2 id="specs-freshness">Specs freshness</h2>
+<ul>
+<li>When code diverges from a shipped spec, update <code>docs/specs/NNN-*/spec.md</code> (bump its <code>Status:</code>
+and add a <code>last-verified: &lt;date&gt;</code> line). <code>/spec-status</code> flags any spec older than its own
+plan/tasks as ⚠ stale.</li>
+</ul>
+<h2 id="response-compression-and-breach-spec-003-r32">Response compression and BREACH (spec 003 R32)</h2>
+<p>The app compresses <code>text/html</code> only, Brotli-first, with <code>EnableForHttps=true</code> (as do the
+products stamped from <code>skeleton/</code>). Compressing
+secret-bearing HTML over TLS is the precondition for BREACH-class attacks, so the acceptance is
+deliberate and bounded:</p>
+<ul>
+<li>Every secret that appears in rendered HTML is per-response, so the byte sequence an attacker
+would need to converge on changes every render and the compression-oracle loop BREACH depends
+on never stabilises. The inventory: the antiforgery request token (varies per render because
+Data Protection encrypts it with a randomized IV — there is no System.Web-style XOR mask, the
+IV is the whole mechanism), the CSP nonce (single-use by definition), the OAuth authorization
+code the consent page embeds in a hidden field (minted fresh on every GET of
+/oauth/authorize), and the TOTP secret on GET /auth/2fa/enroll (fresh per render).</li>
+<li><strong>Invariant, not accident:</strong> the consent code and enroll secret staying freshly minted per
+render is load-bearing for this acceptance. An optimization that reuses the pending
+authorization (or the staged TOTP secret) across refreshes would put a <em>stable</em> secret in the
+same compressed response as attacker-chosen <code>state</code> — exactly the oracle this section claims
+cannot exist. Such a change must revisit this section, not just its own endpoint.</li>
+<li>HTML-encoding user input is XSS hygiene, <strong>not</strong> a BREACH mitigation — token alphabets
+(base64/base32/hex) pass through <code>HtmlEncoder</code> untouched, so encoded reflection compresses
+against a secret exactly as raw reflection would. The reflection leg of BREACH is instead
+starved by the per-IP rate limits (tens per minute, where the oracle needs thousands of
+probes) and defused by the previous bullet (no stable secret to converge on).</li>
+<li>OAuth token/introspection responses are JSON and not on the mime list; they are never
+compressed.</li>
+</ul>
+<p>If a future page acquires a secret that survives across renders, that page — not the mime
+list — is the thing to fix.</p>
+<h2 id="caching-of-token-bearing-pages-spec-003-r30">Caching of token-bearing pages (spec 003 R30)</h2>
+<p>No shared-cache headers and no ETags on session-bound HTML: <code>SecurityHeadersMiddleware</code> stamps
+<code>Cache-Control: no-store</code> (+ <code>Pragma: no-cache</code> where RFC 6749 demands) on every sensitive
+content type and redirect. Fingerprinted static assets keep their long-lived immutable caching —
+the split is by content type, never blanket. Static <em>pages</em> (R38) get <code>no-cache</code> + ETag
+revalidation instead: they carry no tokens, so revalidation is safe and cheap.</p>
+<h2 id="options-validation-spec-003-r34">Options validation (spec 003 R34)</h2>
+<p>The apps deliberately have no <code>IOptions&lt;T&gt;</code> classes to <code>ValidateOnStart</code>: configuration is read
+imperatively in <code>Program.cs</code> with fail-fast guards that throw before <code>Build()</code> on malformed
+values (see <code>StartupConfigGuardTests</code>, which boot the real binary against broken config and
+assert the refusal). A future options class must either keep that shape or register with
+<code>.ValidateOnStart()</code> — a config error surfacing as a first-request hang is the AOT lesson this
+rule closes.</p>
+<h2 id="progressive-enhancement-specs-004-005">Progressive enhancement (specs 004, 005)</h2>
+<p>Browser-facing markup uses the <code>data-nw-*</code> enhancement layer, normalized to <code>hx-*</code> by the
+vendored <code>boot.js</code> (canonical source <code>libs/nativeweb.assets/boot.js</code>, loaded <code>defer</code> before
+htmx). State-changing endpoints are POST-only verb routes; transport is derived from the
+element's own <code>method</code>/<code>action</code>/<code>href</code>, and an authored <code>hx-*</code> attribute always wins. On top
+of that sit the spec 005 UX defaults: boot.js busy states and focus-after-swap, cookie flash
+messages, access keys, native-constraint mirroring with field-level server errors, <code>/version</code>,
+and the any-content-type rule. Full conventions:
+<a href="01-architecture-progressive-enhancement.html">progressive-enhancement.md</a>.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="constitution.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Constitution</span>
+</a><a class="pn-next" href="00-quick-start-README.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">README</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+  </footer>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

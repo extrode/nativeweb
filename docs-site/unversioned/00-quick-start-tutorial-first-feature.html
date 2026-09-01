@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tutorial — build your first feature — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  try {
+    var t = localStorage.getItem('dg-theme');
+    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+    var s = parseFloat(localStorage.getItem('dg-fs'));
+    if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Tutorial — build your first feature</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">quick-start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html" class="active" aria-current="page">Tutorial first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+</div>
+
+      </div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#why-this-feature-is-hand-written-at-all">Why this feature is hand-written at all</a><a class="toc-l2" href="#the-read-model-and-its-seam">1. The read model and its seam</a><a class="toc-l2" href="#the-query">2. The query</a><a class="toc-l2" href="#the-renderer">3. The renderer</a><a class="toc-l2" href="#the-endpoint">4. The endpoint</a><a class="toc-l2" href="#the-wiring">5. The wiring</a><a class="toc-l2" href="#the-unit-tier">6. The unit tier</a><a class="toc-l2" href="#the-integration-tier">7. The integration tier</a><a class="toc-l2" href="#the-end-to-end-tier">8. The end-to-end tier</a><a class="toc-l2" href="#perturb-every-green-test">9. Perturb every green test</a><a class="toc-l2" href="#run-it-all">Run it all</a><a class="toc-l2" href="#what-to-take-to-your-own-feature">What to take to your own feature</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Tutorial — build your first feature</nav>
+        <article>
+<h1 id="tutorial-build-your-first-feature">Tutorial — build your first feature</h1>
+<p>One feature, through every layer it touches: a read model, a JauntyQ query, a renderer, an
+endpoint, and a test at each of the three tiers. Nothing is deferred to a later page, because the
+layers only make sense against each other.</p>
+<p><strong>The finished feature is already in this repository.</strong> It is <code>GET /articles</code> in <code>apps/sample</code> — a
+public, read-only page listing published articles, newest first. Run it now, before reading
+further:</p>
+<pre><code>dotnet run --project apps/sample
+</code></pre>
+<p>then open <code>http://localhost:5399/articles</code>. You are looking at the result of every step below.</p>
+<p><strong>Follow along in your own product, not here.</strong> If you came through
+<a href="00-quick-start-getting-started.html">Path A of the getting-started guide</a>, you have a stamped product with its own
+table; build the equivalent page against that, and read this repository's files as the worked
+answer. There used to be a second path here, for the identity provider this repository held; it
+left on 2026-08-31, so there is one path. Read rather than type if you only want the layering — it is
+identical and <code>apps/sample</code> is the smaller place to see it whole.</p>
+<p>The files, in the order this page covers them:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Layer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apps/sample/PublishedArticles.cs</code></td>
+<td>the read model and its seam, plus both implementations</td>
+</tr>
+<tr>
+<td><code>db/sample/queries/Articles/ListPublished.sql</code></td>
+<td>the query</td>
+</tr>
+<tr>
+<td><code>apps/sample/Render/ArticlesPage.cs</code></td>
+<td>the renderer</td>
+</tr>
+<tr>
+<td><code>apps/sample/PublicArticleEndpoints.cs</code></td>
+<td>the endpoint</td>
+</tr>
+<tr>
+<td><code>apps/sample/Program.cs</code></td>
+<td>the wiring</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.sample.tests.unit/PublicArticlesTests.cs</code></td>
+<td>unit tier</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.scaffold.tests.integration/PublicFeedTests.cs</code></td>
+<td>integration tier</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.scaffold.tests.e2e/PublicFeedTests.cs</code></td>
+<td>e2e tier</td>
+</tr>
+</tbody>
+</table>
+<h2 id="why-this-feature-is-hand-written-at-all">Why this feature is hand-written at all</h2>
+<p><code>apps/sample</code> already has a complete admin UI over the same table, and not one line of it exists in
+source: <code>app.MapScaffolding()</code> generates every route from the attributes on the <code>Article</code> model. So
+the first question a tutorial owes you is why this page is not generated too.</p>
+<p>Because scaffolding earns its place on CRUD over a table, and nothing else. The admin screens are
+forms over columns, which is exactly the shape an attribute can describe. A public feed is a
+product decision — which rows, in what order, showing which fields, at what page size — and none of
+that is a property of the table. <strong>A real product is mostly the hand-written kind.</strong> The scaffolding
+is there so the CRUD costs you nothing, not so the product does.</p>
+<p>What scaffolding can and cannot express is in
+<code>libs/nativeweb.scaffold/README.md</code>.</p>
+<h2 id="the-read-model-and-its-seam">1. The read model and its seam</h2>
+<p><code>apps/sample/PublishedArticles.cs</code> opens with a record and an interface:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">public</span> <span class="tok-kw">readonly</span> <span class="tok-kw">record</span> <span class="tok-kw">struct</span> PublishedArticle(string Id, string Title, string? Author, DateTime CreatedAt);
+
+<span class="tok-kw">public</span> <span class="tok-kw">interface</span> IPublishedArticles
+{
+    ValueTask&lt;IReadOnlyList&lt;PublishedArticle&gt;&gt; RecentAsync(int take, CancellationToken ct);
+}
+</code></pre>
+</div>
+<p>Four fields, where the <code>Article</code> model has seven. <strong>That narrowing is the point, not an
+optimisation.</strong> <code>Article</code> is the scaffolding's model: its shape is decided by what the admin form
+edits, so handing it to a public page means the page silently gains a field the day someone adds
+one to the form. A read model that names exactly what it renders cannot drift that way — and
+<code>Body</code> never reaching a list page is a decision you can see rather than one you have to trust.</p>
+<p>The interface is a seam for the same reason <code>IScaffoldStore&lt;T&gt;</code> is one: <code>Program.cs</code> decides which
+implementation answers, and nothing above it learns whether a database exists. Two implementations
+sit below it in the same file.</p>
+<p><strong>In memory</strong>, filtering and sorting are the caller's job, because the store seam offers no way to
+express either:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">return</span> all
+    .Where(a =&gt; a.Published)
+    .OrderByDescending(a =&gt; a.CreatedAt)
+    .ThenBy(a =&gt; a.Id, StringComparer.Ordinal)
+    .Take(take)
+    .Select(a =&gt; <span class="tok-kw">new</span> PublishedArticle(a.Id, a.Title, a.Author, a.CreatedAt))
+    .ToList();
+</code></pre>
+</div>
+<p><strong>Over PostgreSQL</strong>, the same class does nothing but map rows, because the filter and the ordering
+moved into SQL:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp">List&lt;Row&gt; rows = <span class="tok-kw">await</span> db.Articles.ListPublishedAsync(take, ct).ConfigureAwait(<span class="tok-kw">false</span>);
+</code></pre>
+</div>
+<p>Both are registered as singletons. Neither holds per-request state, and the JauntyQ one takes a
+connection from the pool per call — the reasoning is in <code>JauntyArticleStore</code>'s remarks, next to it.</p>
+<p>Keeping both is deliberate. The in-memory path is why the demo, the integration tier and the
+browser tier all work with no database at all, and the pair is the clearest statement this
+codebase makes that persistence is a registration rather than a rewrite.</p>
+<h2 id="the-query">2. The query</h2>
+<p>All data access goes through JauntyQ — no EF Core, no Dapper, no hand-written ADO.NET — and a
+JauntyQ query is a <code>.sql</code> file that the source generator turns into a typed method. There is no
+step where you write the C# for it. Drop the file in <code>db/sample/queries/Articles/</code>, build, and
+<code>db.Articles.ListPublishedAsync</code> exists.</p>
+<p>The generator, the schema snapshot it reads, and why <code>apps/sample</code> hosts it directly rather than
+through a data library of its own, are in <code>db/sample/README.md</code> and
+<code>db/README.md</code>. Read the first one now if you have not: it also has the two
+<code>CREATE DATABASE</code> lines this feature's tests need.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql">-- @params take:int
+-- @allow-sort demo table, three seeded rows; an index would cost more to explain than the sort costs to run
+<span class="tok-kw">SELECT</span> id, title, author, body, published, view_count, created_at
+<span class="tok-kw">FROM</span> articles
+<span class="tok-kw">WHERE</span> published
+<span class="tok-kw">ORDER</span> <span class="tok-kw">BY</span> created_at DESC, id
+<span class="tok-kw">LIMIT</span> @take;
+</code></pre>
+</div>
+<p>Four things in six lines, and the second is the one worth the walk.</p>
+<p><strong><code>-- @params take:int</code>.</strong> The generator infers a parameter's type by looking at the typed column it
+is compared against. <code>@take</code> appears in <code>LIMIT</code>, where there is no column, so it infers nothing and
+says so — <code>JNT4003</code> — rather than guessing. Declaring it is the fix.</p>
+<p><strong><code>-- @allow-sort</code>, and the diagnostic that forces it.</strong> <code>articles</code> carries exactly one index, the
+<code>id</code> primary key. <code>ORDER BY created_at</code> therefore sorts at runtime, and JauntyQ raises <code>JNT8007</code>
+about it. JauntyQ rates that a Warning; <code>TreatWarningsAsErrors</code> is on repo-wide (<code>AGENTS.md</code>), so
+<strong>here it stops the build.</strong></p>
+<p>You have two honest answers and you must pick one:</p>
+<table>
+<thead>
+<tr>
+<th>Answer</th>
+<th>When it is right</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Add an index on <code>created_at</code> in a migration</td>
+<td>The table grows. This is the usual answer.</td>
+</tr>
+<tr>
+<td>Accept the sort and say why</td>
+<td>The table does not grow.</td>
+</tr>
+</tbody>
+</table>
+<p>This table is three seeded rows in a demo, where PostgreSQL would ignore the index anyway, so the
+second is the true answer and <code>@allow-sort</code> is how you record it. <strong>The reason is mandatory</strong> — a
+bare directive is rejected outright with <code>JNT3008</code>, so the exemption cannot be a shrug.</p>
+<p>It is also self-expiring. Add an index whose leading column is <code>created_at</code> and <code>JNT8012</code> fires on
+that very line, saying the directive now suppresses nothing. An exemption cannot quietly outlive
+the thing that justified it — which is what makes accepting the sort a decision rather than a
+suppression.</p>
+<p>The <code>JNT</code> diagnostics are JauntyQ's own and are documented upstream, not in this repository. The
+<code>NWT</code> codes in <a href="02-reference-template-diagnostics.html"><code>template-diagnostics.md</code></a> are a different family
+belonging to the template engine, and do not apply here.</p>
+<p><strong>Every column, though the page shows three.</strong> A whole-table projection makes the generated row type
+<code>JauntyQ.Generated.Article</code> — the same type <code>List.sql</code> already produces — so this query adds a
+method and not a second row shape to learn. Narrow it when row width costs something; on a demo
+table it buys nothing and costs a type.</p>
+<p><strong><code>ORDER BY created_at DESC, id</code>.</strong> <code>created_at</code> defaults to <code>NOW()</code>, so a scripted or seeded insert
+can give several rows one timestamp. Without the tiebreak the page order is whatever the database
+happens to return: stable enough to look fine locally, unstable enough to reorder between requests
+in production.</p>
+<h2 id="the-renderer">3. The renderer</h2>
+<p>There is no view engine and no template file. A page is a static method that returns a string:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">internal</span> <span class="tok-kw">static</span> <span class="tok-kw">class</span> ArticlesPage
+{
+    <span class="tok-kw">public</span> <span class="tok-kw">static</span> string Render(IReadOnlyList&lt;PublishedArticle&gt; articles) { ... }
+}
+</code></pre>
+</div>
+<p>Why the architecture makes that trade — server-rendered HTML, no SPA build pipeline, everything
+compiled into one NativeAOT binary — is <a href="01-architecture-native-web-architecture.html"><code>native-web-architecture.md</code></a>,
+which is the document the rest of this repository assumes. The immediate consequence for you is
+smaller and more useful: <strong>the type system is what tells you a field is missing.</strong> A renderer that
+does not compile is a page that cannot be half-written.</p>
+<p>Two decisions inside it are worth copying.</p>
+<p><strong>The encoder is called explicitly.</strong></p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp">HtmlEncoder encoder = HtmlEncoder.Default;
+string title = encoder.Encode(article.Title);
+</code></pre>
+</div>
+<p>Not because a template engine's automatic encoding would be worse, but because there isn't one, and
+that changes where the risk lives: with no default, the one place raw markup could enter is
+visible by grep. Nothing on this page is trusted — the title and the author come out of a database
+that an admin form writes to, which makes them attacker-influenced input on a public page. The
+standard this is held to is <a href="02-reference-security-baseline.html"><code>security-baseline.md</code></a>.</p>
+<p><strong>The empty case says something.</strong></p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">if</span> (articles.Count == <span class="tok-num">0</span>)
+{
+    items.Append(&quot;&lt;p <span class="tok-kw">class</span>=\&quot;articles__empty\&quot;&gt;No published articles yet.&lt;/p&gt;&quot;);
+}
+</code></pre>
+</div>
+<p>An empty feed is a normal state — a fresh database has no published rows — and an empty <code>&lt;ul&gt;</code> reads
+as a broken page. The nullable <code>author</code> gets the same treatment one level down: omitted entirely
+rather than rendered as an empty <code>&lt;span&gt;</code>, so an author-less article has no stray punctuation.</p>
+<p><strong>This page carries no JavaScript at all</strong>, which is why HTMX and Alpine do not appear above. That
+is a property of this feature, not permission to skip the rules: the moment a page gains an
+interaction, <a href="01-architecture-progressive-enhancement.html"><code>progressive-enhancement.md</code></a> is mandatory, and it
+requires the page work without JavaScript first — which this one does by construction.</p>
+<h2 id="the-endpoint">4. The endpoint</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">internal</span> <span class="tok-kw">static</span> <span class="tok-kw">class</span> PublicArticleEndpoints
+{
+    <span class="tok-kw">private</span> <span class="tok-kw">const</span> int PageSize = <span class="tok-num">20</span>;
+
+    <span class="tok-kw">public</span> <span class="tok-kw">static</span> IEndpointRouteBuilder MapPublicArticles(<span class="tok-kw">this</span> IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapGet(&quot;/articles&quot;, <span class="tok-kw">async</span> (IPublishedArticles articles, CancellationToken ct) =&gt;
+        {
+            IReadOnlyList&lt;PublishedArticle&gt; recent = <span class="tok-kw">await</span> articles.RecentAsync(PageSize, ct).ConfigureAwait(<span class="tok-kw">false</span>);
+            <span class="tok-kw">return</span> Results.Content(ArticlesPage.Render(recent), &quot;text/html&quot;);
+        });
+
+        <span class="tok-kw">return</span> endpoints;
+    }
+}
+</code></pre>
+</div>
+<p>Minimal APIs only — no MVC, no controllers, no Razor Pages. The handler is four lines because the
+three layers under it each did one job, and the extension-method shape is the convention every
+route group in the repository follows.</p>
+<p><strong><code>PageSize</code> is a constant, not a query-string parameter.</strong> An attacker-controlled page size is a
+denial-of-service lever, and a public feed has no reason to offer one. If you need paging, take a
+cursor, not a count.</p>
+<p><strong>There is no <code>RequireAuthorization</code>, and that is the deliberate half.</strong> It is a GET that changes
+nothing and shows only rows already marked published, so it needs no authentication and no
+antiforgery token. Every other article route in this app redirects an anonymous visitor to
+<code>/signin</code>; this one must not, and adding the guard here would be the thing to reconsider rather
+than omitting it. Two tests below exist solely to hold that line, because an absent guard is
+invisible in a diff.</p>
+<h2 id="the-wiring">5. The wiring</h2>
+<p>One line in <code>Program.cs</code>, next to the generated routes it contrasts with:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp">app.MapScaffolding();
+app.MapPublicArticles();
+</code></pre>
+</div>
+<p>and one registration per branch of the store choice, which is where the whole feature's persistence
+decision lives:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-com">// no connection string</span>
+builder.Services.AddSingleton&lt;IPublishedArticles&gt;(<span class="tok-kw">new</span> MemoryPublishedArticles(articles));
+
+<span class="tok-com">// with one</span>
+builder.Services.AddSingleton&lt;IPublishedArticles&gt;(<span class="tok-kw">new</span> JauntyPublishedArticles(dataSource));
+</code></pre>
+</div>
+<p>The choice is made in the application, not in a library, and it is made from
+<code>ConnectionStrings:Sample</code>. That key — and the environment-variable spelling
+<code>ConnectionStrings__Sample</code> the test tiers and CI use — is in
+<a href="02-reference-configuration.html"><code>configuration.md</code></a>.</p>
+<h2 id="the-unit-tier">6. The unit tier</h2>
+<p><code>AGENTS.md</code> requires all three tiers for every feature, and the order in that requirement is not
+decorative: <strong>test each unit against its own inputs, failure paths included, and only then
+holistically through the real entry point.</strong> Both layers, not one standing in for the other.</p>
+<p>The unit tier carries the most facts here, and it is the only tier that can. It states one rule per
+test:</p>
+<table>
+<thead>
+<tr>
+<th>Fact</th>
+<th>Rule it pins</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RecentAsync_OmitsUnpublishedArticles</code></td>
+<td>a draft is not public</td>
+</tr>
+<tr>
+<td><code>RecentAsync_OrdersNewestFirst</code></td>
+<td>seeded out of order, so passing cannot be insertion order</td>
+</tr>
+<tr>
+<td><code>RecentAsync_WithIdenticalTimestamps_BreaksTheTieById</code></td>
+<td>the tiebreak the SQL spells out</td>
+</tr>
+<tr>
+<td><code>RecentAsync_TakesAtMostTheRequestedCount_KeepingTheNewest</code></td>
+<td>truncation happens after the sort</td>
+</tr>
+<tr>
+<td><code>Render_WithNoArticles_SaysSoRatherThanRenderingAnEmptyList</code></td>
+<td>the empty state</td>
+</tr>
+<tr>
+<td><code>Render_WithAnArticle_ShowsTitleAuthorAndDate</code></td>
+<td>the happy path</td>
+</tr>
+<tr>
+<td><code>Render_WithNoAuthor_OmitsTheAuthorElementEntirely</code></td>
+<td>the nullable field</td>
+</tr>
+<tr>
+<td><code>Render_EncodesTitleAndAuthor</code></td>
+<td>the encoding</td>
+</tr>
+</tbody>
+</table>
+<p>The integration tier could only ever say the page came back <code>200</code> with the right words on it. Only
+here does a failure name the rule that broke rather than the page that did.</p>
+<p><strong><code>JauntyPublishedArticles</code> is absent from this tier on purpose.</strong> Its whole body is one generated
+call and a row-to-record loop, so a unit test of it would be a test of a mock. What it actually does
+is a claim about PostgreSQL, and it gets asserted against PostgreSQL one tier up.</p>
+<h2 id="the-integration-tier">7. The integration tier</h2>
+<p><code>WebApplicationFactory</code> against a real host, and this file has two halves because the feature has
+two implementations. What is unproven until here: that the route exists, that it needs no sign-in,
+and — for the JauntyQ half — that the SQL binds its parameter and applies its <code>WHERE</code> and
+<code>ORDER BY</code> the way the C# above it assumes. <strong>A LINQ expression and a SQL statement can agree in the
+unit tier and disagree against PostgreSQL.</strong></p>
+<p>Three techniques from this file are worth taking with you.</p>
+<p><strong>Arrange the negative case so a missing filter is loud.</strong> The draft row is inserted <em>newer</em> than
+the published one, so a missing <code>WHERE published</code> puts it first on the page rather than merely
+somewhere on it:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">await</span> SampleTestDatabase.InsertAsync($&quot;{prefix}-p&quot;, $&quot;{prefix}-published&quot;, &quot;xunit&quot;, &quot;body&quot;, published: <span class="tok-kw">true</span>,  createdAt: future);
+<span class="tok-kw">await</span> SampleTestDatabase.InsertAsync($&quot;{prefix}-d&quot;, $&quot;{prefix}-draft&quot;,     &quot;xunit&quot;, &quot;body&quot;, published: <span class="tok-kw">false</span>, createdAt: future.AddMinutes(<span class="tok-num">1</span>));
+</code></pre>
+</div>
+<p><strong>Date rows into the future, and remove them afterwards.</strong> The page shows the newest twenty and
+<code>nativeweb_sample_test</code> accumulates rows across runs, so a row dated <code>NOW()</code> is only reliably on the
+page while the suite is young. The suite does not truncate — every other test finds its row by
+unique title at any position, so accumulation is harmless there — but a future-dated row left behind
+would displace the <em>next</em> run's rows out of the page, and the suite would break itself after ten
+runs. Hence a <code>finally</code> that deletes exactly the ids this test minted:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">finally</span>
+{
+    <span class="tok-kw">await</span> SampleTestDatabase.DeleteByIdPrefixAsync(prefix);
+}
+</code></pre>
+</div>
+<p><strong>Assert the open route by requesting it.</strong> <code>Feed_IsReachableWithoutSigningIn</code> asks for a <code>200</code> and
+for <code>&lt;h1&gt;Articles&lt;/h1&gt;</code> in the body, with <code>AllowAutoRedirect = false</code>. Nothing but a request proves
+which side of the authentication line a route landed on.</p>
+<h2 id="the-end-to-end-tier">8. The end-to-end tier</h2>
+<p>Playwright, a real browser, the NativeAOT binary, real PostgreSQL. The usual argument for this tier
+is that only a browser can drive a dialog or a script, and <strong>this page has no JavaScript, so that
+argument does not apply.</strong> Two others do, and they are the ones to reason from when you are deciding
+whether your own feature needs this tier.</p>
+<p><strong>It is the only place the feature runs inside a NativeAOT binary.</strong> Everything below it is a
+JIT-hosted test process. <code>ListPublishedAsync</code> is generated code doing reflection-free mapping and
+<code>HtmlEncoder.Default</code> is resolved at runtime; either could work perfectly under the JIT and be
+trimmed out of the published binary. A green integration tier says nothing about that.</p>
+<p><strong>A browser follows redirects, and the tier below it cannot.</strong> <code>AllowAutoRedirect = false</code> is the
+right way to observe a guard and the wrong way to observe its absence. <code>Feed_IsReachedByABrowserWithNoSession</code>
+checks the URL first, because a redirect to <code>/signin</code> would still render a page and an assertion on
+the heading alone would not notice which page.</p>
+<p>The encoding fact also changes meaning here. The tiers below check the HTML for <code>&amp;lt;script&amp;gt;</code>,
+which is a claim about a string. Only here is there a real HTML parser and a real script engine to
+be wrong about it:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp">Assert.Equal(<span class="tok-num">0</span>, <span class="tok-kw">await</span> page.Locator(&quot;li.articles__item script&quot;).CountAsync());
+Assert.False(<span class="tok-kw">await</span> page.EvaluateAsync&lt;bool&gt;(&quot;() =&gt; window.__pwned === <span class="tok-kw">true</span>&quot;));
+</code></pre>
+</div>
+<p>An injected <code>script</code> element would be in the DOM, and every string assertion below would have passed
+all the way up.</p>
+<h2 id="perturb-every-green-test">9. Perturb every green test</h2>
+<p><code>AGENTS.md</code> again, and it is the rule most easily skipped: <strong>a test that passes because the code
+under it never executed asserts nothing.</strong> When a new test passes on its first run, change the code
+so it should fail, and confirm it does.</p>
+<p>Every one of the nineteen facts above was perturbed before being kept. Two findings from doing it
+are worth more than the rule:</p>
+<p><strong>Perturb one thing at a time.</strong> Changing <code>WHERE</code> and <code>ORDER BY</code> together failed four integration
+tests instead of the two expected — <code>ORDER BY ASC</code> had pushed the future-dated rows off the
+twenty-row page. A perturbation that fails a test by an unintended route proves nothing about that
+test. Re-run singly, each failed alone.</p>
+<p><strong>Read the failure, do not count it.</strong> Adding <code>.RequireAuthorization()</code> failed the e2e guard test in
+96 ms, fast enough to suspect the host had never started. The message settled it —
+<code>Assert.EndsWith() Failure … String: &quot;http://localhost:5348/admin&quot;</code> — the browser really had
+followed <code>/articles</code> → <code>/signin</code> → <code>/admin</code>. A red test for the wrong reason is the same as a green
+test for the wrong reason.</p>
+<h2 id="run-it-all">Run it all</h2>
+<pre><code>dotnet test tests/nativeweb.sample.tests.unit
+dotnet test tests/nativeweb.scaffold.tests.integration
+dotnet test tests/nativeweb.scaffold.tests.e2e
+</code></pre>
+<p>The integration and e2e tiers need <code>nativeweb_sample_test</code> — <code>db/sample/README.md</code>
+has the two lines that create it, and the Playwright browser install is in
+<a href="00-quick-start-getting-started.html">getting-started § 4</a>.</p>
+<h2 id="what-to-take-to-your-own-feature">What to take to your own feature</h2>
+<ul>
+<li><strong>Narrow the read model to what the page renders.</strong> It is the cheapest defence against a UI model
+and a storage model becoming the same type.</li>
+<li><strong>Put the filter and the sort where the data is.</strong> The in-memory implementation shows you what it
+costs when you cannot.</li>
+<li><strong>Let the diagnostics stop you.</strong> <code>JNT8007</code> is a question about your schema, not an obstacle;
+answer it with an index or with a reason, and never with a blanket suppression.</li>
+<li><strong>Encode at the point of output, visibly.</strong></li>
+<li><strong>State each rule in the tier that can name it</strong>, and only then assert the whole page.</li>
+<li><strong>Perturb it.</strong> One change at a time, and read the message.</li>
+</ul>
+<p>Reference material, once you need a specific answer rather than a path, is indexed in
+<code>docs/README.md</code>.</p>
+<hr />
+<p><strong>Verified.</strong> Every command and file reference on this page was executed or checked in the form
+written, on 2026-08-25 — Windows 11 (10.0.26200.8457), .NET SDK 10.0.203, PostgreSQL 18.2,
+PowerShell 7.6.4. The feature was built and its three tiers run on that machine before this page was
+written: <code>tests/nativeweb.sample.tests.unit</code> 16 facts,
+<code>tests/nativeweb.scaffold.tests.integration</code> 31, <code>tests/nativeweb.scaffold.tests.e2e</code> 13 — 0 failed,
+0 skipped. Counts drift as the repository grows; a failure is the thing that matters.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="00-quick-start-getting-started.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Getting started</span>
+</a><a class="pn-next" href="01-architecture-native-web-architecture.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Native web architecture</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+  </footer>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

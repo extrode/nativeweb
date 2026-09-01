@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Getting started — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  try {
+    var t = localStorage.getItem('dg-theme');
+    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+    var s = parseFloat(localStorage.getItem('dg-fs'));
+    if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Getting started</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">quick-start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-getting-started.html" class="active" aria-current="page">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+</div>
+
+      </div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#before-you-start">Before you start</a><a class="toc-l2" href="#clone">1. Clone</a><a class="toc-l2" href="#build">2. Build</a><a class="toc-l2" href="#run-it-with-no-database-at-all">3. Run it, with no database at all</a><a class="toc-l2" href="#run-the-tests">4. Run the tests</a><a class="toc-l2" href="#next">Next</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Getting started</nav>
+        <article>
+<h1 id="getting-started">Getting started</h1>
+<p>From a clean clone to a running application and a green suite. Every command below was executed in
+the form written before it was written down; the verification block at the end says on what.</p>
+<p><strong>There is one path here now.</strong> Until 2026-08-31 this guide forked between stamping your own
+product and maintaining <code>apps/web</code>, the epass.io identity provider that lived in this repository.
+It left, permanently, and was not ported anywhere in this tree — see
+<code>docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md</code>.
+NativeWeb is a template; you stamp a new product out of <code>skeleton/</code> and work in that, not here.</p>
+<h2 id="before-you-start">Before you start</h2>
+<p>Prerequisites, including the JauntyQ checkout the build cannot do without, are in the
+README. Read that table now — the JauntyQ one is not optional and
+not obvious, and it is the only thing here that can stop you before you begin.</p>
+<h2 id="clone">1. Clone</h2>
+<pre><code>git clone &lt;this repository&gt; NativeWeb
+cd NativeWeb
+</code></pre>
+<p>Put it beside your <code>jauntyq</code> checkout, as the README's diagram shows. That adjacency is the only
+layout requirement: the solution build needs it, and a per-project build probes for the same
+sibling (plus the deeper spot a worktree checkout sits at). Neither cares what the source root is
+called. If your JauntyQ checkout is somewhere else entirely, pass <code>-p:JauntyQRoot=&lt;path&gt;</code>.</p>
+<p><strong>On the name:</strong> the command above clones into <code>NativeWeb</code>, and the repository itself is
+<code>nativeweb</code>. Both spellings work, and a stamped product probes for both, so nothing here depends
+on which you pick. It only matters on a case-sensitive filesystem, and only for a <em>third</em> name —
+if you clone under something else on Linux, set <code>NativeWebRoot</code> rather than relying on the probe.</p>
+<h2 id="build">2. Build</h2>
+<pre><code>dotnet build
+</code></pre>
+<p>Roughly a minute cold. If it fails immediately with two <code>error MSB3202</code> lines naming
+<code>../jauntyq/src/...</code>, your checkout is not beside <code>jauntyq</code> — that is the prerequisite above, and
+<code>-p:JauntyQUsePackages=true</code> will <strong>not</strong> work around it. Build one project instead
+(<code>dotnet build apps/sample</code>) while you sort the layout out.</p>
+<h2 id="run-it-with-no-database-at-all">3. Run it, with no database at all</h2>
+<p>This is the checkpoint worth reaching first, because it removes PostgreSQL from the list of things
+that can be wrong.</p>
+<pre><code>dotnet run --project apps/sample
+</code></pre>
+<p>Then open <code>http://localhost:5399/articles</code> — the public feed, rendered through the framework's own
+compiled templates, with the filter posting over htmx and swapping only the list.
+<code>http://localhost:5399/admin/articles</code> is the scaffolded CRUD behind the demo sign-in.</p>
+<p><strong>To edit and see the change without restarting</strong>, one command:</p>
+<pre><code>dotnet watch run --project apps/sample --no-hot-reload
+</code></pre>
+<p>Both halves of that line were measured on 2026-08-31 and neither is decoration:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Without it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--no-hot-reload</code></td>
+<td>The watcher logs nothing on any change, template or <code>.cs</code>, and the app keeps serving the previous markup. A scratch console app in the same tree rebuilt on both, so the cause is this project rather than the machine.</td>
+</tr>
+<tr>
+<td><code>&lt;Watch Include=&quot;templates\**\*.html&quot; /&gt;</code> in <code>nativeweb.sample.csproj</code></td>
+<td>Templates are <code>AdditionalFiles</code>, which <code>dotnet watch</code>'s default globs do not cover. Editing one produced no file-change line at all.</td>
+</tr>
+</tbody>
+</table>
+<p>A template edit is a source-generator re-run, so the loop is a rebuild and a restart — a few
+seconds, not the sub-second swap hot reload advertises. The alternative is not a faster loop; it
+is a loop that silently does nothing.</p>
+<p><strong>A missing connection string is not an error
+here</strong> — it selects an in-memory store, deliberately, so that the demo, the integration tier and
+the browser tier all work with no database. That is a development convenience and a design
+statement, not a supported deployment mode; the moment you configure <code>ConnectionStrings:Sample</code>,
+the same code paths run against PostgreSQL through JauntyQ instead. <code>apps/sample/Program.cs</code>
+carries the comment explaining why the choice is made in the application rather than in a library.</p>
+<p><code>apps/sample</code> is the only deployable project in the tree, runs over plain HTTP, and has no
+<code>Secure</code>-always cookie policy, so there is no HTTPS step here.</p>
+<h2 id="run-the-tests">4. Run the tests</h2>
+<p>Three tiers per app, and the project requires all three for every feature — see
+<code>AGENTS.md</code>. What each is for:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>What it proves</th>
+<th>Needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unit</strong> (xUnit)</td>
+<td>one unit against its own inputs, failure paths included</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><strong>Integration</strong> (<code>WebApplicationFactory</code>)</td>
+<td>the real pipeline, real routing, real middleware</td>
+<td>PostgreSQL for the tiers that use it</td>
+</tr>
+<tr>
+<td><strong>End-to-end</strong> (Playwright)</td>
+<td>a real browser against a real server, including the no-JavaScript path</td>
+<td>Chromium, installed once</td>
+</tr>
+</tbody>
+</table>
+<p>Install the browser once:</p>
+<pre><code>pwsh tests/nativeweb.scaffold.tests.e2e/bin/Debug/net10.0/playwright.ps1 install chromium
+</code></pre>
+<p>Then run a tier at a time. Naming a tier rather than globbing is deliberate: a suite that stops
+being discovered fails by name instead of vanishing from the run.</p>
+<pre><code>dotnet test tests/nativeweb.repo.tests.unit
+dotnet test tests/nativeweb.render.tests.unit
+dotnet test tests/nativeweb.web.tests.unit
+dotnet test tests/nativeweb.forms.tests.unit
+dotnet test tests/nativeweb.security.tests.unit
+dotnet test tests/nativeweb.mail.tests.unit
+dotnet test tests/nativeweb.scaffold.tests.unit
+dotnet test tests/nativeweb.scaffold.tests.integration
+dotnet test tests/nativeweb.scaffold.tests.e2e
+dotnet test tests/nativeweb.sample.tests.unit
+</code></pre>
+<p>The full set, and what each returned on the verification run:</p>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Facts</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/nativeweb.repo.tests.unit</code></td>
+<td>87</td>
+<td>the repository's own build, CI and deploy files</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.render.tests.unit</code></td>
+<td>161</td>
+<td>the template generator and its runtime</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.web.tests.unit</code></td>
+<td>94</td>
+<td>the pipeline, middleware and startup guards</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.forms.tests.unit</code></td>
+<td>85</td>
+<td>form binding and the antiforgery analyzer</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.security.tests.unit</code></td>
+<td>175</td>
+<td>Argon2id, AES-GCM, opaque tokens, blind indexes, bot traps</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.mail.tests.unit</code></td>
+<td>53</td>
+<td>address parsing, header-injection defence, SMTP options</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.scaffold.tests.unit</code></td>
+<td>109</td>
+<td>the CRUD generator</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.scaffold.tests.integration</code></td>
+<td>60</td>
+<td>the generated admin through a real pipeline</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.scaffold.tests.e2e</code></td>
+<td>14</td>
+<td>a real browser, including the no-JavaScript path</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.sample.tests.unit</code></td>
+<td>47</td>
+<td>the reference application</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>885 — 0 failed, 0 skipped</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Measured 2026-08-31 from a clean tree, one tier at a time. The ten projects above are every test
+project in <code>NativeWeb.slnx</code>; nothing else under <code>tests/</code> is real.</p>
+<p>The security and mail tiers were written on 2026-08-31 and are new: those two libraries had no
+coverage at all between the identity provider taking their old suites with it and that date. Three
+defects turned up in the writing and are fixed in the same branch — <code>Passphrases.Verify</code> throwing
+instead of returning false for a stored hash under 45 characters, <code>Masking.IpAddress</code> returning
+an IPv4 address unmasked when it carried a port, and <code>EmailTemplates.ParseRecipient</code> accepting a
+line break before the <code>@</code> (which MimeKit folds away, so the parsed address is still clean — the
+test asserts that rather than a rejection that does not happen).</p>
+<p>A count that has drifted from this table is not automatically a problem; a <em>failure</em> is.</p>
+<p><strong>Run one tier at a time, as written above.</strong> Running several e2e projects back-to-back in a
+single shell can make them contend. Check a wholly-failing e2e tier alone before believing it.</p>
+<hr />
+<h1 id="build-your-own-product">Build your own product</h1>
+<p><code>skeleton/</code> is a tokenized product shell: app pipeline, templates, static pages, migration runner,
+three test tiers, CI, deploy units and the repo operating files, with <code>__PRODUCT__</code>/<code>__product__</code>
+where your name goes. <code>tools/new-product.ps1</code> stamps a copy.</p>
+<p><strong>1. Stamp it.</strong> Bare invocation is the dry run; <code>-Execute</code> acts.</p>
+<pre><code>pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe
+pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe -Execute
+</code></pre>
+<p>The dry run lists every file it would copy, stamp and rename — 168 files, from what git tracks or
+does not ignore. It also does <code>git init</code>, an initial commit, and a <code>dev</code> branch, so what you get is
+a repository rather than a directory.</p>
+<p><strong>Put it beside your NativeWeb checkout</strong>, as <code>../probe</code> above does. The stamped product resolves
+the framework libraries and JauntyQ from siblings by default, and step 4 below is much harder if
+you skip this.</p>
+<p><strong>2. Create the role and database.</strong> Substitute your slug for <code>probe</code> throughout.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-kw">CREATE</span> ROLE probe_app LOGIN PASSWORD <span class="tok-str">'...'</span>;
+<span class="tok-kw">CREATE</span> DATABASE probe_dev OWNER probe_app;
+</code></pre>
+</div>
+<p><strong>3. Apply the schema.</strong> <code>migrate.sh</code> takes its settings from the environment and defaults to the
+local dev names, so this usually needs nothing but a password:</p>
+<pre><code>cd ../probe
+PGPASSWORD=... bash db/migrate.sh
+</code></pre>
+<p>The first migration runs as <code>postgres</code> because it creates the <code>citext</code> extension, which the app
+role may not; every later one runs as the app role. Re-runs skip what is already applied.</p>
+<p><strong>4. Build and test.</strong> Two things here are not obvious, and both were found by running this rather
+than by reading it:</p>
+<pre><code>export Probe__Db__ConnectionString=&quot;Host=127.0.0.1;Database=probe_dev;Username=probe_app;Password=...&quot;
+dotnet build
+dotnet test tests/probe.tests.unit
+dotnet test tests/probe.tests.integration
+dotnet test tests/probe.tests.e2e
+</code></pre>
+<ul>
+<li><p><strong>The integration tier needs <code>&lt;Product&gt;__Db__ConnectionString</code> in the environment.</strong> Without it
+the tier still runs, but <code>/readyz</code> reports <code>ServiceUnavailable</code> and one fact fails. The
+double-underscore spelling is the environment form of <code>Probe:Db:ConnectionString</code>.</p>
+</li>
+<li><p><strong>If your product is <em>not</em> beside NativeWeb, set the roots as environment variables, not
+<code>-p:</code> flags.</strong> <code>-p:NativeWebRoot=... -p:JauntyQRoot=...</code> works for <code>dotnet build</code> and then fails
+the e2e tier, because that tier's fixture shells out to its own <code>dotnet publish</code> and command-line
+properties do not cross into a child process. Environment variables do:</p>
+<pre><code>export NativeWebRoot=/path/to/NativeWeb JauntyQRoot=/path/to/jauntyq
+</code></pre>
+<p>The symptom if you get this wrong is a publish failure inside the e2e fixture reading
+<em>&quot;Skipping project … because it was not found&quot;</em>, which names NativeWeb's libraries and looks
+nothing like a path-resolution problem.</p>
+</li>
+</ul>
+<p>A freshly stamped product on the verification run: <strong>47 unit, 7 integration, 2 e2e — 56 facts,
+0 failed.</strong></p>
+<p><strong>5. Now work in your product, not here.</strong> Its own <code>README.md</code> and <code>AGENTS.md</code> are yours to fill
+in — the one-sentence placeholder at the top of its README is addressed to you. Come back to this
+repository only to pick up framework changes.</p>
+<p><strong>Then read these, in this order</strong>, rather than discovering them by directory listing:
+<a href="01-architecture-native-web-architecture.html">the architecture</a> for why any of this is shaped as it is,
+<a href="02-reference-security-baseline.html">the security baseline</a> for the posture your product inherits, and
+<a href="01-architecture-progressive-enhancement.html">progressive enhancement</a> before touching a template. The full index is
+<code>docs/README.md</code>.</p>
+<h2 id="next">Next</h2>
+<p><a href="00-quick-start-tutorial-first-feature.html"><code>docs/00-quick-start/tutorial-first-feature.md</code></a> walks one feature through every layer
+— endpoint, template, query, and a test at each of the three tiers.</p>
+<hr />
+<p><strong>Verified.</strong> Every command on this page was executed in the form written, from a clean clone, on
+<strong>2026-08-25</strong> — Windows 11 (10.0.26200.8457), .NET SDK 10.0.203, PostgreSQL 18.2, PowerShell
+7.6.4, Playwright's bundled Chromium.</p>
+<p>The product-stamping path was walked end to end, not read: stamping a product into <code>../probe</code> with
+its own role and database and running its three tiers (47 unit, 7 integration, 2 e2e — 56 facts, 0
+failed). The two footnotes — the <code>&lt;Product&gt;__Db__ConnectionString</code> requirement and environment
+variables rather than <code>-p:</code> flags — are both findings from that run rather than inferences from the
+build files.</p>
+<p>The counts table for this repository's own six suites was re-measured on <strong>2026-08-31</strong>, after
+<code>apps/web</code> and the seven test projects that covered it left — see
+<code>docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md</code>.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="00-quick-start-README.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">README</span>
+</a><a class="pn-next" href="00-quick-start-tutorial-first-feature.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Tutorial first feature</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+  </footer>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

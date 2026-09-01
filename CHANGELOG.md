@@ -14,6 +14,16 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **The docs site is versioned and committed.** `scripts/build-docs.sh` passes `--versioned` to the
+  shared Docs generator, so `docs-site/` is a root holding one frozen site per release rather than a
+  flat directory overwritten on every build — and unlike every other consumer of that generator, it
+  is tracked. A release's documentation survives without anyone rebuilding it, and an old version is
+  rebuilt by checking out its tag: the generator reads `git describe --exact-match` on this repo and
+  refuses to label an untagged tree, so nothing can claim a version this repo never cut. There is no
+  semver tag yet, so today's build is `unversioned/`. 14 pages, 519 KB, 11 dropped links — all of
+  them paths outside `docs/` that a flat site cannot serve, which the build lists on every run.
+  `tools/docs-site/check.ts` asserts the committed site is intact: the manifest parses, every
+  version it names is on disk with its stylesheet, and nothing in the site references a CDN.
 - **`libs/nativeweb.signin` — the client half of OAuth, as framework.** A product signs users in
   against any conforming issuer without writing the relying party itself: authorization-code with
   PKCE, an opaque `__Host-` session cookie over an `ISessionStore` the product implements, silent
