@@ -34,11 +34,14 @@ wish list; the value is in recording the ones nobody has got to yet.
     `[ScaffoldSearch]` only, no structured per-field filters, no operators, no query language,
     because NativeWeb has no ORM and JauntyQ owns data access. What ghosthive hand-rolled as
     `ListQueryParser` and `FilterComposer` is not coming here; its keyset `Cursor` is.
-  - **G6 — READMEs for the six libraries without one**, `nativeweb.web` first: it is the largest
-    seam and the one a consumer has already reimplemented by hand for want of knowing it exists.
-    `nativeweb.signin` got its own with spec 016 on 2026-09-01.
-  - **G7 — an adoption guide for an existing app.** `getting-started.md` goes clone → stamp, and
-    none of the three consumers can stamp anything.
+  - ~~**G6 — READMEs for the six libraries without one**~~ **Closed 2026-09-02 by spec 018:**
+    `nativeweb.web`, `.render`, `.forms`, `.security`, `.mail` and `.signin.testing` each have
+    one, linked from `docs/README.md`. The three `.generator` projects stay without: a consumer
+    references one as an analyzer and calls nothing it defines, so each is documented in the
+    runtime library it serves.
+  - ~~**G7 — an adoption guide for an existing app.**~~ **Closed 2026-09-02 by spec 018:**
+    `docs/00-quick-start/adopting-in-an-existing-app.md`, checked by taking a stock
+    `dotnet new web` project through every step of it.
 
   ~~**Needs a decision, not work — G3.**~~ **Answered, and built: spec 016 shipped
   `libs/nativeweb.signin` on 2026-09-01** — authorization-code with PKCE, the session cookie
@@ -1581,6 +1584,24 @@ another project's deployment and runbook, not to this repo.
   client shares one rate-limit partition. Raising it trades that for one more spoofable hop, so it
   is a decision, not a fix. Found in the 015 review, 2026-08-31.
 
+  **And the provisioner already thinks it made that decision.** `scripts/deploy/provision.sh:182`
+  writes `${CONFIG_PREFIX}__ForwardedHeaders__ForwardLimit=2` under `--edge`, with a comment
+  explaining the two-hop case it is for. Nothing binds it: `AddNativeWebForwardedHeaders` sets
+  `ForwardedHeaders` and `KnownProxies` and never touches `ForwardLimit`, so an edge deployment
+  runs at the default of 1 and sees every request as coming from the proxy — the failure the
+  comment says it prevents. Found while writing spec 018; out of that spec's scope, so the key is
+  documented as unread in `configuration.md` and held there by `DocsClaimsTests`. The fix is
+  either to bind it or to stop writing it, and which one is the decision above.
+
+- **The departed `NativeWeb:` prefix survives in source comments and in two user-visible error
+  messages.** `libs/nativeweb.mail/SmtpOptions.cs:23` says `SmtpOptions` binds from
+  `NativeWeb:Smtp` and lines 103 and 113 throw `InvalidOperationException` naming
+  `NativeWeb:Smtp:FromAddress` and `NativeWeb:Smtp:SecurityMode`; `ContactProtector.cs` names
+  `NativeWeb:ContactKey`. Neither library binds anything — the host chooses the section — and that
+  prefix left with `apps/web` on 2026-08-31. It was copied straight into a draft README before
+  being caught, which is the reason to fix it rather than leave it: a stale comment is a source
+  documentation is written from. Found writing spec 018, 2026-09-02.
+
 - **`MaxRequestBodyBytes` and `RequestTimeout` have no configuration key.** Framework-wide ceilings
   a product cannot tune without forking `NativeWebOptions`. Same review.
 
@@ -1711,9 +1732,11 @@ an answer different from the one the audit assumed.
   is "Configuration reference — apps/web", every key it lists is `NativeWeb:`-prefixed, and the
   sections it is built out of — OAuth, WebAuthn, Mail, Breach checking, Passphrase reset,
   `/oauth/introspect`, `bff_store` — went with the identity provider on 2026-08-31.
-  `apps/sample` binds `Sample:`. 302 lines, and nothing in the tree reads a single one of the
-  keys under Site identity: `CanonicalBaseUrl` and `SecurityContact` appear nowhere in `libs/`,
-  `apps/` or `scripts/`.
+  `apps/sample` binds `Sample:`. 302 lines. **Rewritten 2026-09-02 by spec 018** against the keys
+  the binders read, and held there by `DocsClaimsTests`, which extracts them from the sources on
+  every run. One claim above was half wrong and is corrected here: `CanonicalBaseUrl` is read
+  nowhere, but **`SecurityContact` is read**, at `libs/nativeweb.web/NativeWebPipeline.cs:545`,
+  where it feeds `/security.txt`.
 - **`/robots.txt` returns 404 on the deployed app, and that is right.** Nothing serves it — the
   endpoint left with `apps/web`. The 404 only looked like a defect because
   `/etc/nativeweb/app.env` on `nativeweb-dev`, written by a provisioning run predating the

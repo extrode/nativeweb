@@ -6,6 +6,36 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Spec 018 — library documentation and the adoption path. Done, on
+  `docs/018-library-docs-and-adoption` (2026-09-02).** Six library READMEs (`nativeweb.web`,
+  `.render`, `.forms`, `.security`, `.mail`, `.signin.testing`), an adoption guide for an existing
+  ASP.NET Core application, and `docs/02-reference/configuration.md` rewritten from 302 lines about
+  a departed application to 120 about the keys the binders read. Closes backlog gaps **G6** and
+  **G7**.
+
+  **The guarantee, not just the documents.** `configuration.md` had been guarded by a test that was
+  deleted along with `apps/web`, which is how it stayed live at `/docs` for months while describing
+  nothing. `tests/nativeweb.repo.tests.unit/DocsClaimsTests.cs` replaces it in the repository tier,
+  so it cannot leave with any one application: every repository path and relative link in the
+  documented set resolves, every capitalised symbol named appears somewhere in the sources, and the
+  `Key("...")` literals are extracted from `NativeWebOptions.cs` at run time and matched against the
+  reference **both ways**. No hand-maintained claim list — a list goes stale the way the document
+  does. Library READMEs are swept, so a new library is covered the day it gets one.
+
+  **It caught real defects, including one of mine.** `configuration.md` named `AddNativeWebSignIn`;
+  the library declares `AddSignIn`. The check it cannot make — a symbol that exists but in a
+  comment — was found by reading: two delegated READMEs documented `NativeWeb:ContactKey` and
+  `NativeWeb:Smtp` as settings, and that prefix left with `apps/web`. Both libraries read no
+  configuration at all.
+
+  **The adoption guide was proved by running it**, not by reading it: a stock `dotnet new web`
+  project taken through every step in `tmp/adopt-probe/`, serving a generated template page with
+  `/healthz` 200, `/readyz` 503 and the full security-header set. That run found **five** things the
+  guide had wrong or missing — a JauntyQ checkout is required as a second sibling, the templates and
+  locales need declaring as `AdditionalFiles`, `wwwroot/pages/error.html` is required or the host
+  exits 78, `UseNativeWebPipeline` takes the locale list rather than the options, and generated code
+  lands in the `RootNamespace` where a `using` will not reach it. All five are now in the guide.
+
 - **Plan 008 — mutation-driven test strategy for the paging seam. Done and merged into `dev`,
   unpushed (2026-09-01).** `test/018-paging-property-tests`, prompted by the user's
   `testing-strategy-handover.md` and by the fact below: 017 shipped eight defects and **no test

@@ -14,6 +14,16 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Documentation a consumer can adopt from, and a test that keeps it true.** Six library READMEs
+  (`nativeweb.web`, `.render`, `.forms`, `.security`, `.mail`, `.signin.testing`),
+  `docs/00-quick-start/adopting-in-an-existing-app.md` for an application that already exists, and
+  `docs/02-reference/configuration.md` rewritten against the keys the binders read — it had been
+  302 lines about `apps/web`, served live, five months after that application left.
+  `DocsClaimsTests` in the repository test tier now resolves every path and link in that set,
+  checks every symbol named appears in the sources, and matches the configuration reference against
+  the `Key("...")` literals extracted from `NativeWebOptions.cs` in both directions. The adoption
+  guide was checked by taking a stock `dotnet new web` project through every step of it, which
+  corrected five of them. Closes backlog gaps G6 and G7.
 - **Property tests and a mutation-score baseline for the paging seam** (`tools/mutation-triage.ts`,
   `tools/mutation-baseline.json`, CsCheck 4.8.0 in the test tier). Spec 017 shipped eight defects
   that no test failed on, so the gap was assertions rather than coverage — a distinction only a

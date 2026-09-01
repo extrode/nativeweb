@@ -73,7 +73,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">quick-start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -87,7 +87,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html" class="active" aria-current="page">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html" class="active" aria-current="page">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
 </div>
 
       </div>
@@ -95,7 +95,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#shape-of-it">Shape of it</a><a class="toc-l2" href="#decisions-on-record">Decisions on record</a><a class="toc-l2" href="#provisioning-a-host">Provisioning a host</a><a class="toc-l3" href="#required-configuration">Required configuration</a><a class="toc-l2" href="#releasing">Releasing</a><a class="toc-l3" href="#migrations-run-against-the-previous-release">Migrations run against the previous release</a><a class="toc-l3" href="#rolling-back">Rolling back</a><a class="toc-l3" href="#what-is-deployed-right-now">What is deployed right now</a><a class="toc-l2" href="#backups">Backups</a><a class="toc-l3" href="#knowing-a-backup-failed">Knowing a backup failed</a><a class="toc-l2" href="#restoring">Restoring</a><a class="toc-l2" href="#disaster-recovery">Disaster recovery</a><a class="toc-l2" href="#known-gaps">Known gaps</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#shape-of-it">Shape of it</a><a class="toc-l2" href="#decisions-on-record">Decisions on record</a><a class="toc-l2" href="#provisioning-a-host">Provisioning a host</a><a class="toc-l3" href="#required-configuration">Required configuration</a><a class="toc-l2" href="#releasing">Releasing</a><a class="toc-l3" href="#migrations-run-against-the-previous-release">Migrations run against the previous release</a><a class="toc-l3" href="#rolling-back">Rolling back</a><a class="toc-l3" href="#what-is-deployed-right-now">What is deployed right now</a><a class="toc-l3" href="#the-documentation-site-at-docs">The documentation site, at /docs</a><a class="toc-l2" href="#backups">Backups</a><a class="toc-l3" href="#knowing-a-backup-failed">Knowing a backup failed</a><a class="toc-l2" href="#restoring">Restoring</a><a class="toc-l2" href="#disaster-recovery">Disaster recovery</a><a class="toc-l2" href="#known-gaps">Known gaps</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Deployment runbook</nav>
         <article>
@@ -114,12 +114,23 @@ Scripts: <code>../../scripts/deploy/</code></p>
 recovering a NativeWeb production host. Everything here is a command to run or a
 decision with a stated default.</p>
 <blockquote>
-<p><strong>Two things in this document have never been executed.</strong> The provisioning
-walkthrough and the restore drill are written and untested — spec 011 T15.
-Every elapsed time below reads <code>NOT YET MEASURED</code>, and that is literal:
-nobody has provisioned a host from this document or restored a backup taken by
-<code>backup.sh</code>. Until they have, R1, R16 and R17 are unmet and this runbook is a
-plan rather than a procedure.</p>
+<p><strong>Releasing has now been executed for real; restoring and disaster recovery
+have not.</strong> On 2026-09-01 a <code>linux-x64</code> artifact built by <code>build.sh</code> was
+deployed by <code>deploy.sh</code> to <code>nativeweb-dev</code> (10.0.0.30, Debian 12, an Incus
+guest on <code>incus-host</code>) and promoted to blue, and the result is public at
+<code>https://nw-dev.example.com</code>. That closes R1. <strong>R16 and R17 remain unmet</strong> —
+nobody has restored a backup taken by <code>backup.sh</code>, and the elapsed times in
+<strong>Restoring</strong> and <strong>Disaster recovery</strong> below still read <code>NOT YET MEASURED</code>
+because they are literal.</p>
+<p><strong>Three attempts were needed and two of them were defects in these scripts,</strong>
+which is what a first real run is for. Both are fixed and both now have a test:
+<code>ConditionPathExists</code> sat in <code>[Service]</code>, where systemd logs &quot;Unknown key name&quot;
+and ignores it, so the skip it promises had never happened on any host; and
+<code>chmod -R g-w,o-rwx</code> could not restore group bits that <code>cp -a</code> from a <code>mktemp -d</code>
+stage never granted, so the release directory arrived <code>drwx------</code> and systemd
+failed the unit at <code>status=200/CHDIR</code>. The third refusal was not a defect — the
+host carried <code>NativeWeb__*</code> keys from a provisioning run predating the config
+prefix, and the preflight said so and stopped, which is the behaviour it is for.</p>
 <p><strong>2026-08-30: an audit sweep read the scripts and found eight defects, four of
 which would have stopped this walkthrough dead on a clean Debian</strong> — Caddy never
 reading the environment file it is told to fill in, a log directory the Caddy
@@ -190,8 +201,7 @@ never reaches the public.</p>
 <p>Both are R7's, and both are choices rather than defaults.</p>
 <ul>
 <li><strong>Distribution: Debian stable, x86-64.</strong> <code>provision.sh</code> targets apt and systemd;
-Ubuntu LTS works unchanged. Record the tested version here once T15 runs:
-<code>TESTED ON: NOT YET MEASURED</code>.</li>
+Ubuntu LTS works unchanged. <code>TESTED ON: Debian 12 (bookworm), x86-64, 2026-09-01</code> — an Incus guest, provisioned and deployed to.</li>
 <li><strong><code>unattended-upgrades</code> is on, security pocket only, and does NOT reboot.</strong>
 There is one host and no failover, so an unattended 03:00 reboot is an
 unannounced outage. Kernel and libc updates therefore wait for an operator:
@@ -353,6 +363,52 @@ stops the idle unit, prints the last 40 journal lines, live colour still serving
 in-flight requests finish on the old colour.</li>
 <li>Records the promotion and prunes old release directories.</li>
 </ol>
+<p>Measured on the first real release, <code>nativeweb-dev</code>, 2026-09-01 — the fourth
+attempt, after the two defects in the note at the top of this document were
+fixed. A cold host: nothing was serving, so step 3 had no live colour to compare
+against and step 8 had nothing to prune.</p>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deploy.sh</code>, artifact on the host to promoted</td>
+<td><strong>1.774 s</strong></td>
+</tr>
+<tr>
+<td>Release</td>
+<td><code>7436517</code>, promoted to blue</td>
+</tr>
+<tr>
+<td><code>/version</code> after promotion</td>
+<td><code>0.1.0+743651707dbfdce70f3bc723f845446d6128088e</code></td>
+</tr>
+<tr>
+<td><code>/readyz</code> through the public origin</td>
+<td><code>200</code>, body <code>ready</code>, 0.022 s</td>
+</tr>
+<tr>
+<td><code>/healthz</code></td>
+<td><code>200</code>, 0.023 s</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td><code>302</code> to <code>/admin</code>, 0.050 s</td>
+</tr>
+<tr>
+<td>Date last exercised</td>
+<td>2026-09-01</td>
+</tr>
+</tbody>
+</table>
+<p>The timings are from <code>incus-host</code> over the LAN and through the edge, so they
+include Caddy and TLS but not a WAN round trip. Build time is not recorded here:
+the publish ran on <code>build-host</code> rather than the workstation, and one
+measurement on one build box is not a figure this runbook should quote.</p>
 <p>Exit 78 in step 6's log is <code>EX_CONFIG</code>: a configuration error, not a crash. The
 unit will not restart it (<code>RestartPreventExitStatus=78</code>), because the config will
 not have changed by the time it comes back.</p>
@@ -395,6 +451,49 @@ cat /opt/nativeweb/blue/RELEASE         # or green — works with nothing runnin
 tail /var/lib/nativeweb/deployments.log
 </code></pre>
 </div>
+<h3 id="the-documentation-site-at-docs">The documentation site, at <code>/docs</code></h3>
+<p><code>scripts/build-docs.sh</code> renders <code>docs/</code> into the committed, versioned <code>docs-site/</code>,
+and from there it travels in the artifact exactly as <code>db/</code> does. Nothing extra to
+run at release time:</p>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs-site/</code> in the repo</td>
+<td>the tracked site, one frozen directory per release plus <code>unversioned/</code></td>
+</tr>
+<tr>
+<td><code>docs_dir=</code> in <code>RELEASE</code></td>
+<td><code>docs</code> when this artifact carries a site, empty when it does not</td>
+</tr>
+<tr>
+<td><code>/opt/nativeweb/docs</code></td>
+<td>a symlink to the live colour's <code>docs/</code>, repointed at promotion and at rollback</td>
+</tr>
+<tr>
+<td><code>handle_path /docs/*</code> in the Caddyfile</td>
+<td>serves it; <code>redir /docs /docs/ 308</code> in front, because the index's links are relative</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Absent docs are not an error.</strong> A product that has never run <code>build-docs.sh</code>
+builds and deploys normally, and <code>/docs</code> is a 404 until it does. A <code>DOCS_DIR</code> that
+exists <em>without</em> a <code>versions.json</code> <strong>is</strong> an error: that is either the wrong
+directory or a half-finished build, and shipping it would put a directory listing
+under the product's own hostname.</p>
+<p><strong>The docs follow the release, so a rollback rolls them back too</strong> — which matters
+less than it sounds, because the site is versioned: every release's documentation
+stays in the tree whichever one is serving.</p>
+<p>One thing to know before copying the tracked <code>Caddyfile</code> onto a host: <strong>a guest
+behind an edge proxy needs a different one.</strong> <code>nativeweb-dev</code> terminates TLS at
+<code>incus-host</code>, so its Caddyfile is <code>auto_https off</code> on <code>:80</code> with
+<code>trusted_proxies</code>, and the <code>/docs</code> block above is the only part the two share
+verbatim.</p>
 <h2 id="backups">Backups</h2>
 <p>Nightly at 03:17 UTC (plus up to 15 minutes of jitter), <code>Persistent=true</code> so a
 host that was off catches up rather than skipping a day silently.
@@ -523,8 +622,8 @@ only when the replacement carries the old hostname.</li>
 </thead>
 <tbody>
 <tr>
-<td>Provisioning has never been run on a real host</td>
-<td>T15, outstanding — R1 unmet</td>
+<td><del>Provisioning has never been run on a real host</del></td>
+<td><strong>Closed 2026-09-01</strong> — provisioned and deployed to on <code>nativeweb-dev</code>. R1 met</td>
 </tr>
 <tr>
 <td>The restore drill has never been run</td>
@@ -533,6 +632,10 @@ only when the replacement carries the old hostname.</li>
 <tr>
 <td>Disaster recovery has never been exercised</td>
 <td>T15, outstanding — R17 unmet</td>
+</tr>
+<tr>
+<td>The nightly backup fails on <code>nativeweb-dev</code></td>
+<td><code>BACKUP_S3_BUCKET</code> and its credentials are unset in <code>/etc/nativeweb/backup.env</code>, so the 03:17 timer fails daily. An operator's key, not a script defect</td>
 </tr>
 <tr>
 <td><code>MemoryDenyWriteExecute=yes</code> verified on WSL2, not on the target host</td>

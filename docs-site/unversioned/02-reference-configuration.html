@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Configuration reference — apps/web — nativeweb docs</title>
+<title>Configuration reference — nativeweb docs</title>
 <link rel="stylesheet" href="site.css">
 <script>
 /* Inline, in the head, and before anything paints. A saved preference applied
@@ -28,7 +28,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">nativeweb</span>
-      <span class="brand-crumb">Configuration reference — apps/web</span>
+      <span class="brand-crumb">Configuration reference</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -73,7 +73,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">quick-start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -87,7 +87,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-configuration.html" class="active" aria-current="page">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html" class="active" aria-current="page">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
 </div>
 
       </div>
@@ -95,24 +95,23 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#how-settings-are-supplied">How settings are supplied</a><a class="toc-l2" href="#required-outside-development">Required outside Development</a><a class="toc-l2" href="#site-identity">Site identity</a><a class="toc-l2" href="#database">Database</a><a class="toc-l2" href="#rate-limiting">Rate limiting</a><a class="toc-l3" href="#nativewebforwardedheadersknownproxies-the-one-whose-default-costs-the-most">NativeWeb:ForwardedHeaders:KnownProxies — the one whose default costs the most</a><a class="toc-l3" href="#nativewebforwardedheadersforwardlimit-how-many-hops-back-to-look">NativeWeb:ForwardedHeaders:ForwardLimit — how many hops back to look</a><a class="toc-l2" href="#readiness">Readiness</a><a class="toc-l2" href="#telemetry">Telemetry</a><a class="toc-l3" href="#what-leaves-the-process">What leaves the process</a><a class="toc-l3" href="#running-without-a-collector">Running without a collector</a><a class="toc-l2" href="#antiforgery-and-data-protection">Antiforgery and data protection</a><a class="toc-l2" href="#bot-traps">Bot traps</a><a class="toc-l2" href="#oauth">OAuth</a><a class="toc-l2" href="#webauthn">WebAuthn</a><a class="toc-l2" href="#mail">Mail</a><a class="toc-l2" href="#breach-checking">Breach checking</a><a class="toc-l2" href="#passphrase-reset">Passphrase reset</a><a class="toc-l2" href="#validation-posture-summarised">Validation posture, summarised</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#the-section-prefix">The section prefix</a><a class="toc-l2" href="#framework-settings">Framework settings</a><a class="toc-l3" href="#outside-the-section">Outside the section</a><a class="toc-l3" href="#three-that-stop-the-process">Three that stop the process</a><a class="toc-l3" href="#not-read-despite-appearances">Not read, despite appearances</a><a class="toc-l2" href="#sign-in-settings">Sign-in settings</a><a class="toc-l2" href="#what-a-provisioned-host-holds">What a provisioned host holds</a><a class="toc-l2" href="#related">Related</a></nav>
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">Configuration reference — apps/web</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Configuration reference</nav>
         <article>
-<h1 id="configuration-reference-appsweb">Configuration reference — apps/web</h1>
-<blockquote>
-<p><strong>This documents an application that is no longer in this repository.</strong> <code>apps/web</code> left on
-2026-08-31 with the identity provider (<code>../decisions/2026-08-31-007-idp-leaves-nativeweb.md</code>),
-and <code>tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs</code>, which used to fail when
-this file drifted from the source, went with it. <strong>Nothing enforces this page now.</strong> It is kept
-because <code>skeleton/</code> reads a subset of the same keys under its own <code>__PRODUCT__:</code> prefix with the
-same shape and defaults, so a stamped product's settings are still described here — but a key
-below may or may not exist in any code you can read today. Verify against <code>skeleton/</code> before
-relying on a row.</p>
-</blockquote>
-<p>Every setting <code>apps/web</code> read, what it defaulted to, and what a wrong or absent value cost. Until
-this file existed, all of it was discoverable only by reading <code>Program.cs</code>.</p>
-<h2 id="how-settings-are-supplied">How settings are supplied</h2>
+<h1 id="configuration-reference">Configuration reference</h1>
+<p>Every setting the framework reads, what it defaults to, and what a wrong or absent value costs.</p>
+<p><strong>This page is enforced.</strong> <code>tests/nativeweb.repo.tests.unit/DocsClaimsTests.cs</code> extracts the key
+names from the two binders below at run time and fails when this file names a key the code does
+not read, or omits one it does. An earlier version of this page was not enforced, described an
+application that had left the repository, and stayed wrong for months while being served at
+<code>/docs</code>; the guard is the lesson.</p>
+<h2 id="the-section-prefix">The section prefix</h2>
+<p>NativeWeb reads nothing from a fixed key path. Every setting lives under a section the product
+chooses, passed to <code>NativeWebOptions.FromConfiguration(builder.Configuration, &quot;&lt;Name&gt;&quot;)</code>. The
+reference application uses <code>Sample</code> (<code>apps/sample/Program.cs</code>); a product stamped from
+<code>skeleton/</code> uses its own name. Keys below are written section-relative — read <code>{Section}</code> as
+whatever your composition root passed.</p>
 <table>
 <thead>
 <tr>
@@ -125,12 +124,12 @@ this file existed, all of it was discoverable only by reading <code>Program.cs</
 <tr>
 <td><code>appsettings.json</code></td>
 <td>always</td>
-<td>Committed. Holds only <code>Logging</code> and the dev-seed <code>FirstPartyClientId</code> — never a secret</td>
+<td>Committed. Never a secret</td>
 </tr>
 <tr>
 <td>User secrets</td>
 <td>Development only</td>
-<td><code>CreateSlimBuilder</code> does not load them; <code>Program.cs</code> adds them explicitly when <code>IsDevelopment()</code></td>
+<td><code>CreateSlimBuilder</code> does not load them; add them explicitly under <code>IsDevelopment()</code></td>
 </tr>
 <tr>
 <td>Environment variables</td>
@@ -139,199 +138,79 @@ this file existed, all of it was discoverable only by reading <code>Program.cs</
 </tr>
 </tbody>
 </table>
-<p><strong>Environment-variable spelling replaces <code>:</code> with <code>__</code>.</strong> <code>Sample:Db:MaxPoolSize</code> is
-<code>Sample__Db__MaxPoolSize</code>. The connection string is <code>ConnectionStrings__Sample</code>, or
-<code>Sample__Db__ConnectionString</code>.</p>
-<p><strong>The prefix is the product's, not the framework's.</strong> It is the string the app passes to
-<code>NativeWebOptions.FromConfiguration</code> — <code>Sample</code> for <code>apps/sample</code>, <code>&lt;Product&gt;</code> for anything
-stamped from <code>skeleton/</code>. There is no <code>NativeWeb__</code> section: no binary in this repository binds
-one, and the deploy preflight demanded that spelling until 2026-08-31, which is how it came to
-validate settings nothing read. <code>scripts/deploy/build.sh</code> stamps the prefix into the artifact so
-<code>deploy.sh</code> checks the keys the binary being deployed will read.</p>
-<p><strong>The rest of this file describes the identity provider that left on 2026-08-31</strong>
-(<code>docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md</code>). <code>FirstPartyClientId</code>, <code>ContactKey</code>,
-<code>StoreEncryptionKey</code>, <code>PairwiseSalt</code>, <code>WebAuthn:*</code>, <code>DeviceGrant:*</code> and the <code>Epass</code> rename below
-are its keys, kept as history. Nothing in this repository reads them.</p>
-<p><strong>Pre-rename keys are fatal, deliberately.</strong> N4 renamed every key from <code>Epass:*</code> to <code>NativeWeb:*</code>.
-An environment still exporting <code>Epass__ContactKey</code> or <code>ConnectionStrings__Epass</code> would otherwise
-start up looking healthy while writing contact PII in plaintext, so startup refuses instead. Loud
-exactly once, on the deploy that carries the rename — the only moment it can be wrong.</p>
-<h2 id="required-outside-development">Required outside Development</h2>
-<p><code>Program.cs</code> refuses to start when any of these is missing and the environment is not Development.
-The check is deliberate: each one degrades silently rather than crashing, so a lenient deploy looks
-healthy while being materially less safe than it appears.</p>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Absent means</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:ContactKey</code></td>
-<td>Contact PII lands in the clear. <code>ContactProtector</code> reads legacy plaintext back transparently, so nothing downstream complains</td>
-</tr>
-<tr>
-<td><code>NativeWeb:StoreEncryptionKey</code></td>
-<td>The staged registration passphrase sits unencrypted in <code>bff_store</code> while the user verifies their code</td>
-</tr>
-<tr>
-<td><code>NativeWeb:PairwiseSalt</code></td>
-<td><code>/oauth/introspect</code> returns 503</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Smtp:Host</code></td>
-<td>Refuses to start rather than fall back to the dev senders, which write verification codes and login links — both account-takeover-grade bearer credentials — to the log</td>
-</tr>
-</tbody>
-</table>
-<p>In Development all four are optional, so a fresh checkout runs before any secrets exist. The
-affected endpoints return 503 instead.</p>
-<h2 id="site-identity">Site identity</h2>
+<p><strong>Environment-variable spelling replaces <code>:</code> with <code>__</code>.</strong> <code>Sample:Db:MaxAutoPrepare</code> is
+<code>Sample__Db__MaxAutoPrepare</code>.</p>
+<h2 id="framework-settings">Framework settings</h2>
+<p>Bound by <code>NativeWebOptions.TryFromConfiguration</code> in <code>libs/nativeweb.web/NativeWebOptions.cs</code>.
+The <strong>On a bad value</strong> column is the one to read: three of these stop the process at startup
+with the key named on stderr, and the rest fall back silently.</p>
 <table>
 <thead>
 <tr>
 <th>Key</th>
 <th>Default</th>
-<th>Notes</th>
+<th>On a bad value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>NativeWeb:CanonicalBaseUrl</code></td>
-<td>unset (<strong>the request's own scheme and host</strong>)</td>
-<td>This deployment's public origin, emitted by <code>/robots.txt</code> and <code>/sitemap.xml</code>. Must be an absolute <code>http</code>/<code>https</code> origin with <strong>no path, query or fragment</strong> — one trailing slash is trimmed, several are rejected. A supplied-but-unusable value exits <code>78</code> at startup naming the key; blank is valid and selects the fallback</td>
+<td><code>{Section}:Db:ConnectionString</code></td>
+<td>none</td>
+<td>Null. The app answers <code>/healthz</code> but reports not-ready</td>
 </tr>
 <tr>
-<td><code>NativeWeb:SecurityContact</code></td>
-<td>unset (<strong>no <code>security.txt</code> is served</strong>)</td>
-<td>Where a vulnerability report should go, emitted by <code>/.well-known/security.txt</code> and <code>/security.txt</code> (RFC 9116). A bare address gains a <code>mailto:</code>; a <code>mailto:</code>, <code>https:</code> or <code>tel:</code> URI passes through. One line only — a value containing a newline is refused, since the body is assembled by concatenation and a second line would be a field of its own. A supplied-but-unusable value exits <code>78</code> at startup naming the key</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Unset serves no <code>security.txt</code> at all, on purpose.</strong> A <code>Sitemap:</code> line naming the wrong origin is
-discarded by the crawler; a <code>Contact:</code> line naming the wrong mailbox sends somebody's vulnerability
-report to a stranger, and the reporter cannot tell it went nowhere. Absence tells a researcher to
-look elsewhere. A placeholder tells them they are finished.</p>
-<p>The <code>CanonicalBaseUrl</code> fallback reads scheme and host after <code>UseForwardedHeaders</code>, so behind a correctly configured
-proxy it is already the public origin. It is still only as trustworthy as the <code>Host</code> header, and a
-<code>Sitemap:</code> line pointing at a different origin than the one a crawler fetched is <strong>discarded
-silently</strong> — no error, no log line, nothing observable from the serving side. Production sets the
-key rather than relying on the fallback.</p>
-<h2 id="database">Database</h2>
-<p><code>ConnectionStrings:NativeWeb</code> is the connection string. <strong>A missing one is not fatal</strong>, even
-outside Development: no data source is registered, <code>/readyz</code> reports not-ready, and the app still
-serves. That is a deliberate skeleton-inherited posture, not an oversight.</p>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Default</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:Db:MinPoolSize</code></td>
-<td><code>1</code></td>
-<td>Values <code>&gt;= 0</code> accepted; anything else falls back to the default</td>
+<td><code>{Section}:Db:CommandTimeoutSeconds</code></td>
+<td>driver default</td>
+<td>Ignored unless a positive integer</td>
 </tr>
 <tr>
-<td><code>NativeWeb:Db:MaxPoolSize</code></td>
-<td><code>50</code></td>
-<td>Must be <code>&gt; 0</code></td>
-</tr>
-<tr>
-<td><code>NativeWeb:Db:TimeoutSeconds</code></td>
-<td>Npgsql's own (15)</td>
-<td>Only applied when <code>&gt; 0</code>; otherwise Npgsql's default stands</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Db:CommandTimeoutSeconds</code></td>
-<td>Npgsql's own (30)</td>
-<td>Same</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Db:MaxAutoPrepare</code></td>
+<td><code>{Section}:Db:MaxAutoPrepare</code></td>
 <td><code>20</code></td>
-<td><strong>Set to <code>0</code> behind a transaction-pooling PgBouncer.</strong> Prepared statements break mid-flight there, and the remediation must not require a code change</td>
-</tr>
-</tbody>
-</table>
-<p>Every one of these parses leniently: a malformed value is silently replaced by the default rather
-than rejected. That is worth knowing when a tuning change appears to have had no effect.</p>
-<h2 id="rate-limiting">Rate limiting</h2>
-<p>Five named per-IP fixed-window policies, all on a <strong>60-second window</strong> with <code>QueueLimit = 0</code> and a
-429 rejection status. Only the permit count is configurable.</p>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Default</th>
-<th>Surface</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:RateLimit:Auth:PermitLimit</code></td>
-<td><code>20</code></td>
-<td>Sign-in, register, passphrase and the rest of the human auth surface</td>
+<td>Falls back to 20</td>
 </tr>
 <tr>
-<td><code>NativeWeb:RateLimit:Admin:PermitLimit</code></td>
-<td><code>20</code></td>
-<td>Operator-only, already gated by the Operator claim</td>
+<td><code>{Section}:ForwardedHeaders:KnownProxies</code></td>
+<td>empty</td>
+<td>Unparseable entries are <strong>skipped, not fatal</strong> — a typo costs a degraded rate-limit partition, not an outage. <strong>Required behind a proxy</strong>: <code>deploy.sh</code> refuses to promote a release without it, because unset means ASP.NET Core trusts loopback only, <code>RemoteIpAddress</code> is the proxy hop, and every client shares one rate-limit partition with nothing logged</td>
 </tr>
 <tr>
-<td><code>NativeWeb:RateLimit:OAuthAuthorize:PermitLimit</code></td>
-<td><code>30</code></td>
-<td><code>GET /oauth/authorize</code> and both consent POSTs. Higher because retries and multiple app launches are normal</td>
+<td><code>{Section}:Telemetry:Enabled</code></td>
+<td><code>false</code></td>
+<td><strong>Fails startup.</strong> <code>&quot;1&quot;</code>, <code>&quot;yes&quot;</code> and <code>&quot;Enabled&quot;</code> are all things an operator writes meaning on, and every one of them would read as off under an equality check</td>
 </tr>
 <tr>
-<td><code>NativeWeb:RateLimit:OAuth:PermitLimit</code></td>
+<td><code>{Section}:DataProtection:KeyDirectory</code></td>
+<td>a directory under the process's home</td>
+<td>A <strong>configured</strong> value is taken as given and never probed — an operator's explicit statement, checked instead by <code>deploy.sh</code>'s preflight against <code>ReadWritePaths</code>. Only the fallback is proved, and <strong>fails startup</strong> when there is no home to fall back to</td>
+</tr>
+<tr>
+<td><code>{Section}:BotTraps:MinAgeSeconds</code></td>
+<td>unset, and the trap still runs: <code>BotTrapOptions.MinAge</code> is 3 s and the binder overrides it only when the key is set</td>
+<td><strong>Fails startup</strong> unless a non-negative number</td>
+</tr>
+<tr>
+<td><code>{Section}:RateLimit:General:PermitLimit</code></td>
 <td><code>120</code></td>
-<td><code>/oauth/token</code>, <code>/oauth/introspect</code>, <code>/oauth/device_authorization</code>, <code>/oauth/login-link/start</code>. Highest because a native client legitimately polls during the device flow</td>
+<td>Falls back to 120; <code>0</code> and negatives take the default rather than opening or closing the policy</td>
 </tr>
 <tr>
-<td><code>NativeWeb:RateLimit:CspReport:PermitLimit</code></td>
+<td><code>{Section}:RateLimit:CspReport:PermitLimit</code></td>
 <td><code>10</code></td>
-<td><code>POST /csp-report</code>, which only feeds the log</td>
+<td>Falls back to 10</td>
 </tr>
 <tr>
-<td><code>NativeWeb:RateLimit:Page:PermitLimit</code></td>
-<td><code>240</code></td>
-<td>Unauthenticated page-rendering GETs (<code>/</code>, the sign-in/register/2FA/WebAuthn/reset pages, <code>security.txt</code>). Deliberately loose: a flood ceiling, not a security control, since each mints an antiforgery token per request. Probes (<code>/healthz</code>, <code>/version</code>, <code>/readyz</code>) are excluded — a 429 there reads as an unhealthy instance</td>
+<td><code>{Section}:Readiness:CacheSeconds</code></td>
+<td><code>1</code></td>
+<td>Clamped to a 30-second maximum</td>
+</tr>
+<tr>
+<td><code>{Section}:SecurityContact</code></td>
+<td>unset, serves no <code>/security.txt</code></td>
+<td><strong>Fails startup</strong> unless a bare email address or a <code>mailto:</code>, <code>https:</code> or <code>tel:</code> URI on one line</td>
 </tr>
 </tbody>
 </table>
-<p>These are configurable mainly because <code>WebApplicationFactory</code>'s <code>TestServer</code> has no real socket, so
-every request in a test process partitions under one <code>&quot;unknown&quot;</code> key and a large suite would
-otherwise exceed a production-appropriate default within a single run.</p>
-<p><strong>Partitioning:</strong> by client IP, with IPv6 bucketed to its <code>/64</code> prefix. A v6 client routinely holds
-a whole <code>/64</code>, so keying on the full address would hand one attacker 2^64 fresh windows. IPv4 and
-v4-mapped v6 stay per-address.</p>
-<h3 id="nativewebforwardedheadersknownproxies-the-one-whose-default-costs-the-most"><code>NativeWeb:ForwardedHeaders:KnownProxies</code> — the one whose default costs the most</h3>
-<p>Unset. Comma-separated proxy/load-balancer addresses; unparseable entries are skipped silently.</p>
-<p>ASP.NET Core trusts only loopback by default, so behind a reverse proxy <code>RemoteIpAddress</code> is the
-proxy's own socket peer and <strong>every client in the world collapses into a single rate-limit
-partition</strong>. Nothing errors, no log line says so, and the limits above stop being per-client. The
-default is the safe direction — an untrusted hop cannot spoof its way past a limit — but it is
-only correct for a deployment with no proxy in front of it. Production must set this.</p>
-<h3 id="nativewebforwardedheadersforwardlimit-how-many-hops-back-to-look"><code>NativeWeb:ForwardedHeaders:ForwardLimit</code> — how many hops back to look</h3>
-<p><code>1</code>. A value that does not parse, or is zero or negative, leaves the default in place rather than
-failing startup: a typo here should cost a shared rate-limit partition, not an outage.</p>
-<p>One hop is right for the usual shape — a single Caddy on the same host. It is wrong the moment
-there are two proxies. On incus-host the host-level Caddy terminates TLS and a Caddy sidecar
-in the guest owns the blue/green swap, so <code>X-Forwarded-For</code> arrives as <code>&lt;client&gt;, &lt;edge&gt;</code> and a
-limit of 1 unwinds only the sidecar's entry — leaving <code>RemoteIpAddress</code> on the bridge gateway,
-with the same silent consequence as leaving <code>KnownProxies</code> unset.</p>
-<p><strong>Raise it together with <code>KnownProxies</code>, never alone.</strong> The limit is how many entries are popped,
-and a pop is only honoured while the address it lands on is trusted, so raising one without the
-other changes nothing at all — which reads exactly like the setting not working.
-<code>provision.sh --edge</code> seeds both in one place for that reason. A limit larger than the real chain
-is not a spoofing hole, because the untrusted address stops the walk regardless.</p>
-<h2 id="readiness">Readiness</h2>
+<h3 id="outside-the-section">Outside the section</h3>
 <table>
 <thead>
 <tr>
@@ -342,340 +221,165 @@ is not a spoofing hole, because the untrusted address stops the walk regardless.
 </thead>
 <tbody>
 <tr>
-<td><code>NativeWeb:Readiness:CacheSeconds</code></td>
-<td><code>1.0</code></td>
-<td><strong>Clamped to a maximum of 30</strong>, not merely validated as positive</td>
+<td><code>ConnectionStrings:{Section}</code></td>
+<td>none</td>
+<td>What <code>apps/sample</code> reads, in preference to <code>{Section}:Db:ConnectionString</code>. Fill the one your binary uses</td>
+</tr>
+<tr>
+<td><code>OTEL_SERVICE_NAME</code></td>
+<td>the application name</td>
+<td>At the configuration root, not under the section: it is the standard environment variable</td>
+</tr>
+<tr>
+<td><code>OTEL_EXPORTER_OTLP_ENDPOINT</code></td>
+<td>none</td>
+<td>Read by the OpenTelemetry exporter itself. <code>deploy.sh</code> refuses to promote when telemetry is on and this is unset</td>
 </tr>
 </tbody>
 </table>
-<p><code>/readyz</code> is bounded by this cache rather than by a rate limit, because a 429 on a readiness probe
-is an off-switch for a healthy instance: partitioning is per-IP, and until <code>KnownProxies</code> is
-configured the load balancer's own probe shares a partition with every client. The clamp exists
-because readiness is what a balancer uses to notice an outage — a fat-fingered value must not let
-the app claim health for minutes after its database has gone.</p>
-<h2 id="telemetry">Telemetry</h2>
+<h3 id="three-that-stop-the-process">Three that stop the process</h3>
+<p><code>Telemetry:Enabled</code>, <code>DataProtection:KeyDirectory</code> and <code>SecurityContact</code> fail startup rather
+than defaulting, and each for the same reason: the silent version of the failure is invisible.
+Telemetry an operator believes is exporting and is not; a key ring that cannot persist, so every
+restart remints the antiforgery keys and every form POST answers 400 after a deploy while
+<code>/readyz</code> stays green; a <code>/security.txt</code> nobody can act on. <code>KeyDirectory</code> is the partial case:
+what stops the process is having no usable fallback, not a configured directory that turns out to
+be unwritable, which the deploy preflight catches rather than startup. The exit is code 78 with the key
+named on stderr — never a modal dialog, which under NativeAOT on Windows a supervisor reads as
+a hung service.</p>
+<h3 id="not-read-despite-appearances">Not read, despite appearances</h3>
+<p><code>{Section}:ForwardedHeaders:ForwardLimit</code> is <strong>seeded by <code>scripts/deploy/provision.sh</code> and bound
+by nothing.</strong> <code>AddNativeWebForwardedHeaders</code> sets <code>ForwardedHeaders</code> and <code>KnownProxies</code> and
+leaves <code>ForwardLimit</code> at the ASP.NET Core default of 1. On a two-hop deployment (<code>provision.sh --edge</code>) that means only the local hop is unwound and every request appears to originate from
+the edge proxy — the exact failure the seeded comment says it prevents. Recorded in
+<code>work/todo.md</code>; do not rely on setting it.</p>
+<h2 id="sign-in-settings">Sign-in settings</h2>
+<p>Bound by <code>SignInConfiguration</code> in <code>libs/nativeweb.signin/SignInConfiguration.cs</code>, under a
+section the product names when it calls <code>AddSignIn</code>. See
+<code>libs/nativeweb.signin/README.md</code> for what the library does with them.</p>
 <table>
 <thead>
 <tr>
 <th>Key</th>
 <th>Default</th>
-<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>NativeWeb:Telemetry:Enabled</code></td>
-<td>unset (<strong>on</strong>)</td>
-<td>Compared case-insensitively against the literal <code>&quot;false&quot;</code>; anything else — including unset — is on</td>
+<td><code>AuthorizationEndpoint</code>, <code>TokenEndpoint</code>, <code>UserInfoEndpoint</code>, <code>IntrospectionEndpoint</code></td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>ClientId</code>, <code>ClientSecret</code>, <code>RedirectUri</code></td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>ClientAuthentication</code></td>
+<td><code>ClientSecretBasic</code></td>
+</tr>
+<tr>
+<td><code>Scopes</code></td>
+<td>the library's default set, <strong>replaced wholesale</strong> when configured, never merged</td>
+</tr>
+<tr>
+<td><code>CookieName</code></td>
+<td><code>__Host-signin</code></td>
+</tr>
+<tr>
+<td><code>LoginPath</code></td>
+<td><code>/signin</code></td>
+</tr>
+<tr>
+<td><code>CallbackPath</code></td>
+<td><code>/signin/callback</code></td>
+</tr>
+<tr>
+<td><code>LogoutPath</code></td>
+<td><code>/signout</code></td>
+</tr>
+<tr>
+<td><code>SignedOutPath</code>, <code>FailurePath</code>, <code>DefaultReturnPath</code></td>
+<td><code>/</code></td>
+</tr>
+<tr>
+<td><code>FlowLifetimeSeconds</code></td>
+<td>15 minutes</td>
+</tr>
+<tr>
+<td><code>SessionLifetimeSeconds</code></td>
+<td>14 days</td>
+</tr>
+<tr>
+<td><code>RefreshSkewSeconds</code></td>
+<td>2 minutes</td>
+</tr>
+<tr>
+<td><code>IntrospectionCacheLifetimeSeconds</code></td>
+<td>30 seconds</td>
+</tr>
+<tr>
+<td><code>RetainTokens</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>StoreEncryptionKey</code></td>
+<td>none. Base64, because that is what a secret manager hands back and the only encoding that survives an environment variable without a length surprise. It must decode to exactly <code>StoreDataProtector.KeyBytes</code>, and a single repeated byte is refused outright — <code>new byte[32]</code> is what a placeholder and a copied example both look like, and it boots a host whose stored provider tokens anyone can decrypt. Generate one with <code>RandomNumberGenerator.GetBytes(32)</code></td>
+</tr>
+<tr>
+<td><code>AllowEphemeralStoreEncryptionKey</code></td>
+<td><code>false</code></td>
 </tr>
 </tbody>
 </table>
-<p>Metrics and traces over OTLP, including Npgsql's built-in <code>ActivitySource</code> and <code>Meter</code>. The
-endpoint and protocol come from the standard <code>OTEL_EXPORTER_OTLP_*</code> environment variables, not from
-a <code>NativeWeb:</code> key. The default endpoint is <code>localhost:4317</code>; with no collector there, export
-failures are background warnings and never request failures. This repo deliberately ships no
-collector — that is deployment infrastructure; see
-<code>docs/decisions/2026-08-24-002-otlp-collector-location.md</code>.</p>
-<p><strong>On by default since 2026-08-17.</strong> It was opt-in until then, which is the shape that produces a
-flag first exercised in production. <code>&quot;0&quot;</code>, <code>&quot;no&quot;</code> and a padded <code>&quot; false &quot;</code> are <em>not</em> off — the
-comparison fails toward exporting, because the failure being guarded against is a host that
-quietly stopped reporting and was noticed only when someone went looking for a graph.</p>
-<p>Resource attributes are <code>service.name = nativeweb.web</code> and <code>service.version = &lt;informational version&gt;</code>, the same string <code>/version</code> returns. Without them a collector sees
-<code>unknown_service:&lt;host process&gt;</code> and cannot tell two instances apart. <code>OTEL_SERVICE_NAME</code>
-overrides the name — one binary running staging and production wants two names, and a default
-that silently swallowed the standard variable would be worse than no default.</p>
-<h3 id="what-leaves-the-process">What leaves the process</h3>
-<p>Measured 2026-08-17, not inferred from the semantic conventions. Every row is a package default,
-so each has a regression test; a driver or instrumentation bump that changes one fails the build
-rather than quietly changing what a collector receives.</p>
+<h2 id="what-a-provisioned-host-holds">What a provisioned host holds</h2>
+<p><code>scripts/deploy/provision.sh</code> seeds five files under <code>/etc/nativeweb/</code>. It writes them empty
+where a value is a secret: a script that generates a production credential is a script that has
+seen it.</p>
 <table>
 <thead>
 <tr>
-<th>Attribute</th>
-<th>Carries</th>
-<th>Test</th>
+<th>File</th>
+<th>Mode</th>
+<th>Holds</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>url.query</code></td>
-<td>Only the <strong>names</strong> of parameters that had a value; the value is replaced with <code>Redacted</code>, and a segment with no <code>=</code> at all is replaced whole</td>
-<td><code>TelemetryTests</code>, <code>QueryRedactingProcessorTests</code></td>
+<td><code>app.env</code></td>
+<td><code>0644 root:&lt;group&gt;</code></td>
+<td><code>ASPNETCORE_ENVIRONMENT</code>, the forwarded-headers stanza, <code>DataProtection:KeyDirectory</code>, <code>Telemetry:Enabled</code></td>
 </tr>
 <tr>
-<td><code>url.path</code></td>
-<td>The raw path. No production route has a secret in one — the only route parameters are <code>{id:long}</code>, <code>{clientId:guid}</code>, <code>{id}</code></td>
-<td>—</td>
+<td><code>secrets.env</code></td>
+<td><code>0640 root:&lt;group&gt;</code></td>
+<td>The connection string, in both spellings — fill the one your binary reads and delete the other</td>
 </tr>
 <tr>
-<td><code>db.query.text</code></td>
-<td>The <strong>parameterised</strong> SQL. Values travel as parameters and never appear</td>
-<td><code>NpgsqlTelemetryTests</code></td>
+<td><code>blue.env</code>, <code>green.env</code></td>
+<td><code>0644 root:&lt;group&gt;</code></td>
+<td><code>ASPNETCORE_URLS</code> for each colour, ports 5011 and 5012</td>
 </tr>
 <tr>
-<td><code>db.npgsql.data_source</code>, <code>db.client.connection.pool.name</code></td>
-<td>The connection string <strong>with the password stripped by the driver</strong>. Host, database and DB username do leave the process</td>
-<td><code>NpgsqlTelemetryTests</code></td>
-</tr>
-<tr>
-<td>span status on a failed query</td>
-<td>SQLSTATE only (e.g. <code>22P02</code>). The Postgres error <em>text</em>, which quotes the offending value back, does not reach the span</td>
-<td><code>NpgsqlTelemetryTests</code></td>
+<td><code>backup.env</code></td>
+<td><code>0640 root:root</code></td>
+<td>Read by <code>scripts/deploy/backup.sh</code> and <code>scripts/deploy/restore.sh</code>, not by the application</td>
 </tr>
 </tbody>
 </table>
-<p>The query redaction is <strong>not</strong> left to the instrumentation. The package redacts by default, but it
-reads <code>OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION</code> and the matching option is
-<code>internal</code>, so a host could switch it off and the app would have no in-code way to refuse. This is
-an identity provider — OAuth codes, device codes and passphrase-reset tokens all travel as query
-parameters — so <code>QueryRedactingProcessor</code> re-redacts before export regardless.</p>
-<p>One PII path exists and it is Development-only: <code>/dev/inbox/{destination}</code> takes an email address
-in the path, so a developer host would send those addresses as <code>url.path</code>. The route is mapped
-only under <code>IsDevelopment()</code> and never exists in a production posture, and both e2e launchers
-(<code>AppProcessFixture</code> and <code>StartupGuardProcessTests</code>) turn telemetry off — but point a dev host at
-a throwaway collector, not the real one.</p>
-<h3 id="running-without-a-collector">Running without a collector</h3>
-<p>Safe, and measured rather than assumed: shutdown takes <strong>187 ms</strong> with nothing listening on the
-endpoint and <strong>201 ms</strong> with a blackholed one, so a missing collector costs no shutdown latency
-worth bounding. The batch processor's queue is bounded and drops on overflow, and OTel routes
-export failures through its own <code>EventSource</code> rather than <code>ILogger</code>, so there is no log spam.</p>
-<h2 id="antiforgery-and-data-protection">Antiforgery and data protection</h2>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Default</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:DataProtection:KeyDirectory</code></td>
-<td><code>&lt;AppContext.BaseDirectory&gt;/keys</code></td>
-<td>Point at a persistent volume in production</td>
-</tr>
-</tbody>
-</table>
-<p>Without a persisted key ring, every restart invalidates outstanding antiforgery tokens, so the
-first form submission after any deploy or recycle fails. The default survives ordinary restarts
-because <code>bin/</code> is not touched; it does not survive a container replacement. The session cookie is
-unaffected — it is an opaque random token validated against PostgreSQL, with no protect/unprotect
-step.</p>
-<h2 id="bot-traps">Bot traps</h2>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Default</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:BotTraps:MinAgeSeconds</code></td>
-<td><code>3</code></td>
-<td><strong>Validated, not lenient</strong>: a malformed or negative value throws at startup</td>
-</tr>
-</tbody>
-</table>
-<p>This is the one numeric key that fails fast rather than falling back, because a silently-ignored
-value would disable the timing trap while looking configured. The test tiers set it to <code>0</code>, their
-submits being machine-fast by construction.</p>
-<h2 id="oauth">OAuth</h2>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Default</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:FirstPartyClientId</code></td>
-<td><code>00000000-0000-4000-8000-0000000e9a55</code></td>
-<td>A public identifier, not a secret, so a dev-seed default ships in <code>appsettings.json</code>. Production points at its own seeded row. <strong>Parsed with <code>Guid.Parse</code>, so a malformed value throws at startup</strong></td>
-</tr>
-<tr>
-<td><code>NativeWeb:DeviceGrant:TtlSeconds</code></td>
-<td><code>600</code></td>
-<td>RFC 8628 device grant</td>
-</tr>
-<tr>
-<td><code>NativeWeb:DeviceGrant:IntervalSeconds</code></td>
-<td><code>5</code></td>
-<td>Poll interval advertised to clients</td>
-</tr>
-<tr>
-<td><code>NativeWeb:DeviceGrant:UserCodeLength</code></td>
-<td><code>8</code></td>
-<td></td>
-</tr>
-<tr>
-<td><code>NativeWeb:DeviceGrant:VerificationUri</code></td>
-<td><code>https://localhost/device</code></td>
-<td>Emitted to clients today, but the page itself is a deferred slice — so the default is wrong for any real deployment and nothing will tell you</td>
-</tr>
-</tbody>
-</table>
-<h2 id="webauthn">WebAuthn</h2>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Default</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:WebAuthn:ServerDomain</code></td>
-<td><code>localhost</code></td>
-<td>The RP ID. Must equal, or be a registrable-domain suffix of, every configured origin's host</td>
-</tr>
-<tr>
-<td><code>NativeWeb:WebAuthn:Origins</code></td>
-<td><code>http://localhost:53185</code></td>
-<td>Comma-separated exact origins the browser may present in <code>clientDataJSON</code></td>
-</tr>
-</tbody>
-</table>
-<p>The dev defaults target <code>launchSettings.json</code> over plain HTTP: WebAuthn's secure-context rule
-treats <code>localhost</code> as an exception, so this works locally without TLS. A production mismatch fails
-every attestation and assertion at verification time — loudly, not silently.</p>
-<h2 id="mail">Mail</h2>
-<p>Binds the whole <code>NativeWeb:Smtp</code> section to <code>SmtpOptions</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Default</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:Smtp:Host</code></td>
-<td>unset</td>
-<td><strong>Unset means SMTP is disabled.</strong> In Development that selects the log-based dev senders; outside it, startup fails</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Smtp:Port</code></td>
-<td><code>587</code></td>
-<td>Submission over STARTTLS</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Smtp:Username</code></td>
-<td>unset</td>
-<td>Empty skips SMTP AUTH</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Smtp:Secret</code></td>
-<td>unset</td>
-<td>The AUTH password. Named <code>Secret</code> rather than the obvious word so the repo's secret scanner does not false-positive on wiring code</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Smtp:FromAddress</code></td>
-<td>unset</td>
-<td><strong>Required whenever <code>Host</code> is set</strong>; validation throws otherwise</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Smtp:FromName</code></td>
-<td>unset</td>
-<td>Display name only</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Smtp:SecurityMode</code></td>
-<td><code>StartTls</code></td>
-<td><code>None</code> is test-only and is <strong>rejected for any non-loopback host</strong>, so a production typo cannot send codes, login links and AUTH credentials in cleartext</td>
-</tr>
-<tr>
-<td><code>NativeWeb:Smtp:TimeoutSeconds</code></td>
-<td><code>10</code></td>
-<td>Connect and send</td>
-</tr>
-</tbody>
-</table>
-<h2 id="breach-checking">Breach checking</h2>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Default</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:BreachCheck:Hibp</code></td>
-<td>enabled</td>
-<td>Opt-out only: the literal <code>&quot;false&quot;</code> (case-insensitive) drops to the offline common-password list alone</td>
-</tr>
-<tr>
-<td><code>NativeWeb:BreachCheck:RecheckAfterHours</code></td>
-<td><code>24</code></td>
-<td>While <code>last_breach_check_at</code> is younger than this, sign-in skips the check. Must be <code>&gt; 0</code></td>
-</tr>
-</tbody>
-</table>
-<p>Turn the HIBP leg off for a deployment with no egress, or a test tier that must not depend on a
-third party's corpus. Sign-in checks the passphrase it was just given, so the checker's 2s timeout
-otherwise sits on every login rather than only on registration.</p>
-<h2 id="passphrase-reset">Passphrase reset</h2>
-<table>
-<thead>
-<tr>
-<th>Key</th>
-<th>Default</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NativeWeb:PassphraseReset:MaxCodesPerDay</code></td>
-<td><code>5</code></td>
-<td>Per-account cap on reset codes. Must be <code>&gt; 0</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="validation-posture-summarised">Validation posture, summarised</h2>
-<p>Worth knowing which keys will tell you they are wrong and which will not.</p>
-<table>
-<thead>
-<tr>
-<th>Behaviour</th>
-<th>Keys</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Throws at startup</strong></td>
-<td><code>BotTraps:MinAgeSeconds</code>, <code>FirstPartyClientId</code>, <code>Smtp:FromAddress</code> and <code>Smtp:SecurityMode</code> (when <code>Host</code> is set), any pre-rename <code>Epass:*</code> key, and the four required secrets outside Development</td>
-</tr>
-<tr>
-<td><strong>Clamped</strong></td>
-<td><code>Readiness:CacheSeconds</code> (max 30)</td>
-</tr>
-<tr>
-<td><strong>Silently defaulted</strong></td>
-<td>every other numeric key — <code>Db:*</code>, all six <code>RateLimit:*</code>, <code>DeviceGrant:*</code>, <code>BreachCheck:RecheckAfterHours</code>, <code>PassphraseReset:MaxCodesPerDay</code></td>
-</tr>
-<tr>
-<td><strong>Silently ignored</strong></td>
-<td>unparseable entries in <code>ForwardedHeaders:KnownProxies</code> and <code>WebAuthn:Origins</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs</code> used to assert that this file
-listed every <code>NativeWeb:</code> key the source read and no key it did not, so a new setting could not
-land undocumented. That test was deleted on 2026-08-31 with the application it read. <strong>The
-guarantee is gone</strong>; re-establishing it against <code>skeleton/</code> is an open item in <code>work/todo.md</code>.</p>
+<p><code>DataProtection:KeyDirectory</code> must stay inside <code>/var/lib/nativeweb</code>: <code>ReadWritePaths</code> in the
+systemd unit names that directory and <code>ProtectSystem=strict</code> makes the rest read-only.</p>
+<h2 id="related">Related</h2>
+<ul>
+<li><code>docs/02-reference/deployment.md</code> — the runbook these files serve.</li>
+<li><code>libs/nativeweb.web/README.md</code> — the pipeline that reads the framework settings.</li>
+<li><code>libs/nativeweb.signin/README.md</code> — the relying party that reads the sign-in settings.</li>
+</ul>
 
         </article>
         <div class="page-nav" id="page-nav">
-          <div class="prev-next"><a class="pn-prev" href="01-architecture-progressive-enhancement.html">
+          <div class="prev-next"><a class="pn-prev" href="02-reference-breaking-changes.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">Progressive enhancement</span>
+  <span class="pn-title">Breaking changes</span>
 </a><a class="pn-next" href="02-reference-continuous-audit.html">
   <span class="pn-label">next &#8594;</span>
   <span class="pn-title">Continuous audit</span>

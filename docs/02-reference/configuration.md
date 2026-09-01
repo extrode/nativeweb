@@ -1,302 +1,122 @@
-# Configuration reference — apps/web
+# Configuration reference
 
-> **This documents an application that is no longer in this repository.** `apps/web` left on
-> 2026-08-31 with the identity provider (`../decisions/2026-08-31-007-idp-leaves-nativeweb.md`),
-> and `tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs`, which used to fail when
-> this file drifted from the source, went with it. **Nothing enforces this page now.** It is kept
-> because `skeleton/` reads a subset of the same keys under its own `__PRODUCT__:` prefix with the
-> same shape and defaults, so a stamped product's settings are still described here — but a key
-> below may or may not exist in any code you can read today. Verify against `skeleton/` before
-> relying on a row.
+Every setting the framework reads, what it defaults to, and what a wrong or absent value costs.
 
-Every setting `apps/web` read, what it defaulted to, and what a wrong or absent value cost. Until
-this file existed, all of it was discoverable only by reading `Program.cs`.
+**This page is enforced.** `tests/nativeweb.repo.tests.unit/DocsClaimsTests.cs` extracts the key
+names from the two binders below at run time and fails when this file names a key the code does
+not read, or omits one it does. An earlier version of this page was not enforced, described an
+application that had left the repository, and stayed wrong for months while being served at
+`/docs`; the guard is the lesson.
 
-## How settings are supplied
+## The section prefix
+
+NativeWeb reads nothing from a fixed key path. Every setting lives under a section the product
+chooses, passed to `NativeWebOptions.FromConfiguration(builder.Configuration, "<Name>")`. The
+reference application uses `Sample` (`apps/sample/Program.cs`); a product stamped from
+`skeleton/` uses its own name. Keys below are written section-relative — read `{Section}` as
+whatever your composition root passed.
 
 | Source | When | Notes |
 |---|---|---|
-| `appsettings.json` | always | Committed. Holds only `Logging` and the dev-seed `FirstPartyClientId` — never a secret |
-| User secrets | Development only | `CreateSlimBuilder` does not load them; `Program.cs` adds them explicitly when `IsDevelopment()` |
+| `appsettings.json` | always | Committed. Never a secret |
+| User secrets | Development only | `CreateSlimBuilder` does not load them; add them explicitly under `IsDevelopment()` |
 | Environment variables | always | The deployment path |
 
-**Environment-variable spelling replaces `:` with `__`.** `Sample:Db:MaxPoolSize` is
-`Sample__Db__MaxPoolSize`. The connection string is `ConnectionStrings__Sample`, or
-`Sample__Db__ConnectionString`.
+**Environment-variable spelling replaces `:` with `__`.** `Sample:Db:MaxAutoPrepare` is
+`Sample__Db__MaxAutoPrepare`.
 
-**The prefix is the product's, not the framework's.** It is the string the app passes to
-`NativeWebOptions.FromConfiguration` — `Sample` for `apps/sample`, `<Product>` for anything
-stamped from `skeleton/`. There is no `NativeWeb__` section: no binary in this repository binds
-one, and the deploy preflight demanded that spelling until 2026-08-31, which is how it came to
-validate settings nothing read. `scripts/deploy/build.sh` stamps the prefix into the artifact so
-`deploy.sh` checks the keys the binary being deployed will read.
+## Framework settings
 
-**The rest of this file describes the identity provider that left on 2026-08-31**
-(`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`). `FirstPartyClientId`, `ContactKey`,
-`StoreEncryptionKey`, `PairwiseSalt`, `WebAuthn:*`, `DeviceGrant:*` and the `Epass` rename below
-are its keys, kept as history. Nothing in this repository reads them.
+Bound by `NativeWebOptions.TryFromConfiguration` in `libs/nativeweb.web/NativeWebOptions.cs`.
+The **On a bad value** column is the one to read: three of these stop the process at startup
+with the key named on stderr, and the rest fall back silently.
 
-**Pre-rename keys are fatal, deliberately.** N4 renamed every key from `Epass:*` to `NativeWeb:*`.
-An environment still exporting `Epass__ContactKey` or `ConnectionStrings__Epass` would otherwise
-start up looking healthy while writing contact PII in plaintext, so startup refuses instead. Loud
-exactly once, on the deploy that carries the rename — the only moment it can be wrong.
+| Key | Default | On a bad value |
+|---|---|---|
+| `{Section}:Db:ConnectionString` | none | Null. The app answers `/healthz` but reports not-ready |
+| `{Section}:Db:CommandTimeoutSeconds` | driver default | Ignored unless a positive integer |
+| `{Section}:Db:MaxAutoPrepare` | `20` | Falls back to 20 |
+| `{Section}:ForwardedHeaders:KnownProxies` | empty | Unparseable entries are **skipped, not fatal** — a typo costs a degraded rate-limit partition, not an outage. **Required behind a proxy**: `deploy.sh` refuses to promote a release without it, because unset means ASP.NET Core trusts loopback only, `RemoteIpAddress` is the proxy hop, and every client shares one rate-limit partition with nothing logged |
+| `{Section}:Telemetry:Enabled` | `false` | **Fails startup.** `"1"`, `"yes"` and `"Enabled"` are all things an operator writes meaning on, and every one of them would read as off under an equality check |
+| `{Section}:DataProtection:KeyDirectory` | a directory under the process's home | A **configured** value is taken as given and never probed — an operator's explicit statement, checked instead by `deploy.sh`'s preflight against `ReadWritePaths`. Only the fallback is proved, and **fails startup** when there is no home to fall back to |
+| `{Section}:BotTraps:MinAgeSeconds` | unset, and the trap still runs: `BotTrapOptions.MinAge` is 3 s and the binder overrides it only when the key is set | **Fails startup** unless a non-negative number |
+| `{Section}:RateLimit:General:PermitLimit` | `120` | Falls back to 120; `0` and negatives take the default rather than opening or closing the policy |
+| `{Section}:RateLimit:CspReport:PermitLimit` | `10` | Falls back to 10 |
+| `{Section}:Readiness:CacheSeconds` | `1` | Clamped to a 30-second maximum |
+| `{Section}:SecurityContact` | unset, serves no `/security.txt` | **Fails startup** unless a bare email address or a `mailto:`, `https:` or `tel:` URI on one line |
 
-## Required outside Development
+### Outside the section
 
-`Program.cs` refuses to start when any of these is missing and the environment is not Development.
-The check is deliberate: each one degrades silently rather than crashing, so a lenient deploy looks
-healthy while being materially less safe than it appears.
+| Key | Default | Notes |
+|---|---|---|
+| `ConnectionStrings:{Section}` | none | What `apps/sample` reads, in preference to `{Section}:Db:ConnectionString`. Fill the one your binary uses |
+| `OTEL_SERVICE_NAME` | the application name | At the configuration root, not under the section: it is the standard environment variable |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | none | Read by the OpenTelemetry exporter itself. `deploy.sh` refuses to promote when telemetry is on and this is unset |
 
-| Key | Absent means |
+### Three that stop the process
+
+`Telemetry:Enabled`, `DataProtection:KeyDirectory` and `SecurityContact` fail startup rather
+than defaulting, and each for the same reason: the silent version of the failure is invisible.
+Telemetry an operator believes is exporting and is not; a key ring that cannot persist, so every
+restart remints the antiforgery keys and every form POST answers 400 after a deploy while
+`/readyz` stays green; a `/security.txt` nobody can act on. `KeyDirectory` is the partial case:
+what stops the process is having no usable fallback, not a configured directory that turns out to
+be unwritable, which the deploy preflight catches rather than startup. The exit is code 78 with the key
+named on stderr — never a modal dialog, which under NativeAOT on Windows a supervisor reads as
+a hung service.
+
+### Not read, despite appearances
+
+`{Section}:ForwardedHeaders:ForwardLimit` is **seeded by `scripts/deploy/provision.sh` and bound
+by nothing.** `AddNativeWebForwardedHeaders` sets `ForwardedHeaders` and `KnownProxies` and
+leaves `ForwardLimit` at the ASP.NET Core default of 1. On a two-hop deployment (`provision.sh
+--edge`) that means only the local hop is unwound and every request appears to originate from
+the edge proxy — the exact failure the seeded comment says it prevents. Recorded in
+`work/todo.md`; do not rely on setting it.
+
+## Sign-in settings
+
+Bound by `SignInConfiguration` in `libs/nativeweb.signin/SignInConfiguration.cs`, under a
+section the product names when it calls `AddSignIn`. See
+`libs/nativeweb.signin/README.md` for what the library does with them.
+
+| Key | Default |
 |---|---|
-| `NativeWeb:ContactKey` | Contact PII lands in the clear. `ContactProtector` reads legacy plaintext back transparently, so nothing downstream complains |
-| `NativeWeb:StoreEncryptionKey` | The staged registration passphrase sits unencrypted in `bff_store` while the user verifies their code |
-| `NativeWeb:PairwiseSalt` | `/oauth/introspect` returns 503 |
-| `NativeWeb:Smtp:Host` | Refuses to start rather than fall back to the dev senders, which write verification codes and login links — both account-takeover-grade bearer credentials — to the log |
+| `AuthorizationEndpoint`, `TokenEndpoint`, `UserInfoEndpoint`, `IntrospectionEndpoint` | empty |
+| `ClientId`, `ClientSecret`, `RedirectUri` | empty |
+| `ClientAuthentication` | `ClientSecretBasic` |
+| `Scopes` | the library's default set, **replaced wholesale** when configured, never merged |
+| `CookieName` | `__Host-signin` |
+| `LoginPath` | `/signin` |
+| `CallbackPath` | `/signin/callback` |
+| `LogoutPath` | `/signout` |
+| `SignedOutPath`, `FailurePath`, `DefaultReturnPath` | `/` |
+| `FlowLifetimeSeconds` | 15 minutes |
+| `SessionLifetimeSeconds` | 14 days |
+| `RefreshSkewSeconds` | 2 minutes |
+| `IntrospectionCacheLifetimeSeconds` | 30 seconds |
+| `RetainTokens` | `true` |
+| `StoreEncryptionKey` | none. Base64, because that is what a secret manager hands back and the only encoding that survives an environment variable without a length surprise. It must decode to exactly `StoreDataProtector.KeyBytes`, and a single repeated byte is refused outright — `new byte[32]` is what a placeholder and a copied example both look like, and it boots a host whose stored provider tokens anyone can decrypt. Generate one with `RandomNumberGenerator.GetBytes(32)` |
+| `AllowEphemeralStoreEncryptionKey` | `false` |
 
-In Development all four are optional, so a fresh checkout runs before any secrets exist. The
-affected endpoints return 503 instead.
+## What a provisioned host holds
 
-## Site identity
+`scripts/deploy/provision.sh` seeds five files under `/etc/nativeweb/`. It writes them empty
+where a value is a secret: a script that generates a production credential is a script that has
+seen it.
 
-| Key | Default | Notes |
+| File | Mode | Holds |
 |---|---|---|
-| `NativeWeb:CanonicalBaseUrl` | unset (**the request's own scheme and host**) | This deployment's public origin, emitted by `/robots.txt` and `/sitemap.xml`. Must be an absolute `http`/`https` origin with **no path, query or fragment** — one trailing slash is trimmed, several are rejected. A supplied-but-unusable value exits `78` at startup naming the key; blank is valid and selects the fallback |
-| `NativeWeb:SecurityContact` | unset (**no `security.txt` is served**) | Where a vulnerability report should go, emitted by `/.well-known/security.txt` and `/security.txt` (RFC 9116). A bare address gains a `mailto:`; a `mailto:`, `https:` or `tel:` URI passes through. One line only — a value containing a newline is refused, since the body is assembled by concatenation and a second line would be a field of its own. A supplied-but-unusable value exits `78` at startup naming the key |
+| `app.env` | `0644 root:<group>` | `ASPNETCORE_ENVIRONMENT`, the forwarded-headers stanza, `DataProtection:KeyDirectory`, `Telemetry:Enabled` |
+| `secrets.env` | `0640 root:<group>` | The connection string, in both spellings — fill the one your binary reads and delete the other |
+| `blue.env`, `green.env` | `0644 root:<group>` | `ASPNETCORE_URLS` for each colour, ports 5011 and 5012 |
+| `backup.env` | `0640 root:root` | Read by `scripts/deploy/backup.sh` and `scripts/deploy/restore.sh`, not by the application |
 
-**Unset serves no `security.txt` at all, on purpose.** A `Sitemap:` line naming the wrong origin is
-discarded by the crawler; a `Contact:` line naming the wrong mailbox sends somebody's vulnerability
-report to a stranger, and the reporter cannot tell it went nowhere. Absence tells a researcher to
-look elsewhere. A placeholder tells them they are finished.
+`DataProtection:KeyDirectory` must stay inside `/var/lib/nativeweb`: `ReadWritePaths` in the
+systemd unit names that directory and `ProtectSystem=strict` makes the rest read-only.
 
-The `CanonicalBaseUrl` fallback reads scheme and host after `UseForwardedHeaders`, so behind a correctly configured
-proxy it is already the public origin. It is still only as trustworthy as the `Host` header, and a
-`Sitemap:` line pointing at a different origin than the one a crawler fetched is **discarded
-silently** — no error, no log line, nothing observable from the serving side. Production sets the
-key rather than relying on the fallback.
+## Related
 
-## Database
-
-`ConnectionStrings:NativeWeb` is the connection string. **A missing one is not fatal**, even
-outside Development: no data source is registered, `/readyz` reports not-ready, and the app still
-serves. That is a deliberate skeleton-inherited posture, not an oversight.
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:Db:MinPoolSize` | `1` | Values `>= 0` accepted; anything else falls back to the default |
-| `NativeWeb:Db:MaxPoolSize` | `50` | Must be `> 0` |
-| `NativeWeb:Db:TimeoutSeconds` | Npgsql's own (15) | Only applied when `> 0`; otherwise Npgsql's default stands |
-| `NativeWeb:Db:CommandTimeoutSeconds` | Npgsql's own (30) | Same |
-| `NativeWeb:Db:MaxAutoPrepare` | `20` | **Set to `0` behind a transaction-pooling PgBouncer.** Prepared statements break mid-flight there, and the remediation must not require a code change |
-
-Every one of these parses leniently: a malformed value is silently replaced by the default rather
-than rejected. That is worth knowing when a tuning change appears to have had no effect.
-
-## Rate limiting
-
-Five named per-IP fixed-window policies, all on a **60-second window** with `QueueLimit = 0` and a
-429 rejection status. Only the permit count is configurable.
-
-| Key | Default | Surface |
-|---|---|---|
-| `NativeWeb:RateLimit:Auth:PermitLimit` | `20` | Sign-in, register, passphrase and the rest of the human auth surface |
-| `NativeWeb:RateLimit:Admin:PermitLimit` | `20` | Operator-only, already gated by the Operator claim |
-| `NativeWeb:RateLimit:OAuthAuthorize:PermitLimit` | `30` | `GET /oauth/authorize` and both consent POSTs. Higher because retries and multiple app launches are normal |
-| `NativeWeb:RateLimit:OAuth:PermitLimit` | `120` | `/oauth/token`, `/oauth/introspect`, `/oauth/device_authorization`, `/oauth/login-link/start`. Highest because a native client legitimately polls during the device flow |
-| `NativeWeb:RateLimit:CspReport:PermitLimit` | `10` | `POST /csp-report`, which only feeds the log |
-| `NativeWeb:RateLimit:Page:PermitLimit` | `240` | Unauthenticated page-rendering GETs (`/`, the sign-in/register/2FA/WebAuthn/reset pages, `security.txt`). Deliberately loose: a flood ceiling, not a security control, since each mints an antiforgery token per request. Probes (`/healthz`, `/version`, `/readyz`) are excluded — a 429 there reads as an unhealthy instance |
-
-These are configurable mainly because `WebApplicationFactory`'s `TestServer` has no real socket, so
-every request in a test process partitions under one `"unknown"` key and a large suite would
-otherwise exceed a production-appropriate default within a single run.
-
-**Partitioning:** by client IP, with IPv6 bucketed to its `/64` prefix. A v6 client routinely holds
-a whole `/64`, so keying on the full address would hand one attacker 2^64 fresh windows. IPv4 and
-v4-mapped v6 stay per-address.
-
-### `NativeWeb:ForwardedHeaders:KnownProxies` — the one whose default costs the most
-
-Unset. Comma-separated proxy/load-balancer addresses; unparseable entries are skipped silently.
-
-ASP.NET Core trusts only loopback by default, so behind a reverse proxy `RemoteIpAddress` is the
-proxy's own socket peer and **every client in the world collapses into a single rate-limit
-partition**. Nothing errors, no log line says so, and the limits above stop being per-client. The
-default is the safe direction — an untrusted hop cannot spoof its way past a limit — but it is
-only correct for a deployment with no proxy in front of it. Production must set this.
-
-### `NativeWeb:ForwardedHeaders:ForwardLimit` — how many hops back to look
-
-`1`. A value that does not parse, or is zero or negative, leaves the default in place rather than
-failing startup: a typo here should cost a shared rate-limit partition, not an outage.
-
-One hop is right for the usual shape — a single Caddy on the same host. It is wrong the moment
-there are two proxies. On incus-host the host-level Caddy terminates TLS and a Caddy sidecar
-in the guest owns the blue/green swap, so `X-Forwarded-For` arrives as `<client>, <edge>` and a
-limit of 1 unwinds only the sidecar's entry — leaving `RemoteIpAddress` on the bridge gateway,
-with the same silent consequence as leaving `KnownProxies` unset.
-
-**Raise it together with `KnownProxies`, never alone.** The limit is how many entries are popped,
-and a pop is only honoured while the address it lands on is trusted, so raising one without the
-other changes nothing at all — which reads exactly like the setting not working.
-`provision.sh --edge` seeds both in one place for that reason. A limit larger than the real chain
-is not a spoofing hole, because the untrusted address stops the walk regardless.
-
-## Readiness
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:Readiness:CacheSeconds` | `1.0` | **Clamped to a maximum of 30**, not merely validated as positive |
-
-`/readyz` is bounded by this cache rather than by a rate limit, because a 429 on a readiness probe
-is an off-switch for a healthy instance: partitioning is per-IP, and until `KnownProxies` is
-configured the load balancer's own probe shares a partition with every client. The clamp exists
-because readiness is what a balancer uses to notice an outage — a fat-fingered value must not let
-the app claim health for minutes after its database has gone.
-
-## Telemetry
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:Telemetry:Enabled` | unset (**on**) | Compared case-insensitively against the literal `"false"`; anything else — including unset — is on |
-
-Metrics and traces over OTLP, including Npgsql's built-in `ActivitySource` and `Meter`. The
-endpoint and protocol come from the standard `OTEL_EXPORTER_OTLP_*` environment variables, not from
-a `NativeWeb:` key. The default endpoint is `localhost:4317`; with no collector there, export
-failures are background warnings and never request failures. This repo deliberately ships no
-collector — that is deployment infrastructure; see
-`docs/decisions/2026-08-24-002-otlp-collector-location.md`.
-
-**On by default since 2026-08-17.** It was opt-in until then, which is the shape that produces a
-flag first exercised in production. `"0"`, `"no"` and a padded `" false "` are *not* off — the
-comparison fails toward exporting, because the failure being guarded against is a host that
-quietly stopped reporting and was noticed only when someone went looking for a graph.
-
-Resource attributes are `service.name = nativeweb.web` and `service.version = <informational
-version>`, the same string `/version` returns. Without them a collector sees
-`unknown_service:<host process>` and cannot tell two instances apart. `OTEL_SERVICE_NAME`
-overrides the name — one binary running staging and production wants two names, and a default
-that silently swallowed the standard variable would be worse than no default.
-
-### What leaves the process
-
-Measured 2026-08-17, not inferred from the semantic conventions. Every row is a package default,
-so each has a regression test; a driver or instrumentation bump that changes one fails the build
-rather than quietly changing what a collector receives.
-
-| Attribute | Carries | Test |
-|---|---|---|
-| `url.query` | Only the **names** of parameters that had a value; the value is replaced with `Redacted`, and a segment with no `=` at all is replaced whole | `TelemetryTests`, `QueryRedactingProcessorTests` |
-| `url.path` | The raw path. No production route has a secret in one — the only route parameters are `{id:long}`, `{clientId:guid}`, `{id}` | — |
-| `db.query.text` | The **parameterised** SQL. Values travel as parameters and never appear | `NpgsqlTelemetryTests` |
-| `db.npgsql.data_source`, `db.client.connection.pool.name` | The connection string **with the password stripped by the driver**. Host, database and DB username do leave the process | `NpgsqlTelemetryTests` |
-| span status on a failed query | SQLSTATE only (e.g. `22P02`). The Postgres error *text*, which quotes the offending value back, does not reach the span | `NpgsqlTelemetryTests` |
-
-The query redaction is **not** left to the instrumentation. The package redacts by default, but it
-reads `OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION` and the matching option is
-`internal`, so a host could switch it off and the app would have no in-code way to refuse. This is
-an identity provider — OAuth codes, device codes and passphrase-reset tokens all travel as query
-parameters — so `QueryRedactingProcessor` re-redacts before export regardless.
-
-One PII path exists and it is Development-only: `/dev/inbox/{destination}` takes an email address
-in the path, so a developer host would send those addresses as `url.path`. The route is mapped
-only under `IsDevelopment()` and never exists in a production posture, and both e2e launchers
-(`AppProcessFixture` and `StartupGuardProcessTests`) turn telemetry off — but point a dev host at
-a throwaway collector, not the real one.
-
-### Running without a collector
-
-Safe, and measured rather than assumed: shutdown takes **187 ms** with nothing listening on the
-endpoint and **201 ms** with a blackholed one, so a missing collector costs no shutdown latency
-worth bounding. The batch processor's queue is bounded and drops on overflow, and OTel routes
-export failures through its own `EventSource` rather than `ILogger`, so there is no log spam.
-
-## Antiforgery and data protection
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:DataProtection:KeyDirectory` | `<AppContext.BaseDirectory>/keys` | Point at a persistent volume in production |
-
-Without a persisted key ring, every restart invalidates outstanding antiforgery tokens, so the
-first form submission after any deploy or recycle fails. The default survives ordinary restarts
-because `bin/` is not touched; it does not survive a container replacement. The session cookie is
-unaffected — it is an opaque random token validated against PostgreSQL, with no protect/unprotect
-step.
-
-## Bot traps
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:BotTraps:MinAgeSeconds` | `3` | **Validated, not lenient**: a malformed or negative value throws at startup |
-
-This is the one numeric key that fails fast rather than falling back, because a silently-ignored
-value would disable the timing trap while looking configured. The test tiers set it to `0`, their
-submits being machine-fast by construction.
-
-## OAuth
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:FirstPartyClientId` | `00000000-0000-4000-8000-0000000e9a55` | A public identifier, not a secret, so a dev-seed default ships in `appsettings.json`. Production points at its own seeded row. **Parsed with `Guid.Parse`, so a malformed value throws at startup** |
-| `NativeWeb:DeviceGrant:TtlSeconds` | `600` | RFC 8628 device grant |
-| `NativeWeb:DeviceGrant:IntervalSeconds` | `5` | Poll interval advertised to clients |
-| `NativeWeb:DeviceGrant:UserCodeLength` | `8` | |
-| `NativeWeb:DeviceGrant:VerificationUri` | `https://localhost/device` | Emitted to clients today, but the page itself is a deferred slice — so the default is wrong for any real deployment and nothing will tell you |
-
-## WebAuthn
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:WebAuthn:ServerDomain` | `localhost` | The RP ID. Must equal, or be a registrable-domain suffix of, every configured origin's host |
-| `NativeWeb:WebAuthn:Origins` | `http://localhost:53185` | Comma-separated exact origins the browser may present in `clientDataJSON` |
-
-The dev defaults target `launchSettings.json` over plain HTTP: WebAuthn's secure-context rule
-treats `localhost` as an exception, so this works locally without TLS. A production mismatch fails
-every attestation and assertion at verification time — loudly, not silently.
-
-## Mail
-
-Binds the whole `NativeWeb:Smtp` section to `SmtpOptions`.
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:Smtp:Host` | unset | **Unset means SMTP is disabled.** In Development that selects the log-based dev senders; outside it, startup fails |
-| `NativeWeb:Smtp:Port` | `587` | Submission over STARTTLS |
-| `NativeWeb:Smtp:Username` | unset | Empty skips SMTP AUTH |
-| `NativeWeb:Smtp:Secret` | unset | The AUTH password. Named `Secret` rather than the obvious word so the repo's secret scanner does not false-positive on wiring code |
-| `NativeWeb:Smtp:FromAddress` | unset | **Required whenever `Host` is set**; validation throws otherwise |
-| `NativeWeb:Smtp:FromName` | unset | Display name only |
-| `NativeWeb:Smtp:SecurityMode` | `StartTls` | `None` is test-only and is **rejected for any non-loopback host**, so a production typo cannot send codes, login links and AUTH credentials in cleartext |
-| `NativeWeb:Smtp:TimeoutSeconds` | `10` | Connect and send |
-
-## Breach checking
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:BreachCheck:Hibp` | enabled | Opt-out only: the literal `"false"` (case-insensitive) drops to the offline common-password list alone |
-| `NativeWeb:BreachCheck:RecheckAfterHours` | `24` | While `last_breach_check_at` is younger than this, sign-in skips the check. Must be `> 0` |
-
-Turn the HIBP leg off for a deployment with no egress, or a test tier that must not depend on a
-third party's corpus. Sign-in checks the passphrase it was just given, so the checker's 2s timeout
-otherwise sits on every login rather than only on registration.
-
-## Passphrase reset
-
-| Key | Default | Notes |
-|---|---|---|
-| `NativeWeb:PassphraseReset:MaxCodesPerDay` | `5` | Per-account cap on reset codes. Must be `> 0` |
-
-## Validation posture, summarised
-
-Worth knowing which keys will tell you they are wrong and which will not.
-
-| Behaviour | Keys |
-|---|---|
-| **Throws at startup** | `BotTraps:MinAgeSeconds`, `FirstPartyClientId`, `Smtp:FromAddress` and `Smtp:SecurityMode` (when `Host` is set), any pre-rename `Epass:*` key, and the four required secrets outside Development |
-| **Clamped** | `Readiness:CacheSeconds` (max 30) |
-| **Silently defaulted** | every other numeric key — `Db:*`, all six `RateLimit:*`, `DeviceGrant:*`, `BreachCheck:RecheckAfterHours`, `PassphraseReset:MaxCodesPerDay` |
-| **Silently ignored** | unparseable entries in `ForwardedHeaders:KnownProxies` and `WebAuthn:Origins` |
-
-`tests/nativeweb.web.tests.unit/ConfigurationReferenceTests.cs` used to assert that this file
-listed every `NativeWeb:` key the source read and no key it did not, so a new setting could not
-land undocumented. That test was deleted on 2026-08-31 with the application it read. **The
-guarantee is gone**; re-establishing it against `skeleton/` is an open item in `work/todo.md`.
+- `docs/02-reference/deployment.md` — the runbook these files serve.
+- `libs/nativeweb.web/README.md` — the pipeline that reads the framework settings.
+- `libs/nativeweb.signin/README.md` — the relying party that reads the sign-in settings.

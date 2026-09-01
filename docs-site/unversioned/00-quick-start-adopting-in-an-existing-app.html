@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adopting NativeWeb in an existing application — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  try {
+    var t = localStorage.getItem('dg-theme');
+    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+    var s = parseFloat(localStorage.getItem('dg-fs'));
+    if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Adopting NativeWeb in an existing application</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Overview</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">quick-start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html" class="active" aria-current="page">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+</div>
+
+      </div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#reference-the-framework">1. Reference the framework</a><a class="toc-l3" href="#why-not-packages">Why not packages</a><a class="toc-l3" href="#the-project-references">The project references</a><a class="toc-l3" href="#declare-your-templates">Declare your templates</a><a class="toc-l2" href="#wire-the-pipeline">2. Wire the pipeline</a><a class="toc-l3" href="#two-things-that-stop-the-process-if-you-skip-them">Two things that stop the process if you skip them</a><a class="toc-l2" href="#delete-what-the-framework-now-owns">3. Delete what the framework now owns</a><a class="toc-l2" href="#what-you-must-keep">4. What you must keep</a><a class="toc-l2" href="#constraints-you-inherit">5. Constraints you inherit</a><a class="toc-l2" href="#check-it-worked">6. Check it worked</a><a class="toc-l2" href="#if-you-get-stuck">If you get stuck</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Adopting NativeWeb in an existing application</nav>
+        <article>
+<h1 id="adopting-nativeweb-in-an-existing-application">Adopting NativeWeb in an existing application</h1>
+<p><a href="00-quick-start-getting-started.html"><code>getting-started.md</code></a> is the greenfield path: clone, build, run
+<code>tools/new-product.ps1</code>, get a stamped product. This is the other one. You have an ASP.NET Core
+application already, with its own solution, its own <code>Directory.Build.props</code> and its own
+deployment, and you want the framework underneath it.</p>
+<p>Read this if you have written a page shell, a CSP nonce, a clean-URL rewrite, flash messages or
+content-hashed asset URLs by hand. All five ship in <code>libs/nativeweb.web</code>, and the reason this
+document exists is that a consumer of this framework hand-ported every one of them — finishing
+the day before the library that provides them completed.</p>
+<h2 id="reference-the-framework">1. Reference the framework</h2>
+<p><strong>Checkout mode is what works today.</strong> Clone this repository as a <strong>sibling</strong> of your product —
+and clone JauntyQ beside it too, because NativeWeb's own libraries reference it and
+its checkout is probed relative to the NativeWeb one:</p>
+<pre><code>your-org/
+  nativeweb/          &lt;- this repository
+  jauntyq/            &lt;- required: nativeweb.web, .render and .security all build against it
+  your-product/       &lt;- yours
+</code></pre>
+<p>Without <code>jauntyq/</code> the first build stops at <code>JauntyQ checkout not found at '&lt;...&gt;\..\jauntyq'</code> before any of your own code compiles. <code>-p:JauntyQRoot=&lt;path&gt;</code> overrides the
+location. Do not reach for <code>-p:JauntyQUsePackages=true</code>: that path exists for this repository's
+CI and the packages are not available to you.</p>
+<p>Then add to your product's <code>Directory.Build.props</code>. Both casings are probed because both are in
+the wild: the repository is <code>nativeweb</code> on disk, and <code>getting-started.md</code> has long told people
+to clone it as <code>NativeWeb</code>.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml">&lt;PropertyGroup&gt;
+  &lt;NativeWebRoot Condition=&quot;'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\nativeweb')&quot;&gt;$(MSBuildThisFileDirectory)..\nativeweb&lt;/NativeWebRoot&gt;
+  &lt;NativeWebRoot Condition=&quot;'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\NativeWeb')&quot;&gt;$(MSBuildThisFileDirectory)..\NativeWeb&lt;/NativeWebRoot&gt;
+  &lt;NativeWebRoot Condition=&quot;'$(NativeWebRoot)' == ''&quot;&gt;$(MSBuildThisFileDirectory)..\nativeweb&lt;/NativeWebRoot&gt;
+&lt;/PropertyGroup&gt;
+
+&lt;Target Name=&quot;EnsureNativeWebRoot&quot; BeforeTargets=&quot;BeforeBuild&quot;
+        Condition=&quot;!Exists('$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj')&quot;&gt;
+  &lt;Error Text=&quot;NativeWeb checkout not found at '$(NativeWebRoot)'. Pass -p:NativeWebRoot=&amp;lt;path&amp;gt;.&quot; /&gt;
+&lt;/Target&gt;
+
+&lt;Target Name=&quot;ReportFrameworkResolution&quot; BeforeTargets=&quot;BeforeBuild&quot;&gt;
+  &lt;Message Importance=&quot;high&quot; Text=&quot;NativeWeb: checkout mode ($(NativeWebRoot))&quot; /&gt;
+&lt;/Target&gt;
+</code></pre>
+</div>
+<p>The guard matters. An unresolved root silently drops the project references and surfaces as a
+pile of <code>CS0246</code>s pointing at your own code — <code>MSB9008</code>, and it wastes an afternoon every time.
+<code>skeleton/Directory.Build.props</code> carries the full version of this block, including package mode,
+and is the file to copy from.</p>
+<p><strong>Probe relatively, and name no parent directory.</strong> An earlier version of this block hard-coded
+an ancestor by name; the org directory was renamed and every local build broke at restore.</p>
+<p><strong>If your product builds from a git worktree</strong>, add the deeper probe too — a worktree sits three
+directories down, so a single sibling probe resolves to nothing and every restore in every
+worktree fails:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml">&lt;NativeWebRoot Condition=&quot;'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\..\nativeweb')&quot;&gt;$(MSBuildThisFileDirectory)..\..\..\nativeweb&lt;/NativeWebRoot&gt;
+</code></pre>
+</div>
+<h3 id="why-not-packages">Why not packages</h3>
+<p>The eleven projects under <code>libs/</code> carry <code>IsPackable</code> and a <code>PackageId</code>, and
+<code>skeleton/Directory.Build.props</code> already has a <code>-p:NativeWebUsePackages=true</code> mode. <strong>Do not use
+it yet.</strong> Package mode is approved and not working: it has never restored end to end, and the
+repository has no release process for a consumed library — no stated semver guarantee, no
+support window, no deprecation path. See
+<code>../decisions/2026-08-30-004-package-mode-for-consumers.md</code>
+for what it obliges. Until that lands, a checkout is the supported model and you upgrade by
+pulling.</p>
+<h3 id="the-project-references">The project references</h3>
+<p>Add the ones you need. <code>nativeweb.render</code> and its generator are the minimum for rendering:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml">&lt;ItemGroup&gt;
+  &lt;ProjectReference Include=&quot;$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj&quot; /&gt;
+  &lt;ProjectReference Include=&quot;$(NativeWebRoot)\libs\nativeweb.render.generator\nativeweb.render.generator.csproj&quot;
+                    OutputItemType=&quot;Analyzer&quot; ReferenceOutputAssembly=&quot;false&quot; /&gt;
+  &lt;ProjectReference Include=&quot;$(NativeWebRoot)\libs\nativeweb.web\nativeweb.web.csproj&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+</div>
+<p>A generator is referenced as an <strong>analyzer</strong>, with <code>ReferenceOutputAssembly=&quot;false&quot;</code>. Reference
+it as an ordinary project and it compiles into your output and generates nothing.</p>
+<p><strong>Import the assets targets by hand.</strong> A <code>PackageReference</code> would pick this up on its own; a
+<code>ProjectReference</code> does not, so nothing contributes the framework's <code>wwwroot/</code> — HTMX, Alpine and
+the design-system stylesheets — to your static web assets, and every one of them 404s at run time
+with no build error:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml">&lt;Import Project=&quot;$(NativeWebRoot)\libs\nativeweb.web\build\NativeWeb.Web.targets&quot; /&gt;
+</code></pre>
+</div>
+<h3 id="declare-your-templates">Declare your templates</h3>
+<p>The render generator never reads disk — it sees only what the compiler hands it, so your
+templates and locale catalogs have to be <code>AdditionalFiles</code>. Nothing warns when this is missing:
+the generator emits no classes and your first reference to one is a <code>CS0103</code>.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml">&lt;ItemGroup&gt;
+  &lt;AdditionalFiles Include=&quot;templates\**\*.html&quot; /&gt;
+  &lt;AdditionalFiles Include=&quot;locales\*.json&quot; /&gt;
+&lt;/ItemGroup&gt;
+</code></pre>
+</div>
+<p><code>locales/en.json</code> is the root catalog and every <code>{{t:...}}</code> key must exist in it, so a product
+that ships one language still ships that file.</p>
+<h2 id="wire-the-pipeline">2. Wire the pipeline</h2>
+<p>Two calls, in your composition root:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp">WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(args);
+
+NativeWebOptions options = NativeWebOptions.FromConfiguration(builder.Configuration, &quot;MyProduct&quot;);
+builder.AddNativeWebWeb(options, <span class="tok-kw">typeof</span>(Program).Assembly);
+
+WebApplication app = builder.Build();
+app.UseNativeWebPipeline(Locales.All);
+app.MapNativeWebEndpoints(options, <span class="tok-kw">typeof</span>(Program).Assembly);
+
+<span class="tok-com">// your own routes here</span>
+
+app.Run();
+</code></pre>
+</div>
+<p>The two calls take different things and the difference is not a slip. <code>UseNativeWebPipeline</code>
+takes the locale ids you ship — <code>Locales.All</code>, generated from your own <code>locales/*.json</code> — plus an
+optional <code>Action&lt;IApplicationBuilder&gt;</code> for authentication, which must be registered there rather
+than afterwards or every authenticated form post is a 400. <code>MapNativeWebEndpoints</code> is the one
+that takes the options, because it reads the security contact and the readiness window from them.</p>
+<p><code>&quot;MyProduct&quot;</code> is both the application name and the configuration section, so every setting reads
+from <code>MyProduct:</code>. Pass a third argument to <code>FromConfiguration</code> when they differ. Every key is in
+<a href="02-reference-configuration.html"><code>../02-reference/configuration.md</code></a>.</p>
+<p>Pass <code>typeof(Program).Assembly</code> rather than letting it default to the entry assembly: under a
+<code>WebApplicationFactory</code> test the entry assembly is <code>testhost</code>, and <code>/version</code> reports its version
+instead of yours.</p>
+<p><code>AddNativeWebWeb</code> is eleven registrations behind one call, and every one of them is a public
+method on <code>NativeWebPipeline</code>. If you need to sit between two of them, write the eleven out.</p>
+<h3 id="two-things-that-stop-the-process-if-you-skip-them">Two things that stop the process if you skip them</h3>
+<p><strong><code>wwwroot/pages/error.html</code> is required.</strong> The error shell is loaded once at startup, from a
+static file, so that an error page never depends on the renderer or the database — either of
+which may be the thing that just failed. It is your file, not the framework's: copy
+<code>apps/sample/wwwroot/pages/error.html</code> and restyle
+it, keeping the <code>{{title}}</code> and <code>{{message}}</code> placeholders, which are literal-replaced. Without
+it the host prints <code>wwwroot/pages/error.html is missing</code> and exits 78 — a refused configuration,
+not a crash.</p>
+<p><strong>Generated code lands in your <code>RootNamespace</code>.</strong> A template at <code>templates/hello.html</code> in a
+project rooted at <code>your_product</code> becomes <code>your_product.Templates.Hello</code>. Declare your own code in
+that namespace, as <code>apps/sample</code> does. A <code>using your_product;</code> in a file outside it is not
+enough: a using directive imports a namespace's types and not its nested namespaces, so
+<code>Templates.Hello</code> still fails to resolve while <code>Locales</code> beside it resolves fine.</p>
+<h2 id="delete-what-the-framework-now-owns">3. Delete what the framework now owns</h2>
+<table>
+<thead>
+<tr>
+<th>If you have</th>
+<th>Delete it and use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A layout shell gathering nonce, antiforgery token and locale</td>
+<td><code>Chrome.For(context, assets, antiforgery, locale)</code></td>
+</tr>
+<tr>
+<td>CSP with a per-request nonce, HSTS, permissions policy</td>
+<td><code>SecurityHeadersMiddleware</code>, wired by <code>UseNativeWebPipeline</code></td>
+</tr>
+<tr>
+<td>A clean-URL rewrite and its startup route map</td>
+<td><code>StaticPagesMiddleware</code></td>
+</tr>
+<tr>
+<td>A one-shot flash cookie</td>
+<td><code>Flash.Set</code> / <code>Flash.Take</code></td>
+</tr>
+<tr>
+<td>Content-hashed asset URLs</td>
+<td><code>AssetUrls</code></td>
+</tr>
+<tr>
+<td>A hand-rolled <code>/healthz</code>, <code>/readyz</code>, <code>/version</code></td>
+<td><code>MapNativeWebEndpoints</code></td>
+</tr>
+<tr>
+<td>Passphrase hashing, opaque tokens, PII masking</td>
+<td><code>libs/nativeweb.security</code></td>
+</tr>
+<tr>
+<td>A hand-written OAuth authorization-code flow</td>
+<td><code>libs/nativeweb.signin</code></td>
+</tr>
+</tbody>
+</table>
+<p>Delete one at a time and run your tests between. The framework's versions differ in behaviour at
+the edges — <code>Chrome.Anonymous</code> deliberately empties every per-request field so a public page can
+be output-cached, which a hand-rolled shell usually does not do.</p>
+<h2 id="what-you-must-keep">4. What you must keep</h2>
+<ul>
+<li><strong>Your own routes, data access and domain.</strong> NativeWeb has no ORM. Data access is
+JauntyQ, source-generated over PostgreSQL, and it is a separate adoption
+decision from this one.</li>
+<li><strong>Your <code>wwwroot</code>.</strong> Framework assets arrive through an MSBuild <code>.targets</code> that contributes
+them to your static web assets; you do not copy them.</li>
+<li><strong>NativeAOT discipline, if you publish AOT.</strong> The framework builds with
+<code>TreatWarningsAsErrors</code> and <code>IsAotCompatible</code>. A reference of yours that is not
+trim-compatible fails your publish, not ours.</li>
+</ul>
+<h2 id="constraints-you-inherit">5. Constraints you inherit</h2>
+<ul>
+<li><strong>PostgreSQL only.</strong> No provider abstraction exists to swap.</li>
+<li><strong>Minimal APIs only.</strong> No MVC, no Controllers, no Razor Pages, no Blazor.</li>
+<li><strong>HTMX and Alpine are vendored</strong>, never from a CDN.</li>
+<li><strong>JauntyQ is licensed for self-hosted use of its generated output.</strong> Never redistribute its
+source or binaries, and never ship a binary built against it to a third party.</li>
+</ul>
+<h2 id="check-it-worked">6. Check it worked</h2>
+<pre><code>dotnet build
+</code></pre>
+<p>The <code>ReportFrameworkResolution</code> target above prints <code>NativeWeb: checkout mode (&lt;path&gt;)</code>, so a
+wrong root is visible in the log rather than at the first <code>CS0246</code>. Then run your app:</p>
+<table>
+<thead>
+<tr>
+<th>Request</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/healthz</code></td>
+<td>200 once the pipeline is mounted</td>
+</tr>
+<tr>
+<td><code>/readyz</code></td>
+<td>503 until a connection string is configured — the answer that gates load-balancer traffic, and the right one before you have one</td>
+</tr>
+<tr>
+<td><code>/version</code></td>
+<td>200, reporting the assembly you passed to <code>MapNativeWebEndpoints</code></td>
+</tr>
+<tr>
+<td>your own template route</td>
+<td>200, with the CSP, <code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>, <code>Referrer-Policy</code> and <code>Permissions-Policy</code> headers already set</td>
+</tr>
+</tbody>
+</table>
+<p>Those four are what this guide was checked against: a stock <code>dotnet new web</code> project taken
+through every step above, serving a generated template page.</p>
+<p>To assert them rather than eyeball them, reference <code>Microsoft.AspNetCore.Mvc.Testing</code> from a test
+project and drive the four through a <code>WebApplicationFactory&lt;Program&gt;</code>. Top-level statements make
+<code>Program</code> internal, so add <code>public partial class Program;</code> to the end of the file or the factory
+will not close over it — and this is where passing <code>typeof(Program).Assembly</code> earns its keep,
+because the entry assembly under a factory is <code>testhost</code>.</p>
+<h2 id="if-you-get-stuck">If you get stuck</h2>
+<ul>
+<li><code>../../libs/nativeweb.web/README.md</code> — the pipeline in
+detail, including what each of the eleven registrations does.</li>
+<li><a href="02-reference-configuration.html"><code>../02-reference/configuration.md</code></a> — every setting and its
+failure mode. Three of them stop the process at startup on purpose.</li>
+<li><a href="02-reference-breaking-changes.html"><code>../02-reference/breaking-changes.md</code></a> — what changed
+between the version you cloned and the one you pulled.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="00-quick-start-README.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">README</span>
+</a><a class="pn-next" href="00-quick-start-getting-started.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Getting started</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+  </footer>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

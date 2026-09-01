@@ -3,9 +3,8 @@
 Everything written down about NativeWeb, and which of it you need.
 
 The repo has more reference material than onboarding path, which is the problem this index
-exists to fix: the architecture spec is 430 lines and the configuration reference 247, and
-neither tells you where to start. **Start with the two guides at the top and come back here
-when you need a specific answer.**
+exists to fix: the architecture spec runs past 500 lines and tells you nothing about where to
+start. **Start with the guides at the top and come back here when you need a specific answer.**
 
 ## Start here
 
@@ -14,6 +13,7 @@ when you need a specific answer.**
 | [`../README.md`](../README.md) | First. What this is, what you need installed, how to run it. |
 | [`00-quick-start/getting-started.md`](00-quick-start/getting-started.md) | Clone to a green suite. Splits into two paths at "The fork" — pick yours below. |
 | [`00-quick-start/tutorial-first-feature.md`](00-quick-start/tutorial-first-feature.md) | Then. Endpoint, renderer, JauntyQ query and all three test tiers, built for real in `apps/sample`. |
+| [`00-quick-start/adopting-in-an-existing-app.md`](00-quick-start/adopting-in-an-existing-app.md) | Instead of the above, when you already have an ASP.NET Core application and want the framework underneath it. |
 
 ## Which path is yours
 
@@ -60,13 +60,19 @@ Answers to specific questions. Not written to be read in order.
 
 Each library documents itself. These are reference, not tutorial.
 
+- [`../libs/nativeweb.web/README.md`](../libs/nativeweb.web/README.md) — the pipeline: page shell, security headers, clean URLs, flash messages, asset URLs. **Read this one first** if you are wiring the framework into an application.
+- [`../libs/nativeweb.render/README.md`](../libs/nativeweb.render/README.md) — source-generated templates and locale negotiation.
+- [`../libs/nativeweb.forms/README.md`](../libs/nativeweb.forms/README.md) — `[Form]` binding, `MapFormPost`, and the two guards attached by construction.
 - [`../libs/nativeweb.scaffold/README.md`](../libs/nativeweb.scaffold/README.md) — declarative CRUD scaffolding.
-- [`../libs/nativeweb.assets/README.md`](../libs/nativeweb.assets/README.md) — vendored HTMX and Alpine. Not a .NET project.
+- [`../libs/nativeweb.security/README.md`](../libs/nativeweb.security/README.md) — passphrases, opaque tokens, at-rest encryption, blind indexes, masking, bot traps.
 - [`../libs/nativeweb.signin/README.md`](../libs/nativeweb.signin/README.md) — the OAuth relying party.
+- [`../libs/nativeweb.signin.testing/README.md`](../libs/nativeweb.signin.testing/README.md) — the store conformance suites a consumer derives against its own implementation.
+- [`../libs/nativeweb.mail/README.md`](../libs/nativeweb.mail/README.md) — the outbound e-mail seam.
+- [`../libs/nativeweb.assets/README.md`](../libs/nativeweb.assets/README.md) — vendored HTMX and Alpine. Not a .NET project.
 
-`libs/nativeweb.forms`, `.render`, `.security`, `.mail` and the generators have no README of their
-own yet. Their reference is `02-reference/template-diagnostics.md` and the worked usage in
-`apps/sample`.
+The three `.generator` projects have no README of their own: a consumer references one as an
+analyzer and never calls anything it defines, so each is documented in the runtime library it
+serves.
 
 ## Rules
 
@@ -108,8 +114,10 @@ prose.
 
 ---
 
-**Verified.** Every link on this page was followed and resolves, on **2026-08-25** — Windows 11
-(10.0.26200.8457). Two entries carry a caveat rather than a clean bill:
+**Enforced.** Every link and every repository path on this page is checked on each run of
+`tests/nativeweb.repo.tests.unit` (`DocsClaimsTests`), so a rename that strands one of them turns
+the suite red rather than waiting to be noticed. Two entries carry a caveat rather than a clean
+bill:
 
 - [`constitution.md`](constitution.md) is **still the unfilled template** — placeholder bullets and
   `Last reviewed: <date>`. It is listed above as binding because that is what it is for, not
