@@ -1,0 +1,29 @@
+{
+	"scaffold": {
+		"score": 85.5421686746988,
+		"killed": 142,
+		"survived": 9,
+		"noCoverage": 15,
+		"timeout": 0,
+		"recorded": "2026-09-01",
+		"note": "cursor codec, sort parsing, the admin index's read check"
+	},
+	"sample-unit": {
+		"score": 24.56140350877193,
+		"killed": 82,
+		"survived": 14,
+		"noCoverage": 244,
+		"timeout": 2,
+		"recorded": "2026-09-01",
+		"note": "the reference store's paging; Program.cs is out of this tier's reach"
+	},
+	"sample-integration": {
+		"score": 50.292397660818715,
+		"killed": 133,
+		"survived": 97,
+		"noCoverage": 73,
+		"timeout": 39,
+		"recorded": "2026-09-01",
+		"note": "the SQL store and the endpoints, against real PostgreSQL"
+	}
+}
