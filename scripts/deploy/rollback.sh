@@ -113,6 +113,15 @@ cat >"$UPSTREAM_FILE" <<EOF
 reverse_proxy 127.0.0.1:$PREVIOUS_PORT
 EOF
 
+# /docs follows the serving release back, the mirror of deploy.sh's promote step.
+# Guarded on the target existing rather than written unconditionally: the colour
+# being rolled back to may predate docs travelling in the artifact, and pointing
+# the link at a directory that is not there would turn a working /docs into a 404
+# as a side effect of a rollback that was supposed to restore service.
+if [[ -d "/opt/nativeweb/$PREVIOUS_COLOUR/docs" ]]; then
+	ln -sfn "/opt/nativeweb/$PREVIOUS_COLOUR/docs" /opt/nativeweb/docs
+fi
+
 systemctl reload caddy
 
 printf '%s\trollback\t%s\t%s\tschema_changed=0\tprevious=%s\n' \

@@ -34,6 +34,15 @@ Merged into `dev`, not yet tagged.
   client registry: NativeWeb is the client, never the server. NativeAOT-clean, with unit,
   integration and Playwright tiers plus an AOT publish probe.
 
+- **The documentation site is served at `/docs` under the product's own hostname.** `docs-site/`
+  travels in the artifact the way `db/` already does, `build.sh` stamps `docs_dir` into `RELEASE`,
+  and at promotion `deploy.sh` points `/opt/nativeweb/docs` at the live colour — `rollback.sh`
+  points it back, so the docs always describe the release that is serving. Caddy serves them
+  directly rather than the app: 500 KB of static HTML has no business behind an application's
+  rate limiter and CSP, and that hop already compresses. An artifact without docs is not an error
+  and leaves `/docs` alone; an artifact whose `DOCS_DIR` has no `versions.json` is one, because
+  that would put a directory listing under the product's hostname. Live on `nw-dev.example.com`.
+
 ### Fixed
 - **The deploy chain has now released to a real host, and doing it found two defects in the
   chain.** `apps/sample` is serving at `https://nw-dev.example.com` — built by `build.sh` on a
