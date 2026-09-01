@@ -11,8 +11,15 @@
  */
 import { join } from '@std/path';
 
-/** A host that would make the site fetch something at page load. */
+/**
+ * A host that would make the site fetch something at page load. The first four are the list the
+ * generator itself is verified against in ../docs; a reference to a vendor outside this list
+ * passes, so this is a regression check against the known offenders, not a proof of isolation.
+ */
 const CDN_HOSTS = ['jsdelivr', 'googleapis', 'gstatic', 'unpkg', 'cdnjs'];
+
+/** Extensions a browser will parse for further fetches. Fonts and images are not decoded. */
+const SCANNED = /\.(html?|css|m?js|json|svg|xml|webmanifest)$/i;
 
 export interface VersionEntry {
   prefix: string;
@@ -34,6 +41,9 @@ export function manifestProblems(text: string): string[] {
   } catch (e) {
     return [`versions.json is not valid JSON: ${(e as Error).message}`];
   }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return ['versions.json is not a JSON object'];
+  }
   const m = parsed as Partial<Manifest>;
   const problems: string[] = [];
   if (!Array.isArray(m.versions)) problems.push('versions.json has no versions array');
@@ -44,9 +54,17 @@ export function manifestProblems(text: string): string[] {
     if (!m.versions.some((v) => v?.prefix === m.latest)) {
       problems.push(`versions.json names latest "${m.latest}", which is not one of its versions`);
     }
+    const seen = new Set<string>();
     for (const v of m.versions) {
       if (typeof v?.prefix !== 'string' || v.prefix.length === 0) {
         problems.push('a version entry has no prefix');
+      } else if (seen.has(v.prefix)) {
+        problems.push(`versions.json lists "${v.prefix}" more than once`);
+      } else {
+        seen.add(v.prefix);
+      }
+      if (v?.release !== undefined && typeof v.release !== 'boolean') {
+        problems.push(`version "${v?.prefix}" has a non-boolean release flag`);
       }
       if (v?.release === true && (typeof v.tag !== 'string' || v.tag.length === 0)) {
         problems.push(`version "${v?.prefix}" claims to be a release but carries no tag`);
@@ -54,6 +72,18 @@ export function manifestProblems(text: string): string[] {
     }
   }
   return problems;
+}
+
+/** The versions a manifest lists, or an empty list when it does not list any usably. */
+function versionsIn(text: string): VersionEntry[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  const versions = (parsed as Partial<Manifest> | null)?.versions;
+  return Array.isArray(versions) ? versions : [];
 }
 
 async function isFile(path: string): Promise<boolean> {
@@ -76,7 +106,7 @@ async function* filesUnder(dir: string): AsyncGenerator<string> {
 export async function cdnReferences(root: string): Promise<string[]> {
   const hits: string[] = [];
   for await (const path of filesUnder(root)) {
-    if (!/\.(html|css|js|json|svg)$/i.test(path)) continue;
+    if (!SCANNED.test(path)) continue;
     const text = await Deno.readTextFile(path);
     if (CDN_HOSTS.some((h) => text.includes(h))) hits.push(path);
   }
@@ -93,11 +123,12 @@ export async function siteProblems(root: string): Promise<string[]> {
 
   const text = await Deno.readTextFile(manifestPath);
   problems.push(...manifestProblems(text));
-  if (problems.some((p) => p.startsWith('versions.json is not valid JSON'))) return problems;
 
-  const manifest = JSON.parse(text) as Manifest;
-  for (const v of manifest.versions ?? []) {
-    if (typeof v?.prefix !== 'string') continue;
+  // Whatever manifestProblems made of it, the walk below runs off the versions it can actually
+  // read. Gating on a message it produced would couple the two, and a manifest that is malformed
+  // in one way is still worth checking on disk in every other.
+  for (const v of versionsIn(text)) {
+    if (typeof v?.prefix !== 'string' || v.prefix.length === 0) continue;
     for (const required of ['index.html', 'site.css']) {
       const path = join(root, v.prefix, required);
       if (!await isFile(path)) problems.push(`${path} is missing, but versions.json lists it`);

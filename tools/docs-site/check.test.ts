@@ -90,20 +90,116 @@ Deno.test('a CDN reference in a page is reported', async () => {
   );
 });
 
-Deno.test('a font is not scanned for CDN hosts', async () => {
+Deno.test('a font whose bytes spell a CDN host is not scanned', async () => {
   await site(
     async (root) => {
       await intact(root);
-      await Deno.writeFile(join(root, 'v1.0.0', 'x.woff2'), new Uint8Array([0xff, 0xfe, 0x00]));
+      await Deno.writeFile(
+        join(root, 'v1.0.0', 'x.woff2'),
+        new TextEncoder().encode('jsdelivr'),
+      );
     },
     async (root) => assertEquals(await cdnReferences(root), []),
   );
 });
 
-Deno.test('invalid JSON stops before the version walk', () => {
+Deno.test('a CDN host in a webmanifest is scanned', async () => {
+  await site(
+    async (root) => {
+      await intact(root);
+      await write(root, 'v1.0.0/app.webmanifest', '{"icons":[{"src":"https://unpkg.com/i.png"}]}');
+    },
+    async (root) => assertEquals((await cdnReferences(root)).length, 1),
+  );
+});
+
+Deno.test('invalid JSON is the only problem reported', () => {
   const problems = manifestProblems('{not json');
   assertEquals(problems.length, 1);
   assertEquals(problems[0].startsWith('versions.json is not valid JSON'), true);
+});
+
+Deno.test('a manifest of null is reported, not thrown', () => {
+  assertEquals(manifestProblems('null'), ['versions.json is not a JSON object']);
+});
+
+Deno.test('a manifest that is an array is reported, not thrown', () => {
+  assertEquals(manifestProblems('[]'), ['versions.json is not a JSON object']);
+});
+
+Deno.test('a non-array versions is reported, not thrown', () => {
+  const problems = manifestProblems('{"versions": 5, "latest": "x"}');
+  assertEquals(problems, ['versions.json has no versions array']);
+});
+
+Deno.test('a duplicated prefix is reported', () => {
+  const entry = { prefix: 'v1.0.0', tag: 'v1.0.0', release: true, built: 'now' };
+  const text = JSON.stringify({ versions: [entry, entry], latest: 'v1.0.0' });
+  assertEquals(manifestProblems(text), ['versions.json lists "v1.0.0" more than once']);
+});
+
+Deno.test('a non-boolean release flag is reported', () => {
+  const text = JSON.stringify({
+    versions: [{ prefix: 'v1.0.0', tag: null, release: 'true', built: 'now' }],
+    latest: 'v1.0.0',
+  });
+  assertEquals(manifestProblems(text), ['version "v1.0.0" has a non-boolean release flag']);
+});
+
+Deno.test('siteProblems survives a manifest of null', async () => {
+  await site(
+    async (root) => {
+      await intact(root);
+      await write(root, 'versions.json', 'null');
+    },
+    async (root) => assertEquals(await siteProblems(root), ['versions.json is not a JSON object']),
+  );
+});
+
+Deno.test('siteProblems survives a non-array versions', async () => {
+  await site(
+    async (root) => {
+      await intact(root);
+      await write(root, 'versions.json', '{"versions": 5, "latest": "x"}');
+    },
+    async (root) => assertEquals(await siteProblems(root), ['versions.json has no versions array']),
+  );
+});
+
+Deno.test('siteProblems survives invalid JSON', async () => {
+  await site(
+    async (root) => {
+      await intact(root);
+      await write(root, 'versions.json', '{not json');
+    },
+    async (root) => {
+      const problems = await siteProblems(root);
+      assertEquals(problems.length, 1);
+      assertEquals(problems[0].startsWith('versions.json is not valid JSON'), true);
+    },
+  );
+});
+
+Deno.test('a malformed manifest still gets the versions it can read walked', async () => {
+  await site(
+    async (root) => {
+      await intact(root);
+      await Deno.remove(join(root, 'v1.0.0', 'site.css'));
+      await write(
+        root,
+        'versions.json',
+        JSON.stringify({
+          versions: [{ prefix: 'v1.0.0', tag: 'v1.0.0', release: true, built: 'now' }],
+          latest: 'v2.0.0',
+        }),
+      );
+    },
+    async (root) => {
+      const problems = await siteProblems(root);
+      assertEquals(problems.some((p) => p.includes('not one of its versions')), true);
+      assertEquals(problems.some((p) => p.includes('site.css')), true);
+    },
+  );
 });
 
 Deno.test('a latest that names no version is reported', () => {
