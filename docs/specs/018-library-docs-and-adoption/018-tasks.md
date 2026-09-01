@@ -15,7 +15,7 @@ Plan: [./018-plan.md](./018-plan.md)
 - [x] T11 Adoption guide proved by running it — files: `tmp/adopt-probe/` (scratch, not committed) — covers: R5 — done when: every command in T10 has been run against a real minimal app, that app serves a NativeWeb-rendered page, and any step that did not work as written is corrected in the guide.
 - [x] T12 Navigation and docs site — files: `docs/README.md`, `docs-site/` — covers: R9 — done when: all eight documents are linked from `docs/README.md`, `scripts/build-docs.sh` has regenerated the site, and `tools/docs-site/check.ts` is green.
 - [x] T13 Record corrections — files: `work/todo.md`, `work/status/current.md`, `CHANGELOG.md` — covers: — — done when: the `SecurityContact` claim is corrected, G6 and G7 are struck as closed, the dead `ForwardLimit` line in `provision.sh` is noted, and the change is in `CHANGELOG.md` under Unreleased.
-- [ ] T14 Gate check — files: `docs/specs/018-library-docs-and-adoption/018-spec.md` — covers: all — done when: each acceptance criterion is re-read against what was built and `Status:` is set to `done`, or the unmet criterion is named.
+- [x] T14 Gate check — files: `docs/specs/018-library-docs-and-adoption/018-spec.md` — covers: all — done when: each acceptance criterion is re-read against what was built and `Status:` is set to `done`, or the unmet criterion is named.
 
 ## Analyze — requirement to task
 

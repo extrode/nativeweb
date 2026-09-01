@@ -1,6 +1,6 @@
 # 018 — Library documentation and the adoption path
 
-Status: draft
+Status: done
 Created: 2026-09-01
 
 ## Problem
@@ -96,8 +96,17 @@ answers it for software that no longer exists.
   exposes, and the deploy-time environment contract.
 - R8 — No key documented in the rewritten configuration reference is unread by `libs/`, `apps/`
   or `scripts/`, and no key those read is undocumented.
-- R9 — Every new or rewritten document is reachable by navigation from `docs/README.md` and
-  appears in the generated `docs-site/`.
+- R9 — Every new or rewritten document is reachable by navigation from `docs/README.md`, and
+  every one that lives under `docs/` appears in the generated `docs-site/`.
+
+  **Amended 2026-09-02, by the user's decision.** It read "and appears in the generated
+  `docs-site/`" without qualification, which a library README cannot satisfy: `build-docs.sh`
+  passes one input tree to the shared generator in the sibling `../docs` repository, and that
+  generator takes a single `input-dir`. Meeting it literally would mean either a second copy of
+  each README under `docs/` — the duplication this spec exists to stop — or changing a tool three
+  projects consume, which is outside these non-goals. A README stays beside its code and is
+  reached from the index; the two library READMEs that predate this spec are outside the site on
+  the same terms.
 - R10 — The claims in the documentation are checked by something that fails when they go stale,
   not by having been true once.
 
@@ -118,9 +127,10 @@ answers it for software that no longer exists.
   own tests, with every command in the guide having been run rather than reasoned about.
 - **Given** any document produced by this spec, **when** a type or path it names is renamed or
   removed, **then** a test fails.
-- **Given** the docs site build, **when** it runs, **then** the six READMEs, the adoption guide
-  and the rewritten configuration reference are all present and linked, and no link in them
-  resolves to a missing target.
+- **Given** the docs site build, **when** it runs, **then** the adoption guide and the rewritten
+  configuration reference are present in `docs-site/`, the six READMEs are linked from
+  `docs/README.md`, and no link in any of them resolves to a missing target. Amended with R9 on
+  2026-09-02: the generator takes one input tree and the READMEs live beside their code.
 
 ## Open questions
 
