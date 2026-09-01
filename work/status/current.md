@@ -6,9 +6,13 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing is in flight.** Spec 016 — the OAuth relying party — merged into `dev` on
-  2026-09-01 and its summary is in `previous.md`. What remains below is standing work waiting on
-  a person or a decision, not a task underway.
+- **Spec 017 — scaffold list sorting and cursor pagination.** Building
+  `docs/specs/017-scaffold-sorting-and-cursor-pagination/017-tasks.md`, seventeen tasks. Closes
+  backlog gap **G5** (`IScaffoldStore<T>.ListAsync` has no ordering parameter, and three consumers
+  hand-rolled the missing piece) and gap **G2** on the way, since the seam change is breaking and
+  `docs/breaking-changes.md` is written as part of it. Four decisions were taken before the spec:
+  no structured filtering, the seam breaks rather than being shimmed, sortable columns are
+  declared by `[ScaffoldSort]`, and the numbered pager becomes Newer/Older with the total kept.
 
 - **Phase 3 of the readiness plan.** T11 (the scaffold defect batch) and T12 (deploy and database
   hygiene) are both done. T12: the deploy chain publishes `apps/sample` by default and names no
@@ -65,14 +69,16 @@ worth seeing here rather than hiding, but it is the exception.
   The second is not ours to run: six untracked test directories are `bin`/`obj` residue of the
   departed identity provider, listed in `scripts/cleanup/021-coverage-gaps.ps1`.
 
-- **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
-  not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has
-  never been run, and every elapsed time in `docs/02-reference/deployment.md` reads
-  `NOT YET MEASURED`. Until an operator walks a bare Debian host through provision → release →
-  rollback → restore and writes the times back, three of spec 011's requirements (R1, R16, R17)
-  are unmet and the scripts are untested against anything but `bash -n` and the unit tier.
-  R15 is conditional too: `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is not
-  noticed. This is a person's task, not a session's.
+- **T15 of spec 011 — one third done, 2026-09-01.** `provision.sh` and `deploy.sh` have now run
+  for real: `nativeweb-dev` serves `apps/sample` at `nw-dev.example.com`, two releases landed
+  blue/green in 1.774 s and 1.888 s, and the `NOT YET MEASURED` figures in
+  `docs/02-reference/deployment.md` are measured. **R1 is met; R16 and R17 are not.** The restore
+  drill cannot start because no backup exists: every key in `/etc/nativeweb/backup.env` on that
+  host is present and empty, so the 03:17 timer fails nightly on
+  `BACKUP_S3_BUCKET: set BACKUP_S3_BUCKET`. Filling it needs a bucket, credentials and an age
+  keypair the operator generates — a session must not, since the private key decrypts every
+  backup. R15 stays conditional on `BACKUP_HEARTBEAT_URL`. `nativeweb-prod` is untouched and out
+  of scope.
 
 - ~~**The epass.io production cutover.**~~ **Closed 2026-08-31 as a NativeWeb concern** —
   `docs/decisions/2026-08-31-008-epass-cutover-closed.md`. Checked against the real sibling
