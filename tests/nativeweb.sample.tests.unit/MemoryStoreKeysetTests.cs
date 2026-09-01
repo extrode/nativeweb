@@ -204,16 +204,6 @@ public sealed class MemoryStoreKeysetTests
     }
 
     [Fact]
-    public async Task TextOrdering_IsOrdinalRatherThanTheHostsLocale()
-    {
-        ArticleStore store = Seeded(("a", "Zebra", "x"), ("b", "apple", "x"), ("c", "Apple", "x"));
-
-        Assert.Equal(
-            ["c", "a", "b"],
-            await KeysAsync(store, new ScaffoldSortSpec("Title", ScaffoldSortDirection.Ascending), null, 10));
-    }
-
-    [Fact]
     public async Task AnUnknownSortProperty_FallsBackToTheKeyOrder()
     {
         ArticleStore store = Seeded(("c", "Third", "x"), ("a", "First", "x"), ("b", "Second", "x"));

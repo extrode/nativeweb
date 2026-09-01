@@ -1,6 +1,6 @@
 # 017 — Scaffold list sorting and cursor pagination
 
-Status: draft
+Status: done
 Created: 2026-09-01
 
 ## Problem

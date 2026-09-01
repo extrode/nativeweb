@@ -1726,3 +1726,10 @@ an answer different from the one the audit assumed.
   three-column `ILIKE`.** Pre-existing — the offset pager needed it too — but keyset made the page
   itself an index range scan, so the count is now the only unbounded work in the request. Its
   snapshot is also separate from the page's, so "N items" can disagree with the rows above it.
+- **The in-memory store's ordinal text comparison is untestable in this repo.**
+  `Directory.Build.props` sets `InvariantGlobalization=true`, so `string.CompareTo` is already
+  ordinal in every process here and a test asserting the difference passes with the fix reverted.
+  The fix stays — `IComparable.CompareTo` on a boxed string is `CurrentCulture`, and a consumer
+  that does not set that flag gets an order that changes with the host's locale — but the
+  assertion was removed rather than kept as one that cannot fail. Proving it needs a test host
+  built without the property.

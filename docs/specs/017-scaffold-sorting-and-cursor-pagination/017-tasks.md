@@ -32,13 +32,13 @@ to it rather than shimmed.
 
 - [x] T13 Integration tier — files: `tests/nativeweb.scaffold.tests.integration/*` — covers: R2, R4, R5, R7, R9, R11, R16 — done when: against real PostgreSQL, every sortable column pages both directions; a full walk over duplicate sort values returns each row exactly once; a row inserted mid-walk neither duplicates nor hides a row; an unknown `?sort=` and a mangled `?after=` both render; the author-NULL page boundary carries every row; the reported total matches.
 
-- [ ] T14 End-to-end tier — files: `tests/nativeweb.scaffold.tests.e2e/*` — covers: R10, R12, R13, R16 — done when: Playwright clicks a header and asserts order and `aria-sort`; Older then Newer returns to the same rows; a listed-but-unsortable column offers no link; a copied URL reproduces search, sort and position in a fresh context.
+- [x] T14 End-to-end tier — files: `tests/nativeweb.scaffold.tests.e2e/*` — covers: R10, R12, R13, R16 — done when: Playwright clicks a header and asserts order and `aria-sort`; Older then Newer returns to the same rows; a listed-but-unsortable column offers no link; a copied URL reproduces search, sort and position in a fresh context.
 
 - [x] T15 The breaking-change log — files: `docs/breaking-changes.md` (new), `README.md` — covers: R14 — done when: the document exists with three entries newest-first — this `ListAsync` change, and retrospectively the 2026-08-31 removals of `nativeweb.signin.epass` and `nativeweb.auth` — each naming the seam, what changed and the before/after a consumer migrates by, and the repository README links it. This closes backlog gap G2.
 
 - [x] T16 Scaffold documentation — files: `libs/nativeweb.scaffold/README.md` — covers: R1, R13 — done when: the attribute table lists `[ScaffoldSort]`, the list section describes cursor paging, and the store's tiebreaker and NULLS obligations are stated where an implementer reads them rather than only in XML docs.
 
-- [ ] T17 AOT and visibility — files: `CHANGELOG.md`, `work/todo.md`, `work/status/current.md`, `work/tasklist.md` — covers: R15 — done when: the AOT publish gate passes with no new trim or AOT warnings, G5 and G2 are struck from `work/todo.md` with what closed them, the change is under `## [Unreleased]`, and `structure-audit.js` exits 0.
+- [x] T17 AOT and visibility — files: `CHANGELOG.md`, `work/todo.md`, `work/status/current.md`, `work/tasklist.md` — covers: R15 — done when: the AOT publish gate passes with no new trim or AOT warnings, G5 and G2 are struck from `work/todo.md` with what closed them, the change is under `## [Unreleased]`, and `structure-audit.js` exits 0.
 
 ## Analyze
 

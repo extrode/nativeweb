@@ -13,8 +13,13 @@ Section 1, under -Execute -- scratch this work created under the repository's ow
                      .Base64Url members net10.0 actually ships, rather than asserting it.
   tmp/jq.log         output of `jaunty schema pull`, redirected to a file because the CLI printed
                      usage instead of running when the output was left on the console.
-  tmp/del.trx        two trx logs, written only because `dotnet test`'s console logger swallowed
+  tmp/del.trx        three trx logs, written only because `dotnet test`'s console logger swallowed
   tmp/int.trx        the assertion messages for the failures being read.
+  tmp/kq.trx
+  tmp/e2e3.log       run logs from the Playwright tier, the full-solution run and the NativeAOT
+  tmp/full.log       publish gate, redirected so a long run could be read after it finished
+  tmp/aot.log        rather than scrolled through as it went.
+  tmp/017-code.diff  the production-only slice of the branch diff, handed to the code review.
 
   Each is checked against git at run time. Anything tracked is refused, not removed: git tracking
   a path is the repository saying that path is not scratch.
@@ -83,7 +88,17 @@ Write-Host "repo: $repoRoot"
 Write-Host ''
 Write-Host '1. scratch under tmp/'
 
-$scratch = @('tmp/probe-b64', 'tmp/jq.log', 'tmp/del.trx', 'tmp/int.trx')
+$scratch = @(
+    'tmp/probe-b64',
+    'tmp/jq.log',
+    'tmp/del.trx',
+    'tmp/int.trx',
+    'tmp/kq.trx',
+    'tmp/e2e3.log',
+    'tmp/full.log',
+    'tmp/aot.log',
+    'tmp/017-code.diff'
+)
 
 foreach ($relative in $scratch) {
     $path = Join-Path $repoRoot $relative
