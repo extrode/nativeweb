@@ -262,6 +262,35 @@ cat /opt/nativeweb/blue/RELEASE         # or green — works with nothing runnin
 tail /var/lib/nativeweb/deployments.log
 ```
 
+### The documentation site, at `/docs`
+
+`scripts/build-docs.sh` renders `docs/` into the committed, versioned `docs-site/`,
+and from there it travels in the artifact exactly as `db/` does. Nothing extra to
+run at release time:
+
+| Where | What |
+|---|---|
+| `docs-site/` in the repo | the tracked site, one frozen directory per release plus `unversioned/` |
+| `docs_dir=` in `RELEASE` | `docs` when this artifact carries a site, empty when it does not |
+| `/opt/nativeweb/docs` | a symlink to the live colour's `docs/`, repointed at promotion and at rollback |
+| `handle_path /docs/*` in the Caddyfile | serves it; `redir /docs /docs/ 308` in front, because the index's links are relative |
+
+**Absent docs are not an error.** A product that has never run `build-docs.sh`
+builds and deploys normally, and `/docs` is a 404 until it does. A `DOCS_DIR` that
+exists *without* a `versions.json` **is** an error: that is either the wrong
+directory or a half-finished build, and shipping it would put a directory listing
+under the product's own hostname.
+
+**The docs follow the release, so a rollback rolls them back too** — which matters
+less than it sounds, because the site is versioned: every release's documentation
+stays in the tree whichever one is serving.
+
+One thing to know before copying the tracked `Caddyfile` onto a host: **a guest
+behind an edge proxy needs a different one.** `nativeweb-dev` terminates TLS at
+`incus-host`, so its Caddyfile is `auto_https off` on `:80` with
+`trusted_proxies`, and the `/docs` block above is the only part the two share
+verbatim.
+
 ## Backups
 
 Nightly at 03:17 UTC (plus up to 15 minutes of jitter), `Persistent=true` so a
