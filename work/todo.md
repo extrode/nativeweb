@@ -1744,6 +1744,14 @@ an answer different from the one the audit assumed.
   `AdjustToUniversal` does not change whether `TryParse` succeeds, and `IsDateTime` returns only
   that. `ScaffoldValues.cs:177` — a `break` whose loop would reassign the same value.
   `ScaffoldAccess.cs:71` — `ConfigureAwait(false)` flipped to `true`.
+- **The `sample-integration` triage target leaves live rows behind, and they are not inert.**
+  Stryker kills a host it judges hung, so the killed process skips the `finally` that removes its
+  fixture rows, and the feed suites date theirs five years out on purpose. One run left five
+  future-dated published rows in `nativeweb_sample_test` and broke an e2e feed test an hour
+  later. Documented in `tools/mutation-triage.ts`'s header and listed by
+  `scripts/cleanup/018-paging-property-tests.ps1`; the durable fix would be a Stryker
+  `--dev-mode`/higher timeout for that target, or fixture rows that a session-scoped sweep can
+  find by prefix without a `finally`. Neither is done.
 - **`ConfigureAwait` mutants inflate every survivor count in this repo.** Roughly fifteen of
   `JauntyArticleStore`'s thirty-four integration-tier survivors are `.ConfigureAwait(false)` →
   `true`, which is behaviour-identical under a test host. A `stryker-config.json` with
@@ -1757,3 +1765,11 @@ an answer different from the one the audit assumed.
   scope for a test branch.
 - **`DemoSignIn.cs` scores 17.2% and `Models.cs` 0.0%.** Neither was in this branch's scope. The
   triage figures are in `tools/mutation-baseline.json` if either becomes worth closing.
+- **`Encode` substitutes for an unpaired surrogate; `TryDecode` no longer does.** After the strict
+  UTF-8 read, a token `TryDecode` accepts re-encodes to itself — but `Encode` still calls
+  `Encoding.UTF8.GetBytes`, which replaces a lone surrogate in `Property`, `SortValue` or `Key`
+  with U+FFFD. A row whose sorted column holds one therefore yields a cursor that decodes to a
+  *different* cursor, and the reader lands on the wrong window rather than an error. Pre-existing,
+  not reachable from `apps/sample`, and the property tests do not generate surrogates. Closing it
+  means a strict `Utf8.FromUtf16` in `Encode` returning the empty string on failure, which is the
+  refusal path that already exists for an over-long part.

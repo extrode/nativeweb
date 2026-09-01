@@ -22,6 +22,18 @@
 // runs: 17 timeouts and 39. Timeouts score as killed, so the figure drifts up under load.
 // Read a change in that target as a signal to look, not as a fact on its own.
 //
+// That target also LEAVES ROWS BEHIND, and they are not inert. Stryker kills a test host it
+// judges hung, so the killed process never reaches the `finally` that removes its fixture rows,
+// and the feed tests date theirs five years into the future on purpose. Measured 2026-09-01: a
+// run ending 15:57 left five future-dated published rows in nativeweb_sample_test, and an e2e
+// feed test that asserted an absolute DOM position failed on them an hour later. The e2e
+// assertion was the defect and is fixed; the rows are still a residue this tool produces.
+// After running this target, check and hand the removal to the operator:
+//
+//   psql -d nativeweb_sample_test -U nativeweb_app \
+//     -c "SELECT id, created_at FROM articles WHERE created_at > now();"
+//   pwsh scripts/cleanup/018-paging-property-tests.ps1        # dry run; -e to act
+//
 // Requires the global tool: dotnet tool install -g dotnet-stryker
 
 interface Target {

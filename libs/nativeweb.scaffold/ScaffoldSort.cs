@@ -250,6 +250,11 @@ public readonly record struct ScaffoldCursor(
         // this release did not write, which is what TryDecode returning true is meant
         // to rule out -- and the substitution is lossy, so the token no longer
         // round-trips. Found by the property test in spec 018, not by an example.
+        // MaxValueBytes, not cap, and that is safe only while every caller's cap is at or
+        // below it: UTF-8 never expands past one char per byte, so a cap of 512 bytes
+        // cannot fill more than 512 chars. A caller passing a larger cap would get
+        // DestinationTooSmall reported below as malformed input, which is the wrong
+        // answer -- both call sites are in TryDecode above, and both stay within it.
         Span<char> chars = stackalloc char[MaxValueBytes];
         if (Utf8.ToUtf16(body.Slice(at, length), chars, out _, out int written, false) != OperationStatus.Done)
         {

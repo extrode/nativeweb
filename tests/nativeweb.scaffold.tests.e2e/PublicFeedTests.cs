@@ -73,8 +73,18 @@ public sealed class PublicFeedTests(JauntySampleFixture app, BrowserFixture brow
 
     /// <summary>
     /// The ordering, read off the rendered DOM rather than out of the HTML string:
-    /// the two rows are two <c>li</c> elements, and the newer one is the first.
+    /// the two rows are two <c>li</c> elements, and the newer one is above the
+    /// older one.
     /// </summary>
+    /// <remarks>
+    /// Positions relative to each other, not absolute DOM slots. This ran green
+    /// for a month asserting <c>titles.First</c> and <c>titles.Nth(1)</c>, then
+    /// failed on 2026-09-01 without the feed changing: the integration tier dates
+    /// its own feed rows five years out into the same table, this assembly runs in
+    /// parallel with it, and a leaked row landed between the two rows below. An
+    /// absolute slot is a claim about every other row in <c>articles</c>, which is
+    /// not what this test is about and not something it can control.
+    /// </remarks>
     [Fact]
     public async Task Feed_UnderNativeAot_OrdersNewestFirst()
     {
@@ -91,8 +101,15 @@ public sealed class PublicFeedTests(JauntySampleFixture app, BrowserFixture brow
             await page.GotoAsync("/articles");
 
             ILocator titles = page.Locator("li.articles__item h2.articles__title");
-            await Assertions.Expect(titles.First).ToHaveTextAsync($"{prefix}-newer");
-            await Assertions.Expect(titles.Nth(1)).ToHaveTextAsync($"{prefix}-older");
+            await Assertions.Expect(titles.GetByText($"{prefix}-newer")).ToBeVisibleAsync();
+
+            List<string> rendered = [.. (await titles.AllTextContentsAsync()).Select(t => t.Trim())];
+            int newer = rendered.IndexOf($"{prefix}-newer");
+            int older = rendered.IndexOf($"{prefix}-older");
+
+            Assert.True(newer >= 0, $"The newer row should be on the page. Titles: {string.Join(", ", rendered)}");
+            Assert.True(older >= 0, $"The older row should be on the page. Titles: {string.Join(", ", rendered)}");
+            Assert.True(newer < older, $"The newer row should render above the older one. Titles: {string.Join(", ", rendered)}");
         }
         finally
         {

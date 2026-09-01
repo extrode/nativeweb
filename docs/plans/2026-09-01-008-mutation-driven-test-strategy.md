@@ -105,6 +105,65 @@ acceptance is exact, which is what makes the round-trip property assertable at a
 | `ScaffoldValues:75` | `NullableDateTime_*` |
 | `DemoStore:250`, `:253` | `TagStoreTests` |
 
+## What the review caught that the mutation score did not
+
+An independent review of the branch found **two property tests that passed for the wrong
+reason** — and neither showed up as a surviving mutant, because both did kill their mutants
+while asserting less than their names claimed.
+
+- `ABackwardCursorOnAMissingRowLeavesRoomForTheCallersTailTrim` asserted
+  `page.Count <= Take - 1` and `page == model.Take(page.Count)`. An empty page satisfies both
+  unconditionally, and `Take == 1` forced an empty page in a fifth of iterations. Now asserts
+  the exact expected page.
+- `ABackwardWalkFromTheEndVisitsEveryRowOnceInModelOrder` appended `model[^1].Id` to the
+  observed list before comparing against the model, so its last position compared the oracle
+  with itself; a single-row model reduced the whole test to `x == x`. Now walks to
+  `model[0..^1]` and compares that.
+
+Three more: the index `pick % model.Count` was drawn from `Gen.Int[0, 20]`, which sampled low
+indices twice as often as high ones — and the **last row** is where two of the three 017
+defects lived, so the least-sampled case was the one that mattered. Widened to
+`Gen.Int[0, 1_000]`. `AnUnsortableTakeOfZeroReturnsNothing` never generated an unsortable
+property, so it was renamed to what it asserts and a real fallback property added. And the
+missing-row cursors were built from the constructor with a raw `"gone"` rather than through
+`ScaffoldValues.CursorText`, feeding the store a shape the framework would never issue.
+
+**The score did not move for any of this** — `sample-unit` stayed at 24.56%, the same mutants
+dead. That is the honest limit of a mutation score: it measures whether a test *can* fail, not
+whether it fails for the reason its name gives. Both checks are needed, and neither substitutes
+for the other.
+
+## The triage tool broke a test, and the test it broke deserved to break
+
+The full-solution run on this branch came back with one failure the identical run before it did
+not have: `PublicFeedTests.Feed_UnderNativeAot_OrdersNewestFirst` in the e2e tier, which nothing
+on this branch touches.
+
+The chain, each link measured rather than inferred:
+
+1. `tools/mutation-triage.ts`'s `sample-integration` target ran 15:51–15:57 (`tmp/stryker/
+   sample-integration` mtime). Stryker kills a test host it judges hung — 39 timeouts in that
+   run — and a killed process never reaches the `finally` that removes its fixture rows.
+2. Five future-dated published rows survived in `nativeweb_sample_test`, from three of the
+   integration tier's four `feed-` prefixed tests. `GET /articles` shows the newest twenty, so
+   they sat at the top of the public feed.
+3. The leaked `feed-…-newer` is dated `future + 1h`. The e2e test dates its own pair `future`
+   and `future + 1h` from its own `UtcNow`, so for **the hour after a leaking run** the leaked
+   row lands between them. The suite ran inside that window; a re-run at 17:10 passed.
+
+**The e2e assertion was the defect, not the rows.** It read `titles.First` and `titles.Nth(1)` —
+absolute DOM slots, which is a claim about every other row in `articles`. The integration tier
+asserting the same fact uses relative positions and was unaffected by the same rows. The e2e
+test now finds its two titles in the rendered list and asserts one is above the other, keeping
+the reason this tier exists (a real HTML parse of the NativeAOT binary's output) without the
+claim it could not support. Its failure messages print the titles that were on the page, because
+the original failure said only that slot 1 held the wrong text.
+
+Two things follow. `tools/mutation-triage.ts` documents the residue in its header, since a tool
+that leaves live state behind and does not say so is how this cost an afternoon. And
+`scripts/cleanup/018-paging-property-tests.ps1` lists the rows behind `-DropTestRows`, scoped to
+future-dated `feed-`/`e2e-` ids so a demo row cannot be caught by it. It has not been run.
+
 **Left open, recorded rather than chased.** Four survivors are equivalent mutants — a change
 with no observable difference, so no test can kill them: `ScaffoldSort.cs:157`
 (`MaxEncodedChars` is 2048 but no decodable payload exceeds ~1,548 chars, so `>` and `>=` never

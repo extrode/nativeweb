@@ -68,6 +68,15 @@ Merged into `dev`, not yet tagged.
   that would put a directory listing under the product's hostname. Live on `nw-dev.example.com`.
 
 ### Fixed
+- **An e2e feed test claimed an absolute DOM slot it could not own.**
+  `Feed_UnderNativeAot_OrdersNewestFirst` asserted `titles.First` and `titles.Nth(1)`, which is a
+  claim about every other row in `articles`. It went red without the feed changing: the mutation
+  triage's integration target kills a hung test host, the killed process skips the `finally` that
+  removes its fixture rows, and the feed suites date theirs five years out on purpose — so for the
+  hour after such a run a leaked row lands between the test's own two. It now finds its two titles
+  in the rendered list and asserts one is above the other, keeping the real HTML parse of the
+  NativeAOT binary's output and printing the titles it saw when it fails.
+  `scripts/cleanup/018-paging-property-tests.ps1` lists the leaked rows; it has not been run.
 - **`ScaffoldCursor.TryDecode` accepted a tampered token.** `Encoding.UTF8.GetString` substitutes
   U+FFFD for a malformed sequence rather than refusing it, so flipping one character of a cursor
   produced one the decoder reported as valid — against its documented contract of returning true

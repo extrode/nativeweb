@@ -32,6 +32,13 @@ public sealed class MemoryStorePagingPropertyTests
 
     private static readonly string?[] Authors = [null, "ana", "bo", null, "Zed", "ana"];
 
+    // Reduced modulo the row count at the point of use, so the range has to be far wider
+    // than the 14-row maximum or the low indices are sampled twice as often as the high
+    // ones -- and the boundary that matters most here is the LAST row, which is where
+    // two of the three 017 defects lived. At 1,000 the bias is under one and a half
+    // percent.
+    private static readonly Gen<int> Pick = Gen.Int[0, 1_000];
+
     private sealed record Scenario(Article[] Rows, ScaffoldSortSpec Sort, int Take);
 
     private static readonly Gen<Scenario> Scenarios = Gen.Select(
@@ -97,6 +104,13 @@ public sealed class MemoryStorePagingPropertyTests
         return store;
     }
 
+    // Built the way the endpoint builds one, from a row that is not in the store: "r99"
+    // is outside the generator's r00-r60 range. Going through CursorAt rather than the
+    // constructor keeps the sort value in the same form a real cursor carries, so the
+    // missing-row path is not tested against a shape the framework would never issue.
+    private static ScaffoldCursor MissingRowCursor(Scenario s, bool backward) =>
+        CursorAt(new Article { Id = "r99", Title = "gone", Author = "gone", Body = "b" }, s.Sort, backward);
+
     private static ScaffoldCursor CursorAt(Article row, ScaffoldSortSpec sort, bool backward) =>
         new(
             sort.Property,
@@ -125,7 +139,7 @@ public sealed class MemoryStorePagingPropertyTests
 
     [Fact]
     public void AForwardCursorAtAnyRowReturnsTheRowsAfterIt() =>
-        Gen.Select(Scenarios, Gen.Int[0, 20]).Sample(
+        Gen.Select(Scenarios, Pick).Sample(
             (s, pick) =>
             {
                 List<Article> model = Model(s);
@@ -145,7 +159,7 @@ public sealed class MemoryStorePagingPropertyTests
 
     [Fact]
     public void ABackwardCursorAtAnyRowReturnsTheRowsImmediatelyBeforeIt() =>
-        Gen.Select(Scenarios, Gen.Int[0, 20]).Sample(
+        Gen.Select(Scenarios, Pick).Sample(
             (s, pick) =>
             {
                 List<Article> model = Model(s);
@@ -166,7 +180,7 @@ public sealed class MemoryStorePagingPropertyTests
 
     [Fact]
     public void APageIsNeverLongerThanTheRequestedTake() =>
-        Gen.Select(Scenarios, Gen.Int[0, 20], Gen.Bool).Sample(
+        Gen.Select(Scenarios, Pick, Gen.Bool).Sample(
             (s, pick, backward) =>
             {
                 List<Article> model = Model(s);
@@ -198,6 +212,15 @@ public sealed class MemoryStorePagingPropertyTests
                     }
 
                     seen.AddRange(page);
+
+                    // Bailing rather than indexing past the model, so a store that
+                    // over-returns fails on the assertion below with a shrunk
+                    // counterexample instead of throwing IndexOutOfRange with none.
+                    if (seen.Count >= model.Count)
+                    {
+                        break;
+                    }
+
                     after = CursorAt(model[seen.Count - 1], s.Sort, false);
                 }
 
@@ -221,7 +244,7 @@ public sealed class MemoryStorePagingPropertyTests
                 List<string> seen = [];
                 ScaffoldCursor? after = CursorAt(model[^1], s.Sort, true);
 
-                for (int guard = 0; guard <= model.Count + 1; guard++)
+                for (int guard = 0; guard <= model.Count + 1 && seen.Count < model.Count - 1; guard++)
                 {
                     List<string> page = Page(store, s, after);
 
@@ -231,23 +254,16 @@ public sealed class MemoryStorePagingPropertyTests
                     }
 
                     seen.InsertRange(0, page);
-                    after = CursorAt(model[model.Count - 1 - seen.Count], s.Sort, true);
-
-                    if (seen.Count == model.Count - 1)
-                    {
-                        break;
-                    }
+                    after = CursorAt(model[Math.Max(0, model.Count - 1 - seen.Count)], s.Sort, true);
                 }
 
-                seen.Add(model[^1].Id);
-
-                Assert.Equal(Ids(model), seen);
+                Assert.Equal(Ids(model.Take(model.Count - 1)), seen);
             },
             iter: Iterations);
 
     [Fact]
     public void PreviousUndoesNext() =>
-        Gen.Select(Scenarios, Gen.Int[0, 20]).Sample(
+        Gen.Select(Scenarios, Pick).Sample(
             (s, pick) =>
             {
                 ArticleStore store = Seeded(s);
@@ -279,10 +295,7 @@ public sealed class MemoryStorePagingPropertyTests
         Scenarios.Sample(
             s => Assert.Equal(
                 Ids(Model(s).Take(s.Take)),
-                Page(
-                    Seeded(s),
-                    s,
-                    new ScaffoldCursor(s.Sort.Property, s.Sort.Direction, "gone", "r99", false))),
+                Page(Seeded(s), s, MissingRowCursor(s, false))),
             iter: Iterations);
 
     [Fact]
@@ -290,13 +303,10 @@ public sealed class MemoryStorePagingPropertyTests
         Scenarios.Sample(
             s =>
             {
-                List<string> page = Page(
-                    Seeded(s),
-                    s,
-                    new ScaffoldCursor(s.Sort.Property, s.Sort.Direction, "gone", "r99", true));
+                List<Article> model = Model(s);
+                List<string> page = Page(Seeded(s), s, MissingRowCursor(s, true));
 
-                Assert.True(page.Count <= Math.Max(s.Take - 1, 0));
-                Assert.Equal(Ids(Model(s).Take(page.Count)), page);
+                Assert.Equal(Ids(model.Take(Math.Max(s.Take - 1, 0))), page);
             },
             iter: Iterations);
 
@@ -317,8 +327,22 @@ public sealed class MemoryStorePagingPropertyTests
             iter: Iterations);
 
     [Fact]
-    public void AnUnsortableTakeOfZeroReturnsNothing() =>
+    public void ATakeOfZeroReturnsNothing() =>
         Scenarios.Sample(
             s => Assert.Empty(Page(Seeded(s), s, null, 0)),
             iter: 200);
+
+    [Fact]
+    public void AnUnrecognisedSortPropertyFallsBackToTheKeyOrder() =>
+        Gen.Select(Scenarios, Gen.OneOfConst("Nonexistent", "Body", "id; drop table articles")).Sample(
+            (s, property) =>
+            {
+                var fallback = new ScaffoldSortSpec("Id", s.Sort.Direction);
+                var requested = new Scenario(s.Rows, new ScaffoldSortSpec(property, s.Sort.Direction), s.Take);
+
+                Assert.Equal(
+                    Ids(Model(s with { Sort = fallback }).Take(s.Take)),
+                    Page(Seeded(s), requested, null));
+            },
+            iter: Iterations);
 }

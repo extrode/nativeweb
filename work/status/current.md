@@ -6,6 +6,45 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Plan 008 — mutation-driven test strategy for the paging seam. Done and merged into `dev`,
+  unpushed (2026-09-01).** `test/018-paging-property-tests`, prompted by the user's
+  `testing-strategy-handover.md` and by the fact below: 017 shipped eight defects and **no test
+  failed on any of them**. The gap was assertions, not coverage, which only a mutation run
+  measures — so Stryker.NET 4.16.0 ran *first*, before anything was written, and named it.
+  **`libs/nativeweb.scaffold` 75.46% → 85.54%**, `DemoStore.cs` 70.0% → 76.0%,
+  `apps/sample` at the integration tier 44.74% → 50.29%. 55 tests across five files; CsCheck
+  4.8.0 in the test tier only.
+
+  **The worst single finding: all fifteen mutants in `ScaffoldAccess.CanReadAsync` survived
+  because nothing executed it.** Its only two tests asserted that the *generated source contained
+  the call* — a substring match over a file, which is the lying-test shape. Five branches of the
+  admin index's authorization decision, never run.
+
+  **One production change, caused by a test.** `ScaffoldCursor.TryDecode` accepted a tampered
+  token: `Encoding.UTF8.GetString` substitutes U+FFFD rather than refusing malformed bytes, so
+  the decoder reported a cursor this release did not write as valid, lossily. `TryRead` now uses
+  `Utf8.ToUtf16` with `replaceInvalidSequences: false`. No behaviour change for a reader.
+
+  **A review then found two properties that passed for the wrong reason, and the score did not
+  move for either** — both killed their mutants while asserting less than their names claimed.
+  That is the limit of a mutation score, written up in the plan: it measures whether a test *can*
+  fail, not whether it fails for the stated reason.
+
+  **The triage tool then broke an e2e test, and the test deserved it.** Stryker kills a host it
+  judges hung, the killed process skips the `finally` that removes its fixture rows, and the feed
+  suites date theirs five years out — so five future-dated rows survived a 15:57 run and
+  `Feed_UnderNativeAot_OrdersNewestFirst` went red at 16:2x on a branch that does not touch the
+  feed. It asserted `titles.First`/`Nth(1)`, an absolute DOM slot, which is a claim about every
+  other row in `articles`; the integration tier asserting the same fact relatively was unaffected.
+  Rewritten to relative positions. A re-run at 17:10 passed under the old assertion too, because
+  the leak only bites for the hour after it happens — which is what makes it a flake worth naming
+  rather than a mystery. `scripts/cleanup/018-paging-property-tests.ps1` lists the rows; not run.
+
+  `tools/mutation-triage.ts` re-runs the three targets and compares against
+  `tools/mutation-baseline.json` with a 1-point tolerance. Manual, not CI — the integration
+  target drifted 17 → 39 timeouts between two runs of the same commit under different machine
+  load, and timeouts score as killed.
+
 - **Spec 017 — scaffold list sorting and cursor pagination. Done and merged into `dev`, unpushed
   (2026-09-01).** All seventeen tasks are `[x]` and the spec is `Status: done`. The seam, the
   generator, three stores, eight keyset `.sql` files, three composite indexes, and all three test
