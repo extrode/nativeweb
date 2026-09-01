@@ -30,7 +30,7 @@ to it rather than shimmed.
 
 - [x] T12 Unit tier — files: `tests/nativeweb.scaffold.tests.unit/*` — covers: R1, R3, R5, R9, R13, R16 — done when: cursor round-trip and rejection, emitter allow-list rejection, default order, direction toggling, link preservation and `MemoryStore` keyset ordering (duplicate values, nullable column) are each asserted; every new fact is mutation-checked and no test asserts over a file's text where it can assert over behaviour.
 
-- [ ] T13 Integration tier — files: `tests/nativeweb.scaffold.tests.integration/*` — covers: R2, R4, R5, R7, R9, R11, R16 — done when: against real PostgreSQL, every sortable column pages both directions; a full walk over duplicate sort values returns each row exactly once; a row inserted mid-walk neither duplicates nor hides a row; an unknown `?sort=` and a mangled `?after=` both render; the author-NULL page boundary carries every row; the reported total matches.
+- [x] T13 Integration tier — files: `tests/nativeweb.scaffold.tests.integration/*` — covers: R2, R4, R5, R7, R9, R11, R16 — done when: against real PostgreSQL, every sortable column pages both directions; a full walk over duplicate sort values returns each row exactly once; a row inserted mid-walk neither duplicates nor hides a row; an unknown `?sort=` and a mangled `?after=` both render; the author-NULL page boundary carries every row; the reported total matches.
 
 - [ ] T14 End-to-end tier — files: `tests/nativeweb.scaffold.tests.e2e/*` — covers: R10, R12, R13, R16 — done when: Playwright clicks a header and asserts order and `aria-sort`; Older then Newer returns to the same rows; a listed-but-unsortable column offers no link; a copied URL reproduces search, sort and position in a fresh context.
 

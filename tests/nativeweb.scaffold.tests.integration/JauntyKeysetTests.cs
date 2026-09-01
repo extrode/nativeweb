@@ -69,13 +69,19 @@ public sealed class JauntyKeysetTests
         return m.Success ? System.Net.WebUtility.HtmlDecode(m.Groups[1].Value) : null;
     }
 
+    // Bounded, and the bound is the point. A cursor that does not advance -- the shape
+    // this suite exists to catch -- makes the Next link return the page it came from,
+    // forever. Unbounded, that hangs the run instead of failing it, which is how a
+    // defect gets reported as a flaky suite.
     private static async Task<List<string>> WalkAsync(HttpClient client, string marker, string first)
     {
         List<string> seen = [];
         string? path = first;
 
-        while (path is not null)
+        for (int page = 0; path is not null; page++)
         {
+            Assert.True(page < 32, $"walk did not terminate after {page} pages; the cursor is not advancing");
+
             string html = await ListAsync(client, path);
             seen.AddRange(TitlesIn(marker, html));
             path = LinkWithRel(html, "next");
