@@ -61,6 +61,13 @@
          in for a tier that composes its own pipeline; TestHost is the piece of it
          that matters here. Same 10.0.x line as the sibling pin above. -->
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.7" />
+    <!-- Property-based testing (spec 018). Generators plus shrinking, for the
+         paging seam and the cursor codec: the 017 defects each lived in a
+         combination of row count, null density, page size and cursor state that
+         no example test enumerated, and a mutation run confirmed the gap before
+         this was added. CsCheck rather than FsCheck because it is a plain C#
+         API with no FSharp.Core dependency. -->
+    <PackageVersion Include="CsCheck" Version="4.8.0" />
     <!-- End-to-end browser tests. Net-new to this repo (no sibling reference);
          pinned to a recent 1.x. -->
     <PackageVersion Include="Deque.AxeCore.Playwright" Version="4.12.0" />

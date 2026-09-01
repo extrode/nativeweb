@@ -19,6 +19,8 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <!-- CSharpGeneratorDriver, to drive the scaffold generator directly. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <!-- Generators and shrinking for the cursor codec's property tests. -->
+    <PackageReference Include="CsCheck" />
   </ItemGroup>
 
   <ItemGroup>

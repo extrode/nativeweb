@@ -116,6 +116,33 @@ public sealed class ScaffoldValuesTests
         Assert.Null(ScaffoldValues.NullableDateTime(""));
 
     [Fact]
+    public void NullableDateTime_AssumesUtcForAnUnzonedFormValue()
+    {
+        DateTime? parsed = ScaffoldValues.NullableDateTime("2026-03-04T09:30");
+
+        Assert.Equal(new DateTime(2026, 3, 4, 9, 30, 0, DateTimeKind.Utc), parsed);
+        Assert.Equal(DateTimeKind.Utc, parsed!.Value.Kind);
+    }
+
+    [Fact]
+    public void NullableDateTime_ConvertsAnOffsetToUtc()
+    {
+        DateTime? parsed = ScaffoldValues.NullableDateTime("2026-03-04T09:30:00+02:00");
+
+        Assert.Equal(new DateTime(2026, 3, 4, 7, 30, 0, DateTimeKind.Utc), parsed);
+        Assert.Equal(DateTimeKind.Utc, parsed!.Value.Kind);
+    }
+
+    [Fact]
+    public void DateTimeValue_ConvertsAnOffsetToUtc()
+    {
+        DateTime parsed = ScaffoldValues.DateTimeValue("2026-03-04T09:30:00+02:00", DateTime.UnixEpoch);
+
+        Assert.Equal(new DateTime(2026, 3, 4, 7, 30, 0, DateTimeKind.Utc), parsed);
+        Assert.Equal(DateTimeKind.Utc, parsed.Kind);
+    }
+
+    [Fact]
     public void GuidValue_FallsBackToEmpty() =>
         Assert.Equal(Guid.Empty, ScaffoldValues.GuidValue("not-a-guid"));
 

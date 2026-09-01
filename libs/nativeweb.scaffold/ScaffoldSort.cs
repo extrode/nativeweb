@@ -1,6 +1,8 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Buffers.Text;
 using System.Text;
+using System.Text.Unicode;
 
 namespace NativeWeb.Scaffold;
 
@@ -136,9 +138,14 @@ public readonly record struct ScaffoldCursor(
     /// <b>Never throws.</b> The argument is whatever was in the query string, so every
     /// malformed shape has to be a false rather than an exception: null, empty,
     /// over-length, not base64url, truncated, a version this release does not know, an
-    /// unknown flag bit, a length prefix that runs past the end, and trailing bytes
-    /// after the third value. The caller renders the first page, which is what a reader
-    /// who edited the URL should get.
+    /// unknown flag bit, a length prefix that runs past the end, a value that is not
+    /// well-formed UTF-8, and trailing bytes after the third value. The caller renders
+    /// the first page, which is what a reader who edited the URL should get.
+    /// <para>
+    /// Accepting is exact: a token this returns true for re-encodes to itself. That is
+    /// what makes "a cursor this release wrote" a claim rather than a hope, and it is
+    /// why the UTF-8 read above is strict.
+    /// </para>
     /// </remarks>
     /// <param name="value">The raw query-string value.</param>
     /// <param name="cursor">The decoded cursor, or default.</param>
@@ -238,7 +245,18 @@ public readonly record struct ScaffoldCursor(
             return false;
         }
 
-        text = Encoding.UTF8.GetString(body.Slice(at, length));
+        // Strict, because Encoding.UTF8.GetString substitutes U+FFFD for a malformed
+        // sequence rather than refusing it. A tampered token then decodes to a cursor
+        // this release did not write, which is what TryDecode returning true is meant
+        // to rule out -- and the substitution is lossy, so the token no longer
+        // round-trips. Found by the property test in spec 018, not by an example.
+        Span<char> chars = stackalloc char[MaxValueBytes];
+        if (Utf8.ToUtf16(body.Slice(at, length), chars, out _, out int written, false) != OperationStatus.Done)
+        {
+            return false;
+        }
+
+        text = new string(chars[..written]);
         at += length;
         return true;
     }
