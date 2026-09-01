@@ -452,7 +452,18 @@ rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
 cp -a "$STAGE/." "$RELEASE_DIR/"
 chown -R root:nativeweb "$RELEASE_DIR"
-chmod -R g-w,o-rwx "$RELEASE_DIR"
+# Absolute, not subtractive. `cp -a "$STAGE/."` copies the mode of the SOURCE
+# directory onto $RELEASE_DIR, and $STAGE is `mktemp -d`, which is 0700 by
+# definition -- so the release directory arrives with no group bits at all. The
+# old `chmod -R g-w,o-rwx` only ever removed bits, so it could not put back what
+# mktemp never granted, and the service account could not chdir into its own
+# release: "Failed at step CHDIR ... Permission denied", status=200/CHDIR. The
+# subdirectories were fine throughout, because those modes came from the tarball,
+# which is why the first real deploy on 2026-09-01 failed on the top level alone.
+#
+# X, capitalised: the execute bit follows for directories and for files that
+# already have one, so this neither strips the launcher nor makes data executable.
+chmod -R u=rwX,g=rX,o= "$RELEASE_DIR"
 # The launcher's fixed name, set by build.sh, started by nativeweb@.service. It
 # is checked here rather than left to ConditionPathExists on the host: a unit
 # whose condition is false is inactive and SILENT, so an artifact with no

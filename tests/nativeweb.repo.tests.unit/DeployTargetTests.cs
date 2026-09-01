@@ -7,11 +7,12 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Both facts are about text in shell and unit files that no suite executes: the
-/// deploy scripts have never run on a real host (spec 011 T15), so a stale target
-/// in them is invisible until an operator is halfway through a release. That is
-/// how <c>build.sh</c> came to publish <c>apps/web/nativeweb.web.csproj</c> for
-/// the whole of the day after <c>apps/web</c> left the repository.
+/// Both facts are about text in shell and unit files that no suite executes, so a
+/// stale target in them is invisible until an operator is halfway through a
+/// release. That is how <c>build.sh</c> came to publish
+/// <c>apps/web/nativeweb.web.csproj</c> for the whole of the day after
+/// <c>apps/web</c> left the repository. The chain first ran against a real host on
+/// 2026-09-01 (spec 011 T15).
 /// </para>
 /// <para>
 /// The binary name is the sharper of the two. systemd will not expand a variable
@@ -68,6 +69,101 @@ public sealed class DeployTargetTests
         string unit = Read("scripts", "deploy", "systemd", "nativeweb@.service");
         Assert.Contains($"ExecStart=/opt/nativeweb/%i/{Binary}\n", unit, StringComparison.Ordinal);
         Assert.Contains($"ConditionPathExists=/opt/nativeweb/%i/{Binary}\n", unit, StringComparison.Ordinal);
+    }
+
+    // Presence is not placement, and the assertion above only ever checked presence.
+    // Condition*, Assert* and StartLimit* are [Unit] options: in [Service] systemd
+    // logs "Unknown key name" and ignores the line. ConditionPathExists sat in
+    // [Service] from the file's creation until 2026-09-01, when the first real
+    // deploy printed that warning six times and started a colour whose release
+    // directory the condition was supposed to have checked.
+    [Fact]
+    public void UnitOnlyDirectives_AreInTheUnitSection()
+    {
+        string unit = Read("scripts", "deploy", "systemd", "nativeweb@.service");
+        string section = "(none)";
+        List<string> misplaced = [];
+
+        foreach (string raw in unit.Split('\n'))
+        {
+            string line = raw.Trim();
+            if (line.StartsWith('[') && line.EndsWith(']'))
+            {
+                section = line;
+                continue;
+            }
+
+            if (line.Length == 0 || line.StartsWith('#') || !line.Contains('='))
+            {
+                continue;
+            }
+
+            string key = line[..line.IndexOf('=', StringComparison.Ordinal)];
+            bool unitOnly = key.StartsWith("Condition", StringComparison.Ordinal)
+                || key.StartsWith("Assert", StringComparison.Ordinal)
+                || key.StartsWith("StartLimit", StringComparison.Ordinal);
+
+            if (unitOnly && section != "[Unit]")
+            {
+                misplaced.Add($"{key} in {section}");
+            }
+        }
+
+        Assert.True(
+            misplaced.Count == 0,
+            $"nativeweb@.service puts {string.Join(", ", misplaced)}. systemd reads these only in "
+                + "[Unit]; elsewhere it warns and ignores them, so the directive does nothing on "
+                + "every host that has ever run this unit.");
+    }
+
+    // cp -a copies the source directory's own mode onto the destination, and the
+    // stage is mktemp -d, which is 0700. A subtractive chmod cannot add back a
+    // group bit that was never granted, so the release directory stayed
+    // drwx------ and systemd failed the unit at 200/CHDIR on 2026-09-01.
+    [Fact]
+    public void TheDeployScript_SetsTheReleaseDirectoryModeAbsolutely()
+    {
+        string deploy = Read("scripts", "deploy", "deploy.sh");
+
+        List<string> subtractive = [];
+        bool absolute = false;
+
+        foreach (string raw in deploy.Split('\n'))
+        {
+            string line = raw.Trim();
+            if (line.StartsWith('#') || !line.StartsWith("chmod ", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!line.EndsWith("\"$RELEASE_DIR\"", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string[] words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string mode = words[^2];
+
+            if (mode.Contains('='))
+            {
+                absolute = true;
+            }
+            else
+            {
+                subtractive.Add(mode);
+            }
+        }
+
+        Assert.True(
+            absolute,
+            "deploy.sh no longer sets an absolute mode on $RELEASE_DIR. cp -a stamps the 0700 of "
+                + "mktemp -d onto it, so without one the service account cannot chdir into its own "
+                + "release and systemd fails the unit at 200/CHDIR.");
+
+        Assert.True(
+            subtractive.Count == 0,
+            $"deploy.sh applies {string.Join(", ", subtractive)} to $RELEASE_DIR. A subtractive mode "
+                + "cannot restore the group bits mktemp -d never granted.");
     }
 
     // The project name must not reappear anywhere downstream of the publish: the

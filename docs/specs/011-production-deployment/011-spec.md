@@ -1,6 +1,7 @@
 # 011 — Production deployment of `apps/web`
 
-Status: draft — built and merged; acceptance blocked on T15, which is executed by a person
+Status: draft — built and merged; R1 met on a real host 2026-09-01, acceptance still blocked on
+T15's other two halves (R16 restore, R17 disaster recovery), which are executed by a person
 Created: 2026-08-27
 
 ## Problem
@@ -217,6 +218,31 @@ three measured times are in the runbook.
 | R2–R6, R8–R15, R18–R22 | **R1** provisioning walkthrough — written, never executed (T15) |
 | R3 measured, not reasoned — see T14 | **R16** restore drill — the script is driven by unit tests; no real backup has been restored (T15) |
 | R7, R12, R17 documented; R17's *execution* is below | **R17** disaster recovery — the procedure is written; nobody has rebuilt a host from repo plus backup (T15) |
+
+## Acceptance addendum — 2026-09-01
+
+**R1 is met. Status stays `draft` on R16 and R17.** `nativeweb-dev` — Debian 12, an Incus guest
+on `incus-host` — was provisioned and then deployed to from `build.sh` and `deploy.sh`, and
+the result is public at `https://nw-dev.example.com`: `/healthz` 200, `/readyz` 200 `ready`,
+`/version` `0.1.0+7436517…`. The promotion took **1.774 s** and that figure is in the runbook.
+
+The run needed four attempts, and **two of the three failures were defects in these scripts** —
+which is the whole argument for T15 being a person's task rather than a document. Both are fixed
+with tests:
+
+- `ConditionPathExists` was in `[Service]`, where systemd logs "Unknown key name" and ignores it.
+  The silent-skip guarantee R2 rests on had never held on any host.
+- `chmod -R g-w,o-rwx` on the release directory is subtractive, and `cp -a` from a `mktemp -d`
+  stage stamps 0700 onto it, so it could not restore bits that were never granted. The unit
+  failed at `status=200/CHDIR`.
+
+The third refusal was the preflight working: the host carried `NativeWeb__*` keys from a
+provisioning run predating the config prefix, and `deploy.sh` named them and stopped.
+
+Two caveats on R1 specifically. The host was provisioned on 2026-08-30 under the previous
+configuration prefix rather than from a bare host in one pass, so the **walkthrough as written**
+has still not been followed start to finish in a single sitting; and this is a dev host, which is
+the only thing the user authorised. `nativeweb-prod` has never been provisioned.
 
 Four caveats that survive the ticks:
 

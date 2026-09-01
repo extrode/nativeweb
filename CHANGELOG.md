@@ -35,6 +35,16 @@ Merged into `dev`, not yet tagged.
   integration and Playwright tiers plus an AOT publish probe.
 
 ### Fixed
+- **The deploy chain has now released to a real host, and doing it found two defects in the
+  chain.** `apps/sample` is serving at `https://nw-dev.example.com` — built by `build.sh` on a
+  Linux box, promoted to blue by `deploy.sh` in **1.774 s**, `/readyz` 200. Both defects are
+  fixed with tests. `ConditionPathExists` sat in `[Service]`, where systemd logs "Unknown key
+  name" and ignores the line, so the silent-skip a colour with no release on disk was supposed to
+  get had never happened on any host for as long as the unit file has existed. And the release
+  directory's mode was set subtractively with `chmod -R g-w,o-rwx`, which cannot restore group
+  bits that `cp -a` from a `mktemp -d` stage never granted — the directory arrived `drwx------`
+  and systemd failed the unit at `status=200/CHDIR`. Spec 011's R1 is met; R16 and R17 still are
+  not, and the runbook now carries the measured figures rather than `NOT YET MEASURED`.
 - **The deploy chain reads its configuration prefix off the artifact instead of guessing it.**
   `scripts/deploy/`'s preflight demanded ten keys spelled with a `NativeWeb` prefix: nine are read
   by no code in this repository — they left with the identity provider — and the tenth named a

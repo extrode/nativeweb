@@ -38,12 +38,6 @@ StartLimitBurst=5
 # better signal than a dead process. See Program.cs and the Indeterminate arm of
 # StartupConfigGuards.FirstPartyCheck.
 
-[Service]
-Type=exec
-User=nativeweb
-Group=nativeweb
-WorkingDirectory=/opt/nativeweb/%i
-
 # A colour with no release on disk must be SKIPPED, not attempted. provision.sh
 # enables both colours before either exists so that the first deploy has nothing
 # left to arrange -- and WantedBy=multi-user.target below means a host rebooted
@@ -51,7 +45,19 @@ WorkingDirectory=/opt/nativeweb/%i
 # missing WorkingDirectory, and burns StartLimitBurst=5 getting there. A unit
 # whose condition is false is inactive and clean; a unit that failed five times
 # needs `systemctl reset-failed` from someone who knows that.
+#
+# [Unit], for the same reason StartLimitIntervalSec is: Condition* are [Unit]
+# options, and in [Service] systemd logs "Unknown key name" and ignores them. This
+# one sat in [Service] until the first real host ran it on 2026-09-01 and the
+# journal printed that warning six times -- the skip described above never
+# happened, on any host, for as long as the file has existed.
 ConditionPathExists=/opt/nativeweb/%i/nativeweb
+
+[Service]
+Type=exec
+User=nativeweb
+Group=nativeweb
+WorkingDirectory=/opt/nativeweb/%i
 
 # Shared non-secret settings, then secrets, then this colour's port. Later files
 # win, so a colour file can override anything above it.
