@@ -215,6 +215,12 @@ wrong root is visible in the log rather than at the first `CS0246`. Then run you
 Those four are what this guide was checked against: a stock `dotnet new web` project taken
 through every step above, serving a generated template page.
 
+To assert them rather than eyeball them, reference `Microsoft.AspNetCore.Mvc.Testing` from a test
+project and drive the four through a `WebApplicationFactory<Program>`. Top-level statements make
+`Program` internal, so add `public partial class Program;` to the end of the file or the factory
+will not close over it — and this is where passing `typeof(Program).Assembly` earns its keep,
+because the entry assembly under a factory is `testhost`.
+
 ## If you get stuck
 
 - [`../../libs/nativeweb.web/README.md`](../../libs/nativeweb.web/README.md) — the pipeline in
