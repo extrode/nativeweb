@@ -266,4 +266,84 @@ public sealed class ScaffoldValuesTests
     [InlineData("xyz", false)]
     public void IsGuid_RejectsWhatWouldHaveBecomeEmpty(string? raw, bool expected) =>
         Assert.Equal(expected, ScaffoldValues.IsGuid(raw));
+
+    private static readonly string[] Sortable = ["Title", "Author", "Id"];
+
+    [Theory]
+    [InlineData("Title", "Title")]
+    [InlineData("Author", "Author")]
+    [InlineData("Body", "Id")]
+    [InlineData("title", "Id")]
+    [InlineData("", "Id")]
+    [InlineData(null, "Id")]
+    [InlineData("id; drop table articles", "Id")]
+    public void Sort_AcceptsOnlyAnAllowListedProperty(string? requested, string expected) =>
+        Assert.Equal(expected, ScaffoldValues.Sort(requested, null, Sortable, "Id").Property);
+
+    [Theory]
+    [InlineData("desc", ScaffoldSortDirection.Descending)]
+    [InlineData("DESC", ScaffoldSortDirection.Descending)]
+    [InlineData("asc", ScaffoldSortDirection.Ascending)]
+    [InlineData("sideways", ScaffoldSortDirection.Ascending)]
+    [InlineData(null, ScaffoldSortDirection.Ascending)]
+    public void Sort_ReadsTheDirectionAndDefaultsToAscending(string? raw, ScaffoldSortDirection expected) =>
+        Assert.Equal(expected, ScaffoldValues.Sort("Title", raw, Sortable, "Id").Direction);
+
+    [Theory]
+    [InlineData("Body")]
+    [InlineData("id; drop table articles")]
+    public void Sort_TakesTheDirectionDownWithAnUnrecognisedProperty(string requested) =>
+        Assert.Equal(
+            ScaffoldSortDirection.Ascending,
+            ScaffoldValues.Sort(requested, "desc", Sortable, "Id").Direction);
+
+    [Fact]
+    public void Sort_KeepsTheDirectionWhenNoPropertyWasNamed() =>
+        Assert.Equal(
+            ScaffoldSortDirection.Descending,
+            ScaffoldValues.Sort(null, "desc", Sortable, "Id").Direction);
+
+    [Fact]
+    public void Cursor_ReturnsOneIssuedForTheOrderingInForce()
+    {
+        var sort = new ScaffoldSortSpec("Title", ScaffoldSortDirection.Descending);
+        string token = new ScaffoldCursor("Title", ScaffoldSortDirection.Descending, "Meditations", "a1", false).Encode();
+
+        Assert.Equal("a1", ScaffoldValues.Cursor(token, sort)?.Key);
+    }
+
+    [Fact]
+    public void Cursor_DropsOneIssuedForAnotherOrdering()
+    {
+        string token = new ScaffoldCursor("Title", ScaffoldSortDirection.Ascending, "Meditations", "a1", false).Encode();
+
+        Assert.Null(ScaffoldValues.Cursor(token, new ScaffoldSortSpec("Author", ScaffoldSortDirection.Ascending)));
+        Assert.Null(ScaffoldValues.Cursor(token, new ScaffoldSortSpec("Title", ScaffoldSortDirection.Descending)));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("mangled")]
+    public void Cursor_IsNullForAnythingUnreadable(string? raw) =>
+        Assert.Null(ScaffoldValues.Cursor(raw, new ScaffoldSortSpec("Title", ScaffoldSortDirection.Ascending)));
+
+    [Fact]
+    public void CursorText_KeepsWhatDisplayRoundsAway()
+    {
+        var when = new DateTime(2026, 3, 4, 9, 30, 27, 500, DateTimeKind.Utc);
+
+        Assert.Equal("2026-03-04T09:30:27.5000000Z", ScaffoldValues.CursorText(when));
+        Assert.NotEqual(ScaffoldValues.Display(when), ScaffoldValues.CursorText(when));
+    }
+
+    [Fact]
+    public void CursorText_IsInvariantAndNullPreserving()
+    {
+        Assert.Null(ScaffoldValues.CursorText(null));
+        Assert.Equal("", ScaffoldValues.CursorText(""));
+        Assert.Equal("1.5", ScaffoldValues.CursorText(1.5m));
+        Assert.Equal("1", ScaffoldValues.CursorText(true));
+        Assert.Equal("0", ScaffoldValues.CursorText(false));
+    }
 }

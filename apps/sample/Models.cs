@@ -16,10 +16,15 @@ public sealed class Article
 
     [ScaffoldList]
     [ScaffoldSearch]
+    [ScaffoldSort]
     public string Title { get; set; } = "";
 
+    // The nullable one, and sortable on purpose: a nullable sorted column is where
+    // keyset paging goes wrong quietly, so the reference app has to demonstrate it
+    // rather than avoid it.
     [ScaffoldList(Label = "Author")]
     [ScaffoldSearch]
+    [ScaffoldSort]
     public string? Author { get; set; }
 
     [ScaffoldMultiline]
@@ -36,6 +41,7 @@ public sealed class Article
     // what keeps an input for it out of the emitted HTML.
     [ScaffoldList(Label = "Created")]
     [ScaffoldReadOnly]
+    [ScaffoldSort]
     public DateTime CreatedAt { get; set; }
 }
 
@@ -52,6 +58,7 @@ public sealed class Tag
 
     [ScaffoldList]
     [ScaffoldSearch]
+    [ScaffoldSort]
     public string Name { get; set; } = "";
 
     [ScaffoldList]

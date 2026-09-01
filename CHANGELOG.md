@@ -14,6 +14,18 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Scaffolded lists sort and page by cursor.** `[ScaffoldSort]` mirrors `[ScaffoldSearch]`: a
+  marked column's heading becomes a direction-toggling link carrying `aria-sort`, and the generator
+  hands the store a compiled-in allow-list, so a `?sort=` naming anything else falls back to the key
+  ascending and a client cannot name an arbitrary column. In a JauntyQ store a validated name
+  selects which static `.sql` file runs rather than composing one, which is why the reference app
+  gained eight query files and three composite indexes rather than a query builder.
+  Free-text `[ScaffoldSearch]` filtering is unchanged and stays the only filtering — no structured
+  per-field filters, no operators, no query language. Closes consumer-readiness gaps G5 and G2.
+- **`docs/02-reference/breaking-changes.md`**, linked from the README. Dated and identified by
+  commit rather than by version, because the libraries are not packaged yet. Three entries: the
+  `ListAsync` change below, and retrospectively the 2026-08-31 removals of `nativeweb.signin.epass`
+  and `nativeweb.auth`, which broke a downstream product with nothing here recording it.
 - **The docs site is versioned and committed.** `scripts/build-docs.sh` passes `--versioned` to the
   shared Docs generator, so `docs-site/` is a root holding one frozen site per release rather than a
   flat directory overwritten on every build — and unlike every other consumer of that generator, it
@@ -44,6 +56,20 @@ Merged into `dev`, not yet tagged.
   that would put a directory listing under the product's hostname. Live on `nw-dev.example.com`.
 
 ### Fixed
+- **Six defects in the new sorting and cursor paging, all found by its own review and none by a
+  failing suite.** Three were the same shape — a store that declines a cursor and starts over has
+  to return one row *fewer* than asked, because the list trims a backward page from the tail using
+  the direction of the cursor it issued and cannot know the store ignored it; both stores dropped
+  the first row of page one. A `CreatedAt` cursor whose value would not parse reset its position
+  but not its direction, landing the reader on the last page instead of the first, and a null
+  value skipped the guard entirely. A cursor landing past the end rendered no pager at all, so the
+  only way back was editing the URL. The in-memory store compared text with `CurrentCulture` while
+  the key tiebreaker and PostgreSQL did not, so its order changed with the host's locale. And a
+  `?sort=` naming an unsortable column kept the requested `?dir=`, contradicting the documented
+  "falls back to the key ascending". `ListPublished.sql` now orders `created_at DESC, id DESC`:
+  mixed directions match no btree index scan, so the runtime sort its expired exemption used to
+  declare was still there. The nullable-column index keeps its position with a `Filter` rather
+  than an `Index Cond` — measured, documented in the migration, and left in `work/todo.md`.
 - **The deploy chain has now released to a real host, and doing it found two defects in the
   chain.** `apps/sample` is serving at `https://nw-dev.example.com` — built by `build.sh` on a
   Linux box, promoted to blue by `deploy.sh` in **1.774 s**, `/readyz` 200. Both defects are
@@ -130,6 +156,20 @@ Merged into `dev`, not yet tagged.
   configuration value. The `IFileProvider` overload still throws and stays the unit tier's.
 
 ### Changed
+- **Breaking: `IScaffoldStore<T>.ListAsync` takes an ordering and a cursor instead of `skip`.**
+  `(search, searchFields, skip, take, ct)` becomes
+  `(search, searchFields, sort, sortFields, after, take, ct)`; the other five methods are unchanged.
+  Broken rather than shimmed, because a shim outlives the reason for it and the next reader cannot
+  tell which overload to write against. The seam now states the two obligations it cannot enforce:
+  the key is the final tiebreaker on every order, and a nullable sorted column has to fix where its
+  NULLs go — `(author, id) > (@a, @id)` is NULL rather than true for an author-less row, so `WHERE`
+  drops it and every page after the first silently omits every one of them, which is invisible on a
+  table small enough to fit one page. Migration steps are in
+  [`breaking-changes.md`](docs/02-reference/breaking-changes.md).
+- **The generated list's `?page=` offset clamp is gone**, along with the arithmetic it guarded.
+  `(page - 1) * PageSize` was unchecked int arithmetic reachable from an anonymous GET; a cursor
+  cannot express an offset, so the class of defect is absent rather than guarded. A bookmarked
+  `?page=` is ignored, not rejected.
 - **The epass.io cutover is closed as a NativeWeb concern, and the term is retired here.**
   Checked against the real sibling checkout on 2026-08-31 rather than taken on report: epass.io has
   built and merged its own browser surface and is ahead of this repo on it, consumes only

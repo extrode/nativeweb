@@ -6,9 +6,40 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing is in flight.** Spec 016 — the OAuth relying party — merged into `dev` on
-  2026-09-01 and its summary is in `previous.md`. What remains below is standing work waiting on
-  a person or a decision, not a task underway.
+- **Spec 017 — scaffold list sorting and cursor pagination. Done and merged into `dev`, unpushed
+  (2026-09-01).** All seventeen tasks are `[x]` and the spec is `Status: done`. The seam, the
+  generator, three stores, eight keyset `.sql` files, three composite indexes, and all three test
+  tiers. **15 suites, 1,412 tests, 0 failures**; the NativeAOT publish gate exits 0 with no trim or
+  AOT warnings, at 28.4 MB. Closes backlog gaps **G5** and **G2**; the breaking-change log is
+  `docs/02-reference/breaking-changes.md`, linked from the README, and the four docs and two
+  handovers that still described the old seam say what closed it.
+
+  Four decisions taken before the spec: no structured filtering, the seam breaks rather than being
+  shimmed, sortable columns are declared by `[ScaffoldSort]`, and the numbered pager becomes
+  Previous/Next with the total kept.
+
+  **Eight defects, and not one of them failed a test on its own.** Two came from writing the unit
+  tier: `Base64Url.TryDecodeFromChars` throws on a character outside the alphabet, so a mangled
+  `?after=` was a 500 until `IsValid` went in front of it; and the cursor's key was written in
+  display form, which rounds a timestamp to the minute. Six more came from the two-lens review of
+  the finished branch, three of them one shape — **a store that declines a cursor and starts over
+  must return one row FEWER than asked**, because the list trims a backward page from its tail
+  using the direction of the cursor it issued and cannot know the store ignored it. Both stores
+  dropped the first row of page one. That is now a third stated obligation on
+  `IScaffoldStore.ListAsync`. The others: a `CreatedAt` cursor that would not parse reset its
+  position but not its mirror and landed the reader on the last page; a cursor past the end
+  rendered no pager at all; and `?sort=` naming an unsortable column kept the requested `?dir=`.
+
+  **Measured and left alone**, in `work/todo.md`: the author keyset boundary lands in `Filter`, not
+  `Index Cond` — `EXPLAIN` on `nativeweb_sample_test` — because a disjunction over `IS NULL` is not
+  a rangeable start point, so paging a *nullable* column walks the index from the top. A row-value
+  comparison cannot express it. Non-null sort columns are unaffected.
+
+  **A cleanup script exists and has not been run:**
+  `scripts/cleanup/017-scaffold-sorting-and-cursor-pagination.ps1`. Dry run listed 728 KB of
+  scratch under `tmp/` (now nine entries), 4,242 accumulated test rows in `nativeweb_sample_test`
+  behind `-DropTestRows`, and the superseded `db/sample/queries/Articles/List.sql` behind
+  `-RemoveSupersededQuery`.
 
 - **Phase 3 of the readiness plan.** T11 (the scaffold defect batch) and T12 (deploy and database
   hygiene) are both done. T12: the deploy chain publishes `apps/sample` by default and names no
@@ -65,14 +96,16 @@ worth seeing here rather than hiding, but it is the exception.
   The second is not ours to run: six untracked test directories are `bin`/`obj` residue of the
   departed identity provider, listed in `scripts/cleanup/021-coverage-gaps.ps1`.
 
-- **T15 of spec 011 -- run the deploy scripts against a real host.** Ahead of the cutover, and
-  not gated on it: `scripts/deploy/provision.sh` has never been executed, the restore drill has
-  never been run, and every elapsed time in `docs/02-reference/deployment.md` reads
-  `NOT YET MEASURED`. Until an operator walks a bare Debian host through provision → release →
-  rollback → restore and writes the times back, three of spec 011's requirements (R1, R16, R17)
-  are unmet and the scripts are untested against anything but `bash -n` and the unit tier.
-  R15 is conditional too: `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is not
-  noticed. This is a person's task, not a session's.
+- **T15 of spec 011 — one third done, 2026-09-01.** `provision.sh` and `deploy.sh` have now run
+  for real: `nativeweb-dev` serves `apps/sample` at `nw-dev.example.com`, two releases landed
+  blue/green in 1.774 s and 1.888 s, and the `NOT YET MEASURED` figures in
+  `docs/02-reference/deployment.md` are measured. **R1 is met; R16 and R17 are not.** The restore
+  drill cannot start because no backup exists: every key in `/etc/nativeweb/backup.env` on that
+  host is present and empty, so the 03:17 timer fails nightly on
+  `BACKUP_S3_BUCKET: set BACKUP_S3_BUCKET`. Filling it needs a bucket, credentials and an age
+  keypair the operator generates — a session must not, since the private key decrypts every
+  backup. R15 stays conditional on `BACKUP_HEARTBEAT_URL`. `nativeweb-prod` is untouched and out
+  of scope.
 
 - ~~**The epass.io production cutover.**~~ **Closed 2026-08-31 as a NativeWeb concern** —
   `docs/decisions/2026-08-31-008-epass-cutover-closed.md`. Checked against the real sibling

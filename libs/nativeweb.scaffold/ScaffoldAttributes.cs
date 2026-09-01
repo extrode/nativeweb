@@ -93,6 +93,25 @@ public sealed class ScaffoldListAttribute : Attribute
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
 public sealed class ScaffoldSearchAttribute : Attribute;
 
+/// <summary>Let the list view be ordered by this property.</summary>
+/// <remarks>
+/// The set of marked properties is an allow-list, and that is the point of marking
+/// rather than allowing any property: the sort property arrives from the query
+/// string, so a scaffolded list that ordered by whatever name it was handed would
+/// leave every store implementation to reject the unknown ones, and the one that
+/// forgets has an attacker-chosen identifier reaching its data layer. The generated
+/// endpoint rejects a name outside this set before the store is called, and passes
+/// the set down as <c>sortFields</c> so an implementation does not re-declare it --
+/// the same division <see cref="ScaffoldSearchAttribute"/> settled on.
+/// <para>
+/// The <see cref="ScaffoldKeyAttribute"/> property is always sortable, marked or
+/// not, because it is the default order and the tiebreaker every other order is
+/// resolved by. Marking it is allowed and changes nothing.
+/// </para>
+/// </remarks>
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+public sealed class ScaffoldSortAttribute : Attribute;
+
 /// <summary>
 /// Render this property as a multi-line textarea rather than a single-line input.
 /// </summary>

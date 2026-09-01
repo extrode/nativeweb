@@ -33,10 +33,12 @@ public sealed class ScaffoldedCrudTests
         Assert.Contains("Binding forms under NativeAOT", html, StringComparison.Ordinal);
         Assert.Contains("Scaffolding without reflection", html, StringComparison.Ordinal);
 
-        // Columns come from [ScaffoldList], and its Label override wins.
+        // Columns come from [ScaffoldList], and its Label override wins. A column is a
+        // plain <th> or a sort link depending on [ScaffoldSort], which Views does not
+        // carry and Created does.
         Assert.Contains("<th>Views</th>", html, StringComparison.Ordinal);
-        Assert.Contains("<th>Created</th>", html, StringComparison.Ordinal);
-        Assert.Contains("<th>Title</th>", html, StringComparison.Ordinal);
+        Assert.Contains("<th class=\"nws-sort\"><a href=\"/admin/articles?sort=CreatedAt&amp;dir=asc\">Created</a></th>", html, StringComparison.Ordinal);
+        Assert.Contains(">Title<", html, StringComparison.Ordinal);
 
         // Body carries no [ScaffoldList], so it is not a column.
         Assert.DoesNotContain("<th>Body</th>", html, StringComparison.Ordinal);

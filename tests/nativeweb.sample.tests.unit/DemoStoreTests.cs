@@ -108,15 +108,15 @@ public sealed class DemoStoreTests
         Assert.NotNull(await store.GetAsync("a1", CancellationToken.None));
     }
 
-    // A negative skip is a caller error the store names, because the database it
-    // stands in for cannot absorb one: PostgreSQL's OFFSET -1 is an error, while
-    // LINQ's Skip treats a negative count as zero and hides the defect.
+    // A negative page size is a caller error the store names, because the database it
+    // stands in for cannot absorb one: PostgreSQL's LIMIT -1 is an error, while
+    // List.GetRange would throw somewhere further in with a less useful message.
     [Fact]
-    public async Task ListAsync_WithANegativeSkip_Throws()
+    public async Task ListAsync_WithANegativeTake_Throws()
     {
         ArticleStore store = StoreWith("a1", "before");
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
-            await store.ListAsync(null, [], -1, 20, CancellationToken.None));
+            await store.ListAsync(null, [], null, [], null, -1, CancellationToken.None));
     }
 }

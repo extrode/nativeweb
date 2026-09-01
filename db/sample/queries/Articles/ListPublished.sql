@@ -1,24 +1,19 @@
 -- @params take:int
--- @allow-sort demo table, three seeded rows; an index would cost more to explain than the sort costs to run
 -- The public page's feed: published articles only, newest first.
 --
--- The directive on line 2 is the interesting line in this file, and it is here
--- rather than an index deliberately. `articles` carries exactly one index, the
--- id primary key, so ORDER BY created_at raises JNT8007 -- "this query sorts at
--- runtime". JauntyQ rates that a Warning; TreatWarningsAsErrors is on repo-wide,
--- so here it stops the build.
+-- This file used to carry `-- @allow-sort demo table, three seeded rows; an index
+-- would cost more to explain than the sort costs to run`, because `articles` had
+-- exactly one index -- the id primary key -- so ORDER BY created_at raised JNT8007,
+-- "this query sorts at runtime", which TreatWarningsAsErrors turns into a build
+-- failure. Accepting the sort and saying why was the honest answer at three seeded
+-- rows.
 --
--- On a table that grows, the answer is the index, and four migrations in
--- db/migrations/ are exactly that (0023, 0033, 0034, 0048). This table does not
--- grow: it is three seeded rows in a demo, and PostgreSQL would ignore the index
--- at that size anyway. So the honest answer is to accept the sort and say why,
--- which is what @allow-sort requires -- the reason is mandatory, and a bare
--- directive is rejected outright with JNT3008.
---
--- The directive is also self-expiring. Add an index whose leading column is
--- created_at and JNT8012 fires on this line: "declared but no ORDER BY column on
--- this query is unindexed, so it suppresses nothing." An exemption cannot quietly
--- outlive the thing that justified it.
+-- **The exemption expired on its own, exactly as its own comment predicted.**
+-- 0002_scaffold_sort_indexes.sql added (created_at, id) for the scaffolded list's
+-- keyset paging, and JNT8012 fired on the directive the next build: "declared but
+-- no ORDER BY column on this query is unindexed, so it suppresses nothing." An
+-- exemption cannot quietly outlive the thing that justified it, and this one did
+-- not -- which is the fact worth keeping here now that the directive is gone.
 --
 -- @take is declared for the same reason List.sql declares its three: it appears
 -- in LIMIT rather than in a comparison against a typed column, so the generator
@@ -30,9 +25,16 @@
 -- second row shape to learn. Narrow it when the row count makes the width cost
 -- something; on a demo table it buys nothing and costs a type.
 --
--- ORDER BY created_at DESC, id -- the id tiebreak matters because created_at
+-- ORDER BY created_at DESC, id DESC -- the id tiebreak matters because created_at
 -- defaults to NOW() and a seeded or scripted insert can give several rows the
 -- same timestamp, which would make the page order unstable between requests.
+--
+-- Both DESC, and that is not cosmetic. A btree index can be walked backwards but
+-- not half-backwards, so `created_at DESC, id ASC` matches neither direction of
+-- articles_created_at_id_idx and PostgreSQL sorts at runtime anyway -- the sort
+-- this file's exemption used to declare, still there, no longer declared. Matching
+-- the index's own direction is what makes the exemption's expiry true rather than
+-- merely unwarned.
 SELECT
     id,
     title,
@@ -43,5 +45,5 @@ SELECT
     created_at
 FROM articles
 WHERE published
-ORDER BY created_at DESC, id
+ORDER BY created_at DESC, id DESC
 LIMIT @take;

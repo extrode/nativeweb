@@ -136,6 +136,100 @@ public static class ScaffoldValues
         bool b => b ? "on" : "",
         _ => Display(value),
     };
+
+    /// <summary>
+    /// The ordering a list request resolved to, having rejected anything the model
+    /// did not declare sortable.
+    /// </summary>
+    /// <remarks>
+    /// This is where R5 is met, and it is met by falling back rather than by
+    /// answering 400: a bookmarked link to a column somebody has since removed from
+    /// the model should show the list, not an error. The rejected name is never
+    /// returned, so it cannot reach a store and cannot reach SQL.
+    /// </remarks>
+    /// <param name="property">The requested property name, from the query string.</param>
+    /// <param name="direction">The requested direction, from the query string.</param>
+    /// <param name="sortFields">The model's declared sortable property names.</param>
+    /// <param name="fallback">The key property, used when the request names nothing usable.</param>
+    /// <returns>A spec naming a declared property.</returns>
+    public static ScaffoldSortSpec Sort(
+        string? property,
+        string? direction,
+        IReadOnlyList<string> sortFields,
+        string fallback)
+    {
+        string name = fallback;
+
+        // Absent is not the same as unrecognised. No ?sort= at all is a request for the
+        // default ordering, and ?dir=desc still applies to it; only a NAMED column that
+        // is not sortable takes the direction down with it.
+        string? requested = Text(property);
+        bool matched = requested is null;
+
+        if (requested is not null)
+        {
+            for (int i = 0; i < sortFields.Count; i++)
+            {
+                if (string.Equals(sortFields[i], requested, StringComparison.Ordinal))
+                {
+                    name = requested;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+
+        // The whole request falls back, direction included. A ?dir= applied to a column
+        // the reader did not get is an ordering nobody asked for, and "the key
+        // ascending" is what the documented fallback says and what a client that
+        // mistyped a column name should be able to predict.
+        ScaffoldSortDirection dir = matched
+            && Text(direction) is string d
+            && d.Equals("desc", StringComparison.OrdinalIgnoreCase)
+                ? ScaffoldSortDirection.Descending
+                : ScaffoldSortDirection.Ascending;
+
+        return new ScaffoldSortSpec(name, dir);
+    }
+
+    /// <summary>The position a list request resolved to, or null to start at the beginning.</summary>
+    /// <remarks>
+    /// Null for anything that is not a cursor this release wrote, and null for one
+    /// written against a different ordering than the one now in force. Both are R9:
+    /// an edited or stale <c>?after=</c> renders the first page instead of an error.
+    /// </remarks>
+    /// <param name="raw">The raw query-string value.</param>
+    /// <param name="sort">The ordering this request resolved to.</param>
+    /// <returns>A usable cursor, or null.</returns>
+    public static ScaffoldCursor? Cursor(string? raw, ScaffoldSortSpec sort) =>
+        ScaffoldCursor.TryDecode(raw, out ScaffoldCursor cursor) && cursor.Matches(sort)
+            ? cursor
+            : null;
+
+    /// <summary>
+    /// A sort value in the round-trippable form a cursor carries, or null when the
+    /// value is null.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="Display"/>, and the difference matters. Display formats a
+    /// <see cref="DateTime"/> to the minute and a bool to "Yes", both of which lose
+    /// information a page boundary is defined by: two rows a second apart would
+    /// compare equal, so paging over a timestamp column would repeat or skip whatever
+    /// sat on the boundary. Round-trip form throughout -- "o" for a timestamp,
+    /// invariant for a number -- so what the store parses back is the value it wrote.
+    /// </remarks>
+    /// <param name="value">The row's value for the sorted property.</param>
+    /// <returns>Text the store can parse back, or null.</returns>
+    public static string? CursorText(object? value) => value switch
+    {
+        null => null,
+        string s => s,
+        bool b => b ? "1" : "0",
+        DateTime dt => dt.ToString("o", CultureInfo.InvariantCulture),
+        DateTimeOffset dto => dto.ToString("o", CultureInfo.InvariantCulture),
+        IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
+        _ => value.ToString(),
+    };
 }
 
 /// <summary>

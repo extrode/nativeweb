@@ -164,6 +164,9 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                     case "NativeWeb.Scaffold.ScaffoldSearchAttribute":
                         pm.Searchable = true;
                         break;
+                    case "NativeWeb.Scaffold.ScaffoldSortAttribute":
+                        pm.Sortable = true;
+                        break;
                     case "NativeWeb.Scaffold.ScaffoldMultilineAttribute":
                         pm.Multiline = true;
                         break;
@@ -184,6 +187,13 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             {
                 pm.ReadOnly = true;
                 model.KeyProperty = pm.Name;
+
+                // The key is the default order and the tiebreaker under every other
+                // one, so a list can always be asked for it whether or not the model
+                // marked it. Setting it here rather than special-casing the emitter
+                // keeps one answer to "is this name sortable" for both the allow-list
+                // the store receives and the headers that are rendered as links.
+                pm.Sortable = true;
             }
 
             model.Properties.Add(pm);

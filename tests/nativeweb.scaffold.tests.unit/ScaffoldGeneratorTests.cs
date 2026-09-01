@@ -46,6 +46,7 @@ public sealed class ScaffoldGeneratorTests
             public sealed class ScaffoldMultilineAttribute : System.Attribute { }
             public sealed class ScaffoldReadOnlyAttribute : System.Attribute { }
             public sealed class ScaffoldKeyAttribute : System.Attribute { }
+            public sealed class ScaffoldSortAttribute : System.Attribute { }
 
             [System.AttributeUsage(System.AttributeTargets.Assembly)]
             public sealed class ScaffoldRootAttribute : System.Attribute
@@ -593,7 +594,10 @@ public sealed class ScaffoldGeneratorTests
         (_, string source) = Run(Attributes, ArticleModel);
 
         Assert.Contains("public static readonly string[] SearchFields = new string[] { \"Title\" };", source, StringComparison.Ordinal);
-        Assert.Contains("store.ListAsync(search, SearchFields,", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "store.ListAsync(search, SearchFields, sort, SortFields, after, PageSize + 1, ct)",
+            source,
+            StringComparison.Ordinal);
         Assert.Contains("store.CountAsync(search, SearchFields,", source, StringComparison.Ordinal);
     }
 
@@ -690,17 +694,97 @@ public sealed class ScaffoldGeneratorTests
         Assert.Contains("FormHtml(http, null, BasePath, \"Create\", error, form)", source, StringComparison.Ordinal);
     }
 
-    // Clamped at both ends. (page - 1) * PageSize is unchecked int arithmetic, so a
-    // page number in the hundreds of millions lands on a negative offset, from an
-    // anonymous GET, with the query string as the whole attack.
+    // This used to assert a clamp on ?page=, because (page - 1) * PageSize was
+    // unchecked int arithmetic and a page number in the hundreds of millions landed on
+    // a negative offset, from an anonymous GET, with the query string as the whole
+    // attack. Spec 017 replaced offset paging with a cursor, which cannot express an
+    // offset at all -- so the guard is gone and what is asserted now is that nothing
+    // computes one. The clamp was correct; having no arithmetic to clamp is better.
     [Fact]
-    public void PageNumber_IsClampedHighAsWellAsLow()
+    public void TheListPage_ComputesNoOffset()
     {
         (_, string source) = Run(Attributes, ArticleModel);
 
-        Assert.Contains("const int MaxPage = int.MaxValue / PageSize;", source, StringComparison.Ordinal);
-        Assert.Contains("Math.Clamp(ScaffoldValues.Int32(http.Request.Query[\"page\"].ToString(), 1), 1, MaxPage)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MaxPage", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Query[\"page\"]", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("* PageSize", source, StringComparison.Ordinal);
     }
+
+    private const string SortableModel = """
+        using NativeWeb.Scaffold;
+
+        namespace Demo
+        {
+            [Scaffold(Route = "articles")]
+            public sealed class Article
+            {
+                [ScaffoldKey] public string Id { get; set; } = "";
+                [ScaffoldList][ScaffoldSort] public string Title { get; set; } = "";
+                [ScaffoldList][ScaffoldSort] public string? Author { get; set; }
+                [ScaffoldList] public bool Published { get; set; }
+                [ScaffoldSort] public System.DateTime CreatedAt { get; set; }
+            }
+        }
+        """;
+
+    [Fact]
+    public void OnlyDeclaredSortableProperties_ReachTheAllowList()
+    {
+        (_, string source) = Run(Attributes, SortableModel);
+
+        Assert.Contains(
+            "public static readonly string[] SortFields = new string[] { \"Id\", \"Title\", \"Author\", \"CreatedAt\" };",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains("private const string DefaultSortField = \"Id\";", source, StringComparison.Ordinal);
+    }
+
+    // The key is sortable whether or not the model says so, because it is the
+    // tiebreaker every other order ends in: an allow-list without it has no name for
+    // the default order to resolve to.
+    [Fact]
+    public void TheKey_IsSortableWithoutBeingDeclared()
+    {
+        (_, string source) = Run(Attributes, ArticleModel);
+
+        Assert.Contains("SortFields = new string[] { \"Id\" };", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AListedColumnThatIsNotSortable_GetsNoSortLink()
+    {
+        (_, string source) = Run(Attributes, SortableModel);
+
+        Assert.Contains("ScaffoldLayout.Header(\"Title\", \"Title\", BasePath, search, sort)", source, StringComparison.Ordinal);
+        Assert.Contains("ScaffoldLayout.Header(\"Author\", \"Author\", BasePath, search, sort)", source, StringComparison.Ordinal);
+        Assert.Contains("ScaffoldLayout.Header(\"Published\", null, BasePath, search, sort)", source, StringComparison.Ordinal);
+    }
+
+    // A column can be sortable without being shown, and a sortable column that is not
+    // listed still needs its value reachable for the cursor -- so the switch is over
+    // the sortable set, not the listed one.
+    [Fact]
+    public void TheCursorsSortValue_IsASwitchOverEverySortableProperty()
+    {
+        (_, string source) = Run(Attributes, SortableModel);
+
+        Assert.Contains("private static string? SortTextOf(Demo.Article row, string property)", source, StringComparison.Ordinal);
+        Assert.Contains("return ScaffoldValues.CursorText(row.CreatedAt);", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("row.Published);", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetProperty(", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheSearchForm_CarriesTheOrderingForward()
+    {
+        (_, string source) = Run(Attributes, ArticleModel);
+
+        Assert.Contains("ScaffoldLayout.SortFields(sort)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheSortableModel_EmitsCodeThatCompiles() =>
+        AssertGeneratedSourceCompiles(SortableModel);
 
     // Malformed input is shown to the user rather than absorbed. Blank is not
     // malformed -- the converters' documented fallback still applies -- so a

@@ -34,8 +34,51 @@ public interface IScaffoldStore<T>
     /// in the search box and nothing else. Nothing failed; the field simply stopped
     /// being searched. Empty when the model marks nothing searchable, in which case
     /// <paramref name="search"/> is always null and the box is not rendered.
+    /// <para>
+    /// <paramref name="sortFields"/> is the <c>[ScaffoldSort]</c> set and is there for
+    /// the same reason. <paramref name="sort"/> has already been checked against it, so
+    /// an implementation does not validate; a name it does not recognise means a
+    /// hand-written caller, and the answer is the default order rather than a throw.
+    /// </para>
+    /// <para>
+    /// <b>Three obligations this interface cannot enforce and an implementation must
+    /// meet.</b> First, <b>the key is the final tiebreaker on every order</b>. Keyset
+    /// paging is defined by "the rows after this one", so an order that ranks two rows
+    /// equally has no single answer to that, and rows are then repeated on one page and
+    /// missing from the next -- which looks like data loss and is not. Second, <b>a
+    /// nullable sorted column must fix where its NULLs go</b>, with an explicit
+    /// <c>NULLS LAST</c> or <c>NULLS FIRST</c> and a predicate widened to carry those
+    /// rows across the page boundary. <c>(author, id) &gt; (@author, @id)</c> is NULL,
+    /// not true, for an author-less row, so without that widening every page after the
+    /// first silently drops them. Third, <b>an implementation that declines a backward
+    /// cursor and returns the first page must return at most
+    /// <paramref name="take"/> - 1 rows</b>. The caller asks for one row more than the
+    /// page to learn whether another exists, and it trims a backward page from the
+    /// TAIL -- reading the direction from the cursor it issued, which it has no way to
+    /// know the store ignored. A full take then comes back as an overflowing backward
+    /// page and its first row is trimmed away unseen. All three failures are invisible
+    /// on a table small enough to fit one page, which is where they get written.
+    /// </para>
     /// </remarks>
-    ValueTask<IReadOnlyList<T>> ListAsync(string? search, IReadOnlyList<string> searchFields, int skip, int take, CancellationToken ct);
+    /// <param name="search">The search term, or null for an unfiltered list.</param>
+    /// <param name="searchFields">The model's <c>[ScaffoldSearch]</c> property names.</param>
+    /// <param name="sort">
+    /// The ordering, already validated against <paramref name="sortFields"/> by the
+    /// caller, or null for the default order.
+    /// </param>
+    /// <param name="sortFields">The model's <c>[ScaffoldSort]</c> property names.</param>
+    /// <param name="after">The position a previous page ended at, or null to start.</param>
+    /// <param name="take">The maximum number of rows to return.</param>
+    /// <param name="ct">The request's cancellation token.</param>
+    /// <returns>Up to <paramref name="take"/> rows in the requested order.</returns>
+    ValueTask<IReadOnlyList<T>> ListAsync(
+        string? search,
+        IReadOnlyList<string> searchFields,
+        ScaffoldSortSpec? sort,
+        IReadOnlyList<string> sortFields,
+        ScaffoldCursor? after,
+        int take,
+        CancellationToken ct);
 
     /// <summary>Total matching <paramref name="search"/>, for paging.</summary>
     ValueTask<int> CountAsync(string? search, IReadOnlyList<string> searchFields, CancellationToken ct);

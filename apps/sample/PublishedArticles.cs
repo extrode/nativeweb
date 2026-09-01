@@ -47,9 +47,12 @@ internal sealed class MemoryPublishedArticles(IScaffoldStore<Article> store) : I
 
     public async ValueTask<IReadOnlyList<PublishedArticle>> RecentAsync(int take, CancellationToken ct)
     {
-        // No search term, so no search fields: the empty list is what the seam takes
-        // when the caller is not filtering.
-        IReadOnlyList<Article> all = await store.ListAsync(null, [], 0, ScanLimit, ct).ConfigureAwait(false);
+        // No search term, so no search fields; no sort and no cursor, so the store's
+        // default key order from the beginning. The empty lists are what the seam
+        // takes when the caller is filtering and ordering nothing -- this one sorts
+        // below, in memory, because that is what reading a public feed through a
+        // paging admin seam costs.
+        IReadOnlyList<Article> all = await store.ListAsync(null, [], null, [], null, ScanLimit, ct).ConfigureAwait(false);
 
         return all
             .Where(a => a.Published)

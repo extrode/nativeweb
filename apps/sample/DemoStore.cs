@@ -36,30 +36,109 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
     /// </remarks>
     protected abstract string? Field(T item, string name);
 
+    /// <summary>
+    /// One sortable property's value as something comparable, by the declared
+    /// property name, falling back to the key for a name this model does not sort by.
+    /// </summary>
+    /// <remarks>
+    /// A <c>switch</c> and not reflection, for the same reason <see cref="Field"/> is
+    /// one: this runs inside a NativeAOT binary, where <c>GetProperty(name)</c>
+    /// compiles and then returns null at run time. Returning the key by default is
+    /// what makes an unrecognised property name the default order rather than a
+    /// throw -- the generated endpoint has already rejected anything outside the
+    /// allow-list, so a name arriving here came from a hand-written caller.
+    /// </remarks>
+    protected abstract IComparable? SortValue(T item, string name);
+
     protected virtual void OnCreate(T item)
     {
     }
 
     protected virtual string NewKey() => Guid.NewGuid().ToString("n")[..8];
 
-    public ValueTask<IReadOnlyList<T>> ListAsync(string? search, IReadOnlyList<string> searchFields, int skip, int take, CancellationToken ct)
+    public ValueTask<IReadOnlyList<T>> ListAsync(
+        string? search,
+        IReadOnlyList<string> searchFields,
+        ScaffoldSortSpec? sort,
+        IReadOnlyList<string> sortFields,
+        ScaffoldCursor? after,
+        int take,
+        CancellationToken ct)
     {
-        // A negative skip is a caller error, and this store says so rather than
-        // absorbing it. LINQ's Skip treats a negative count as zero, so before this
-        // guard an overflowed page offset -- ?page=2000000000 times the page size,
-        // wrapping past int.MaxValue -- quietly returned page one. A store over
-        // PostgreSQL has no such mercy: OFFSET -1 is an error. The generated
-        // endpoint clamps the page so neither happens, and this is what makes a
-        // regression there visible here instead of only against a database.
-        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+        ArgumentOutOfRangeException.ThrowIfNegative(take);
 
-        IReadOnlyList<T> page = Filter(search, searchFields)
-            .OrderBy(KeyOf, StringComparer.Ordinal)
-            .Skip(skip)
-            .Take(take)
-            .ToList();
+        string property = sort?.Property ?? string.Empty;
+        bool descending = sort?.Direction == ScaffoldSortDirection.Descending;
 
-        return ValueTask.FromResult(page);
+        List<T> ordered = [.. Filter(search, searchFields)];
+        ordered.Sort((a, b) => Compare(a, b, property, descending));
+
+        // Located by key, not by comparing the cursor's sort value. This store holds
+        // every row, so the boundary row is either present or gone, and finding it is
+        // exact even when a hundred rows share the sorted value. A SQL store cannot
+        // do this -- it has to express the boundary as a predicate, which is why
+        // JauntyArticleStore parses the value and compares -- and the two are
+        // equivalent only because the key breaks every tie in both.
+        //
+        // A boundary row that has since been deleted lands the reader on the first
+        // page. That is a real behaviour difference from the SQL store, which keeps
+        // its place because a value comparison does not need the row to exist.
+        int at = after is ScaffoldCursor cursor
+            ? ordered.FindIndex(item => string.Equals(KeyOf(item), cursor.Key, StringComparison.Ordinal))
+            : -1;
+
+        if (at < 0)
+        {
+            // One row short of `take` when the lost cursor was walking backwards. The
+            // caller asks for PageSize + 1 to learn whether another page exists and
+            // trims a backward page from its TAIL, so a full take here reads as an
+            // overflowing backward page and the first row is trimmed away unseen.
+            int first = after?.Backward == true ? Math.Max(take - 1, 0) : take;
+            return ValueTask.FromResult<IReadOnlyList<T>>(ordered.GetRange(0, Math.Min(first, ordered.Count)));
+        }
+
+        if (after!.Value.Backward)
+        {
+            // The rows immediately before the boundary, still in display order. Taking
+            // the FIRST `take` of everything before it would be a different page
+            // entirely, and one the reader can reach from neither direction.
+            int start = Math.Max(0, at - take);
+            return ValueTask.FromResult<IReadOnlyList<T>>(ordered.GetRange(start, at - start));
+        }
+
+        int from = at + 1;
+        return ValueTask.FromResult<IReadOnlyList<T>>(ordered.GetRange(from, Math.Min(take, ordered.Count - from)));
+    }
+
+    // Nulls last ascending, first descending -- PostgreSQL's own default, so the
+    // reference store and the SQL store agree about where an author-less row sits.
+    // The key breaks every tie, including between two nulls, or a page boundary
+    // inside a block of equal values would have no single answer and the rows there
+    // would repeat.
+    private int Compare(T a, T b, string property, bool descending)
+    {
+        IComparable? x = SortValue(a, property);
+        IComparable? y = SortValue(b, property);
+
+        // Ordinal for text, because IComparable.CompareTo on a boxed string is
+        // CurrentCulture: the same rows would come back in a different order on a
+        // machine with a different locale, and the key tiebreaker below is ordinal
+        // either way. Ordering is a fact about the data, not about the host.
+        int result = (x, y) switch
+        {
+            (null, null) => 0,
+            (null, _) => 1,
+            (_, null) => -1,
+            (string a1, string b1) => string.CompareOrdinal(a1, b1),
+            _ => x.CompareTo(y),
+        };
+
+        if (result == 0)
+        {
+            result = string.CompareOrdinal(KeyOf(a), KeyOf(b));
+        }
+
+        return descending ? -result : result;
     }
 
     public ValueTask<int> CountAsync(string? search, IReadOnlyList<string> searchFields, CancellationToken ct) =>
@@ -151,6 +230,14 @@ internal sealed class ArticleStore : MemoryStore<Article>
         nameof(Article.Body) => item.Body,
         _ => null,
     };
+
+    protected override IComparable? SortValue(Article item, string name) => name switch
+    {
+        nameof(Article.Title) => item.Title,
+        nameof(Article.Author) => item.Author,
+        nameof(Article.CreatedAt) => item.CreatedAt,
+        _ => item.Id,
+    };
 }
 
 internal sealed class TagStore : MemoryStore<Tag>
@@ -161,4 +248,7 @@ internal sealed class TagStore : MemoryStore<Tag>
 
     protected override string? Field(Tag item, string name) =>
         name == nameof(Tag.Name) ? item.Name : null;
+
+    protected override IComparable? SortValue(Tag item, string name) =>
+        name == nameof(Tag.Name) ? item.Name : item.Slug;
 }

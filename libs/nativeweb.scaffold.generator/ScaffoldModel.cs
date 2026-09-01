@@ -115,6 +115,8 @@ internal sealed class PropertyModel
 
     public bool Searchable { get; set; }
 
+    public bool Sortable { get; set; }
+
     public bool Multiline { get; set; }
 
     public bool ReadOnly { get; set; }
@@ -135,10 +137,15 @@ internal sealed class PropertyModel
         && IsNullable == other.IsNullable
         && InList == other.InList
         && Searchable == other.Searchable
+        && Sortable == other.Sortable
         && Multiline == other.Multiline
         && ReadOnly == other.ReadOnly
         && IsKey == other.IsKey;
 
+    // Sortable belongs in both members, not just Equals. The incremental pipeline
+    // caches on this value, so a field the hash omits is a field whose change can
+    // land in a bucket the comparer never re-runs -- adding [ScaffoldSort] then
+    // regenerates nothing and the column stays unsortable with no error anywhere.
     public override int GetHashCode() =>
-        (Name, TypeName, IsNullable, InList, Searchable, Multiline, ReadOnly, IsKey).GetHashCode();
+        (Name, TypeName, IsNullable, InList, Searchable, Sortable, Multiline, ReadOnly, IsKey).GetHashCode();
 }

@@ -24,11 +24,16 @@ wish list; the value is in recording the ones nobody has got to yet.
     nothing packs them; the repository has one tag ever, and it is not a release. Decision 004
     approved package mode on 2026-08-30 and listed four obligations; none is done. Until one is,
     every consumer builds against whatever `dev` happens to be.
-  - **G2 — a breaking-change log in `docs/`.** Removing `nativeweb.signin.epass` and
-    `nativeweb.auth` broke a downstream product and nothing here could have known.
-  - **G5 — list primitives.** `IScaffoldStore<T>.ListAsync` still takes no ordering parameter;
-    ghosthive hand-rolled `ListQueryParser`, `FilterComposer` and a keyset `Cursor` and then went
-    without them on its own control-plane lists. Sorting, filtering and cursor pagination.
+  - ~~**G2 — a breaking-change log in `docs/`.**~~ **Closed 2026-09-01 by spec 017:**
+    `docs/02-reference/breaking-changes.md`, linked from the README, opening with the 017
+    `ListAsync` change and carrying the 2026-08-31 removals of `nativeweb.signin.epass` and
+    `nativeweb.auth` retrospectively.
+  - ~~**G5 — list primitives.**~~ **Closed 2026-09-01 by spec 017:** `[ScaffoldSort]`, an
+    allow-listed `?sort=`/`?dir=`, and keyset paging on an opaque cursor, replacing offset
+    `skip`/`take` throughout. **Filtering was scoped out and stays out** — free-text
+    `[ScaffoldSearch]` only, no structured per-field filters, no operators, no query language,
+    because NativeWeb has no ORM and JauntyQ owns data access. What ghosthive hand-rolled as
+    `ListQueryParser` and `FilterComposer` is not coming here; its keyset `Cursor` is.
   - **G6 — READMEs for the six libraries without one**, `nativeweb.web` first: it is the largest
     seam and the one a consumer has already reimplemented by hand for want of knowing it exists.
     `nativeweb.signin` got its own with spec 016 on 2026-09-01.
@@ -1701,3 +1706,30 @@ an answer different from the one the audit assumed.
   `Sample__WebAuthn__ServerDomain`, `Sample__WebAuthn__Origins` and
   `Sample__DeviceGrant__VerificationUri`; `secrets.env` carries five dead SMTP and IdP keys.
   Nothing reads any of them. Host state, not repo state — an operator's edit.
+
+## Found by the 017 code review, 2026-09-01 — not fixed, out of scope
+
+- **Keyset paging by a nullable column keeps its position with a Filter, not an Index Cond.**
+  Measured with `EXPLAIN` against `nativeweb_sample_test`: `ListByAuthorAsc.sql` gets an
+  `Index Scan using articles_author_id_idx` with no sort node, but the boundary
+  `author IS NULL OR (author, id) > (...)` lands in `Filter`. A disjunction over `IS NULL` is not
+  a rangeable start point, so page N walks the index from the top. The order is free; the
+  position is O(rows before it). Fixing it means folding null placement into the index as an
+  expression — `((author IS NULL), author, id)` — and rewriting both author queries against it;
+  a plain row-value comparison cannot express it, because NULL in any component yields NULL.
+  Non-null sort columns are unaffected. Noted in `0002_scaffold_sort_indexes.sql`.
+- **A cursor is bound to the sort property and direction, not to `?q=`.** Carrying an `?after=`
+  across a changed search term applies a position from one result set to another. The search form
+  drops `after` on submit, so only a hand-edited URL reaches it, and the outcome is a wrong window
+  rather than an error. Binding the search term into the cursor would close it.
+- **`CountAsync` runs on every list request, on its own connection, against the unindexed
+  three-column `ILIKE`.** Pre-existing — the offset pager needed it too — but keyset made the page
+  itself an index range scan, so the count is now the only unbounded work in the request. Its
+  snapshot is also separate from the page's, so "N items" can disagree with the rows above it.
+- **The in-memory store's ordinal text comparison is untestable in this repo.**
+  `Directory.Build.props` sets `InvariantGlobalization=true`, so `string.CompareTo` is already
+  ordinal in every process here and a test asserting the difference passes with the fix reverted.
+  The fix stays — `IComparable.CompareTo` on a boxed string is `CurrentCulture`, and a consumer
+  that does not set that flag gets an order that changes with the host's locale — but the
+  assertion was removed rather than kept as one that cannot fail. Proving it needs a test host
+  built without the property.
