@@ -1589,8 +1589,8 @@ another project's deployment and runbook, not to this repo.
 
 - **Scaffold: `JauntyArticleStore` accepts `searchFields` and ignores it.** T11 made
   `[ScaffoldSearch]` reach the store, and the memory store honours it; the SQL path still has the
-  columns fixed in `db/sample/queries/Articles/List.sql`, so removing the attribute changes the
-  placeholder and not the query. Honouring it properly needs either generated SQL or a JauntyQ
+  columns fixed in the `db/sample/queries/Articles/ListBy*.sql` set, so removing the attribute
+  changes the placeholder and not the query. Honouring it properly needs either generated SQL or a JauntyQ
   query that takes a column list. Same review.
 
 - **Scaffold: labels are C#-escaped but not HTML-encoded into the emitted markup.** `Escape` makes

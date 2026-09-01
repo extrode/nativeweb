@@ -38,7 +38,8 @@ worth seeing here rather than hiding, but it is the exception.
   other row in `articles`; the integration tier asserting the same fact relatively was unaffected.
   Rewritten to relative positions. A re-run at 17:10 passed under the old assertion too, because
   the leak only bites for the hour after it happens — which is what makes it a flake worth naming
-  rather than a mystery. `scripts/cleanup/018-paging-property-tests.ps1` lists the rows; not run.
+  rather than a mystery. `scripts/cleanup/018-paging-property-tests.ps1` listed the rows and the
+  operator ran it on 2026-09-01; all five are gone.
 
   `tools/mutation-triage.ts` re-runs the three targets and compares against
   `tools/mutation-baseline.json` with a 1-point tolerance. Manual, not CI — the integration
@@ -74,11 +75,13 @@ worth seeing here rather than hiding, but it is the exception.
   a rangeable start point, so paging a *nullable* column walks the index from the top. A row-value
   comparison cannot express it. Non-null sort columns are unaffected.
 
-  **A cleanup script exists and has not been run:**
-  `scripts/cleanup/017-scaffold-sorting-and-cursor-pagination.ps1`. Dry run listed 728 KB of
-  scratch under `tmp/` (now nine entries), 4,242 accumulated test rows in `nativeweb_sample_test`
-  behind `-DropTestRows`, and the superseded `db/sample/queries/Articles/List.sql` behind
-  `-RemoveSupersededQuery`.
+  **The cleanup script has been run by the operator (2026-09-01):**
+  `scripts/cleanup/017-scaffold-sorting-and-cursor-pagination.ps1 -e -DropTestRows
+  -RemoveSupersededQuery`. It removed nine scratch files (833.5 KB), **100,980** rows from
+  `articles` in `nativeweb_sample_test`, and the superseded
+  `db/sample/queries/Articles/List.sql`. The row figure is the one to remember: the dry run a day
+  earlier listed 4,242, and the 018 property tests plus three Stryker targets re-running the suite
+  once per mutant added the rest. The removal is on `chore/019-remove-superseded-list-query`.
 
 - **Phase 3 of the readiness plan.** T11 (the scaffold defect batch) and T12 (deploy and database
   hygiene) are both done. T12: the deploy chain publishes `apps/sample` by default and names no
