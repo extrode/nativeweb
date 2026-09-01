@@ -114,8 +114,8 @@ route entirely — a tokenless POST measured at 200 OK. `RequiresAntiforgery.Ins
 all three POSTs; the guard cannot be forgotten because nobody writes it.
 
 **The content-type check lives inside `BindAsync`.** Argument binding runs *before* the
-endpoint-filter pipeline, so a `RequireForm()` filter cannot protect a bind. The binder raises
-`BadHttpRequestException(415)` itself.
+endpoint-filter pipeline, so no endpoint filter can protect a bind. The generated `BindAsync`
+calls `FormBinding.RequireFormContentType` itself, which raises `BadHttpRequestException(415)`.
 
 ## Sorting and paging, and the two things the store owes
 

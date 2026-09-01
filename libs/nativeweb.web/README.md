@@ -47,10 +47,10 @@ the eleven calls out instead of the one:
 
 | Call | What it registers |
 |---|---|
-| `AddNativeWebKestrel` | request body size and timeout limits |
+| `AddNativeWebKestrel` | the request-body ceiling, and Kestrel's https support — `CreateSlimBuilder` ships without it |
 | `AddNativeWebRequestTimeouts` | the per-request timeout policy |
 | `AddNativeWebDataSource` | the pooled `NpgsqlDataSource` |
-| `AddNativeWebForwardedHeaders` | `X-Forwarded-For`/`Proto` with the configured known proxies |
+| `AddNativeWebForwardedHeaders` | the `X-Forwarded-For` and `X-Forwarded-Proto` headers, unwound for the configured known proxies |
 | `AddNativeWebResponseCompression` | Brotli for rendered HTML — configured, see below |
 | `AddNativeWebTelemetry` | OpenTelemetry, opt-in and off by default |
 | `AddNativeWebDataProtection` | the key ring, persisted to the configured directory |

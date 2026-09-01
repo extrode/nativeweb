@@ -126,7 +126,14 @@ answers it for software that no longer exists.
   application, **then** that application builds, serves a NativeWeb-rendered page and passes its
   own tests, with every command in the guide having been run rather than reasoned about.
 - **Given** any document produced by this spec, **when** a type or path it names is renamed or
-  removed, **then** a test fails.
+  removed, **then** a test fails. Amended 2026-09-02, after a review of the merged branch found
+  the absolute overstated: the guard covers backticked repository paths, `$(NativeWebRoot)`-rooted
+  paths inside fenced blocks, relative links, whole-word symbol names, and configuration keys in
+  both directions. It does not cover paths written relative to the reader's own tree (they name
+  nothing in this repository), a symbol whose name survives as a whole word elsewhere in the
+  sources, or a claim entered in `ExemptClaims` with a reason. `DocsClaimsTests` states each of
+  those in place, and `TheKeyExtractors_StillSeeEveryKeyShapedLiteralInTheBinders` is what stops
+  the config half of the guard narrowing silently.
 - **Given** the docs site build, **when** it runs, **then** the adoption guide and the rewritten
   configuration reference are present in `docs-site/`, the six READMEs are linked from
   `docs/README.md`, and no link in any of them resolves to a missing target. Amended with R9 on
