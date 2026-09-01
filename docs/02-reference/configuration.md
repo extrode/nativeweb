@@ -75,7 +75,7 @@ the edge proxy — the exact failure the seeded comment says it prevents. Record
 ## Sign-in settings
 
 Bound by `SignInConfiguration` in `libs/nativeweb.signin/SignInConfiguration.cs`, under a
-section the product names when it calls `AddNativeWebSignIn`. See
+section the product names when it calls `AddSignIn`. See
 `libs/nativeweb.signin/README.md` for what the library does with them.
 
 | Key | Default |

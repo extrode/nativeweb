@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 using Xunit;
@@ -158,6 +159,36 @@ public sealed partial class DocsClaimsTests
                     $"{document} no longer names `{claim}`, so its exemption is dead. Remove it from "
                     + $"{nameof(ExemptClaims)}.");
             }
+        }
+    }
+
+    /// <summary>
+    /// A backticked type or member name in a document is a name that appears in the
+    /// C# sources.
+    /// </summary>
+    /// <remarks>
+    /// Catches the failure the path check cannot: a README naming a method that was
+    /// renamed, or one that never existed. The corpus is every <c>.cs</c> file under
+    /// <c>libs/</c> and <c>apps/</c> rather than the one library, because a README
+    /// legitimately names framework types -- <c>HttpContext</c>, <c>WebApplication</c>
+    /// -- and those appear in our own signatures. That makes this a check against
+    /// invention, not against every kind of drift, which is the honest description of
+    /// what a name-existence test can do.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Documents))]
+    public void EverySymbolNamed_AppearsInTheSources(string relativePath)
+    {
+        string root = RepoRoot();
+        string text = File.ReadAllText(Path.Combine(root, relativePath));
+        string corpus = SourceCorpus(root);
+
+        foreach (string symbol in SymbolClaims(text))
+        {
+            Assert.True(
+                corpus.Contains(symbol, StringComparison.Ordinal),
+                $"{relativePath} names `{symbol}`, which appears nowhere in libs/ or apps/. Either it was "
+                + "renamed and the document was not updated, or it does not exist.");
         }
     }
 
@@ -329,6 +360,82 @@ public sealed partial class DocsClaimsTests
         }
     }
 
+    private static string? _corpus;
+
+    private static string SourceCorpus(string root)
+    {
+        if (_corpus is not null)
+        {
+            return _corpus;
+        }
+
+        StringBuilder builder = new();
+
+        // tests/ is in the corpus because a README names the suite that proves it, down to
+        // the test method. Excluding it made EveryLibraryReadme_IsCovered's own subject --
+        // libs/nativeweb.scaffold/README.md, which cites a test by name -- report a symbol
+        // that exists.
+        foreach (string area in (string[])["libs", "apps", "tests"])
+        {
+            foreach (string file in Directory.EnumerateFiles(Path.Combine(root, area), "*.cs", SearchOption.AllDirectories))
+            {
+                if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                    || file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                builder.Append(File.ReadAllText(file));
+            }
+        }
+
+        return _corpus = builder.ToString();
+    }
+
+    private static IEnumerable<string> SymbolClaims(string text)
+    {
+        HashSet<string> seen = [];
+
+        foreach (Match match in BacktickedSpan().Matches(text))
+        {
+            string claim = match.Groups[1].Value.Trim();
+
+            // Sample__Db__MaxAutoPrepare is a configuration key in its environment-variable
+            // spelling, not an identifier. It matches the shape below and is checked by the
+            // key-parity tests instead.
+            if (claim.Contains("__", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // SCREAMING_SNAKE is an environment variable, not an identifier, and the ones
+            // worth documenting include OTEL_EXPORTER_OTLP_ENDPOINT -- read by the
+            // OpenTelemetry SDK and named nowhere in this repository's sources.
+            if (claim.Contains('_', StringComparison.Ordinal)
+                && !claim.Any(char.IsLower))
+            {
+                continue;
+            }
+
+            // The identifier only: `Chrome.For(context, assets, ...)` is a claim about
+            // Chrome and For, and the argument names are the reader's to choose.
+            Match identifier = SymbolShape().Match(claim);
+            if (!identifier.Success || identifier.Value.Length != claim.Length && !claim.StartsWith(identifier.Value + "(", StringComparison.Ordinal)
+                && !claim.StartsWith(identifier.Value + "<", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (string part in identifier.Value.Split('.'))
+            {
+                if (part.Length > 2 && char.IsUpper(part[0]) && seen.Add(part))
+                {
+                    yield return part;
+                }
+            }
+        }
+    }
+
     private static IEnumerable<string> RelativeLinks(string text)
     {
         HashSet<string> seen = [];
@@ -366,6 +473,9 @@ public sealed partial class DocsClaimsTests
 
     [GeneratedRegex(@"`([^`\n]+)`")]
     private static partial Regex BacktickedSpan();
+
+    [GeneratedRegex(@"^[A-Z][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*")]
+    private static partial Regex SymbolShape();
 
     [GeneratedRegex(@"Key\(""([^""]+)""\)")]
     private static partial Regex FrameworkKey();
