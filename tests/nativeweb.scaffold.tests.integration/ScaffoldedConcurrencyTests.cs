@@ -35,7 +35,13 @@ public sealed class ScaffoldedConcurrencyTests
         private static readonly Tag Row = new() { Slug = "aot", Name = "NativeAOT", Color = "#5bbd83" };
 
         public ValueTask<IReadOnlyList<Tag>> ListAsync(
-            string? search, IReadOnlyList<string> searchFields, int skip, int take, CancellationToken ct) =>
+            string? search,
+            IReadOnlyList<string> searchFields,
+            ScaffoldSortSpec? sort,
+            IReadOnlyList<string> sortFields,
+            ScaffoldCursor? after,
+            int take,
+            CancellationToken ct) =>
             ValueTask.FromResult<IReadOnlyList<Tag>>([Row]);
 
         public ValueTask<int> CountAsync(string? search, IReadOnlyList<string> searchFields, CancellationToken ct) =>

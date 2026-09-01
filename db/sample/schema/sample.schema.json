@@ -74,11 +74,41 @@
       },
       "indexes": [
         {
+          "name": "articles_author_id_idx",
+          "columns": [
+            "author",
+            "id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "articles_created_at_id_idx",
+          "columns": [
+            "created_at",
+            "id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
           "name": "articles_pkey",
           "columns": [
             "id"
           ],
           "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "articles_title_id_idx",
+          "columns": [
+            "title",
+            "id"
+          ],
+          "isUnique": false,
           "hasPrefixKeyPart": false,
           "hasExpressionKeyPart": false
         }
@@ -89,5 +119,7 @@
   "foreignKeys": [],
   "procedures": {},
   "sequences": {},
-  "enums": {}
+  "enums": {},
+  "functions": {},
+  "userTypes": {}
 }
