@@ -53,6 +53,15 @@ public sealed class ScaffoldedSortingTests(JauntySampleFixture app, BrowserFixtu
     private static ILocator TitleCells(IPage page) =>
         page.Locator("table.nws-table tbody tr td:first-child");
 
+    // By position, not by accessible name. The column order is declared in
+    // apps/sample/Models.cs and is part of what the generator emits, so an index is a
+    // fact about the model rather than a guess about how a name is computed.
+    private const int TitleColumn = 0;
+    private const int ViewsColumn = 3;
+
+    private static ILocator Header(IPage page, int column) =>
+        page.Locator("table.nws-table thead th").Nth(column);
+
     private static async Task<List<string>> TitlesAsync(IPage page) =>
         [.. await TitleCells(page).AllTextContentsAsync()];
 
@@ -65,18 +74,20 @@ public sealed class ScaffoldedSortingTests(JauntySampleFixture app, BrowserFixtu
         IPage page = await SignedInPageAsync();
         await page.GotoAsync($"{ListPath}?q={marker}");
 
-        ILocator header = page.GetByRole(AriaRole.Columnheader, new PageGetByRoleOptions { Name = "Title" });
+        ILocator header = Header(page, TitleColumn);
+        await Assertions.Expect(header).ToHaveTextAsync("Title");
 
-        await header.GetByRole(AriaRole.Link).ClickAsync();
-        Assert.Equal(
-            [.. Enumerable.Range(0, 4).Select(i => Title(marker, i))],
-            await TitlesAsync(page));
+        // Web-first assertions throughout, because each of these follows a real
+        // navigation: they re-query until the new document has rendered, where a plain
+        // Assert.Equal reads whichever document happened to be current.
+        await header.Locator("a").ClickAsync();
+        await Assertions.Expect(TitleCells(page))
+            .ToHaveTextAsync([.. Enumerable.Range(0, 4).Select(i => Title(marker, i))]);
         await Assertions.Expect(header).ToHaveAttributeAsync("aria-sort", "ascending");
 
-        await header.GetByRole(AriaRole.Link).ClickAsync();
-        Assert.Equal(
-            [.. Enumerable.Range(0, 4).Select(i => Title(marker, i)).Reverse()],
-            await TitlesAsync(page));
+        await header.Locator("a").ClickAsync();
+        await Assertions.Expect(TitleCells(page))
+            .ToHaveTextAsync([.. Enumerable.Range(0, 4).Select(i => Title(marker, i)).Reverse()]);
         await Assertions.Expect(header).ToHaveAttributeAsync("aria-sort", "descending");
     }
 
@@ -88,13 +99,10 @@ public sealed class ScaffoldedSortingTests(JauntySampleFixture app, BrowserFixtu
         IPage page = await SignedInPageAsync();
         await page.GotoAsync(ListPath);
 
-        await Assertions
-            .Expect(page.GetByRole(AriaRole.Columnheader, new PageGetByRoleOptions { Name = "Views" }).GetByRole(AriaRole.Link))
-            .ToHaveCountAsync(0);
+        await Assertions.Expect(Header(page, ViewsColumn)).ToHaveTextAsync("Views");
+        await Assertions.Expect(Header(page, ViewsColumn).Locator("a")).ToHaveCountAsync(0);
 
-        await Assertions
-            .Expect(page.GetByRole(AriaRole.Columnheader, new PageGetByRoleOptions { Name = "Title" }).GetByRole(AriaRole.Link))
-            .ToHaveCountAsync(1);
+        await Assertions.Expect(Header(page, TitleColumn).Locator("a")).ToHaveCountAsync(1);
     }
 
     [Fact]
@@ -110,11 +118,12 @@ public sealed class ScaffoldedSortingTests(JauntySampleFixture app, BrowserFixtu
         Assert.Equal(PageSize, first.Count);
 
         await page.Locator("nav.nws-pager a[rel=next]").ClickAsync();
+        await Assertions.Expect(TitleCells(page)).ToHaveCountAsync(5);
         List<string> second = await TitlesAsync(page);
-        Assert.Equal(5, second.Count);
         Assert.Empty(first.Intersect(second, StringComparer.Ordinal));
 
         await page.Locator("nav.nws-pager a[rel=prev]").ClickAsync();
+        await Assertions.Expect(TitleCells(page)).ToHaveCountAsync(PageSize);
 
         Assert.Equal(first, await TitlesAsync(page));
     }
@@ -128,6 +137,7 @@ public sealed class ScaffoldedSortingTests(JauntySampleFixture app, BrowserFixtu
         IPage page = await SignedInPageAsync();
         await page.GotoAsync($"{ListPath}?q={marker}&sort=Title&dir=desc");
         await page.Locator("nav.nws-pager a[rel=next]").ClickAsync();
+        await Assertions.Expect(page.Locator("nav.nws-pager a[rel=prev]")).ToHaveCountAsync(1);
 
         string url = page.Url;
         List<string> shown = await TitlesAsync(page);
@@ -139,9 +149,7 @@ public sealed class ScaffoldedSortingTests(JauntySampleFixture app, BrowserFixtu
         await copy.GotoAsync(url);
 
         Assert.Equal(shown, await TitlesAsync(copy));
-        await Assertions
-            .Expect(copy.GetByRole(AriaRole.Columnheader, new PageGetByRoleOptions { Name = "Title" }))
-            .ToHaveAttributeAsync("aria-sort", "descending");
+        await Assertions.Expect(Header(copy, TitleColumn)).ToHaveAttributeAsync("aria-sort", "descending");
     }
 
     // A GET form submits its own controls and nothing else, so without the hidden
@@ -158,8 +166,7 @@ public sealed class ScaffoldedSortingTests(JauntySampleFixture app, BrowserFixtu
         await page.FillAsync("form.nws-search input[name=q]", marker);
         await page.Locator("form.nws-search button[type=submit]").ClickAsync();
 
-        Assert.Equal(
-            [.. Enumerable.Range(0, 4).Select(i => Title(marker, i)).Reverse()],
-            await TitlesAsync(page));
+        await Assertions.Expect(TitleCells(page))
+            .ToHaveTextAsync([.. Enumerable.Range(0, 4).Select(i => Title(marker, i)).Reverse()]);
     }
 }

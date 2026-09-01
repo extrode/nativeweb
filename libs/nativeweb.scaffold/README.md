@@ -135,8 +135,13 @@ already permitted to list, and its values reach the database as parameters. What
 that no string in `?after=` can crash the list: `TryDecode` returns false for every malformed
 shape, and the list renders from the beginning.
 
-**Two obligations the framework cannot enforce**, both stated on `IScaffoldStore<T>.ListAsync` and
-both silent when broken:
+A `?sort=` naming nothing sortable takes the direction down with it — the fallback is the key
+**ascending**, whatever `?dir=` said, because a direction applied to a column the reader did not
+get is an ordering nobody asked for. No `?sort=` at all is different: that is a request for the
+default column, and `?dir=desc` still applies to it.
+
+**Three obligations the framework cannot enforce**, all stated on `IScaffoldStore<T>.ListAsync` and
+all silent when broken:
 
 1. **End every order with the key.** A page boundary inside a block of equal sort values has no
    single answer without a tiebreaker, and the rows sitting there repeat or vanish.
@@ -145,6 +150,11 @@ both silent when broken:
    omits every one of them. `db/sample/queries/Articles/ListByAuthorAsc.sql` carries the widened
    predicate. **This is invisible on a table small enough to fit one page**, which is why the
    reference app sorts by a nullable column on purpose.
+3. **Return at most `take - 1` rows when you decline a backward cursor** and fall back to the
+   first page. The list asks for one row more than the page to learn whether another exists, and
+   it trims a backward page from the *tail* — reading the direction from the cursor it issued,
+   which it cannot know the store ignored. A full `take` comes back as an overflowing backward
+   page and its first row is trimmed away unseen. Both stores in this repo got this wrong first.
 
 ## Wiring, and how to opt out of it
 

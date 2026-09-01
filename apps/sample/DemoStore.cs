@@ -89,7 +89,12 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
 
         if (at < 0)
         {
-            return ValueTask.FromResult<IReadOnlyList<T>>(ordered.GetRange(0, Math.Min(take, ordered.Count)));
+            // One row short of `take` when the lost cursor was walking backwards. The
+            // caller asks for PageSize + 1 to learn whether another page exists and
+            // trims a backward page from its TAIL, so a full take here reads as an
+            // overflowing backward page and the first row is trimmed away unseen.
+            int first = after?.Backward == true ? Math.Max(take - 1, 0) : take;
+            return ValueTask.FromResult<IReadOnlyList<T>>(ordered.GetRange(0, Math.Min(first, ordered.Count)));
         }
 
         if (after!.Value.Backward)
@@ -115,11 +120,16 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
         IComparable? x = SortValue(a, property);
         IComparable? y = SortValue(b, property);
 
+        // Ordinal for text, because IComparable.CompareTo on a boxed string is
+        // CurrentCulture: the same rows would come back in a different order on a
+        // machine with a different locale, and the key tiebreaker below is ordinal
+        // either way. Ordering is a fact about the data, not about the host.
         int result = (x, y) switch
         {
             (null, null) => 0,
             (null, _) => 1,
             (_, null) => -1,
+            (string a1, string b1) => string.CompareOrdinal(a1, b1),
             _ => x.CompareTo(y),
         };
 

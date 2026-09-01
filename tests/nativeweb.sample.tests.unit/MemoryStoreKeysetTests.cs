@@ -193,6 +193,27 @@ public sealed class MemoryStoreKeysetTests
     }
 
     [Fact]
+    public async Task ABackwardCursorOnADeletedRow_LandsOnAPageTheCallerWillNotTrim()
+    {
+        ArticleStore store = Seeded(("a", "One", "x"), ("b", "Two", "x"), ("c", "Three", "x"));
+        var sort = new ScaffoldSortSpec("Id", ScaffoldSortDirection.Ascending);
+
+        Assert.Equal(
+            ["a", "b"],
+            await KeysAsync(store, sort, CursorFor(new Article { Id = "gone" }, sort, true), 3));
+    }
+
+    [Fact]
+    public async Task TextOrdering_IsOrdinalRatherThanTheHostsLocale()
+    {
+        ArticleStore store = Seeded(("a", "Zebra", "x"), ("b", "apple", "x"), ("c", "Apple", "x"));
+
+        Assert.Equal(
+            ["c", "a", "b"],
+            await KeysAsync(store, new ScaffoldSortSpec("Title", ScaffoldSortDirection.Ascending), null, 10));
+    }
+
+    [Fact]
     public async Task AnUnknownSortProperty_FallsBackToTheKeyOrder()
     {
         ArticleStore store = Seeded(("c", "Third", "x"), ("a", "First", "x"), ("b", "Second", "x"));

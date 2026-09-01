@@ -20,6 +20,26 @@
 --
 -- No index for view_count or published: neither carries [ScaffoldSort], so no
 -- query orders by them. An index nothing orders by is write cost for nothing.
+--
+-- THE NULLABLE COLUMN IS THE EXCEPTION, and it is not a small one. Measured with
+-- EXPLAIN on 2026-09-01, the author queries get an "Index Scan using
+-- articles_author_id_idx" with no sort node -- and the keyset boundary lands in
+-- Filter, not Index Cond. The predicate has to read `author IS NULL OR (author, id)
+-- > (...)` to keep author-less rows from vanishing, and a disjunction over IS NULL
+-- is not a rangeable start point, so page N walks the index from the top and
+-- discards N pages of rows. The ORDER is free; the POSITION is not. Sorting by a
+-- non-null column stays O(page). Fixing it needs the null placement folded into the
+-- index as an expression -- `((author IS NULL), author, id)` -- and both author
+-- queries rewritten against it; noted in work/todo.md rather than done here.
+--
+-- The write side, since the read side is what an index migration always argues.
+-- Each insert now writes four index entries instead of one, and title and author
+-- being indexed means an edit to either can no longer take the HOT-update path.
+-- And these are plain CREATE INDEX, so each takes a SHARE lock and blocks writes to
+-- articles while it builds: CONCURRENTLY is unavailable because db/migrate.sh wraps
+-- every file in a transaction. On a demo table that is instant. On a populated one
+-- it is a write outage, and a consumer stamping this schema should build the
+-- indexes out of band instead.
 
 CREATE INDEX IF NOT EXISTS articles_title_id_idx
     ON articles (title, id);

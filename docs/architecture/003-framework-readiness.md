@@ -197,7 +197,7 @@ generator source:
 | Malformed numeric input coerces to 0, a bad `Guid` to `Guid.Empty`, a blank `DateTime` to `UtcNow`; the re-rendered form shows the coerced value, not what was typed | `ScaffoldValues.cs:23-65`, `ScaffoldEmitter.cs:424` | defect |
 | `DeleteAsync` ignores a `false` from the store and redirects as success | `ScaffoldEmitter.cs:311` | defect |
 | Update is GET-then-POST-overwrite with no concurrency token; last writer wins | `ScaffoldEmitter.cs:288-300` | defect |
-| No sorting: `IScaffoldStore<T>.ListAsync` has no ordering parameter, so order is whatever each store silently picks | `IScaffoldStore.cs:26` | absence |
+| ~~No sorting: `IScaffoldStore<T>.ListAsync` has no ordering parameter, so order is whatever each store silently picks~~ — closed 2026-09-01 by spec 017 (`[ScaffoldSort]` + keyset cursor paging) | `IScaffoldStore.cs:26` | closed |
 | No faceted filtering, no bulk actions, no foreign-key or relation display, no per-field widgets beyond `[ScaffoldMultiline]`, no readonly-on-form, no change history | | absence |
 
 Both sample models are flat, so the relation gap is never surfaced by the reference app. Qwen also

@@ -1706,3 +1706,23 @@ an answer different from the one the audit assumed.
   `Sample__WebAuthn__ServerDomain`, `Sample__WebAuthn__Origins` and
   `Sample__DeviceGrant__VerificationUri`; `secrets.env` carries five dead SMTP and IdP keys.
   Nothing reads any of them. Host state, not repo state — an operator's edit.
+
+## Found by the 017 code review, 2026-09-01 — not fixed, out of scope
+
+- **Keyset paging by a nullable column keeps its position with a Filter, not an Index Cond.**
+  Measured with `EXPLAIN` against `nativeweb_sample_test`: `ListByAuthorAsc.sql` gets an
+  `Index Scan using articles_author_id_idx` with no sort node, but the boundary
+  `author IS NULL OR (author, id) > (...)` lands in `Filter`. A disjunction over `IS NULL` is not
+  a rangeable start point, so page N walks the index from the top. The order is free; the
+  position is O(rows before it). Fixing it means folding null placement into the index as an
+  expression — `((author IS NULL), author, id)` — and rewriting both author queries against it;
+  a plain row-value comparison cannot express it, because NULL in any component yields NULL.
+  Non-null sort columns are unaffected. Noted in `0002_scaffold_sort_indexes.sql`.
+- **A cursor is bound to the sort property and direction, not to `?q=`.** Carrying an `?after=`
+  across a changed search term applies a position from one result set to another. The search form
+  drops `after` on submit, so only a hand-edited URL reaches it, and the outcome is a wrong window
+  rather than an error. Binding the search term into the cursor would close it.
+- **`CountAsync` runs on every list request, on its own connection, against the unindexed
+  three-column `ILIKE`.** Pre-existing — the offset pager needed it too — but keyset made the page
+  itself an index range scan, so the count is now the only unbounded work in the request. Its
+  snapshot is also separate from the page's, so "N items" can disagree with the rows above it.

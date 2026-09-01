@@ -315,6 +315,62 @@ public sealed class JauntyKeysetTests
         Assert.Equal(clean, mangled);
     }
 
+    // The store parses the timestamp, so an unusable one has to reset the direction as
+    // well as the position. Only the mirrored query is wrong here, and it is wrong
+    // quietly: it runs from the top and gets reversed, so the reader asking to step
+    // back from a stale cursor lands on the LAST page instead of the first.
+    [Theory]
+    [InlineData("not-a-date")]
+    [InlineData(null)]
+    public async Task ABackwardCreatedAtCursorThatWillNotParse_RendersTheFirstPage(string? value)
+    {
+        string marker = Marker();
+        await SeedAsync(marker, PageSize + 5, _ => "xunit");
+
+        using var factory = new SampleJauntyFactory();
+        using HttpClient client = await factory.CreateSignedInAsync();
+
+        string token = new ScaffoldCursor(
+            "CreatedAt",
+            ScaffoldSortDirection.Ascending,
+            value,
+            $"{marker}-00",
+            true).Encode();
+
+        List<string> clean = TitlesIn(marker, await ListAsync(client, $"/admin/articles?q={marker}&sort=CreatedAt&dir=asc"));
+        List<string> stale = TitlesIn(
+            marker,
+            await ListAsync(client, $"/admin/articles?q={marker}&sort=CreatedAt&dir=asc&after={token}"));
+
+        Assert.Equal(clean, stale);
+    }
+
+    // A cursor can land on nothing at all -- follow Next, and the rows behind it are
+    // deleted before the request arrives. Built only from the page's own rows, both
+    // tokens would be null, the pager would render as nothing, and the reader would
+    // have no way back except editing the URL.
+    [Fact]
+    public async Task ACursorPastTheEnd_StillOffersAWayBack()
+    {
+        string marker = Marker();
+        await SeedAsync(marker, 3, _ => "xunit");
+
+        using var factory = new SampleJauntyFactory();
+        using HttpClient client = await factory.CreateSignedInAsync();
+
+        string token = new ScaffoldCursor(
+            "Title",
+            ScaffoldSortDirection.Ascending,
+            $"{marker}-tzz",
+            $"{marker}-zz",
+            false).Encode();
+
+        string html = await ListAsync(client, $"/admin/articles?q={marker}&sort=Title&dir=asc&after={token}");
+
+        Assert.Empty(TitlesIn(marker, html));
+        Assert.NotNull(LinkWithRel(html, "prev"));
+    }
+
     // A cursor is issued against one ordering. Carrying it to another would put the
     // reader at a position that means nothing there, so it is dropped.
     [Fact]

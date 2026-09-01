@@ -82,12 +82,6 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         bool descending = sort?.Direction == ScaffoldSortDirection.Descending;
         bool backward = after?.Backward == true;
 
-        // Walking backwards runs the opposite query, then flips the rows into
-        // display order. The two knobs are independent: an ascending list walking
-        // backwards and a descending list walking forwards both run the descending
-        // query, and only the first of them reverses what comes back.
-        bool mirrored = descending != backward;
-
         // The empty key is how every query asks for its first page, and it is the
         // fallback for a cursor whose value will not parse as the column's type --
         // R9, and the reason a hand-edited ?after= renders the list rather than a
@@ -95,6 +89,47 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         // forbids a store returning an empty key.
         string afterId = after is null ? "" : after.Value.Key;
         string? afterValue = after?.SortValue;
+
+        // Parsed here, above the mirror, because an unusable cursor has to reset the
+        // direction as well as the position. created_at is a timestamp and a cursor is
+        // text; round-trip form ("o") is what ScaffoldValues.CursorText wrote, so
+        // anything else is a cursor this store did not issue. A null value is equally
+        // unusable -- created_at is NOT NULL, so no cursor of ours omits it, and
+        // DateTime.MinValue against a real key is a "position" that matches every row
+        // ascending and no row descending. Falling back means the FIRST page in the
+        // reader's chosen order: leaving backward set would run the opposite query
+        // from the top and reverse it, landing them on the last page instead.
+        DateTime afterCreated = default;
+        if (property == nameof(Article.CreatedAt)
+            && afterId.Length > 0
+            && (afterValue is null
+                || !DateTime.TryParse(
+                    afterValue,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
+                    out afterCreated)))
+        {
+            afterId = "";
+
+            // One row short, and only when the cursor being dropped was walking
+            // backwards. The caller asks for PageSize + 1 to learn whether another page
+            // exists and trims a BACKWARD page from its tail -- and its own `backward`
+            // comes from the cursor, not from what this store decided to do with it. A
+            // full take here comes back as an overflowing backward page and the first
+            // row is trimmed away unseen. Measured 2026-09-01: page one rendered
+            // starting at the second row.
+            if (backward)
+            {
+                take = Math.Max(take - 1, 0);
+                backward = false;
+            }
+        }
+
+        // Walking backwards runs the opposite query, then flips the rows into
+        // display order. The two knobs are independent: an ascending list walking
+        // backwards and a descending list walking forwards both run the descending
+        // query, and only the first of them reverses what comes back.
+        bool mirrored = descending != backward;
 
         List<Row> rows = property switch
         {
@@ -111,7 +146,9 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
                 ? await db.Articles.ListByAuthorDescAsync(pattern, afterValue, afterId, take, ct).ConfigureAwait(false)
                 : await db.Articles.ListByAuthorAscAsync(pattern, afterValue, afterId, take, ct).ConfigureAwait(false),
 
-            nameof(Article.CreatedAt) => await ListByCreatedAsync(db, pattern, afterValue, afterId, take, mirrored, ct).ConfigureAwait(false),
+            nameof(Article.CreatedAt) => mirrored
+                ? await db.Articles.ListByCreatedDescAsync(pattern, afterCreated, afterId, take, ct).ConfigureAwait(false)
+                : await db.Articles.ListByCreatedAscAsync(pattern, afterCreated, afterId, take, ct).ConfigureAwait(false),
 
             _ => mirrored
                 ? await db.Articles.ListByKeyDescAsync(pattern, afterId, take, ct).ConfigureAwait(false)
@@ -139,36 +176,6 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         }
 
         return articles;
-    }
-
-    // Parsed here and not in the query because the cursor is text and the column is
-    // a timestamp, and only this class knows which. Round-trip form ("o") is what
-    // ScaffoldValues.CursorText wrote, so anything else is a cursor this store did
-    // not issue: fall back to the first page rather than to a date that silently
-    // hides rows.
-    private static async ValueTask<List<Row>> ListByCreatedAsync(
-        JauntyDb db,
-        string pattern,
-        string? afterValue,
-        string afterId,
-        int take,
-        bool mirrored,
-        CancellationToken ct)
-    {
-        DateTime afterCreated = default;
-        if (afterValue is not null
-            && !DateTime.TryParse(
-                afterValue,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
-                out afterCreated))
-        {
-            afterId = "";
-        }
-
-        return mirrored
-            ? await db.Articles.ListByCreatedDescAsync(pattern, afterCreated, afterId, take, ct).ConfigureAwait(false)
-            : await db.Articles.ListByCreatedAscAsync(pattern, afterCreated, afterId, take, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

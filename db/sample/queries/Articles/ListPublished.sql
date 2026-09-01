@@ -25,9 +25,16 @@
 -- second row shape to learn. Narrow it when the row count makes the width cost
 -- something; on a demo table it buys nothing and costs a type.
 --
--- ORDER BY created_at DESC, id -- the id tiebreak matters because created_at
+-- ORDER BY created_at DESC, id DESC -- the id tiebreak matters because created_at
 -- defaults to NOW() and a seeded or scripted insert can give several rows the
 -- same timestamp, which would make the page order unstable between requests.
+--
+-- Both DESC, and that is not cosmetic. A btree index can be walked backwards but
+-- not half-backwards, so `created_at DESC, id ASC` matches neither direction of
+-- articles_created_at_id_idx and PostgreSQL sorts at runtime anyway -- the sort
+-- this file's exemption used to declare, still there, no longer declared. Matching
+-- the index's own direction is what makes the exemption's expiry true rather than
+-- merely unwarned.
 SELECT
     id,
     title,
@@ -38,5 +45,5 @@ SELECT
     created_at
 FROM articles
 WHERE published
-ORDER BY created_at DESC, id
+ORDER BY created_at DESC, id DESC
 LIMIT @take;

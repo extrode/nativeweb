@@ -160,9 +160,12 @@ should say so rather than leave it implied.
 endpoints then go without: `Program.cs:498` is `SELECT id, name FROM projects WHERE owner_sub = @sub`
 with no limit and no cursor, and `/fleet` fetches the whole roster and paginates in the browser.
 
-On this side, `IScaffoldStore<T>.ListAsync` still takes no ordering parameter, so sort order is
-whatever each store silently picks (`003` §3b). Sorting, filtering and cursor pagination are the
-three things every admin table needs and neither repository has as a primitive.
+On this side, `IScaffoldStore<T>.ListAsync` took no ordering parameter when this was written, so
+sort order was whatever each store silently picked (`003` §3b). **Closed on 2026-09-01 by spec
+017**, which added `[ScaffoldSort]`, a sortable-field allow-list, and keyset cursor paging in
+place of offset — a breaking change to the seam, recorded in
+`docs/02-reference/breaking-changes.md`. Free-text `[ScaffoldSearch]` filtering is unchanged and
+stays that way; structured filters were scoped out and are not coming.
 
 ### G6 — Seven of nine libraries have no README
 

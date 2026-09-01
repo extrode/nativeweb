@@ -594,7 +594,10 @@ public sealed class ScaffoldGeneratorTests
         (_, string source) = Run(Attributes, ArticleModel);
 
         Assert.Contains("public static readonly string[] SearchFields = new string[] { \"Title\" };", source, StringComparison.Ordinal);
-        Assert.Contains("store.ListAsync(search, SearchFields,", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "store.ListAsync(search, SearchFields, sort, SortFields, after, PageSize + 1, ct)",
+            source,
+            StringComparison.Ordinal);
         Assert.Contains("store.CountAsync(search, SearchFields,", source, StringComparison.Ordinal);
     }
 

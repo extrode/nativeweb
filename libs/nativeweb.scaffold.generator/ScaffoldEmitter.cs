@@ -314,13 +314,28 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        }");
         sb.AppendLine();
         sb.AppendLine("        sb.Append(\"</tbody></table>\");");
+        // A cursor can land on nothing: follow Next and the remaining rows are deleted
+        // before the request arrives. Built from the page's own rows, both tokens would
+        // then be null, the pager would render as nothing at all, and the only way back
+        // would be editing the URL. The incoming cursor still names a real boundary, so
+        // reversing it walks back to the page the reader came from -- into Previous
+        // going forwards, into Next going backwards.
+        sb.AppendLine("        string? reverseToken = rows.Count == 0 && after.HasValue");
+        sb.AppendLine("            ? new ScaffoldCursor(sort.Property, sort.Direction, after.Value.SortValue, after.Value.Key, !backward).Encode()");
+        sb.AppendLine("            : null;");
         sb.AppendLine("        string? previousToken = rows.Count > 0 && hasPrevious");
         sb.AppendLine("            ? new ScaffoldCursor(sort.Property, sort.Direction, SortTextOf(rows[0], sort.Property), ScaffoldValues.CursorText(rows[0]." + model.KeyProperty + ") ?? \"\", true).Encode()");
         sb.AppendLine("            : null;");
         sb.AppendLine("        string? nextToken = rows.Count > 0 && hasNext");
         sb.AppendLine("            ? new ScaffoldCursor(sort.Property, sort.Direction, SortTextOf(rows[rows.Count - 1], sort.Property), ScaffoldValues.CursorText(rows[rows.Count - 1]." + model.KeyProperty + ") ?? \"\", false).Encode()");
         sb.AppendLine("            : null;");
-        sb.AppendLine("        sb.Append(ScaffoldLayout.Pager(BasePath, search, sort, total, previousToken, nextToken));");
+        sb.AppendLine("        sb.Append(ScaffoldLayout.Pager(");
+        sb.AppendLine("            BasePath,");
+        sb.AppendLine("            search,");
+        sb.AppendLine("            sort,");
+        sb.AppendLine("            total,");
+        sb.AppendLine("            backward ? previousToken : previousToken ?? reverseToken,");
+        sb.AppendLine("            backward ? nextToken ?? reverseToken : nextToken));");
         sb.AppendLine("        return ScaffoldLayout.Page(http, Display, sb.ToString());");
         sb.AppendLine("    }");
         sb.AppendLine();

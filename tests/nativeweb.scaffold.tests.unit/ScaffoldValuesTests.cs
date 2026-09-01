@@ -289,6 +289,20 @@ public sealed class ScaffoldValuesTests
     public void Sort_ReadsTheDirectionAndDefaultsToAscending(string? raw, ScaffoldSortDirection expected) =>
         Assert.Equal(expected, ScaffoldValues.Sort("Title", raw, Sortable, "Id").Direction);
 
+    [Theory]
+    [InlineData("Body")]
+    [InlineData("id; drop table articles")]
+    public void Sort_TakesTheDirectionDownWithAnUnrecognisedProperty(string requested) =>
+        Assert.Equal(
+            ScaffoldSortDirection.Ascending,
+            ScaffoldValues.Sort(requested, "desc", Sortable, "Id").Direction);
+
+    [Fact]
+    public void Sort_KeepsTheDirectionWhenNoPropertyWasNamed() =>
+        Assert.Equal(
+            ScaffoldSortDirection.Descending,
+            ScaffoldValues.Sort(null, "desc", Sortable, "Id").Direction);
+
     [Fact]
     public void Cursor_ReturnsOneIssuedForTheOrderingInForce()
     {

@@ -56,6 +56,20 @@ Merged into `dev`, not yet tagged.
   that would put a directory listing under the product's hostname. Live on `nw-dev.example.com`.
 
 ### Fixed
+- **Six defects in the new sorting and cursor paging, all found by its own review and none by a
+  failing suite.** Three were the same shape — a store that declines a cursor and starts over has
+  to return one row *fewer* than asked, because the list trims a backward page from the tail using
+  the direction of the cursor it issued and cannot know the store ignored it; both stores dropped
+  the first row of page one. A `CreatedAt` cursor whose value would not parse reset its position
+  but not its direction, landing the reader on the last page instead of the first, and a null
+  value skipped the guard entirely. A cursor landing past the end rendered no pager at all, so the
+  only way back was editing the URL. The in-memory store compared text with `CurrentCulture` while
+  the key tiebreaker and PostgreSQL did not, so its order changed with the host's locale. And a
+  `?sort=` naming an unsortable column kept the requested `?dir=`, contradicting the documented
+  "falls back to the key ascending". `ListPublished.sql` now orders `created_at DESC, id DESC`:
+  mixed directions match no btree index scan, so the runtime sort its expired exemption used to
+  declare was still there. The nullable-column index keeps its position with a `Filter` rather
+  than an `Index Cond` — measured, documented in the migration, and left in `work/todo.md`.
 - **The deploy chain has now released to a real host, and doing it found two defects in the
   chain.** `apps/sample` is serving at `https://nw-dev.example.com` — built by `build.sh` on a
   Linux box, promoted to blue by `deploy.sh` in **1.774 s**, `/readyz` 200. Both defects are

@@ -41,7 +41,7 @@ public interface IScaffoldStore<T>
     /// hand-written caller, and the answer is the default order rather than a throw.
     /// </para>
     /// <para>
-    /// <b>Two obligations this interface cannot enforce and an implementation must
+    /// <b>Three obligations this interface cannot enforce and an implementation must
     /// meet.</b> First, <b>the key is the final tiebreaker on every order</b>. Keyset
     /// paging is defined by "the rows after this one", so an order that ranks two rows
     /// equally has no single answer to that, and rows are then repeated on one page and
@@ -50,8 +50,14 @@ public interface IScaffoldStore<T>
     /// <c>NULLS LAST</c> or <c>NULLS FIRST</c> and a predicate widened to carry those
     /// rows across the page boundary. <c>(author, id) &gt; (@author, @id)</c> is NULL,
     /// not true, for an author-less row, so without that widening every page after the
-    /// first silently drops them. Both failures are invisible on a table small enough
-    /// to fit one page, which is where they get written.
+    /// first silently drops them. Third, <b>an implementation that declines a backward
+    /// cursor and returns the first page must return at most
+    /// <paramref name="take"/> - 1 rows</b>. The caller asks for one row more than the
+    /// page to learn whether another exists, and it trims a backward page from the
+    /// TAIL -- reading the direction from the cursor it issued, which it has no way to
+    /// know the store ignored. A full take then comes back as an overflowing backward
+    /// page and its first row is trimmed away unseen. All three failures are invisible
+    /// on a table small enough to fit one page, which is where they get written.
     /// </para>
     /// </remarks>
     /// <param name="search">The search term, or null for an unfiltered list.</param>

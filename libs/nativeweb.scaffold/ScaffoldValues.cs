@@ -160,19 +160,31 @@ public static class ScaffoldValues
     {
         string name = fallback;
 
-        if (Text(property) is string requested)
+        // Absent is not the same as unrecognised. No ?sort= at all is a request for the
+        // default ordering, and ?dir=desc still applies to it; only a NAMED column that
+        // is not sortable takes the direction down with it.
+        string? requested = Text(property);
+        bool matched = requested is null;
+
+        if (requested is not null)
         {
             for (int i = 0; i < sortFields.Count; i++)
             {
                 if (string.Equals(sortFields[i], requested, StringComparison.Ordinal))
                 {
                     name = requested;
+                    matched = true;
                     break;
                 }
             }
         }
 
-        ScaffoldSortDirection dir = Text(direction) is string d
+        // The whole request falls back, direction included. A ?dir= applied to a column
+        // the reader did not get is an ordering nobody asked for, and "the key
+        // ascending" is what the documented fallback says and what a client that
+        // mistyped a column name should be able to predict.
+        ScaffoldSortDirection dir = matched
+            && Text(direction) is string d
             && d.Equals("desc", StringComparison.OrdinalIgnoreCase)
                 ? ScaffoldSortDirection.Descending
                 : ScaffoldSortDirection.Ascending;
