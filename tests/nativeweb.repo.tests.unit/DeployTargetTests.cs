@@ -116,6 +116,56 @@ public sealed class DeployTargetTests
                 + "every host that has ever run this unit.");
     }
 
+    // cp -a copies the source directory's own mode onto the destination, and the
+    // stage is mktemp -d, which is 0700. A subtractive chmod cannot add back a
+    // group bit that was never granted, so the release directory stayed
+    // drwx------ and systemd failed the unit at 200/CHDIR on 2026-09-01.
+    [Fact]
+    public void TheDeployScript_SetsTheReleaseDirectoryModeAbsolutely()
+    {
+        string deploy = Read("scripts", "deploy", "deploy.sh");
+
+        List<string> subtractive = [];
+        bool absolute = false;
+
+        foreach (string raw in deploy.Split('\n'))
+        {
+            string line = raw.Trim();
+            if (line.StartsWith('#') || !line.StartsWith("chmod ", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!line.EndsWith("\"$RELEASE_DIR\"", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string[] words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string mode = words[^2];
+
+            if (mode.Contains('='))
+            {
+                absolute = true;
+            }
+            else
+            {
+                subtractive.Add(mode);
+            }
+        }
+
+        Assert.True(
+            absolute,
+            "deploy.sh no longer sets an absolute mode on $RELEASE_DIR. cp -a stamps the 0700 of "
+                + "mktemp -d onto it, so without one the service account cannot chdir into its own "
+                + "release and systemd fails the unit at 200/CHDIR.");
+
+        Assert.True(
+            subtractive.Count == 0,
+            $"deploy.sh applies {string.Join(", ", subtractive)} to $RELEASE_DIR. A subtractive mode "
+                + "cannot restore the group bits mktemp -d never granted.");
+    }
+
     // The project name must not reappear anywhere downstream of the publish: the
     // point of the rename in build.sh is that one product-specific string exists,
     // in one place, overridable by env.
