@@ -24,6 +24,16 @@ Merged into `dev`, not yet tagged.
   the `Key("...")` literals extracted from `NativeWebOptions.cs` in both directions. The adoption
   guide was checked by taking a stock `dotnet new web` project through every step of it, which
   corrected five of them. Closes backlog gaps G6 and G7.
+
+  A review of the merged branch then found four ways that guard could stay green over the drift it
+  reads as catching, all since closed: the reverse key check saw no sign-in key, because those are
+  written bare rather than section-relative; a renamed document dropped out of every check instead
+  of failing one; the README-coverage test built both sides of its assertion from the same
+  enumeration and could not fail; and symbol claims were a substring search, so `Take` passed on
+  `TakeAsync`. That last found a false claim already in the tree — the scaffold README named a
+  `RequireForm()` filter that does not exist. The extractors now also have a canary of their own:
+  a key-shaped literal in either binder that no extractor can reach fails the suite, so a setting
+  added through an unrecognised call shape cannot bind while the reference stays silent.
 - **Property tests and a mutation-score baseline for the paging seam** (`tools/mutation-triage.ts`,
   `tools/mutation-baseline.json`, CsCheck 4.8.0 in the test tier). Spec 017 shipped eight defects
   that no test failed on, so the gap was assertions rather than coverage — a distinction only a
