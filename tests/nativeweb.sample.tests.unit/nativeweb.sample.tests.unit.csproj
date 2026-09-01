@@ -12,6 +12,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- Generators and shrinking for the paging seam's property tests. -->
+    <PackageReference Include="CsCheck" />
   </ItemGroup>
 
   <ItemGroup>

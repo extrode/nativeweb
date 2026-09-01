@@ -14,6 +14,18 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Property tests and a mutation-score baseline for the paging seam** (`tools/mutation-triage.ts`,
+  `tools/mutation-baseline.json`, CsCheck 4.8.0 in the test tier). Spec 017 shipped eight defects
+  that no test failed on, so the gap was assertions rather than coverage — a distinction only a
+  mutation run measures. Stryker.NET was run *first*, and named it: all fifteen mutants in
+  `ScaffoldAccess.CanReadAsync` survived because nothing executed it, its only two tests asserting
+  that the *generated source contained the call*. `libs/nativeweb.scaffold` went **75.46% → 85.54%**
+  and `DemoStore.cs` **70.0% → 76.0%**; the four named survivors in the paging code were each
+  confirmed dead by hand-applying the mutant. 54 tests added across five files. Four remaining
+  survivors are equivalent mutants, named in `work/todo.md` rather than left looking like gaps.
+  Method choice follows `~/Downloads/testing-strategy-handover.md`: property tests for the
+  combinatorial paging seam and the cursor parser, plain examples for the authorization check a
+  human can enumerate, and no fuzzing corpus or SMT model where neither would pay for itself.
 - **Scaffolded lists sort and page by cursor.** `[ScaffoldSort]` mirrors `[ScaffoldSearch]`: a
   marked column's heading becomes a direction-toggling link carrying `aria-sort`, and the generator
   hands the store a compiled-in allow-list, so a `?sort=` naming anything else falls back to the key
@@ -56,6 +68,22 @@ Merged into `dev`, not yet tagged.
   that would put a directory listing under the product's hostname. Live on `nw-dev.example.com`.
 
 ### Fixed
+- **An e2e feed test claimed an absolute DOM slot it could not own.**
+  `Feed_UnderNativeAot_OrdersNewestFirst` asserted `titles.First` and `titles.Nth(1)`, which is a
+  claim about every other row in `articles`. It went red without the feed changing: the mutation
+  triage's integration target kills a hung test host, the killed process skips the `finally` that
+  removes its fixture rows, and the feed suites date theirs five years out on purpose — so for the
+  hour after such a run a leaked row lands between the test's own two. It now finds its two titles
+  in the rendered list and asserts one is above the other, keeping the real HTML parse of the
+  NativeAOT binary's output and printing the titles it saw when it fails.
+  `scripts/cleanup/018-paging-property-tests.ps1` lists the leaked rows; it has not been run.
+- **`ScaffoldCursor.TryDecode` accepted a tampered token.** `Encoding.UTF8.GetString` substitutes
+  U+FFFD for a malformed sequence rather than refusing it, so flipping one character of a cursor
+  produced one the decoder reported as valid — against its documented contract of returning true
+  only for a cursor this release wrote, and lossily, so the token no longer re-encoded to itself.
+  `TryRead` now decodes with `Utf8.ToUtf16` and `replaceInvalidSequences: false`. No behaviour
+  change for a reader: an edited cursor rendered the first page before and does now. Found by a
+  property test on its first run, not by review.
 - **Six defects in the new sorting and cursor paging, all found by its own review and none by a
   failing suite.** Three were the same shape — a store that declines a cursor and starts over has
   to return one row *fewer* than asked, because the list trims a backward page from the tail using

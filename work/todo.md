@@ -1733,3 +1733,43 @@ an answer different from the one the audit assumed.
   that does not set that flag gets an order that changes with the host's locale — but the
   assertion was removed rather than kept as one that cannot fail. Proving it needs a test host
   built without the property.
+
+## Found by the 018 mutation triage, 2026-09-01 — recorded, not chased
+
+- **Four equivalent mutants survive on purpose.** No test can kill a change with no observable
+  difference, and Stryker has no equivalent-mutant detection, so they are named here rather than
+  left looking like gaps. `ScaffoldSort.cs:157` — `MaxEncodedChars` is 2048, but the decode buffer
+  caps a payload at 1,160 bytes, so no token above ~1,548 chars can decode and `>` never differs
+  from `>=`. The constant is a redundant guard, not a wrong one. `ScaffoldValues.cs:114` —
+  `AdjustToUniversal` does not change whether `TryParse` succeeds, and `IsDateTime` returns only
+  that. `ScaffoldValues.cs:177` — a `break` whose loop would reassign the same value.
+  `ScaffoldAccess.cs:71` — `ConfigureAwait(false)` flipped to `true`.
+- **The `sample-integration` triage target leaves live rows behind, and they are not inert.**
+  Stryker kills a host it judges hung, so the killed process skips the `finally` that removes its
+  fixture rows, and the feed suites date theirs five years out on purpose. One run left five
+  future-dated published rows in `nativeweb_sample_test` and broke an e2e feed test an hour
+  later. Documented in `tools/mutation-triage.ts`'s header and listed by
+  `scripts/cleanup/018-paging-property-tests.ps1`; the durable fix would be a Stryker
+  `--dev-mode`/higher timeout for that target, or fixture rows that a session-scoped sweep can
+  find by prefix without a `finally`. Neither is done.
+- **`ConfigureAwait` mutants inflate every survivor count in this repo.** Roughly fifteen of
+  `JauntyArticleStore`'s thirty-four integration-tier survivors are `.ConfigureAwait(false)` →
+  `true`, which is behaviour-identical under a test host. A `stryker-config.json` with
+  `ignore-methods: ["ConfigureAwait"]` would make the raw numbers mean what they look like.
+- **The generated list's paging arithmetic has no unit-reachable composition point.** The
+  request-`PageSize + 1`, trim-the-tail-when-backward and build-three-tokens logic is emitted
+  inline by `ScaffoldEmitter`, so the store↔endpoint interaction — where all three high 017
+  defects lived — is only testable through HTTP. Extracting it into a `ScaffoldPaging.From(...)`
+  helper in `libs/nativeweb.scaffold` would make it property-testable at the unit tier and
+  shrink every consumer's generated output. A production refactor of the generator, so out of
+  scope for a test branch.
+- **`DemoSignIn.cs` scores 17.2% and `Models.cs` 0.0%.** Neither was in this branch's scope. The
+  triage figures are in `tools/mutation-baseline.json` if either becomes worth closing.
+- **`Encode` substitutes for an unpaired surrogate; `TryDecode` no longer does.** After the strict
+  UTF-8 read, a token `TryDecode` accepts re-encodes to itself — but `Encode` still calls
+  `Encoding.UTF8.GetBytes`, which replaces a lone surrogate in `Property`, `SortValue` or `Key`
+  with U+FFFD. A row whose sorted column holds one therefore yields a cursor that decodes to a
+  *different* cursor, and the reader lands on the wrong window rather than an error. Pre-existing,
+  not reachable from `apps/sample`, and the property tests do not generate surrogates. Closing it
+  means a strict `Utf8.FromUtf16` in `Encode` returning the empty string on failure, which is the
+  refusal path that already exists for an over-long part.
