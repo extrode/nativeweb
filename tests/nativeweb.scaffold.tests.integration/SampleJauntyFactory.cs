@@ -196,4 +196,49 @@ internal static class SampleTestDatabase
 
         await command.ExecuteNonQueryAsync();
     }
+
+    /// <summary>
+    /// Removes the future-dated feed rows a killed test host left behind, and
+    /// nothing a running one could still be using.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The <c>finally</c> above is only reached by a process that finishes.
+    /// Stryker kills a host it judges hung, and the feed suites date their rows
+    /// five years out so they are certain to be on the page — which puts a
+    /// leaked row at the top of the public feed for every run after, in both
+    /// tiers. Measured 2026-09-01: five such rows, and an e2e feed test failing
+    /// on them an hour later.
+    /// </para>
+    /// <para>
+    /// The predicate is the cleanup script's — a feed-suite prefix and a future
+    /// date — plus an age gate, because Stryker runs test hosts in parallel
+    /// against this one database and a sweep by prefix alone would delete a
+    /// sibling's live rows. A feed row's <c>created_at</c> is
+    /// <c>UtcNow.AddYears(5)</c> plus at most an hour, so the mint time is
+    /// recoverable from it, and a row minted more than thirty minutes ago cannot
+    /// belong to a test that is still running. The cutoff is computed here with
+    /// the same <c>AddYears</c> the tests use rather than a PostgreSQL interval,
+    /// which can differ from it by a day across a leap year.
+    /// </para>
+    /// </remarks>
+    internal static async Task SweepLeakedFeedRowsAsync()
+    {
+        DateTime cutoff = DateTime.UtcNow.AddYears(5).AddMinutes(-30);
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            """
+            DELETE FROM articles
+            WHERE (id LIKE 'feed-%' OR id LIKE 'e2e-%')
+              AND created_at > now()
+              AND created_at < @cutoff
+            """,
+            connection);
+        command.Parameters.AddWithValue("cutoff", cutoff);
+
+        await command.ExecuteNonQueryAsync();
+    }
 }

@@ -27,7 +27,7 @@ namespace NativeWeb.Scaffold.Tests.Integration;
 /// shared TRUNCATE this suite refuses to have.
 /// </para>
 /// </remarks>
-public sealed class PublicFeedTests
+public sealed class PublicFeedTests : IClassFixture<LeakedFeedRowsSweep>
 {
     private static async Task<string> FeedAsync(HttpClient client)
     {
