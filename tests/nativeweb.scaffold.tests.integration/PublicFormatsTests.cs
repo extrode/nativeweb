@@ -173,8 +173,8 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         Assert.Equal(
             "http://localhost/articles/binding-forms-under-nativeaot",
             entries[0].Element(Atom + "link")?.Attribute("href")?.Value);
-        Assert.Equal("2026-06-18T14:05:00Z", entries[0].Element(Atom + "updated")?.Value);
-        Assert.Equal("2026-06-18T14:05:00Z", root.Element(Atom + "updated")?.Value);
+        Assert.Equal("2026-06-20T00:00:00Z", entries[0].Element(Atom + "updated")?.Value);
+        Assert.Equal("2026-06-20T00:00:00Z", root.Element(Atom + "updated")?.Value);
         Assert.StartsWith("public, max-age=", response.Headers.CacheControl?.ToString(), StringComparison.Ordinal);
     }
 
@@ -195,7 +195,7 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         Assert.Equal(2, items.Length);
         Assert.Equal("Lean Native Web", items[1].Element("title")?.Value);
         Assert.Equal("http://localhost/articles/lean-native-web", items[1].Element("link")?.Value);
-        Assert.Equal("Wed, 04 Mar 2026 09:30:00 GMT", items[1].Element("pubDate")?.Value);
+        Assert.Equal("Thu, 05 Mar 2026 00:00:00 GMT", items[1].Element("pubDate")?.Value);
     }
 
     [Fact]

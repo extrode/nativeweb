@@ -64,12 +64,12 @@ public sealed class ScaffoldedDefectTests
             new("title", "Malformed number"),
             new("author", "xunit"),
             new("body", "hello"),
-            new("viewCount", "abc"));
+            new("publishedAt", "not-a-date"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         string html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Views must be a whole number.", html, StringComparison.Ordinal);
+        Assert.Contains("Published must be a date.", html, StringComparison.Ordinal);
 
         using HttpResponseMessage list = await client.GetAsync(new Uri("/admin/articles", UriKind.Relative));
         Assert.DoesNotContain("Malformed number", await list.Content.ReadAsStringAsync(), StringComparison.Ordinal);
@@ -93,14 +93,13 @@ public sealed class ScaffoldedDefectTests
             new("title", "Kept on rejection"),
             new("author", "xunit"),
             new("body", "hello"),
-            new("viewCount", "abc"));
+            new("publishedAt", "not-a-date"));
 
         string html = await response.Content.ReadAsStringAsync();
 
         // What was typed, in the fields, including the value that failed.
         Assert.Contains("value=\"Kept on rejection\"", html, StringComparison.Ordinal);
-        Assert.Contains("value=\"abc\"", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("value=\"0\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"publishedAt\" value=\"not-a-date\"", html, StringComparison.Ordinal);
 
         // And the page is still the create page: same action, no id in it.
         Assert.Contains("action=\"/admin/articles\"", html, StringComparison.Ordinal);
@@ -108,10 +107,10 @@ public sealed class ScaffoldedDefectTests
     }
 
     // Blank is not malformed: the documented fallback still applies, so an omitted
-    // number is 0 rather than an error. Stated as a fact because the fix above could
+    // date is null rather than an error. Stated as a fact because the fix above could
     // so easily have taken this with it.
     [Fact]
-    public async Task Create_WithABlankNumber_StillTakesTheFallback()
+    public async Task Create_WithABlankDate_StillTakesTheFallback()
     {
         using var factory = new SampleFactory();
         using HttpClient client = await factory.CreateSignedInAsync();
@@ -123,7 +122,7 @@ public sealed class ScaffoldedDefectTests
             new("title", "Blank number"),
             new("author", "xunit"),
             new("body", "hello"),
-            new("viewCount", ""));
+            new("publishedAt", ""));
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
 
@@ -206,7 +205,7 @@ public sealed class ScaffoldedDefectTests
             new("title", "Untitled"),
             new("author", "xunit"),
             new("body", "distinctive-body-term"),
-            new("viewCount", "0"));
+            new("status", "Draft"));
 
         Assert.Equal(HttpStatusCode.Found, seeded.StatusCode);
 

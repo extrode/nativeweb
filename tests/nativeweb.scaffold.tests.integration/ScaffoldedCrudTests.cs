@@ -66,8 +66,10 @@ public sealed class ScaffoldedCrudTests
 
         Assert.Contains("name=\"title\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"author\"", html, StringComparison.Ordinal);
-        Assert.Contains("name=\"published\"", html, StringComparison.Ordinal);
-        Assert.Contains("name=\"viewCount\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"status\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"publishedAt\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"categoryKey\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"tags\"", html, StringComparison.Ordinal);
 
         // [ScaffoldMultiline] is a textarea, not an input.
         Assert.Contains("<textarea id=\"body\" name=\"body\"", html, StringComparison.Ordinal);
@@ -76,6 +78,7 @@ public sealed class ScaffoldedCrudTests
         // mass-assignment control, observed from outside.
         Assert.DoesNotContain("name=\"id\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"createdAt\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("name=\"viewCount\"", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -91,8 +94,7 @@ public sealed class ScaffoldedCrudTests
             new("title", "Written by a test"),
             new("author", "xunit"),
             new("body", "hello"),
-            new("published", "on"),
-            new("viewCount", "3"));
+            new("status", "Published"));
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
 
@@ -155,8 +157,7 @@ public sealed class ScaffoldedCrudTests
             new("title", "Renamed"),
             new("author", "Sy"),
             new("body", "still here"),
-            new("published", "on"),
-            new("viewCount", "1420"));
+            new("status", "Published"));
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
 
@@ -168,9 +169,9 @@ public sealed class ScaffoldedCrudTests
         Assert.Contains("2026-03-04 09:30", html, StringComparison.Ordinal);
     }
 
-    // An unticked checkbox submits nothing, so omitting the field has to clear it.
+    // The status select posts one member name, and the row takes it (spec 023 R3).
     [Fact]
-    public async Task Update_ClearsABooleanWhenTheCheckboxIsOmitted()
+    public async Task Update_TakesTheStatusTheSelectPosts()
     {
         using var factory = new SampleFactory();
         using HttpClient client = await factory.CreateSignedInAsync();
@@ -182,12 +183,12 @@ public sealed class ScaffoldedCrudTests
             new("title", "Lean Native Web"),
             new("author", "Sy"),
             new("body", "b"),
-            new("viewCount", "1420"));
+            new("status", "Archived"));
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
 
         string html = await BodyAsync(client, "/admin/articles?q=Lean");
-        Assert.Contains("<td>No</td>", html, StringComparison.Ordinal);
+        Assert.Contains("<td>Archived</td>", html, StringComparison.Ordinal);
     }
 
     [Fact]

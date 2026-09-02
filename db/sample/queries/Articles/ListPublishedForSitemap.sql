@@ -7,5 +7,5 @@ SELECT
     slug,
     created_at
 FROM articles
-WHERE published
-ORDER BY created_at DESC, id DESC;
+WHERE status = 'published'
+ORDER BY COALESCE(published_at, (created_at AT TIME ZONE 'UTC')::date) DESC, created_at DESC, id DESC;

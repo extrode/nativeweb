@@ -278,8 +278,8 @@ internal static class SampleE2eDatabase
 
         await using var command = new NpgsqlCommand(
             """
-            INSERT INTO articles (id, slug, title, author, body, published, view_count, created_at)
-            VALUES (@id, @id, @title, 'playwright', 'body', @published, 0, @created_at)
+            INSERT INTO articles (id, slug, title, author, body, status, view_count, created_at)
+            VALUES (@id, @id, @title, 'playwright', 'body', CASE WHEN @published THEN 'published' ELSE 'draft' END, 0, @created_at)
             """,
             connection);
         command.Parameters.AddWithValue("id", id);

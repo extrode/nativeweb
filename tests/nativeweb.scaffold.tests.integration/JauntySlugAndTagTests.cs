@@ -31,8 +31,7 @@ public sealed class JauntySlugAndTagTests
             new("slug", slug),
             new("author", "xunit"),
             new("body", "b"),
-            new("published", "on"),
-            new("viewCount", "0"));
+            new("status", "Published"));
 
     private static Task<HttpResponseMessage> EditArticleAsync(HttpClient client, string id, string title, string slug) =>
         Forms.PostAsync(
@@ -43,7 +42,7 @@ public sealed class JauntySlugAndTagTests
             new("slug", slug),
             new("author", "xunit"),
             new("body", "b"),
-            new("viewCount", "0"));
+            new("status", "Draft"));
 
     [Fact]
     public async Task Create_WithABlankSlug_DerivesItFromTheTitle()

@@ -88,7 +88,7 @@ internal static class SampleTestDatabase
         await connection.OpenAsync();
 
         await using var command = new NpgsqlCommand(
-            "SELECT title, author, published, created_at FROM articles WHERE title = @t", connection);
+            "SELECT title, author, status = 'published', created_at FROM articles WHERE title = @t", connection);
         command.Parameters.AddWithValue("t", title);
 
         await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
@@ -145,8 +145,8 @@ internal static class SampleTestDatabase
 
         await using var command = new NpgsqlCommand(
             """
-            INSERT INTO articles (id, slug, title, author, body, published, view_count, created_at)
-            VALUES (@id, @id, @title, @author, @body, TRUE, 0, NOW())
+            INSERT INTO articles (id, slug, title, author, body, status, view_count, created_at)
+            VALUES (@id, @id, @title, @author, @body, 'published', 0, NOW())
             """,
             connection);
         command.Parameters.AddWithValue("id", id);
@@ -174,8 +174,8 @@ internal static class SampleTestDatabase
 
         await using var command = new NpgsqlCommand(
             """
-            INSERT INTO articles (id, slug, title, author, body, published, view_count, created_at)
-            VALUES (@id, @id, @title, @author, @body, @published, 0, @created_at)
+            INSERT INTO articles (id, slug, title, author, body, status, view_count, created_at)
+            VALUES (@id, @id, @title, @author, @body, CASE WHEN @published THEN 'published' ELSE 'draft' END, 0, @created_at)
             """,
             connection);
         command.Parameters.AddWithValue("id", id);

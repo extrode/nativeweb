@@ -92,15 +92,6 @@
           "isRowVersion": false,
           "isComputed": false
         },
-        "published": {
-          "name": "published",
-          "dbType": "boolean",
-          "isNullable": false,
-          "isPrimaryKey": false,
-          "isIdentity": false,
-          "isRowVersion": false,
-          "isComputed": false
-        },
         "view_count": {
           "name": "view_count",
           "dbType": "integer",
@@ -128,6 +119,35 @@
           "isUnicode": true,
           "isRowVersion": false,
           "isComputed": false
+        },
+        "status": {
+          "name": "status",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "dbType": "date",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "category_key": {
+          "name": "category_key",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
         }
       },
       "indexes": [
@@ -136,6 +156,15 @@
           "columns": [
             "author",
             "id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "articles_category_key_idx",
+          "columns": [
+            "category_key"
           ],
           "isUnique": false,
           "hasPrefixKeyPart": false,
@@ -161,6 +190,16 @@
           "hasExpressionKeyPart": false
         },
         {
+          "name": "articles_public_order_idx",
+          "columns": [
+            "created_at",
+            "id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": true
+        },
+        {
           "name": "articles_slug_key",
           "columns": [
             "slug"
@@ -176,6 +215,53 @@
             "id"
           ],
           "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
+    "categories": {
+      "name": "categories",
+      "columns": {
+        "key": {
+          "name": "key",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "categories_name_key_idx",
+          "columns": [
+            "name",
+            "key"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "categories_pkey",
+          "columns": [
+            "key"
+          ],
+          "isUnique": true,
           "hasPrefixKeyPart": false,
           "hasExpressionKeyPart": false
         }
@@ -252,6 +338,12 @@
       "fromColumn": "tag_slug",
       "toTable": "tags",
       "toColumn": "slug"
+    },
+    {
+      "fromTable": "articles",
+      "fromColumn": "category_key",
+      "toTable": "categories",
+      "toColumn": "key"
     }
   ],
   "procedures": {},

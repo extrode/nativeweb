@@ -20,10 +20,12 @@ SELECT
     title,
     author,
     body,
-    published,
     view_count,
     created_at,
-    slug
+    slug,
+    status,
+    published_at,
+    category_key
 FROM articles
 WHERE (title ILIKE @pattern
     OR COALESCE(author, '') ILIKE @pattern

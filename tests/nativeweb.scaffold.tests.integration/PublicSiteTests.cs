@@ -21,10 +21,14 @@ namespace NativeWeb.Scaffold.Tests.Integration;
 /// </remarks>
 public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
 {
-    private static readonly Regex ViewCountField = new(
-        "name=\"viewCount\" value=\"(\\d+)\"",
-        RegexOptions.None,
+    // The view count is read-only since spec 023 made it [ScaffoldReadOnly], so the
+    // edit form no longer carries it; the admin list does, in its Views column.
+    private static readonly Regex Cell = new(
+        "<t([hd])[^>]*>(.*?)</t[hd]>",
+        RegexOptions.Singleline,
         TimeSpan.FromSeconds(1));
+
+    private static readonly Regex Tag = new("<[^>]+>", RegexOptions.None, TimeSpan.FromSeconds(1));
 
     private static async Task<(HttpResponseMessage Response, string Body)> GetAsync(HttpClient client, string path)
     {
@@ -32,15 +36,27 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
         return (response, await response.Content.ReadAsStringAsync());
     }
 
-    private static async Task<int> AdminViewCountAsync(HttpClient signedIn, string id)
+    private static async Task<int> AdminViewCountAsync(HttpClient signedIn, string id, string query = "")
     {
-        (HttpResponseMessage response, string form) = await GetAsync(signedIn, $"/admin/articles/{id}");
+        (HttpResponseMessage response, string list) =
+            await GetAsync(signedIn, "/admin/articles?q=" + Uri.EscapeDataString(query));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        Match match = ViewCountField.Match(form);
-        Assert.True(match.Success, "The edit form has no view count field.");
-        return int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        int link = list.IndexOf($"href=\"/admin/articles/{id}\"", StringComparison.Ordinal);
+        Assert.True(link >= 0, $"The admin list has no row for {id}.");
+        int rowStart = list.LastIndexOf("<tr>", link, StringComparison.Ordinal);
+        int rowEnd = list.IndexOf("</tr>", link, StringComparison.Ordinal);
+
+        List<string> headers = CellsOf(list[..list.IndexOf("</thead>", StringComparison.Ordinal)]);
+        int column = headers.IndexOf("Views");
+        Assert.True(column >= 0, "The admin list has no Views column.");
+
+        List<string> cells = CellsOf(list[rowStart..rowEnd]);
+        return int.Parse(cells[column], System.Globalization.CultureInfo.InvariantCulture);
     }
+
+    private static List<string> CellsOf(string row) =>
+        Cell.Matches(row).Select(m => Tag.Replace(m.Groups[2].Value, "").Trim()).ToList();
 
     private static async Task GetFiftyTimesAsync(HttpClient client, string path)
     {
@@ -67,8 +83,7 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
             new("slug", slug),
             new("author", "xunit"),
             new("body", "First paragraph.\n\nSecond paragraph."),
-            new("published", "on"),
-            new("viewCount", "0"));
+            new("status", "Published"));
 
     // --- the in-memory store, over the seeded demo rows -------------------------
 
@@ -305,8 +320,8 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
 
             await GetFiftyTimesAsync(client, $"/articles/{prefix}-p");
 
-            Assert.Equal(51, await AdminViewCountAsync(admin, $"{prefix}-p"));
-            Assert.Equal(0, await AdminViewCountAsync(admin, $"{prefix}-d"));
+            Assert.Equal(51, await AdminViewCountAsync(admin, $"{prefix}-p", prefix));
+            Assert.Equal(0, await AdminViewCountAsync(admin, $"{prefix}-d", prefix));
         }
         finally
         {
@@ -340,7 +355,7 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
             Assert.DoesNotContain("public", firstDetail.Headers.CacheControl?.ToString() ?? "", StringComparison.Ordinal);
             Assert.False(firstDetail.Headers.Contains("Age"));
             Assert.False(secondDetail.Headers.Contains("Age"));
-            Assert.Equal(2, await AdminViewCountAsync(admin, $"{prefix}-p"));
+            Assert.Equal(2, await AdminViewCountAsync(admin, $"{prefix}-p", prefix));
         }
         finally
         {

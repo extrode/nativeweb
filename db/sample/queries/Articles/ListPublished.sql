@@ -1,5 +1,5 @@
 -- @params take:int
--- The public page's feed: published articles only, newest first.
+-- The public page's feed: Published articles only, newest publication date first.
 --
 -- This file used to carry `-- @allow-sort demo table, three seeded rows; an index
 -- would cost more to explain than the sort costs to run`, because `articles` had
@@ -25,26 +25,30 @@
 -- second row shape to learn. Narrow it when the row count makes the width cost
 -- something; on a demo table it buys nothing and costs a type.
 --
--- ORDER BY created_at DESC, id DESC -- the id tiebreak matters because created_at
--- defaults to NOW() and a seeded or scripted insert can give several rows the
--- same timestamp, which would make the page order unstable between requests.
+-- The order is the publication date, a row without one dated by its creation
+-- day in UTC (spec 023 R4), then created_at, then id: the id tiebreak matters
+-- because created_at defaults to NOW() and a seeded or scripted insert can give
+-- several rows the same timestamp, which would make the page order unstable
+-- between requests. 0004_status_dates_categories.sql carries a partial expression
+-- index in this exact shape, all three DESC, over status = 'published' -- a btree
+-- can be walked backwards but not half-backwards, so the directions must match
+-- the index's own or PostgreSQL sorts at runtime. Every public query that pages
+-- this window (ListPublishedByTag, ListPublishedForSitemap, ListForWindow) spells
+-- the same expression, so a page and its tags agree on which rows are in it.
 --
--- Both DESC, and that is not cosmetic. A btree index can be walked backwards but
--- not half-backwards, so `created_at DESC, id ASC` matches neither direction of
--- articles_created_at_id_idx and PostgreSQL sorts at runtime anyway -- the sort
--- this file's exemption used to declare, still there, no longer declared. Matching
--- the index's own direction is what makes the exemption's expiry true rather than
--- merely unwarned.
+-- Only Published is public: Draft and Archived are equally absent (R3).
 SELECT
     id,
     title,
     author,
     body,
-    published,
     view_count,
     created_at,
-    slug
+    slug,
+    status,
+    published_at,
+    category_key
 FROM articles
-WHERE published
-ORDER BY created_at DESC, id DESC
+WHERE status = 'published'
+ORDER BY COALESCE(published_at, (created_at AT TIME ZONE 'UTC')::date) DESC, created_at DESC, id DESC
 LIMIT @take;

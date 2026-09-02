@@ -167,6 +167,8 @@ public sealed class Program
             // seeded tags are rows migration 0003 inserts, so nothing seeds here.
             builder.Services.AddSingleton<IScaffoldStore<Tag>>(
                 sp => new JauntyTagStore(sp.GetRequiredService<NpgsqlDataSource>()));
+            builder.Services.AddSingleton<IScaffoldStore<Category>>(
+                sp => new JauntyCategoryStore(sp.GetRequiredService<NpgsqlDataSource>()));
 
             // Same seam, but the filter and the ordering move into SQL. This is the
             // pair the tutorial in docs/00-quick-start/tutorial-first-feature.md compares.

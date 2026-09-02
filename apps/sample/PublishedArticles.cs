@@ -246,7 +246,7 @@ internal sealed class JauntyPublishedArticles(NpgsqlDataSource dataSource) : IPu
         List<ArticleTags.Result.ListForWindow> links =
             await db.ArticleTags.ListForWindowAsync(null, take, ct).ConfigureAwait(false);
 
-        return Listed(rows, links, r => (r.Id, r.Slug, r.Title, r.Author, r.CreatedAt));
+        return Listed(rows, links, r => (r.Id, r.Slug, r.Title, r.Author, r.CreatedAt, JauntyArticleStore.DayOf(r.PublishedAt)));
     }
 
     public async ValueTask<ArticleDetail?> BySlugAsync(string slug, CancellationToken ct)
@@ -293,7 +293,7 @@ internal sealed class JauntyPublishedArticles(NpgsqlDataSource dataSource) : IPu
         List<ArticleTags.Result.ListForWindow> links =
             await db.ArticleTags.ListForWindowAsync(tagSlug, take, ct).ConfigureAwait(false);
 
-        return Listed(rows, links, r => (r.Id, r.Slug, r.Title, r.Author, r.CreatedAt));
+        return Listed(rows, links, r => (r.Id, r.Slug, r.Title, r.Author, r.CreatedAt, JauntyArticleStore.DayOf(r.PublishedAt)));
     }
 
     public async ValueTask<IReadOnlyList<SitemapArticle>> SitemapAsync(CancellationToken ct)
@@ -312,7 +312,7 @@ internal sealed class JauntyPublishedArticles(NpgsqlDataSource dataSource) : IPu
     private static List<PublishedArticle> Listed<TRow>(
         List<TRow> rows,
         List<ArticleTags.Result.ListForWindow> links,
-        Func<TRow, (string Id, string Slug, string Title, string? Author, DateTime CreatedAt)> fields)
+        Func<TRow, (string Id, string Slug, string Title, string? Author, DateTime CreatedAt, DateOnly? PublishedAt)> fields)
     {
         Dictionary<string, List<TagRef>> tagsById = new(StringComparer.Ordinal);
         foreach (ArticleTags.Result.ListForWindow link in links)
@@ -329,9 +329,9 @@ internal sealed class JauntyPublishedArticles(NpgsqlDataSource dataSource) : IPu
         var articles = new List<PublishedArticle>(rows.Count);
         foreach (TRow row in rows)
         {
-            (string id, string slug, string title, string? author, DateTime createdAt) = fields(row);
+            (string id, string slug, string title, string? author, DateTime createdAt, DateOnly? publishedAt) = fields(row);
             IReadOnlyList<TagRef> tags = tagsById.TryGetValue(id, out List<TagRef>? found) ? found : [];
-            articles.Add(new PublishedArticle(id, slug, title, author, createdAt, tags));
+            articles.Add(new PublishedArticle(id, slug, title, author, createdAt, tags, publishedAt));
         }
 
         return articles;

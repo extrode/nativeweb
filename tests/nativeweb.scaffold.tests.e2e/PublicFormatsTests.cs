@@ -61,7 +61,7 @@ public sealed class PublicFormatsTests(InMemorySampleFixture app, BrowserFixture
 
         Assert.Contains("<feed xmlns=\"http://www.w3.org/2005/Atom\">", body, StringComparison.Ordinal);
         Assert.Contains($"href=\"{app.BaseUrl}/articles/binding-forms-under-nativeaot\"", body, StringComparison.Ordinal);
-        Assert.Contains("<updated>2026-06-18T14:05:00Z</updated>", body, StringComparison.Ordinal);
+        Assert.Contains("<updated>2026-06-20T00:00:00Z</updated>", body, StringComparison.Ordinal);
     }
 
     [Fact]

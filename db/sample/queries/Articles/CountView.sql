@@ -5,4 +5,4 @@
 UPDATE articles
 SET view_count = view_count + 1
 WHERE slug = @slug
-  AND published;
+  AND status = 'published';
