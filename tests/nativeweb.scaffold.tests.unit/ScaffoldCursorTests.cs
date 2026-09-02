@@ -167,6 +167,31 @@ public sealed class ScaffoldCursorTests
         Assert.Equal(original, Decode(original.Encode()));
     }
 
+    // Built here rather than passed as InlineData: xUnit serializes theory arguments, and
+    // the round trip replaces a lone surrogate with U+FFFD before the test sees it, so
+    // every case arrives well-formed and the assertion tests nothing.
+    [Fact]
+    public void APartWithALoneSurrogate_YieldsNoToken()
+    {
+        const string high = "\ud800";
+        const string low = "\udc00";
+
+        Assert.Equal("", Cursor("Ti" + high + "tle", "x", "a1").Encode());
+        Assert.Equal("", Cursor("Title", low, "a1").Encode());
+        Assert.Equal("", Cursor("Title", "x", "a1" + high).Encode());
+    }
+
+    private static ScaffoldCursor Cursor(string property, string? value, string key) =>
+        new(property, ScaffoldSortDirection.Ascending, value, key, false);
+
+    [Fact]
+    public void APairedSurrogate_EncodesAndRoundTrips()
+    {
+        var original = new ScaffoldCursor("Title", ScaffoldSortDirection.Ascending, "😀 ok", "a1", false);
+
+        Assert.Equal(original, Decode(original.Encode()));
+    }
+
     [Theory]
     [InlineData("Title", ScaffoldSortDirection.Ascending, true)]
     [InlineData("Title", ScaffoldSortDirection.Descending, false)]
