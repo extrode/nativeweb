@@ -1,6 +1,6 @@
 # 008 — Sign-in library for epass.io relying parties
-Status: draft — reviewed 2026-08-25, **three criteria need the user to amend them or the code**;
-see "Acceptance review" below. Everything else is met and evidenced.
+Status: done — closed 2026-09-02. R1, R11 and R12 were amended to describe what shipped; see
+"Closed" below. Everything else was met and evidenced on 2026-08-25.
 Created: 2026-08-19
 
 ## Problem
@@ -69,9 +69,12 @@ authentication is a template with ambitions.
 
 ## Requirements
 
-- **R1** A consumer obtains working sign-in by supplying configuration, one implementation of the
-  login-flow storage contract, and one callback resolving a verified external subject to a local
-  user. It writes no endpoint, no PKCE, no cookie handling and no callback logic.
+- **R1** A consumer obtains working sign-in by supplying a configuration section, one
+  implementation of the login-flow storage contract, and one callback resolving a verified
+  external subject to a local user. It writes no endpoint, no PKCE, no cookie handling, no callback
+  logic and no configuration reading. *(Amended 2026-09-02: "supplying configuration" became
+  "supplying a configuration section", and reading it by hand is now something the consumer does
+  not write.)*
 - **R2** The library provides the login, callback and logout endpoints; the consumer chooses their
   paths.
 - **R3** A login flow is consumable **at most once**. A second attempt on the same flow is
@@ -92,9 +95,14 @@ authentication is a template with ambitions.
 - **R10** The library does not depend on the identity-provider library. The OAuth-client
   primitives both need live where both can reach them without one depending on the other.
 - **R11** The consumer keeps ownership of: local user provisioning, session cookie name, login page
-  markup, and asset URLs. None acquires a library-supplied default.
+  markup, and asset URLs. The cookie name has a library-supplied default, `__Host-signin`, which the
+  consumer may override; the rest acquire none. *(Amended 2026-09-02: was "None acquires a
+  library-supplied default".)*
 - **R12** justsmtp.com uses the library, and its nine `Auth/` files no longer exist. Sign-in
-  behaviour there is unchanged: same URLs, same cookie, same outcomes.
+  behaviour there is unchanged — same URLs, same cookie, same outcomes — with two deliberate
+  exceptions: every existing session is signed out once at cutover by the `v2` ticket format, and
+  the login POST answers with a redirect to `?sent=1` on a page that no longer shows the address.
+  *(Amended 2026-09-02: was "unchanged" without the exceptions.)*
 - **R13** Everything ships AOT-clean — no trim or AOT analyzer warnings, under repo-wide
   `TreatWarningsAsErrors`.
 - **R14** The library is named for the provider it speaks to and claims no standards conformance in
@@ -123,8 +131,8 @@ authentication is a template with ambitions.
 - **R10** — Given the library is built, When its dependencies are inspected, Then the
   identity-provider library is absent.
 - **R12** — Given justsmtp.com on the library, When a user signs in, uses a stale link, signs out,
-  and returns, Then every outcome matches today's behaviour, and the nine files are gone from the
-  repository.
+  and returns, Then every outcome matches today's behaviour apart from the two exceptions R12
+  names, and the nine files are gone from the repository.
 
 ## Acceptance review — 2026-08-25
 
@@ -184,6 +192,22 @@ be met literally); renaming `OnSignedIn` to `WithResolver`, since the delegate *
 sign-in and vetoes by returning null rather than merely observing it; splitting `LoginPagePath`
 out of `LoginPath`, which the plan specified and the code merged; and rejecting a non-loopback
 `http://` BaseUrl, left open because it would break a deployment behind a TLS-terminating proxy.
+
+## Closed — 2026-09-02
+
+The three "amend or change" verdicts above were resolved by amending the criteria, since in each
+case the shipped code had taken the better decision and the criterion predated it.
+
+| R | Was | Now |
+|---|---|---|
+| R1 | "under 10 lines" against a 32-line hand-rolled `IConfiguration` block | **Met.** The section overload the review said was missing exists: `SignInConfiguration.AddSignIn(IServiceCollection, IConfiguration)` (`libs/nativeweb.signin/SignInConfiguration.cs:34`), added by spec 016. `skeleton/apps/__product__/Program.cs:46-50` wires sign-in in three lines plus `app.MapSignIn()`. |
+| R11 | "None acquires a library-supplied default" vs `CookieName` | **Met** as amended. `SignInOptions.CookieName` defaults to `__Host-signin` (`libs/nativeweb.signin/SignInOptions.cs:142`) and the validator refuses any name without the `__Host-` prefix, so the default is the safe one and a consumer that overrides it cannot choose a weaker shape. |
+| R12 | "no behavioural change" vs the one-time sign-out and the address no longer shown | **Met** as amended. Both differences are named in the requirement now; the one-time sign-out is the fail-closed fix for a `.` in the subject, and not echoing the address is the privacy posture the library holds by never reading it. |
+
+The four T18 design calls listed under the review stay open in `~/.claude/away-questions.md`;
+none was a criterion here. The library has since been renamed to `libs/nativeweb.signin` and the
+identity provider has left the repository (`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`),
+so the paths in the review table are historical.
 
 ## Open questions
 

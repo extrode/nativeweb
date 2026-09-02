@@ -6,6 +6,12 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Spec 008 closed, 2026-09-02, `docs/008-close`.** The three criteria the 2026-08-25 review
+  could not flip were amended rather than the code changed, on the user's call: R1 now asks for a
+  configuration section and no hand reading (the `AddSignIn(IConfiguration)` overload the review
+  said was missing has existed since spec 016, and the skeleton wires sign-in in three lines),
+  R11 names the `__Host-signin` default, R12 names the one-time sign-out and the address that is
+  no longer echoed. `Status: done`; the spec's "Closed" section carries the R-by-R evidence.
 - **Spec 018 — library documentation and the adoption path. Done, on
   `docs/018-library-docs-and-adoption` (2026-09-02).** Six library READMEs (`nativeweb.web`,
   `.render`, `.forms`, `.security`, `.mail`, `.signin.testing`), an adoption guide for an existing

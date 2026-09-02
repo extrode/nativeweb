@@ -240,6 +240,11 @@ Merged into `dev`, not yet tagged.
   green (376 tests).
 
 ### Changed
+- **Spec 008 closed.** R1, R11 and R12 were amended on 2026-09-02 to describe what shipped
+  rather than what was written before the code existed: a consumer supplies a configuration
+  section and reads nothing by hand (the overload arrived with spec 016), the cookie name has the
+  `__Host-signin` default and nothing else does, and the two deliberate differences at the
+  justsmtp cutover are named. `Status: done`.
 - **Breaking: `IScaffoldStore<T>.ListAsync` takes an ordering and a cursor instead of `skip`.**
   `(search, searchFields, skip, take, ct)` becomes
   `(search, searchFields, sort, sortFields, after, take, ct)`; the other five methods are unchanged.

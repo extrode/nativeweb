@@ -375,7 +375,11 @@ Small, clear, and could be picked up without a design decision.
   The `Directory.Build.props` half of this **was** fixed in 009: `JauntyQRoot` now probes two
   depths, so a worktree resolves it with no `-p:` flag.
 
-- **`docs/specs/008-epass-signin-library/008-spec.md` still says `Status: draft`** — and after the
+- ~~**`docs/specs/008-epass-signin-library/008-spec.md` still says `Status: draft`**~~ — **done
+  2026-09-02**, `docs/008-close`: the user chose to amend R1, R11 and R12 rather than change the
+  code, and R1's evidence had gone stale anyway — the `IConfiguration` overload the review said
+  was missing arrived with spec 016 and the skeleton wires sign-in in three lines. The spec's
+  "Closed" section has the R-by-R resolution. Original entry: and after the
   review, **it should**. Reviewed 2026-08-25, `docs/008-spec-status`; the R-by-R table and the
   evidence are in the spec's new "Acceptance review" section. Twelve of fifteen are met and
   evidenced. Three cannot be flipped by anyone but the user, because in each the shipped code took
