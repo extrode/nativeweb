@@ -1,5 +1,5 @@
 # 020 — A deployed sample whose admin can be reached
-Status: draft
+Status: done
 Created: 2026-09-02
 
 ## Problem
@@ -46,8 +46,8 @@ the Development route.
 - **R1** Outside the Development environment, `GET /signin` renders a form with one passphrase
   field and the antiforgery token, and `POST /signin` compares the submitted value with the
   configured secret in constant time.
-- **R2** A matching passphrase signs the visitor in with the same cookie scheme, name and claims
-  the Development route grants today, then redirects to the `ReturnUrl` when it is a local path
+- **R2** A matching passphrase signs the visitor in with the same cookie scheme, cookie name and
+  `admin` role the Development route grants today, then redirects to the `ReturnUrl` when it is a local path
   and to `/admin` otherwise.
 - **R3** A non-matching or empty passphrase re-renders the form with one fixed message and a
   401 status, and the response does not differ between "empty", "wrong" and "wrong length".

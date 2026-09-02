@@ -6,6 +6,16 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Spec 020 — a deployed sample whose admin can be reached. Done on
+  `feat/020-deployed-sample-signin`, 2026-09-02.** Found when the user opened nw-dev's admin and
+  saw Tags alone: `Article` is `[Auth(Role = "admin")]`, the only sign-in was Development-only,
+  and nw-dev runs Production. `apps/sample/AdminSignIn.cs` mounts a passphrase form outside
+  Development, read from `Sample:Admin:Passphrase`; Production exits 78 without it. Unit 105
+  green (3 red with the comparison broken), integration 93 green in the scaffold tier and 8 in the
+  sample tier (3 red with the 401 and the rate limit removed), the Production child process exits
+  78 naming the key, e2e runs the NativeAOT binary as Production over https on port 5351 through a third
+  collection fixture. The passphrase is the sample's, not the framework's: the skeleton signs in
+  through the OAuth relying party and `deploy.sh` gates the key on the `Sample` prefix only.
 - **Spec 019 — mutation residue and baseline. Done on
   `chore/019-mutation-residue-and-baseline`, 2026-09-02.** `tools/stryker-config.json` with
   `ignore-methods: ["ConfigureAwait"]` and `additional-timeout: 30000`, passed by the triage tool
