@@ -211,8 +211,8 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
         (HttpResponseMessage missing, _) = await GetAsync(client, "/tags/no-such-tag");
 
         Assert.Equal(HttpStatusCode.OK, index.StatusCode);
-        Assert.Contains(TagRow("aot", "NativeAOT", 1), indexHtml, StringComparison.Ordinal);
-        Assert.Contains(TagRow("htmx", "HTMX", 1), indexHtml, StringComparison.Ordinal);
+        Assert.Contains(TagRow("aot", "NativeAOT", 4), indexHtml, StringComparison.Ordinal);
+        Assert.Contains(TagRow("htmx", "HTMX", 2), indexHtml, StringComparison.Ordinal);
         Assert.Contains(TagRow("postgres", "PostgreSQL", 0), indexHtml, StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.OK, aot.StatusCode);
         Assert.Contains("<h1 class=\"page__title\">NativeAOT</h1>", aotHtml, StringComparison.Ordinal);
@@ -255,7 +255,7 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
         Assert.Contains("is already used.", form, StringComparison.Ordinal);
         Assert.Contains("name=\"title\"", form, StringComparison.Ordinal);
         using var document = JsonDocument.Parse(json);
-        Assert.Equal(2, document.RootElement.GetArrayLength());
+        Assert.Equal(6, document.RootElement.GetArrayLength());
         Assert.DoesNotContain("Impostor", json, StringComparison.Ordinal);
     }
 
