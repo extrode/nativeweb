@@ -6,8 +6,13 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing in flight.** Spec 023 merged into `dev` on 2026-09-03 (see `previous.md`) and
-  pushed. Next in the agreed chain of sample examples: (c) forms — contact, upload, two-step;
+- **Plan 009 — sample content and a public-site visual refresh. Done on
+  `feat/024-sample-content-and-visual-refresh`, 2026-09-03.** Eight demo articles seeded on both
+  store paths and held to one dataset by `SeedParityTests`; the sample overrides the framework
+  design tokens in its own layer, measured against WCAG AA by `tools/contrast-check.ts`; a hero,
+  article cards, and a publication date where the creation date used to be. Plan:
+  `docs/plans/2026-09-03-009-sample-content-and-visual-refresh.md`.
+- Spec 023 merged into `dev` on 2026-09-03 (see `previous.md`) and pushed. Next in the agreed chain of sample examples: (c) forms — contact, upload, two-step;
   then (d) ops — two roles, an audit trail, custom 404/500, `security.txt` on nw-dev.
 - **nw-dev runs `8f5f625`, deployed 2026-09-03 by the operator.** Promoted to blue from
   `4591470`, which was 113 commits behind, so specs 021, 022 and 023 all reached the host in one

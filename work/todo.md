@@ -1957,3 +1957,25 @@ an answer different from the one the audit assumed.
   proved at the store seam.
 - **`/articles.html` is still a second, untested URL for the listing** (carried from the 021
   review); `/articles/{slug}` sits beside it and neither canonicalises the other.
+
+## Found while building plan 009 (sample content and the visual refresh), 2026-09-03
+
+- **No public page names an article's category.** `PublishedArticle` has no category field, so
+  the list, the article page, the JSON and the CSV all omit it while the admin edits it. Adding
+  it is not one label: it touches both readers, `ListPublished.sql` and its companions, the JSON
+  contract and the CSV column order (which the 023 review already flagged once for a shift), and
+  every test that constructs the record. Deliberately out of plan 009's scope; worth doing as its
+  own change, appending the field so no positional consumer moves.
+- **`nativeweb_sample_test` holds 50,641 article rows**, every one dated 2026 and left by keyset
+  and mutation runs -- the 017 cleanup removed 100,980 in September and the table filled again.
+  Nothing fails because of it, but it is why no suite can assert an exact row count over the
+  database path, and why `SeedParityTests` had to compare the two seed *files* rather than the
+  two stores. Listed in `scripts/cleanup/009-sample-content-and-visual-refresh.ps1`.
+- **The tag pill's colour dot is `currentColor`, not the tag's own colour.** `Tag.Color` is in
+  the store and the seed sets three distinct values, and the public `TagRef` carries only slug
+  and name -- so the dot repeats the text colour. Same read-model widening as the category note
+  above, and worth doing in the same pass.
+- **Nothing renders `articles/index.html`'s filter over the seeded set in a browser.** The e2e
+  journey covers home, an article and a tag page; the htmx filter is proved at the integration
+  tier only. It was already so before plan 009 -- noted because the list is now long enough for
+  a filter to matter.
