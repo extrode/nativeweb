@@ -1856,3 +1856,21 @@ an answer different from the one the audit assumed.
   Production guard ever fires before the passphrase guard on a runner (a data-protection home that
   does not exist, say), the exit is still 78 but names another key. Found in the 020 review,
   2026-09-02.
+- **`RequestBase.PublicBase` builds `https:///` when the Host header is empty**, and nothing
+  filters the host: a feed or sitemap fetched with a forged `Host` links to that host, and the
+  output cache keys on it. Fine behind Caddy, which only forwards its own site; a product exposed
+  directly should add host filtering. Found in the 021 review, 2026-09-02.
+- **`FeedWriter.Resolve` throws `UriFormatException` on a malformed link** rather than refusing
+  with an `ArgumentException` naming the entry. Found in the 021 review, 2026-09-02.
+- **`PublicPageCache.CarriesIdentityCookie` is a fixed list a product cannot extend.** The sample's
+  `nw-sample` and demo session cookies are covered because the framework knows them; a product
+  with its own session cookie name would be cached while signed in. Found in the 021 review,
+  2026-09-02.
+- **`/articles.html` is a second URL for the listing and nothing tests or canonicalises it.**
+  Found in the 021 review, 2026-09-02.
+- **The CSP header still carries a nonce on non-HTML responses.** Harmless, since no script runs
+  in JSON, and R8 now says "depend on no nonce" rather than "no nonce"; stripping it would be a
+  change to `SecurityHeadersMiddleware`. Found in the 021 review, 2026-09-02.
+- **`AssetParityTests`' sweep excluded `tmp/` but not `.worktrees/`**, so any worktree turned the
+  repo suite red. Excluded on the 021 branch; the sweep still walks the whole tree, so a slow disk
+  pays for it. Found 2026-09-02.

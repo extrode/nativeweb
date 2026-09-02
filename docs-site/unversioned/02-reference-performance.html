@@ -95,7 +95,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#measurements">Measurements</a><a class="toc-l2" href="#bottlenecks-found-in-the-order-they-were-found">Bottlenecks found, in the order they were found</a><a class="toc-l3" href="#a-chunked-response-on-every-page-35-of-throughput-fixed">1. A chunked response, on every page — 35% of throughput (fixed)</a><a class="toc-l3" href="#the-driver-not-the-server-open-and-probably-not-worth-closing">2. The driver, not the server (open, and probably not worth closing)</a><a class="toc-l3" href="#two-locale-lookups-per-page-open-unmeasured">3. Two locale lookups per page (open, unmeasured)</a><a class="toc-l3" href="#response-compression-63-of-articles-throughput-fixed-by-moving-it">4. Response compression — 63% of articles throughput (fixed, by moving it)</a><a class="toc-l2" href="#what-has-never-been-measured">What has never been measured</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#measurements">Measurements</a><a class="toc-l2" href="#bottlenecks-found-in-the-order-they-were-found">Bottlenecks found, in the order they were found</a><a class="toc-l3" href="#1-a-chunked-response-on-every-page--35-of-throughput-fixed">1. A chunked response, on every page — 35% of throughput (fixed)</a><a class="toc-l3" href="#2-the-driver-not-the-server-open-and-probably-not-worth-closing">2. The driver, not the server (open, and probably not worth closing)</a><a class="toc-l3" href="#3-two-locale-lookups-per-page-open-unmeasured">3. Two locale lookups per page (open, unmeasured)</a><a class="toc-l3" href="#4-response-compression--63-of-articles-throughput-fixed-by-moving-it">4. Response compression — 63% of articles throughput (fixed, by moving it)</a><a class="toc-l2" href="#what-has-never-been-measured">What has never been measured</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Performance log</nav>
         <article>
@@ -213,7 +213,7 @@ well as titles adds one null-checked <code>Contains</code> per row over at most 
 <code>Take</code> adds one integer to the render. Both are inside the noise, which the ratio moving 0.841 →
 0.813 across adjacent runs of near-identical code is itself a measure of.</p>
 <h2 id="bottlenecks-found-in-the-order-they-were-found">Bottlenecks found, in the order they were found</h2>
-<h3 id="a-chunked-response-on-every-page-35-of-throughput-fixed">1. A chunked response, on every page — 35% of throughput (fixed)</h3>
+<h3 id="1-a-chunked-response-on-every-page--35-of-throughput-fixed">1. A chunked response, on every page — 35% of throughput (fixed)</h3>
 <p><code>TemplateResults.Html</code> wrote into <code>Response.BodyWriter</code> and flushed once. That reads like the
 streaming path, and is not: the body was fully materialized before the flush either way, so
 nothing was ever being streamed. What the missing <code>Content-Length</code> did was make every page a
@@ -253,7 +253,7 @@ measured one.</p>
 <p>A count off the wire is worth recording alongside it: the chunked response carried <strong>two</strong> chunk
 headers, not one per write. Kestrel was already coalescing. The cost is the framing, not
 fragmentation.</p>
-<h3 id="the-driver-not-the-server-open-and-probably-not-worth-closing">2. The driver, not the server (open, and probably not worth closing)</h3>
+<h3 id="2-the-driver-not-the-server-open-and-probably-not-worth-closing">2. The driver, not the server (open, and probably not worth closing)</h3>
 <p>The harness is a Deno <code>fetch</code> loop, because no load tool is installed on this machine and Deno is
 the mandated runtime. A route that renders nothing tops out around 22.7k req/s, which is a
 statement about <code>fetch</code> and loopback rather than about Kestrel. Every number here is therefore a
@@ -261,12 +261,12 @@ floor on what the server can do, and small absolute differences between adjacent
 <p>This is the reason <code>healthz</code> is measured at all, and the reason the tolerances are as wide as
 16.3% down on throughput. Replacing the driver would raise every number and change no conclusion
 that has been drawn from them so far.</p>
-<h3 id="two-locale-lookups-per-page-open-unmeasured">3. Two locale lookups per page (open, unmeasured)</h3>
+<h3 id="3-two-locale-lookups-per-page-open-unmeasured">3. Two locale lookups per page (open, unmeasured)</h3>
 <p><code>PublicArticleEndpoints.Page</code> calls <code>Locales.Get(http.GetLocale())</code> twice — once for the render
 and once for the title. It is a dictionary lookup and almost certainly noise at this scale, but it
 is the only known redundant work on the request path, so it is written down rather than assumed
 away.</p>
-<h3 id="response-compression-63-of-articles-throughput-fixed-by-moving-it">4. Response compression — 63% of <code>articles</code> throughput (fixed, by moving it)</h3>
+<h3 id="4-response-compression--63-of-articles-throughput-fixed-by-moving-it">4. Response compression — 63% of <code>articles</code> throughput (fixed, by moving it)</h3>
 <p><code>AddNativeWebResponseCompression</code> registered Brotli and gzip for <code>text/html</code>, and
 <code>UseResponseCompression</code> ran on every page. It was the single most expensive step in the pipeline
 by a wide margin. Four variants of the same page, same harness, same session:</p>

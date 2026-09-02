@@ -95,7 +95,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#philosophy">Philosophy</a><a class="toc-l2" href="#the-enhancement-layer-boot.js">The enhancement layer: boot.js</a><a class="toc-l2" href="#attribute-conventions">Attribute conventions</a><a class="toc-l2" href="#core-rules">Core rules</a><a class="toc-l2" href="#post-only-endpoints">POST-only endpoints</a><a class="toc-l2" href="#html-ownership">HTML ownership</a><a class="toc-l2" href="#built-in-ux-defaults-spec-005">Built-in UX defaults (spec 005)</a><a class="toc-l3" href="#busy-states-r3">Busy states (R3)</a><a class="toc-l3" href="#focus-after-swap-r6">Focus after swap (R6)</a><a class="toc-l3" href="#flash-messages-r4">Flash messages (R4)</a><a class="toc-l3" href="#keyboard-r5">Keyboard (R5)</a><a class="toc-l3" href="#validation-r7-r8">Validation (R7, R8)</a><a class="toc-l3" href="#version-and-error-pages-r1-r2">/version and error pages (R1, R2)</a><a class="toc-l3" href="#browser-native-first">Browser-native first</a><a class="toc-l3" href="#any-content-type-r12">Any content type (R12)</a><a class="toc-l2" href="#considered-and-rejected-from-the-v2-handoff">Considered and rejected (from the v2 handoff)</a><a class="toc-l2" href="#guarantee">Guarantee</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#philosophy">Philosophy</a><a class="toc-l2" href="#the-enhancement-layer-bootjs">The enhancement layer: boot.js</a><a class="toc-l2" href="#attribute-conventions">Attribute conventions</a><a class="toc-l2" href="#core-rules">Core rules</a><a class="toc-l2" href="#post-only-endpoints">POST-only endpoints</a><a class="toc-l2" href="#html-ownership">HTML ownership</a><a class="toc-l2" href="#built-in-ux-defaults-spec-005">Built-in UX defaults (spec 005)</a><a class="toc-l3" href="#busy-states-r3">Busy states (R3)</a><a class="toc-l3" href="#focus-after-swap-r6">Focus after swap (R6)</a><a class="toc-l3" href="#flash-messages-r4">Flash messages (R4)</a><a class="toc-l3" href="#keyboard-r5">Keyboard (R5)</a><a class="toc-l3" href="#validation-r7-r8">Validation (R7, R8)</a><a class="toc-l3" href="#version-and-error-pages-r1-r2">/version and error pages (R1, R2)</a><a class="toc-l3" href="#browser-native-first">Browser-native first</a><a class="toc-l3" href="#any-content-type-r12">Any content type (R12)</a><a class="toc-l2" href="#considered-and-rejected-from-the-v2-handoff">Considered and rejected (from the v2 handoff)</a><a class="toc-l2" href="#guarantee">Guarantee</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Lean Native Web: Progressive Enhancement Layer</nav>
         <article>
@@ -118,7 +118,7 @@ experience changes; business logic never changes.</p>
 <p><strong>Build order, always:</strong> semantic HTML → server functionality → HTMX enhancement → Alpine.js
 enhancement. Never reverse it.</p>
 <hr />
-<h2 id="the-enhancement-layer-boot.js">The enhancement layer: boot.js</h2>
+<h2 id="the-enhancement-layer-bootjs">The enhancement layer: boot.js</h2>
 <p>Each app serves a vendored copy of <code>boot.js</code> (canonical source:
 <code>libs/nativeweb.assets/boot.js</code>; vendored at <code>wwwroot/vendor/nativeweb/boot.js</code>, guarded by a
 byte-parity unit test). It is loaded with <code>defer</code> <strong>before</strong> htmx, so its normalization runs
@@ -298,12 +298,32 @@ feature. Prefer <code>&lt;dialog&gt;</code>, <code>&lt;details&gt;</code>/<code>
 validation, lazy loading, and view transitions over rebuilding them; do not build replacements
 for browser capabilities.</p>
 <h3 id="any-content-type-r12">Any content type (R12)</h3>
-<p>LNW apps serve whatever media types they need on the Minimal-API result primitives — no
-framework machinery, no content-negotiation layer. <code>Results.Text</code> with a content type,
-<code>Results.Bytes</code>, or a streamed writer is the whole convention, already proven by
-<code>security.txt</code> (text/plain), favicon bytes (image/*), and the transfer export endpoints
-(JSON and Netscape HTML). An app that wants RSS/Atom/sitemap-XML builds the document and
-returns it the same way; the framework's job is only to not get in the way.</p>
+<p>LNW apps answer the web's text formats through one typed helper each, and offer several
+representations of one route through one mapping call
+(decision 009, spec 021).
+This section used to say the opposite — &quot;no framework machinery, no content-negotiation layer&quot; —
+and that stance was withdrawn when the sample became the first product to rebuild the same five
+things by hand.</p>
+<ul>
+<li><strong>One call per format.</strong> <code>FormatResults</code> in <code>libs/nativeweb.render</code> has <code>Text</code>, <code>Markdown</code>,
+<code>Json</code> (source-generated <code>JsonTypeInfo&lt;T&gt;</code> only, so it trims), <code>Xml</code> (an <code>XmlWriter</code> callback),
+<code>Csv</code> (RFC 4180, CRLF, formula-neutralising), <code>Atom</code>, <code>Rss</code> and <code>Sitemap</code> (structured input,
+absolute links resolved against the request's public base). Every helper buffers, declares
+<code>Content-Length</code> and writes once, for the throughput reason <code>TemplateResults.Html</code> records.</li>
+<li><strong>One route, several representations.</strong> <code>MapNegotiated(&quot;/articles&quot;, [Html, Json, Csv], ...)</code>
+in <code>libs/nativeweb.web</code> maps <code>/articles</code> and <code>/articles.{format}</code> to one handler that is told
+which format was chosen. Precedence is the extension, then <code>Accept</code> by quality and
+specificity, then the first offer. An extension the route does not offer is a 404 and an
+<code>Accept</code> that admits nothing is a 406, both <code>text/plain</code> naming the offers and neither
+reaching the handler. The extensionless route says <code>Vary: Accept</code> on every response.</li>
+<li><strong>The cache keys on the choice.</strong> <code>PublicPageCachePolicy</code> runs the same chooser and varies its
+key by the chosen media type, and refuses to store a response whose <code>Content-Type</code> is not the
+chosen format's. Two cookie-free representations of one path each get their own entry.</li>
+<li><strong>What stays on the raw primitives.</strong> Bytes, streams and any body that cannot know its length
+stay on <code>Results.Bytes</code> and <code>Results.Stream</code>, as <code>favicon</code> does. What a sitemap lists and what
+<code>robots.txt</code> disallows are the application's, because the framework owns no route inventory;
+<code>apps/sample/PublicDocuments.cs</code> is the model.</li>
+</ul>
 <hr />
 <h2 id="considered-and-rejected-from-the-v2-handoff">Considered and rejected (from the v2 handoff)</h2>
 <p>Recorded so they aren't re-proposed:</p>

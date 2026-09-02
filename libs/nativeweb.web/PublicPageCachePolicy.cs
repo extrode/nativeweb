@@ -35,7 +35,14 @@ public sealed class PublicPageCachePolicy : IOutputCachePolicy
         // page) and no storage (its own response may be personal). Both
         // directions matter -- allowing only one would leave a poisoning path
         // open.
-        bool shareable = !PublicPageCache.CarriesIdentityCookie(http.Request)
+        //
+        // Narrowed from what the default policy already decided, never widened:
+        // it has refused a request carrying an Authorization header or an
+        // authenticated user before this runs, and assigning from scratch here
+        // would hand those requests the shared store back (spec 021 review).
+        bool shareable = context.AllowCacheLookup
+            && context.AllowCacheStorage
+            && !PublicPageCache.CarriesIdentityCookie(http.Request)
             && (HttpMethods.IsGet(http.Request.Method) || HttpMethods.IsHead(http.Request.Method));
 
         context.EnableOutputCaching = shareable;
@@ -48,6 +55,20 @@ public sealed class PublicPageCachePolicy : IOutputCachePolicy
 
         context.CacheVaryByRules.QueryKeys = "page";
         context.CacheVaryByRules.VaryByValues["locale"] = http.GetLocale();
+
+        // A negotiated route (spec 021 R7) is keyed on the representation the
+        // endpoint will choose, computed here by the same pure chooser rather
+        // than by varying on the raw Accept header: every hostile spelling of
+        // that header collapses onto the small set of formats the route offers,
+        // exactly as the locale does above. Routing has run by now, so the
+        // endpoint and the format route value are both in reach.
+        if (http.GetEndpoint()?.Metadata.GetMetadata<NegotiationMetadata>() is { } negotiation)
+        {
+            Negotiated choice = Negotiation.Choose(http.Request, negotiation.Offers);
+            context.CacheVaryByRules.VaryByValues["format"] = choice.Outcome == NegotiationOutcome.Chosen
+                ? choice.Format.MediaType
+                : choice.Outcome.ToString();
+        }
         context.ResponseExpirationTimeSpan = TimeSpan.FromSeconds(PublicPageCache.MaxAgeSeconds);
 
         // Tag by owner so one write clears every page of that owner's profile
@@ -85,12 +106,23 @@ public sealed class PublicPageCachePolicy : IOutputCachePolicy
         // so storing it lets a crawler fill the store with duplicates of one
         // page. The handler is the only party that knows the real page count,
         // so it says so rather than the policy guessing a cap.
+        //
+        // A negotiated response is refused when its Content-Type is not the
+        // chosen format's: the key was computed from the choice before the
+        // handler ran, and a handler answering some other type would be stored
+        // under a key that promises this one.
         if (context.HttpContext.Response.StatusCode != StatusCodes.Status200OK
-            || context.HttpContext.Items.ContainsKey(PublicPageCache.OutOfRangePageKey))
+            || context.HttpContext.Items.ContainsKey(PublicPageCache.OutOfRangePageKey)
+            || !AnswersTheChosenFormat(context.HttpContext))
         {
             context.AllowCacheStorage = false;
         }
 
         return ValueTask.CompletedTask;
     }
+
+    private static bool AnswersTheChosenFormat(HttpContext http) =>
+        !http.Items.TryGetValue(Negotiation.ItemKey, out object? chosen)
+        || chosen is not Format format
+        || Negotiation.ContentTypeIs(http.Response.ContentType, format);
 }

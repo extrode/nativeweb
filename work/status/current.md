@@ -6,6 +6,25 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Spec 021 — response formats and content negotiation. Done on
+  `feat/021-response-formats-and-negotiation`, 2026-09-02.** `FormatResults` in
+  `libs/nativeweb.render` answers text, Markdown, JSON (through a caller's `JsonTypeInfo<T>`),
+  XML, CSV, Atom, RSS and a sitemap, each buffered with a declared length, one write and the
+  escaping done; `MapNegotiated` in `libs/nativeweb.web` maps `pattern` and `pattern.{format}`
+  for GET and HEAD, chooses by extension, then Accept (quality, then specificity, then header
+  order, `q=0` a veto), then the first offer, and refuses with a `text/plain` 404 or 406 naming
+  the offers; `PublicPageCachePolicy` keys on the chosen format and refuses a body of another
+  type. `apps/sample` publishes `/articles` as HTML, JSON and CSV, `/feed` as Atom and RSS,
+  `/sitemap.xml`, `/robots.txt` and `/about` as Markdown or text. Two-lens review found 27
+  candidates: 13 confirmed and fixed (the chooser let a `q=0` range through and ignored
+  specificity, Atom without an author anywhere, U+2028 and U+2029 slipping past the CSV formula
+  guard, ragged CSV rows, a sitemap priority rounded away, HEAD answering 405, the cache policy
+  widening the default policy's refusal for `Authorization`, and the listing page being cached
+  and served to a stranger with no antiforgery cookie, measured through `SampleFactory`), 8
+  refuted by running the code, 6 noted in `work/todo.md`. Every new test shown red with its
+  code broken. Final counts: render 219, web 164, scaffold integration 117, repo 146, sample
+  unit 109, sample integration 8, e2e see `previous.md`. The decision that reverses "no
+  negotiation layer" is `docs/decisions/2026-09-02-009-response-formats-in-the-framework.md`.
 - **Spec 020 — a deployed sample whose admin can be reached. Done on
   `feat/020-deployed-sample-signin`, 2026-09-02.** Found when the user opened nw-dev's admin and
   saw Tags alone: `Article` is `[Auth(Role = "admin")]`, the only sign-in was Development-only,

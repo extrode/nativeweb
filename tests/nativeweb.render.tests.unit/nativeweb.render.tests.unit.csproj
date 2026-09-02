@@ -36,6 +36,7 @@
   <ItemGroup>
     <AdditionalFiles Include="templates\**\*.html" />
     <AdditionalFiles Include="locales\*.json" />
+    <None Include="sitemap.xsd" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

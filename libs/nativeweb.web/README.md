@@ -17,6 +17,7 @@ them it was coming.
 | A clean-URL rewrite mapping `/about` to `about.html`, with a route map built at startup | `StaticPagesMiddleware`, `StaticPagesMiddleware.BuildRouteMap(webRoot)` |
 | A one-shot flash-message cookie read on the next render | `Flash.Set(context, kind, message)` / `Flash.Take(context)` |
 | Content-hashed asset URLs so a stylesheet can be cached forever | `AssetUrls` |
+| A switch on the `Accept` header, or on `.json` at the end of the path, in every handler that answers data | `MapNegotiated` |
 
 ## The whole API
 
@@ -111,19 +112,68 @@ A product that grows sign-in adds its identity fields to `Chrome` as **constants
 `Anonymous`: that factory is reached only for a request carrying no session cookie, and passing
 an identity through it would leak that user's name into a shared cache entry.
 
+## Negotiated routes
+
+One route, several representations (spec 021):
+
+```csharp
+app.MapNegotiated("/articles", [Format.Html, Format.Json, Format.Csv], async (http, format) =>
+{
+    IReadOnlyList<PublishedArticle> rows = await Rows(http);
+    return format == Format.Json ? FormatResults.Json(rows, AppJson.Default.IReadOnlyListPublishedArticle)
+        : format == Format.Csv ? FormatResults.Csv(Headers, rows.Select(Row))
+        : Page(http, rows);
+})
+.RequireRateLimiting(NativeWebPipeline.GeneralRateLimitPolicy)
+.AsPublicPage(csp);
+```
+
+That maps `/articles` and `/articles.{format}` to one handler and tells it which of the offers
+the request chose. The choice is made before the handler runs, by `Negotiation.Choose`:
+
+| Input | Chooses |
+| --- | --- |
+| `/articles.json`, whatever the `Accept` header says | JSON |
+| `/articles`, `Accept: text/csv;q=0.9, text/html;q=0.5` | CSV: quality first, then specificity, then header order |
+| `/articles`, `Accept: */*` or no header | The first offer |
+| `/articles.xml` | 404, `text/plain`, body `Offered: text/html, application/json, text/csv` |
+| `/articles`, `Accept: image/png` | 406, the same body |
+
+Neither refusal reaches the handler or its data. The extensionless route says `Vary: Accept` on
+every response, wildcard and absent header included; the extension route does not, because its
+answer does not depend on the header. There is no `?format=` query parameter: a query key would
+have to join the cache's allowlist, and links carrying one rot differently from links carrying
+an extension. The chosen `Format` is in `HttpContext.Items` under `Negotiation.ItemKey`.
+
+The returned `NegotiatedRouteBuilder` applies a convention to both routes, so `.CacheOutput`,
+`.RequireRateLimiting` and `.AsPublicPage` read as they do on any route. Under the public-page
+policy, `PublicPageCachePolicy` runs the same chooser and keys the entry on the chosen media
+type, and refuses to store a response whose `Content-Type` is not that type, so two cookie-free
+representations of one path are cached separately and a handler that answered the wrong type is
+never stored under a key promising the right one. A route whose HTML embeds an antiforgery
+token takes no cache policy at all: the first visit sets the cookie and is refused, but a return
+visit sets nothing, is stored, and is served to the next stranger, whose cookie cannot match the
+token on the page. `apps/sample` leaves `/articles` uncached for that reason and declares its
+cookie-free neighbours (`/feed`, `/sitemap.xml`, `/robots.txt`, `/about`) with `AsPublicPage`.
+The policy never widens what the default policy refused: a request carrying `Authorization` or
+an authenticated user neither reads nor fills the shared store.
+
 ## What this library does not do
 
 - **No routing, no views, no controllers.** Rendering is `nativeweb.render`; declarative CRUD is
   `nativeweb.scaffold`; form binding is `nativeweb.forms`.
 - **No authentication.** `nativeweb.signin` is the relying party; the primitives it builds on
   are in `nativeweb.security`.
-- **No `robots.txt` or `sitemap.xml`.** `/security.txt` is here because it is a fixed-format
-  file with one configurable value. The other two need a canonical base URL and a route
-  inventory the framework does not own.
+- **No `robots.txt` or `sitemap.xml` of its own.** `/security.txt` is here because it is a
+  fixed-format file with one configurable value. The other two need a route inventory the
+  framework does not own; `FormatResults.Sitemap` and `FormatResults.Text` in `nativeweb.render`
+  write them, and `apps/sample/PublicDocuments.cs` shows both mapped.
 
 ## Proved by
 
 `tests/nativeweb.web.tests.unit` — the options binder, every startup guard, the security
-headers, the static-page route map and its collision guard, and the readiness cache.
+headers, the static-page route map and its collision guard, the readiness cache, and the
+negotiation chooser, routes and cache keys (`NegotiationTests`, `NegotiatedEndpointsTests`,
+`NegotiatedCacheTests`).
 `apps/sample` exercises the whole pipeline through a real entry point, and
 `tests/nativeweb.scaffold.tests.e2e` drives the published NativeAOT binary.

@@ -14,6 +14,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Response formats and content negotiation (spec 021).** `FormatResults` in
+  `libs/nativeweb.render` answers text, Markdown, JSON (source-generated `JsonTypeInfo<T>` only),
+  XML, CSV (RFC 4180 with a formula guard), Atom, RSS and a sitemap, each buffered with a declared
+  length and one write. `MapNegotiated` in `libs/nativeweb.web` maps a route and its `.{format}`
+  twin to one handler: extension first, then `Accept` by quality and specificity, then the first
+  offer; an unoffered extension is a 404 and an `Accept` admitting nothing a 406, both naming the
+  offers before the handler runs. The public-page cache keys on the chosen format and refuses a
+  body of another type. `AsPublicPage` takes any convention builder. The sample serves
+  `/articles` as HTML, JSON and CSV, `/feed` as Atom and RSS, `/sitemap.xml`, `/robots.txt` and
+  `/about` as Markdown or text. Decision 009 withdraws the architecture doc's "no negotiation
+  layer" stance.
 - **The deployed sample's admin can be reached (spec 020).** `Article` is admin-only and the only
   sign-in the sample had was Development-only, so on `nw-dev.example.com` the admin index showed
   Tags alone and `/admin/articles` redirected to a 404. Outside Development the sample now mounts a

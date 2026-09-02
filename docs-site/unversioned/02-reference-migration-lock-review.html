@@ -99,7 +99,7 @@
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Migration lock duration — review before pointing `migrate.sh` at a live database</nav>
         <article>
-<h1 id="migration-lock-duration-review-before-pointing-migrate.sh-at-a-live-database">Migration lock duration — review before pointing <code>migrate.sh</code> at a live database</h1>
+<h1 id="migration-lock-duration--review-before-pointing-migratesh-at-a-live-database">Migration lock duration — review before pointing <code>migrate.sh</code> at a live database</h1>
 <p>Reviewed 2026-08-18, against <code>db/migrations/0001</code>–<code>0055</code>.</p>
 <p><code>db/migrate.sh</code> wraps each migration file in one transaction (2026-08-17), which is right for
 atomicity and costs lock duration: every lock a file takes is now held until its last statement

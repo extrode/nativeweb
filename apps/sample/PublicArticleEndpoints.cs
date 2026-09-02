@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Antiforgery;
 
 using NativeWeb.Forms;
 using NativeWeb.Render;
+using NativeWeb.Web;
 
 namespace NativeWeb.Sample;
 
@@ -35,14 +36,60 @@ internal static class PublicArticleEndpoints
     // PageSize: the number comes from the request now, so it needs a ceiling.
     private const int MaxPageSize = 100;
 
+    private static readonly string[] CsvHeaders = ["id", "title", "author", "created"];
+
+    // The CSV row for one article. Dates as RFC 3339 UTC so a spreadsheet and a
+    // script read the same instant; the writer quotes and neutralises whatever
+    // the title holds.
+    internal static string[] CsvRow(PublishedArticle article) =>
+    [
+        article.Id,
+        article.Title,
+        article.Author ?? "",
+        article.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+    ];
+
     public static IEndpointRouteBuilder MapPublicArticles(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/articles", async (IAntiforgery antiforgery, HttpContext http, IPublishedArticles articles, CancellationToken ct) =>
+        // One route, three representations (spec 021). /articles answers the
+        // page; /articles.json and /articles.csv, or an Accept header naming
+        // either type, answer the same twenty rows as data. The choice is made
+        // before this handler runs, so an extension the route does not offer is
+        // a 404 that never touches the store.
+        //
+        // No output cache on this route, and the reason is the antiforgery token
+        // the HTML branch embeds for the filter form. A first visit sets the
+        // cookie, which the default policy refuses to store; a return visit
+        // carries it, sets nothing, and would be stored and then served to the
+        // next stranger, whose own cookie cannot match the token on the page.
+        // Measured on 2026-09-02 through SampleFactory: the third visitor got no
+        // Set-Cookie at all. A public page is one that carries no token, which is
+        // what Chrome.Anonymous is for; a page with a form is rendered per visit.
+        // The JSON and CSV branches go uncached with it, since one route carries
+        // one policy. PublicDocuments.cs shows the other shape: cookie-free
+        // routes that are public all the way down, the feed's two representations
+        // cached under their own keys.
+        endpoints.MapNegotiated("/articles", [Format.Html, Format.Json, Format.Csv], async (http, format) =>
         {
-            IReadOnlyList<PublishedArticle> recent = await articles.RecentAsync(PageSize, ct).ConfigureAwait(false);
+            IPublishedArticles articles = http.RequestServices.GetRequiredService<IPublishedArticles>();
+            IReadOnlyList<PublishedArticle> recent = await articles
+                .RecentAsync(PageSize, http.RequestAborted).ConfigureAwait(false);
+
+            if (format == Format.Json)
+            {
+                return FormatResults.Json(recent, SampleJson.Default.IReadOnlyListPublishedArticle);
+            }
+
+            if (format == Format.Csv)
+            {
+                return FormatResults.Csv(CsvHeaders, recent.Select(CsvRow));
+            }
+
+            IAntiforgery antiforgery = http.RequestServices.GetRequiredService<IAntiforgery>();
             AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
             return Page(http, recent, query: null, take: PageSize, tokens);
-        });
+        })
+        .RequireRateLimiting(NativeWebPipeline.GeneralRateLimitPolicy);
 
         // The declarative-binding demo (spec 014). Three things are worth reading
         // here, because all three are the point:

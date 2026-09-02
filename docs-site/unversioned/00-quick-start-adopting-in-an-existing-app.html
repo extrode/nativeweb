@@ -95,7 +95,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#reference-the-framework">1. Reference the framework</a><a class="toc-l3" href="#why-not-packages">Why not packages</a><a class="toc-l3" href="#the-project-references">The project references</a><a class="toc-l3" href="#declare-your-templates">Declare your templates</a><a class="toc-l2" href="#wire-the-pipeline">2. Wire the pipeline</a><a class="toc-l3" href="#two-things-that-stop-the-process-if-you-skip-them">Two things that stop the process if you skip them</a><a class="toc-l2" href="#delete-what-the-framework-now-owns">3. Delete what the framework now owns</a><a class="toc-l2" href="#what-you-must-keep">4. What you must keep</a><a class="toc-l2" href="#constraints-you-inherit">5. Constraints you inherit</a><a class="toc-l2" href="#check-it-worked">6. Check it worked</a><a class="toc-l2" href="#if-you-get-stuck">If you get stuck</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#1-reference-the-framework">1. Reference the framework</a><a class="toc-l3" href="#why-not-packages">Why not packages</a><a class="toc-l3" href="#the-project-references">The project references</a><a class="toc-l3" href="#declare-your-templates">Declare your templates</a><a class="toc-l2" href="#2-wire-the-pipeline">2. Wire the pipeline</a><a class="toc-l3" href="#two-things-that-stop-the-process-if-you-skip-them">Two things that stop the process if you skip them</a><a class="toc-l2" href="#3-delete-what-the-framework-now-owns">3. Delete what the framework now owns</a><a class="toc-l2" href="#4-what-you-must-keep">4. What you must keep</a><a class="toc-l2" href="#5-constraints-you-inherit">5. Constraints you inherit</a><a class="toc-l2" href="#6-check-it-worked">6. Check it worked</a><a class="toc-l2" href="#if-you-get-stuck">If you get stuck</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Adopting NativeWeb in an existing application</nav>
         <article>
@@ -108,7 +108,7 @@ deployment, and you want the framework underneath it.</p>
 content-hashed asset URLs by hand. All five ship in <code>libs/nativeweb.web</code>, and the reason this
 document exists is that a consumer of this framework hand-ported every one of them — finishing
 the day before the library that provides them completed.</p>
-<h2 id="reference-the-framework">1. Reference the framework</h2>
+<h2 id="1-reference-the-framework">1. Reference the framework</h2>
 <p><strong>Checkout mode is what works today.</strong> Clone this repository as a <strong>sibling</strong> of your product —
 and clone JauntyQ beside it too, because NativeWeb's own libraries reference it and
 its checkout is probed relative to the NativeWeb one:</p>
@@ -222,7 +222,7 @@ the generator emits no classes and your first reference to one is a <code>CS0103
 </div>
 <p><code>locales/en.json</code> is the root catalog and every <code>{{t:...}}</code> key must exist in it, so a product
 that ships one language still ships that file.</p>
-<h2 id="wire-the-pipeline">2. Wire the pipeline</h2>
+<h2 id="2-wire-the-pipeline">2. Wire the pipeline</h2>
 <p>Two calls, in your composition root:</p>
 <div class="code-block">
   <div class="code-header">
@@ -269,7 +269,7 @@ project rooted at <code>your_product</code> becomes <code>your_product.Templates
 that namespace, as <code>apps/sample</code> does. A <code>using your_product;</code> in a file outside it is not
 enough: a using directive imports a namespace's types and not its nested namespaces, so
 <code>Templates.Hello</code> still fails to resolve while <code>Locales</code> beside it resolves fine.</p>
-<h2 id="delete-what-the-framework-now-owns">3. Delete what the framework now owns</h2>
+<h2 id="3-delete-what-the-framework-now-owns">3. Delete what the framework now owns</h2>
 <table>
 <thead>
 <tr>
@@ -315,7 +315,7 @@ enough: a using directive imports a namespace's types and not its nested namespa
 <p>Delete one at a time and run your tests between. The framework's versions differ in behaviour at
 the edges — <code>Chrome.Anonymous</code> deliberately empties every per-request field so a public page can
 be output-cached, which a hand-rolled shell usually does not do.</p>
-<h2 id="what-you-must-keep">4. What you must keep</h2>
+<h2 id="4-what-you-must-keep">4. What you must keep</h2>
 <ul>
 <li><strong>Your own routes, data access and domain.</strong> NativeWeb has no ORM. Data access is
 JauntyQ, source-generated over PostgreSQL, and it is a separate adoption
@@ -326,7 +326,7 @@ them to your static web assets; you do not copy them.</li>
 <code>TreatWarningsAsErrors</code> and <code>IsAotCompatible</code>. A reference of yours that is not
 trim-compatible fails your publish, not ours.</li>
 </ul>
-<h2 id="constraints-you-inherit">5. Constraints you inherit</h2>
+<h2 id="5-constraints-you-inherit">5. Constraints you inherit</h2>
 <ul>
 <li><strong>PostgreSQL only.</strong> No provider abstraction exists to swap.</li>
 <li><strong>Minimal APIs only.</strong> No MVC, no Controllers, no Razor Pages, no Blazor.</li>
@@ -334,7 +334,7 @@ trim-compatible fails your publish, not ours.</li>
 <li><strong>JauntyQ is licensed for self-hosted use of its generated output.</strong> Never redistribute its
 source or binaries, and never ship a binary built against it to a third party.</li>
 </ul>
-<h2 id="check-it-worked">6. Check it worked</h2>
+<h2 id="6-check-it-worked">6. Check it worked</h2>
 <pre><code>dotnet build
 </code></pre>
 <p>The <code>ReportFrameworkResolution</code> target above prints <code>NativeWeb: checkout mode (&lt;path&gt;)</code>, so a

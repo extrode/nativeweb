@@ -95,11 +95,11 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#status">Status</a><a class="toc-l2" href="#vision">1. Vision</a><a class="toc-l2" href="#core-principles">2. Core Principles</a><a class="toc-l2" href="#technology-stack">3. Technology Stack</a><a class="toc-l2" href="#technologies-explicitly-avoided">4. Technologies Explicitly Avoided</a><a class="toc-l2" href="#project-structure">5. Project Structure</a><a class="toc-l2" href="#data-access-jauntyq">6. Data Access — JauntyQ</a><a class="toc-l2" href="#dependency-injection">7. Dependency Injection</a><a class="toc-l2" href="#where-htmx-goes-where-alpine-goes-where-neither-goes">8. Where HTMX goes, where Alpine goes, where neither goes</a><a class="toc-l2" href="#web-components">9. Web Components</a><a class="toc-l2" href="#authentication-authorization">10. Authentication &amp; Authorization</a><a class="toc-l2" href="#static-assets-serialization-configuration">11. Static Assets, Serialization, Configuration</a><a class="toc-l2" href="#error-handling">12. Error Handling</a><a class="toc-l2" href="#migration-from-svelte-deno-bff">13. Migration from Svelte + Deno BFF</a><a class="toc-l2" href="#measured-benchmarks">14. Measured Benchmarks</a><a class="toc-l2" href="#upgrading-to-htmx-4.0">15. Upgrading to htmx 4.0</a><a class="toc-l2" href="#handoff-checklist-the-original-open-risks-kept-as-a-record">16. Handoff Checklist — the original open risks, kept as a record</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#status">Status</a><a class="toc-l2" href="#1-vision">1. Vision</a><a class="toc-l2" href="#2-core-principles">2. Core Principles</a><a class="toc-l2" href="#3-technology-stack">3. Technology Stack</a><a class="toc-l2" href="#4-technologies-explicitly-avoided">4. Technologies Explicitly Avoided</a><a class="toc-l2" href="#5-project-structure">5. Project Structure</a><a class="toc-l2" href="#6-data-access--jauntyq">6. Data Access — JauntyQ</a><a class="toc-l2" href="#7-dependency-injection">7. Dependency Injection</a><a class="toc-l2" href="#8-where-htmx-goes-where-alpine-goes-where-neither-goes">8. Where HTMX goes, where Alpine goes, where neither goes</a><a class="toc-l2" href="#9-web-components">9. Web Components</a><a class="toc-l2" href="#10-authentication--authorization">10. Authentication &amp; Authorization</a><a class="toc-l2" href="#11-static-assets-serialization-configuration">11. Static Assets, Serialization, Configuration</a><a class="toc-l2" href="#12-error-handling">12. Error Handling</a><a class="toc-l2" href="#13-migration-from-svelte--deno-bff">13. Migration from Svelte + Deno BFF</a><a class="toc-l2" href="#14-measured-benchmarks">14. Measured Benchmarks</a><a class="toc-l2" href="#15-upgrading-to-htmx-40">15. Upgrading to htmx 4.0</a><a class="toc-l2" href="#16-handoff-checklist--the-original-open-risks-kept-as-a-record">16. Handoff Checklist — the original open risks, kept as a record</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</nav>
         <article>
-<h1 id="lean-native-web-lnw-architecture-specification-handoff">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</h1>
+<h1 id="lean-native-web-lnw--architecture-specification--handoff">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</h1>
 <h2 id="status">Status</h2>
 <p><strong>Rewritten 2026-08-31.</strong> What stood here described the four throwaway apps this document was
 originally written from — <code>htmx-skeleton.zip</code>, <code>bare-kestrel.zip</code>, a JSON API variant and a
@@ -166,13 +166,13 @@ coverage left with the identity provider. <code>work/todo.md</code> and <code>wo
 live; §16's checklist below is the original list and is kept for the reasoning in it, not as a
 current to-do.</p>
 <hr />
-<h2 id="vision">1. Vision</h2>
+<h2 id="1-vision">1. Vision</h2>
 <p>Lean Native Web (LNW) is a server-first architecture for ASP.NET Core that prioritizes
 explicit code, NativeAOT compatibility, predictable performance, and long-term
 maintainability. It intentionally avoids unnecessary framework abstractions while keeping
 the mature parts of ASP.NET Core that are difficult or risky to replace.</p>
 <hr />
-<h2 id="core-principles">2. Core Principles</h2>
+<h2 id="2-core-principles">2. Core Principles</h2>
 <ol>
 <li><strong>NativeAOT First.</strong> Do not add libraries or patterns that require runtime code
 generation, runtime reflection, assembly scanning, dynamic proxies, or plugin loading.
@@ -190,7 +190,7 @@ explicit endpoint registration, explicit routing, explicit configuration.</li>
 abstraction unless it solves a demonstrated problem.</li>
 </ol>
 <hr />
-<h2 id="technology-stack">3. Technology Stack</h2>
+<h2 id="3-technology-stack">3. Technology Stack</h2>
 <ul>
 <li><strong>Backend:</strong> .NET 10, C# 14, ASP.NET Core Minimal APIs, NativeAOT,
 System.Text.Json source generation</li>
@@ -202,7 +202,7 @@ Svelte compiled to a CSR-only custom element — never Svelte SSR; see §13)</li
 <li><strong>Authorization:</strong> ASP.NET Core Authorization Policies</li>
 </ul>
 <hr />
-<h2 id="technologies-explicitly-avoided">4. Technologies Explicitly Avoided</h2>
+<h2 id="4-technologies-explicitly-avoided">4. Technologies Explicitly Avoided</h2>
 <p>Unless there is a documented, specific reason:</p>
 <ul>
 <li>MVC, Controllers, Razor Pages, Blazor (Server or WASM) — Razor's runtime view
@@ -222,7 +222,7 @@ JauntyQ already clears natively, with no interceptor step required</li>
 Locator, dynamic plugins</li>
 </ul>
 <hr />
-<h2 id="project-structure">5. Project Structure</h2>
+<h2 id="5-project-structure">5. Project Structure</h2>
 <pre><code>LeanNativeWeb/
 ├── Program.cs
 ├── LeanNativeWeb.csproj
@@ -250,7 +250,7 @@ information instead of an <code>IResult</code> box.</p>
 <p>Simple request flow: <strong>Endpoint → JauntyQ → HTML.</strong> Not Controller → Service → Repository →
 Mapper → DTO → Database.</p>
 <hr />
-<h2 id="data-access-jauntyq">6. Data Access — JauntyQ</h2>
+<h2 id="6-data-access--jauntyq">6. Data Access — JauntyQ</h2>
 <p>JauntyQ is a compile-time SQL-to-C# source generator: you write real SQL in versioned
 <code>.sql</code> files; at build time JauntyQ parses them against a committed schema snapshot and
 emits typed C# methods. If a column is renamed or a table drops, <strong>the build breaks, not
@@ -283,7 +283,7 @@ AOT-compatible, so the moment EF Core is in the graph, AOT is off the table rega
 which database driver sits underneath it).</li>
 </ul>
 <hr />
-<h2 id="dependency-injection">7. Dependency Injection</h2>
+<h2 id="7-dependency-injection">7. Dependency Injection</h2>
 <p>Minimize the built-in container. Prefer direct object construction:</p>
 <div class="code-block">
   <div class="code-header">
@@ -318,7 +318,7 @@ container-based injection and comparatively awkward with closures over manually
 constructed singletons). Minimizing DI is a reasonable default here; treating it as
 costless in every case is not.</p>
 <hr />
-<h2 id="where-htmx-goes-where-alpine-goes-where-neither-goes">8. Where HTMX goes, where Alpine goes, where neither goes</h2>
+<h2 id="8-where-htmx-goes-where-alpine-goes-where-neither-goes">8. Where HTMX goes, where Alpine goes, where neither goes</h2>
 <p>The heuristic: <strong>HTMX when the server has the answer. Alpine when the state is purely local
 and the server never needs to know it. An island (Lit, or Svelte compiled to a CSR-only
 custom element, no SSR) when you need real client-side reactive computation over data
@@ -384,7 +384,7 @@ separate <code>x-data</code> array duplicating what htmx already fetched is two 
 genuinely rich-interaction — recompile it as a CSR custom element instead (§12.6).</li>
 </ul>
 <hr />
-<h2 id="web-components">9. Web Components</h2>
+<h2 id="9-web-components">9. Web Components</h2>
 <p>Two distinct, non-conflicting uses:</p>
 <ol>
 <li><strong>Reuse and encapsulation</strong> — Navbar, Sidebar, Dialog, Toast, Avatar, Loading Spinner,
@@ -402,7 +402,7 @@ no compile step, keeping &quot;no build pipeline unless absolutely necessary&quo
 Reach for Svelte-as-custom-element only for category 2, and only compiled <code>customElement: true</code>, never SSR (§12.6) — SSR is the one thing that reintroduces the Node/Deno dependency
 this whole architecture exists to avoid.</p>
 <hr />
-<h2 id="authentication-authorization">10. Authentication &amp; Authorization</h2>
+<h2 id="10-authentication--authorization">10. Authentication &amp; Authorization</h2>
 <p>Always use ASP.NET Core's built-in authentication and authorization. Never manually
 implement JWT parsing, signature verification, cookie encryption, or claims validation —
 keep Microsoft's security implementation; this is the sharpest exception to §7's
@@ -417,7 +417,7 @@ configuration and read the trim-analyzer output before committing, rather than a
 either way.</p>
 <p>Use Authorization Policies (<code>.RequireAuthorization(&quot;Admin&quot;)</code>) over manual claim inspection.</p>
 <hr />
-<h2 id="static-assets-serialization-configuration">11. Static Assets, Serialization, Configuration</h2>
+<h2 id="11-static-assets-serialization-configuration">11. Static Assets, Serialization, Configuration</h2>
 <p><strong>Static assets:</strong> <code>wwwroot/</code>, vendored htmx/Alpine, no CDN dependency, no npm chain for a
 simple application. Use <code>MapStaticAssets</code> (not <code>UseStaticFiles</code>) for build-time
 compression and content-hash fingerprinting — see §14 for the caching detail.</p>
@@ -433,7 +433,7 @@ explicitly to get the source-generated, reflection-free path — the same catego
 Dapper vs. JauntyQ: the destination is right, the mechanism that gets you there under
 NativeAOT has to be turned on, it isn't automatic.</p>
 <hr />
-<h2 id="error-handling">12. Error Handling</h2>
+<h2 id="12-error-handling">12. Error Handling</h2>
 <p>Centralized middleware. Two different response shapes for two different consumers, decided
 deliberately rather than defaulted into one:</p>
 <ul>
@@ -449,7 +449,7 @@ undecided in a codebase that serves both response types from the same host.</p>
 <p>Avoid exception-driven business logic; logging stays on the built-in <code>ILogger</code>, added only
 where needed.</p>
 <hr />
-<h2 id="migration-from-svelte-deno-bff">13. Migration from Svelte + Deno BFF</h2>
+<h2 id="13-migration-from-svelte--deno-bff">13. Migration from Svelte + Deno BFF</h2>
 <p>The reassuring part first: <strong>the C# NativeAOT API layer doesn't need to change.</strong> This
 migration replaces the BFF + frontend layer; the domain/service logic underneath is reused
 close to as-is, which drastically lowers the risk relative to a full rewrite.</p>
@@ -476,7 +476,7 @@ Vite, ship the output as a static file next to <code>htmx.min.js</code>.</li>
 SvelteKit SSR build entirely.</li>
 </ol>
 <hr />
-<h2 id="measured-benchmarks">14. Measured Benchmarks</h2>
+<h2 id="14-measured-benchmarks">14. Measured Benchmarks</h2>
 <p>Not a projection — a minimal but complete version of both stacks was built (same
 conceptual todo functionality, JSON on one side and HTML fragments on the other) and
 load-tested with <code>wrk</code>, three runs per test, a fixed 15-item dataset throughout (a growing
@@ -559,7 +559,7 @@ minified library went from 51,238 B to 36,716 B, a 28.3% reduction, one fewer 14
 cold page load. It could not have moved a server-side throughput number: htmx runs in the browser
 and does not appear in the request path either harness measures.</p>
 <hr />
-<h2 id="upgrading-to-htmx-4.0">15. Upgrading to htmx 4.0</h2>
+<h2 id="15-upgrading-to-htmx-40">15. Upgrading to htmx 4.0</h2>
 <p><strong>The mechanical part is cheap, by construction</strong> — and it was, but it was not the cost. htmx
 isn't a package dependency here: one vendored file (<code>wwwroot/vendor/htmx/htmx.min.js</code>)
 referenced from a single <code>&lt;script src&gt;</code>, plus <code>hx-*</code> attribute strings inside C# string
@@ -619,7 +619,7 @@ move to plain htmx; a proposed <code>hx-drag</code> extension could shrink the &
 drag-and-drop cases. Worth a second pass over §8's table now that 4.0 has shipped. The
 <code>hx-alpine-compat</code> extension is evaluated and declined in spec 012 — see there.</p>
 <hr />
-<h2 id="handoff-checklist-the-original-open-risks-kept-as-a-record">16. Handoff Checklist — the original open risks, kept as a record</h2>
+<h2 id="16-handoff-checklist--the-original-open-risks-kept-as-a-record">16. Handoff Checklist — the original open risks, kept as a record</h2>
 <blockquote>
 <p><strong>This list is historical, not a to-do.</strong> It was written before any of this existed, when the
 artifacts were four throwaway apps. Most of it has since been answered by building the thing:

@@ -204,6 +204,10 @@ public sealed class Program
         // PublicArticleEndpoints.cs rather than generated from an attribute.
         app.MapPublicArticles();
 
+        // The feed, sitemap, robots file and one plain document (spec 021):
+        // the same articles as Atom, RSS, JSON and CSV beside the page above.
+        app.MapPublicDocuments();
+
         app.MapGet("/", () => Results.Redirect("/admin"));
 
         // /healthz, /version, /readyz, /csp-report and /.well-known/security.txt.
