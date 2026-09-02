@@ -57,7 +57,7 @@ public sealed class ScaffoldedSortingTests(JauntySampleFixture app, BrowserFixtu
     // apps/sample/Models.cs and is part of what the generator emits, so an index is a
     // fact about the model rather than a guess about how a name is computed.
     private const int TitleColumn = 0;
-    private const int ViewsColumn = 3;
+    private const int ViewsColumn = 4;
 
     private static ILocator Header(IPage page, int column) =>
         page.Locator("table.nws-table thead th").Nth(column);
