@@ -27,7 +27,18 @@ public readonly record struct PublishedArticle(
     string Title,
     string? Author,
     DateTime CreatedAt,
-    IReadOnlyList<TagRef> Tags);
+    IReadOnlyList<TagRef> Tags,
+    DateOnly? PublishedAt = null)
+{
+    /// <summary>
+    /// The instant the public site dates this article by (spec 023 R4): the
+    /// publication date at midnight UTC, or the creation time for a row that has
+    /// none. A method, not a property, so the JSON document does not grow a
+    /// second date that is only ever derived from the two it has.
+    /// </summary>
+    public DateTime PublishedOn() =>
+        PublishedAt is DateOnly date ? date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) : CreatedAt;
+}
 
 /// <summary>
 /// One published article as its own page shows it (spec 022 R3): the list's
@@ -95,7 +106,7 @@ public interface IPublishedArticles
 /// means taking the field out of the form, which is the next spec's admin work.
 /// </remarks>
 internal sealed class MemoryPublishedArticles(
-    IScaffoldStore<Article> store,
+    ArticleStore store,
     IScaffoldStore<Tag> tags,
     MemoryRelation relation) : IPublishedArticles
 {
@@ -104,7 +115,6 @@ internal sealed class MemoryPublishedArticles(
     // public feed through a paging admin seam at all.
     private const int ScanLimit = 1000;
 
-    private readonly Lock _views = new();
 
     public async ValueTask<IReadOnlyList<PublishedArticle>> RecentAsync(int take, CancellationToken ct)
     {
@@ -129,18 +139,11 @@ internal sealed class MemoryPublishedArticles(
 
     public async ValueTask<bool> CountViewAsync(string slug, CancellationToken ct)
     {
+        // Counted on the store's held instance under its save lock (R8), not on
+        // the reference FindAsync answered, which an admin save may since have
+        // replaced.
         Article? found = await FindAsync(slug, ct).ConfigureAwait(false);
-        if (found is null)
-        {
-            return false;
-        }
-
-        lock (this._views)
-        {
-            found.ViewCount++;
-        }
-
-        return true;
+        return found is not null && store.CountView(found.Id);
     }
 
     public async ValueTask<IReadOnlyList<PublishedArticle>> ByTagAsync(string tagSlug, int take, CancellationToken ct)
@@ -166,15 +169,18 @@ internal sealed class MemoryPublishedArticles(
     // default key order from the beginning. The empty lists are what the seam
     // takes when the caller is filtering and ordering nothing -- this one sorts
     // here, in memory, because that is what reading a public feed through a
-    // paging admin seam costs. Newest first, the key breaking ties, as
-    // ListPublished.sql orders.
+    // paging admin seam costs. Newest publication date first, a row without one
+    // dated by its creation day (spec 023 R4), then creation time, then the key
+    // breaking ties, as ListPublished.sql orders. Only Published is public: a
+    // Draft and an Archived row are equally absent here (R3).
     private async ValueTask<IReadOnlyList<Article>> PublishedAsync(CancellationToken ct)
     {
         IReadOnlyList<Article> all = await store.ListAsync(null, [], null, [], null, ScanLimit, ct).ConfigureAwait(false);
 
         return all
-            .Where(a => a.Published)
-            .OrderByDescending(a => a.CreatedAt)
+            .Where(a => a.Status == ArticleStatus.Published)
+            .OrderByDescending(a => a.PublishedAt ?? DateOnly.FromDateTime(a.CreatedAt))
+            .ThenByDescending(a => a.CreatedAt)
             .ThenByDescending(a => a.Id, StringComparer.Ordinal)
             .ToList();
     }
@@ -183,7 +189,7 @@ internal sealed class MemoryPublishedArticles(
     {
         IReadOnlyList<Article> all = await store.ListAsync(null, [], null, [], null, ScanLimit, ct).ConfigureAwait(false);
 
-        return all.FirstOrDefault(a => a.Published && string.Equals(a.Slug, slug, StringComparison.Ordinal));
+        return all.FirstOrDefault(a => a.Status == ArticleStatus.Published && string.Equals(a.Slug, slug, StringComparison.Ordinal));
     }
 
     // Tag slugs the relation holds resolve against the tag store, by name order,
@@ -204,7 +210,7 @@ internal sealed class MemoryPublishedArticles(
     }
 
     private static PublishedArticle Listed(Article a, Func<string, IReadOnlyList<TagRef>> tagsOf) =>
-        new(a.Id, a.Slug ?? "", a.Title, a.Author, a.CreatedAt, tagsOf(a.Id));
+        new(a.Id, a.Slug ?? "", a.Title, a.Author, a.CreatedAt, tagsOf(a.Id), a.PublishedAt);
 }
 
 /// <summary>
@@ -232,7 +238,7 @@ internal sealed class JauntyPublishedArticles(NpgsqlDataSource dataSource) : IPu
         List<ArticleTags.Result.ListForWindow> links =
             await db.ArticleTags.ListForWindowAsync(null, take, ct).ConfigureAwait(false);
 
-        return Listed(rows, links, r => (r.Id, r.Slug, r.Title, r.Author, r.CreatedAt));
+        return Listed(rows, links, r => (r.Id, r.Slug, r.Title, r.Author, r.CreatedAt, JauntyArticleStore.DayOf(r.PublishedAt)));
     }
 
     public async ValueTask<ArticleDetail?> BySlugAsync(string slug, CancellationToken ct)
@@ -279,7 +285,7 @@ internal sealed class JauntyPublishedArticles(NpgsqlDataSource dataSource) : IPu
         List<ArticleTags.Result.ListForWindow> links =
             await db.ArticleTags.ListForWindowAsync(tagSlug, take, ct).ConfigureAwait(false);
 
-        return Listed(rows, links, r => (r.Id, r.Slug, r.Title, r.Author, r.CreatedAt));
+        return Listed(rows, links, r => (r.Id, r.Slug, r.Title, r.Author, r.CreatedAt, JauntyArticleStore.DayOf(r.PublishedAt)));
     }
 
     public async ValueTask<IReadOnlyList<SitemapArticle>> SitemapAsync(CancellationToken ct)
@@ -298,7 +304,7 @@ internal sealed class JauntyPublishedArticles(NpgsqlDataSource dataSource) : IPu
     private static List<PublishedArticle> Listed<TRow>(
         List<TRow> rows,
         List<ArticleTags.Result.ListForWindow> links,
-        Func<TRow, (string Id, string Slug, string Title, string? Author, DateTime CreatedAt)> fields)
+        Func<TRow, (string Id, string Slug, string Title, string? Author, DateTime CreatedAt, DateOnly? PublishedAt)> fields)
     {
         Dictionary<string, List<TagRef>> tagsById = new(StringComparer.Ordinal);
         foreach (ArticleTags.Result.ListForWindow link in links)
@@ -315,9 +321,9 @@ internal sealed class JauntyPublishedArticles(NpgsqlDataSource dataSource) : IPu
         var articles = new List<PublishedArticle>(rows.Count);
         foreach (TRow row in rows)
         {
-            (string id, string slug, string title, string? author, DateTime createdAt) = fields(row);
+            (string id, string slug, string title, string? author, DateTime createdAt, DateOnly? publishedAt) = fields(row);
             IReadOnlyList<TagRef> tags = tagsById.TryGetValue(id, out List<TagRef>? found) ? found : [];
-            articles.Add(new PublishedArticle(id, slug, title, author, createdAt, tags));
+            articles.Add(new PublishedArticle(id, slug, title, author, createdAt, tags, publishedAt));
         }
 
         return articles;

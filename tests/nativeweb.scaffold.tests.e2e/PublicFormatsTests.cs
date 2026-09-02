@@ -61,7 +61,7 @@ public sealed class PublicFormatsTests(InMemorySampleFixture app, BrowserFixture
 
         Assert.Contains("<feed xmlns=\"http://www.w3.org/2005/Atom\">", body, StringComparison.Ordinal);
         Assert.Contains($"href=\"{app.BaseUrl}/articles/binding-forms-under-nativeaot\"", body, StringComparison.Ordinal);
-        Assert.Contains("<updated>2026-06-18T14:05:00Z</updated>", body, StringComparison.Ordinal);
+        Assert.Contains("<updated>2026-06-20T00:00:00Z</updated>", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public sealed class PublicFormatsTests(InMemorySampleFixture app, BrowserFixture
         Assert.Equal(200, response.Status);
         Assert.StartsWith("text/csv", response.Headers["content-type"], StringComparison.Ordinal);
         Assert.Contains("Accept", response.Headers["vary"], StringComparison.Ordinal);
-        Assert.StartsWith("id,slug,title,author,created,tags\r\n", await response.TextAsync(), StringComparison.Ordinal);
+        Assert.StartsWith("id,slug,title,author,created,published,tags\r\n", await response.TextAsync(), StringComparison.Ordinal);
     }
 
     [Fact]

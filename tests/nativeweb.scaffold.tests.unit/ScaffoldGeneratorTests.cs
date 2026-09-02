@@ -47,6 +47,18 @@ public sealed class ScaffoldGeneratorTests
             public sealed class ScaffoldReadOnlyAttribute : System.Attribute { }
             public sealed class ScaffoldKeyAttribute : System.Attribute { }
             public sealed class ScaffoldSortAttribute : System.Attribute { }
+            public sealed class ScaffoldReferenceAttribute : System.Attribute
+            {
+                public ScaffoldReferenceAttribute(System.Type target) => Target = target;
+                public System.Type Target { get; }
+            }
+            public sealed class ScaffoldRelationAttribute : System.Attribute
+            {
+                public ScaffoldRelationAttribute(System.Type target) => Target = target;
+                public System.Type Target { get; }
+                public ScaffoldRelationControl Control { get; init; }
+            }
+            public enum ScaffoldRelationControl { Checkboxes, MultiSelect }
 
             [System.AttributeUsage(System.AttributeTargets.Assembly)]
             public sealed class ScaffoldRootAttribute : System.Attribute
@@ -143,9 +155,11 @@ public sealed class ScaffoldGeneratorTests
         """;
 
     // The shapes an ordinary model can have that no conversion table covers: value
-    // types outside it, an enum, a computed property, an indexer, and a setter the
+    // types outside it, a computed property, an indexer, and a setter the
     // generated code cannot reach. Each one used to emit an assignment -- CS0029 for
-    // the types, CS0200 for the unsettable ones.
+    // the types, CS0200 for the unsettable ones. The enum and the DateOnly were on
+    // this list until spec 023 gave them controls; they stay so the compile gate
+    // covers them beside the types that still have none.
     private const string AwkwardModel = """
         using NativeWeb.Scaffold;
 
@@ -210,7 +224,9 @@ public sealed class ScaffoldGeneratorTests
     {
         (_, string emitted) = Run(AwkwardModel);
 
-        Assert.Contains("Grade = existing is null ? default! : existing.Grade,", emitted, StringComparison.Ordinal);
+        Assert.Contains("Level = existing is null ? default! : existing.Level,", emitted, StringComparison.Ordinal);
+        Assert.Contains("Hour = existing is null ? default! : existing.Hour,", emitted, StringComparison.Ordinal);
+        Assert.Contains("Grade = ScaffoldValues.EnumValue<Demo.Rank>(form.Grade, default(Demo.Rank)),", emitted, StringComparison.Ordinal);
         Assert.DoesNotContain("Summary =", emitted, StringComparison.Ordinal);
         Assert.DoesNotContain("Locked =", emitted, StringComparison.Ordinal);
         Assert.DoesNotContain("this[]", emitted, StringComparison.Ordinal);
@@ -369,11 +385,12 @@ public sealed class ScaffoldGeneratorTests
     }
 
     [Fact]
-    public void NewPage_IsEmittedAsASynchronousPageHandler()
+    public void NewPage_IsAnAsyncHandlerBecauseItLoadsTheChoices()
     {
         (_, string source) = Run(Attributes, ArticleModel);
 
-        Assert.Contains("private static IResult NewPage(HttpContext http)", source, StringComparison.Ordinal);
+        Assert.Contains("private static async Task<IResult> NewAsync(HttpContext http, CancellationToken ct)", source, StringComparison.Ordinal);
+        Assert.Contains("ScaffoldEndpoints.Handle(http => NewAsync(http, http.RequestAborted))", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -692,7 +709,7 @@ public sealed class ScaffoldGeneratorTests
 
         // And a rejected create is still a create: no row, so no "Edit" heading and
         // the action stays the collection.
-        Assert.Contains("FormHtml(http, null, BasePath, \"Create\", error, form)", source, StringComparison.Ordinal);
+        Assert.Contains("FormHtml(http, null, BasePath, \"Create\", error, await ChoicesAsync(http, ct).ConfigureAwait(false), form)", source, StringComparison.Ordinal);
     }
 
     // This used to assert a clamp on ?page=, because (page - 1) * PageSize was
@@ -833,9 +850,168 @@ public sealed class ScaffoldGeneratorTests
         (_, string source) = Run(AwkwardModel);
 
         Assert.Equal(2, Occurrences(source, "catch (ScaffoldRefusedException refused)"));
-        Assert.Contains("FormHtml(http, null, BasePath, \"Create\", refused.Message, form)", source, StringComparison.Ordinal);
-        Assert.Contains("\"Save\", refused.Message, form)", source, StringComparison.Ordinal);
+        Assert.Contains("FormHtml(http, null, BasePath, \"Create\", refused.Message, await ChoicesAsync(http, ct).ConfigureAwait(false), form)", source, StringComparison.Ordinal);
+        Assert.Contains("\"Save\", refused.Message, await ChoicesAsync(http, ct).ConfigureAwait(false), form)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("catch (Exception", source, StringComparison.Ordinal);
+    }
+
+    // The four field kinds spec 023 added, on three models that point at each
+    // other: an enum, a date-only, a reference and a relation on each side of one
+    // pair, one per control.
+    private const string RelationModel = """
+        using System.Collections.Generic;
+        using NativeWeb.Scaffold;
+
+        namespace Demo
+        {
+            public enum Status { Draft, InReview, Published }
+
+            [Scaffold]
+            public sealed class Category
+            {
+                [ScaffoldKey] public string Key { get; set; } = "";
+                [ScaffoldList][ScaffoldSort] public string Name { get; set; } = "";
+            }
+
+            [Scaffold]
+            public sealed class Tag
+            {
+                [ScaffoldKey] public string Slug { get; set; } = "";
+                [ScaffoldList] public string Name { get; set; } = "";
+                [ScaffoldRelation(typeof(Article), Control = ScaffoldRelationControl.MultiSelect)]
+                public IReadOnlyList<string> ArticleIds { get; set; } = new string[0];
+            }
+
+            [Scaffold]
+            public sealed class Article
+            {
+                [ScaffoldKey] public string Id { get; set; } = "";
+                [ScaffoldList] public string Title { get; set; } = "";
+                [ScaffoldList] public Status Status { get; set; }
+                public Status? Mood { get; set; }
+                [ScaffoldList] public System.DateOnly? PublishedAt { get; set; }
+                public System.DateOnly Day { get; set; }
+                [ScaffoldList][ScaffoldReference(typeof(Category))] public string? CategoryKey { get; set; }
+                [ScaffoldRelation(typeof(Tag))] public IReadOnlyList<string> TagSlugs { get; set; } = new string[0];
+            }
+        }
+        """;
+
+    [Fact]
+    public void RelationModel_EmitsCodeThatCompiles() =>
+        AssertGeneratedSourceCompiles(RelationModel);
+
+    [Fact]
+    public void ARelation_BindsAsAnArrayAndRendersTheDeclaredControl()
+    {
+        (ImmutableArray<Diagnostic> diagnostics, string source) = Run(Attributes, RelationModel);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id.StartsWith("NWS", StringComparison.Ordinal));
+        Assert.Contains("string?[] TagSlugs", source, StringComparison.Ordinal);
+        Assert.Contains("form[\"tagSlugs\"].ToArray()", source, StringComparison.Ordinal);
+        Assert.Contains("TagSlugs = ScaffoldValues.Keys(form.TagSlugs),", source, StringComparison.Ordinal);
+        Assert.Contains("<fieldset class=\\\"nws-choices\\\" id=\\\"tagSlugs\\\"><legend>Tag Slugs</legend>", source, StringComparison.Ordinal);
+        Assert.Contains("<input type=\\\"checkbox\\\" name=\\\"tagSlugs\\\" value=", source, StringComparison.Ordinal);
+        Assert.Contains("<select multiple id=\\\"articleIds\\\" name=\\\"articleIds\\\"", source, StringComparison.Ordinal);
+        Assert.Contains("public IReadOnlyList<Demo.Tag> TagSlugs", source, StringComparison.Ordinal);
+        Assert.Contains("public const int OptionLimit = 500;", source, StringComparison.Ordinal);
+        Assert.Contains(".ListAsync(null, Array.Empty<string>(), null, TagScaffold.SortFields, null, OptionLimit, ct)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AHeldKeyThatIsNotOffered_IsStillRenderedTicked()
+    {
+        (_, string source) = Run(Attributes, RelationModel);
+
+        Assert.Contains("if (tagSlugsSeen.Add(key))", source, StringComparison.Ordinal);
+        Assert.Contains("if (!categoryKeySeen)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AReference_RendersADropdownWithANoneOptionOrderedByTheLabel()
+    {
+        (_, string source) = Run(Attributes, RelationModel);
+
+        Assert.Contains("CategoryKey = ScaffoldValues.Text(form.CategoryKey),", source, StringComparison.Ordinal);
+        Assert.Contains("<select id=\\\"categoryKey\\\" name=\\\"categoryKey\\\"><option value=\\\"\\\">(none)</option>", source, StringComparison.Ordinal);
+        Assert.Contains("Enc(ScaffoldValues.Display(choice.Name))", source, StringComparison.Ordinal);
+        Assert.Contains(".ListAsync(null, Array.Empty<string>(), new ScaffoldSortSpec(\"Name\", ScaffoldSortDirection.Ascending), CategoryScaffold.SortFields, null, OptionLimit, ct)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AListedReference_ShowsTheTargetLabelAndFallsBackToTheKey()
+    {
+        (_, string source) = Run(Attributes, RelationModel);
+
+        Assert.Contains("categoryKeyLabels[ScaffoldValues.Display(choice.Key)] = ScaffoldValues.Display(choice.Name);", source, StringComparison.Ordinal);
+        Assert.Contains("Enc(Label(categoryKeyLabels, ScaffoldValues.Display(row.CategoryKey)))", source, StringComparison.Ordinal);
+        Assert.Contains("labels.TryGetValue(key, out string? label) ? label : key;", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("tagSlugsLabels", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnEnum_RendersASelectOfItsMembersAndRefusesAnythingElse()
+    {
+        (_, string source) = Run(Attributes, RelationModel);
+
+        Assert.Contains("if (!ScaffoldValues.IsRequiredEnumMember<Demo.Status>(form.Status))", source, StringComparison.Ordinal);
+        Assert.Contains("\"Status must be one of Draft, InReview, Published.\"", source, StringComparison.Ordinal);
+        Assert.Contains("Status = ScaffoldValues.EnumValue<Demo.Status>(form.Status, default(Demo.Status)),", source, StringComparison.Ordinal);
+        Assert.Contains("Mood = ScaffoldValues.NullableEnum<Demo.Status>(form.Mood),", source, StringComparison.Ordinal);
+        Assert.Contains("<option value=\\\"InReview\\\"\").Append(statusValue == \"InReview\" ? \" selected\" : \"\").Append(\">In Review</option>", source, StringComparison.Ordinal);
+        Assert.Contains("<select id=\\\"mood\\\" name=\\\"mood\\\">\");", source, StringComparison.Ordinal);
+        Assert.Equal(1, Occurrences(source, "sb.Append(\"<option value=\\\"\\\">(none)</option>\");"));
+    }
+
+    [Fact]
+    public void ADateOnly_RendersADateInputAndRefusesANonDate()
+    {
+        (_, string source) = Run(Attributes, RelationModel);
+
+        Assert.Contains("<input type=\\\"date\\\" id=\\\"publishedAt\\\"", source, StringComparison.Ordinal);
+        Assert.Contains("if (!ScaffoldValues.IsDateOnly(form.PublishedAt))", source, StringComparison.Ordinal);
+        Assert.Contains("\"Published At must be a date.\"", source, StringComparison.Ordinal);
+        Assert.Contains("PublishedAt = ScaffoldValues.NullableDateOnly(form.PublishedAt),", source, StringComparison.Ordinal);
+        Assert.Contains("Day = ScaffoldValues.DateOnlyValue(form.Day, DateOnly.FromDateTime(DateTime.UtcNow)),", source, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("[ScaffoldReference(typeof(Nowhere))] public string? Key { get; set; }", "NWS003")]
+    [InlineData("[ScaffoldReference(typeof(Target))] public string Key { get; set; } = \"\";", "NWS004")]
+    [InlineData("[ScaffoldRelation(typeof(Target))] public List<string> Keys { get; set; } = new();", "NWS005")]
+    [InlineData("[ScaffoldReference(typeof(Numbered))] public string? Key { get; set; }", "NWS006")]
+    public void AMisdeclaredReferenceOrRelation_IsABuildError(string property, string id)
+    {
+        string model = """
+            using System.Collections.Generic;
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                public sealed class Nowhere { public string Key { get; set; } = ""; }
+
+                [Scaffold]
+                public sealed class Target { [ScaffoldKey] public string Key { get; set; } = ""; }
+
+                [Scaffold]
+                public sealed class Numbered { [ScaffoldKey] public int Number { get; set; } }
+
+                [Scaffold]
+                public sealed class Owner
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    PROPERTY
+                }
+            }
+            """.Replace("PROPERTY", property, StringComparison.Ordinal);
+
+        (ImmutableArray<Diagnostic> diagnostics, string source) = Run(Attributes, model);
+
+        Assert.Contains(diagnostics, d => d.Id == id);
+        Assert.DoesNotContain("class OwnerScaffold", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapOwnerScaffold()", source, StringComparison.Ordinal);
+        Assert.Contains("class TargetScaffold", source, StringComparison.Ordinal);
+        Assert.Contains("MapTargetScaffold()", source, StringComparison.Ordinal);
     }
 
     private static int Occurrences(string haystack, string needle)

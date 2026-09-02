@@ -11,16 +11,40 @@
    the page flash the wrong theme on every navigation. */
 (function () {
   var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
   try {
-    var t = localStorage.getItem('dg-theme');
-    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
-    var s = parseFloat(localStorage.getItem('dg-fs'));
-    if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
-    var w = parseInt(localStorage.getItem('dg-nav-w'), 10);
-    if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
-    if (localStorage.getItem('dg-toc') === 'hidden') d.setAttribute('data-toc', 'hidden');
-    if (localStorage.getItem('dg-nav') === 'hidden') d.setAttribute('data-nav', 'hidden');
-  } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
 })();
 </script>
 </head>
@@ -193,7 +217,14 @@ is there so the CRUD costs you nothing, not so the product does.</p>
     <span class="code-lang">C#</span>
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">public</span> <span class="tok-kw">readonly</span> <span class="tok-kw">record</span> <span class="tok-kw">struct</span> <span class="tok-fn">PublishedArticle</span>(<span class="tok-kw">string</span> <span class="tok-type">Id</span>, <span class="tok-kw">string</span> <span class="tok-type">Title</span>, <span class="tok-kw">string</span>? <span class="tok-type">Author</span>, <span class="tok-type">DateTime</span> <span class="tok-type">CreatedAt</span>);
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">public</span> <span class="tok-kw">readonly</span> <span class="tok-kw">record</span> <span class="tok-kw">struct</span> <span class="tok-fn">PublishedArticle</span>(
+    <span class="tok-kw">string</span> <span class="tok-type">Id</span>,
+    <span class="tok-kw">string</span> <span class="tok-type">Slug</span>,
+    <span class="tok-kw">string</span> <span class="tok-type">Title</span>,
+    <span class="tok-kw">string</span>? <span class="tok-type">Author</span>,
+    <span class="tok-type">DateTime</span> <span class="tok-type">CreatedAt</span>,
+    <span class="tok-type">IReadOnlyList</span>&lt;<span class="tok-type">TagRef</span>&gt; <span class="tok-type">Tags</span>,
+    <span class="tok-type">DateOnly</span>? <span class="tok-type">PublishedAt</span> = <span class="tok-kw">null</span>);
 
 <span class="tok-kw">public</span> <span class="tok-kw">interface</span> <span class="tok-type">IPublishedArticles</span>
 {
@@ -201,8 +232,8 @@ is there so the CRUD costs you nothing, not so the product does.</p>
 }
 </code></pre>
 </div>
-<p>Four fields, where the <code>Article</code> model has seven. <strong>That narrowing is the point, not an
-optimisation.</strong> <code>Article</code> is the scaffolding's model: its shape is decided by what the admin form
+<p>Seven fields, where the <code>Article</code> model has eleven: no <code>Body</code>, no <code>Status</code>, no <code>CategoryKey</code>, no
+view count. <strong>That narrowing is the point, not an optimisation.</strong> <code>Article</code> is the scaffolding's model: its shape is decided by what the admin form
 edits, so handing it to a public page means the page silently gains a field the day someone adds
 one to the form. A read model that names exactly what it renders cannot drift that way — and
 <code>Body</code> never reaching a list page is a decision you can see rather than one you have to trust.</p>
@@ -217,14 +248,19 @@ express either:</p>
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
   <pre data-lang="csharp"><code class="language-csharp"><span class="tok-ctl">return</span> all
-    .<span class="tok-fn">Where</span>(a =&gt; a.<span class="tok-var">Published</span>)
-    .<span class="tok-fn">OrderByDescending</span>(a =&gt; a.<span class="tok-var">CreatedAt</span>)
-    .<span class="tok-fn">ThenBy</span>(a =&gt; a.<span class="tok-var">Id</span>, <span class="tok-type">StringComparer</span>.<span class="tok-var">Ordinal</span>)
-    .<span class="tok-fn">Take</span>(take)
-    .<span class="tok-fn">Select</span>(a =&gt; <span class="tok-kw">new</span> <span class="tok-type">PublishedArticle</span>(a.<span class="tok-var">Id</span>, a.<span class="tok-var">Title</span>, a.<span class="tok-var">Author</span>, a.<span class="tok-var">CreatedAt</span>))
+    .<span class="tok-fn">Where</span>(a =&gt; a.<span class="tok-var">Status</span> == <span class="tok-type">ArticleStatus</span>.<span class="tok-var">Published</span>)
+    .<span class="tok-fn">OrderByDescending</span>(a =&gt; a.<span class="tok-var">PublishedAt</span> ?? <span class="tok-type">DateOnly</span>.<span class="tok-fn">FromDateTime</span>(a.<span class="tok-var">CreatedAt</span>))
+    .<span class="tok-fn">ThenByDescending</span>(a =&gt; a.<span class="tok-var">CreatedAt</span>)
+    .<span class="tok-fn">ThenByDescending</span>(a =&gt; a.<span class="tok-var">Id</span>, <span class="tok-type">StringComparer</span>.<span class="tok-var">Ordinal</span>)
     .<span class="tok-fn">ToList</span>();
 </code></pre>
 </div>
+<p><code>Status</code> is an enum with three members and only <code>Published</code> is public: a <code>Draft</code> and an <code>Archived</code>
+row are equally absent from every public page, and the article page answers 404 for both. The
+order is the publication date the admin set, a row without one dated by its creation day, so an
+article can be published today and dated last week. The category the admin picked is not in the
+read model at all, which is the same narrowing again: the public site does not show it yet, so it
+does not carry it.</p>
 <p><strong>Over PostgreSQL</strong>, the same class does nothing but map rows, because the filter and the ordering
 moved into SQL:</p>
 <div class="code-block">
@@ -255,15 +291,25 @@ through a data library of its own, are in <code>db/sample/README.md</code> and
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
   <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @params take:int</span>
-<span class="tok-com">-- @allow-sort demo table, three seeded rows; an index would cost more to explain than the sort costs to run</span>
-<span class="tok-kw">SELECT</span> id, title, author, body, published, view_count, created_at
+<span class="tok-kw">SELECT</span> id, title, author, body, view_count, created_at, slug, status, published_at, category_key
 <span class="tok-kw">FROM</span> articles
-<span class="tok-kw">WHERE</span> published
-<span class="tok-kw">ORDER</span> <span class="tok-kw">BY</span> created_at <span class="tok-kw">DESC</span>, id
+<span class="tok-kw">WHERE</span> status = <span class="tok-str">'published'</span>
+<span class="tok-kw">ORDER</span> <span class="tok-kw">BY</span> <span class="tok-fn">COALESCE</span>(published_at, (created_at AT <span class="tok-type">TIME</span> ZONE <span class="tok-str">'UTC'</span>):<span class="tok-var">:date</span>) <span class="tok-kw">DESC</span>, created_at <span class="tok-kw">DESC</span>, id <span class="tok-kw">DESC</span>
 <span class="tok-kw">LIMIT</span> <span class="tok-var">@take</span>;
 </code></pre>
 </div>
-<p>Four things in six lines, and the second is the one worth the walk.</p>
+<p>The committed file is longer than this, because its comments record a directive that used to sit
+on its second line and no longer does. That story is the rest of this section: the query as it was
+first written carried it.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @allow-sort demo table, three seeded rows; an index would cost more to explain than the sort costs to run</span>
+</code></pre>
+</div>
+<p>Two declarations, and the one that has since gone is the one worth the walk.</p>
 <p><strong><code>-- @params take:int</code>.</strong> The generator infers a parameter's type by looking at the typed column it
 is compared against. <code>@take</code> appears in <code>LIMIT</code>, where there is no column, so it infers nothing and
 says so — <code>JNT4003</code> — rather than guessing. Declaring it is the fix.</p>
@@ -633,8 +679,12 @@ written: <code>tests/nativeweb.sample.tests.unit</code> 16 facts,
     <div class="kbd-title">Keyboard shortcuts</div>
     <table>
       <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
       <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
       <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
       <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
       <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
       <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>

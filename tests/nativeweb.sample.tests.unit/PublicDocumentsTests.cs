@@ -51,7 +51,27 @@ public sealed class PublicDocumentsTests
         string[] row = PublicArticleEndpoints.CsvRow(
             Listed("a1", "lean-native-web", new TagRef("htmx", "HTMX"), new TagRef("aot", "NativeAOT")));
 
-        Assert.Equal(["a1", "lean-native-web", "Title a1", "Sy", "2026-01-04T00:00:00Z", "htmx aot"], row);
+        Assert.Equal(["a1", "lean-native-web", "Title a1", "Sy", "2026-01-04T00:00:00Z", "", "htmx aot"], row);
+    }
+
+    [Fact]
+    public void CsvRow_CarriesThePublicationDateAsADay()
+    {
+        string[] row = PublicArticleEndpoints.CsvRow(
+            Listed("a1", "s") with { PublishedAt = new DateOnly(2026, 2, 9) });
+
+        Assert.Equal("2026-02-09", row[5]);
+    }
+
+    [Fact]
+    public void BuildFeed_DatesAnEntryByItsPublicationDayWhenItHasOne()
+    {
+        PublishedArticle dated = Listed("a1", "s") with { PublishedAt = new DateOnly(2026, 2, 9) };
+
+        Feed feed = PublicDocuments.BuildFeed([dated, Listed("a2", "t")], Base);
+
+        Assert.Equal(new DateTimeOffset(2026, 2, 9, 0, 0, 0, TimeSpan.Zero), feed.Entries[0].Updated);
+        Assert.Equal(new DateTimeOffset(Utc(4)), feed.Entries[1].Updated);
     }
 
     [Fact]

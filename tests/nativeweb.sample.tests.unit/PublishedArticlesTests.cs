@@ -29,7 +29,7 @@ public sealed class PublishedArticlesTests
             Title = $"title-{id}",
             Author = "Sy",
             Body = "one\n\ntwo",
-            Published = published,
+            Status = published ? ArticleStatus.Published : ArticleStatus.Draft,
             CreatedAt = Utc(day),
         };
         this._articles.Seed(article);
@@ -60,6 +60,16 @@ public sealed class PublishedArticlesTests
         Assert.Equal("title-a1", detail.Value.Title);
         Assert.Equal("one\n\ntwo", detail.Value.Body);
         Assert.Equal(["HTMX", "NativeAOT"], detail.Value.Tags.Select(t => t.Name));
+    }
+
+    [Fact]
+    public async Task BySlugAsync_AnswersNullForAnArchivedSlug()
+    {
+        Article archived = Seed("a1", 1);
+        archived.Status = ArticleStatus.Archived;
+
+        Assert.Null(await Reader.BySlugAsync("slug-a1", CancellationToken.None));
+        Assert.False(await Reader.CountViewAsync("slug-a1", CancellationToken.None));
     }
 
     [Fact]

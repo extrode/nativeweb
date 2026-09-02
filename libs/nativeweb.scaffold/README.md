@@ -24,7 +24,11 @@ public sealed class Article
     [ScaffoldList][ScaffoldSearch]
     [ScaffoldSort]                       public string Title { get; set; } = "";
     [ScaffoldMultiline]                  public string Body { get; set; } = "";
-    [ScaffoldList]                       public bool Published { get; set; }
+    [ScaffoldList]                       public ArticleStatus Status { get; set; }
+    [ScaffoldList]                       public DateOnly? PublishedAt { get; set; }
+    [ScaffoldList]
+    [ScaffoldReference(typeof(Category))] public string? CategoryKey { get; set; }
+    [ScaffoldRelation(typeof(Tag))]      public IReadOnlyList<string> Tags { get; set; } = [];
     [ScaffoldList][ScaffoldReadOnly]
     [ScaffoldSort]                       public DateTime CreatedAt { get; set; }
 }
@@ -40,6 +44,12 @@ public sealed class Article
 | `[ScaffoldSort]` | property | The list may be ordered by it, and its heading becomes a link |
 | `[ScaffoldMultiline]` | property | `<textarea>` rather than `<input>` |
 | `[ScaffoldReadOnly]` | property | Shown, never editable, no form input emitted |
+| `[ScaffoldReference(typeof(T))]` | `string?` property | Holds one key of another scaffolded model; a `<select>` of its rows, `(none)` first |
+| `[ScaffoldRelation(typeof(T))]` | `IReadOnlyList<string>` property | Holds zero or more keys of another scaffolded model; a checkbox list, or `Control = ScaffoldRelationControl.MultiSelect` |
+
+The property type picks the input where no attribute does: `string` is an `<input>`, `bool` a
+checkbox, a number `type="number"`, a `DateTime` `datetime-local`, a `DateOnly` `type="date"`, an
+`enum` a `<select>` of its members. A nullable value type posts blank for `null`.
 
 Implement `IScaffoldStore<Article>` (six methods, no query language — JauntyQ owns data access),
 register it, and call `app.MapScaffolding()`. That is the entire wiring. See `apps/sample`.
@@ -77,6 +87,44 @@ in one process — which is exactly what an integration suite is.
 
 The role in `[Auth(Role = "admin")]` is unrelated and has always been yours: any role name, with
 `Read`/`Write`/`Delete` overriding it per operation.
+
+### Choosing a control for a relation
+
+Four field kinds reach past a single column, and each is declared by the property's type or by one
+attribute. `apps/sample`'s `Article` carries all four so they can be compared side by side.
+
+| Kind | Declared by | Renders as | Posts |
+| --- | --- | --- | --- |
+| Enum | an `enum` property | `<select>` of the members, spaced (`Published`) | the member name; anything else is refused |
+| Date-only | a `DateOnly` or `DateOnly?` property | `<input type="date">` | `yyyy-MM-dd`; blank is `null` when nullable |
+| Reference | `[ScaffoldReference(typeof(T))]` on a `string?` | `<select>` of `T`'s rows, `(none)` first | one key, or blank for `null` |
+| Relation | `[ScaffoldRelation(typeof(T))]` on an `IReadOnlyList<string>` | a checkbox list, or a `<select multiple>` | one value per tick; nothing ticked posts nothing, which saves as no links |
+
+A reference or relation target must itself be `[Scaffold]`ed, in the same assembly, keyed by a
+string, and have its `IScaffoldStore<T>` registered: the form's choices come from that store, and a
+listed reference column shows the target's label rather than the key. Both reads go to the target's
+store directly, under the referrer's own `[Auth]`, so a target scaffolded under a stricter role
+still lends its labels to anyone who may read the referrer. The generator offers at most
+`OptionLimit` (500) rows as choices, and reads the same 500 to label a list page; a held key past
+that limit is still rendered, so saving a form never silently drops a link the admin could not see.
+
+The relation control is a rendering choice and nothing else. Both post the same field, both bind to
+the same list, both save the whole ticked set; switch between them by editing one attribute and
+the store never notices:
+
+```csharp
+[ScaffoldRelation(typeof(Tag))]                                                   // checkboxes
+[ScaffoldRelation(typeof(Article), Control = ScaffoldRelationControl.MultiSelect)] // <select multiple>
+```
+
+| Pick | When |
+| --- | --- |
+| Checkboxes (the default) | The choices are few and stable and the admin wants to see them all at once: tags, roles, a handful of categories. Every choice is visible and ticked state is obvious. |
+| `MultiSelect` | The choices are many or grow without bound: articles, users, orders. The control stays one box tall, is keyboard-searchable, and does not push the rest of the form off the screen. |
+
+Whether a posted key exists is the store's call. A store refuses an unknown one with
+`ScaffoldRefusedException` ("Tags has a choice that does not exist."), the same way it refuses
+anything else only it can know; a check against the loaded choices would only be a snapshot.
 
 ## Why a generator rather than reflection
 

@@ -53,8 +53,7 @@ public sealed class JauntyStoreTests
             new("title", title),
             new("author", "xunit"),
             new("body", "written through the scaffolded form"),
-            new("published", "on"),
-            new("viewCount", "7"));
+            new("status", "Published"));
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
 
@@ -177,7 +176,7 @@ public sealed class JauntyStoreTests
             new("title", title),
             new("author", "after"),
             new("body", "edited"),
-            new("viewCount", "0"));
+            new("status", "Draft"));
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
 

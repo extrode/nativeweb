@@ -87,19 +87,54 @@ internal sealed class JauntyTagStore(NpgsqlDataSource dataSource) : IScaffoldSto
         var db = new JauntyDb(connection);
 
         TagRow? row = await db.Tags.GetByIdAsync(id, ct).ConfigureAwait(false);
-        return row is null ? null : Map(row);
+        if (row is null)
+        {
+            return null;
+        }
+
+        // The tag's side of the relation (spec 023 R2), for the multi-select.
+        Tag tag = Map(row);
+        List<ArticleTags.Result.ListIdsForTag> links =
+            await db.ArticleTags.ListIdsForTagAsync(id, ct).ConfigureAwait(false);
+        tag.Articles = links.Select(l => l.ArticleId).ToList();
+
+        return tag;
     }
 
     public async ValueTask<string> CreateAsync(Tag item, CancellationToken ct)
     {
-        string key = Guid.NewGuid().ToString("n")[..8];
+        // A slug the caller supplied is the key (spec 023 R9), held to the alphabet
+        // tags.slug checks; a blank one is generated. The form never carries the
+        // key, so a typed slug reaches here from code. tags_pkey says whether it
+        // is free, and a taken one is refused with the memory store's message.
+        string? typed = string.IsNullOrWhiteSpace(item.Slug) ? null : item.Slug.Trim();
+        if (typed is not null && !Slugs.IsValid(typed))
+        {
+            throw new ScaffoldRefusedException(Slugs.InvalidMessage);
+        }
+
+        string key = typed ?? Guid.NewGuid().ToString("n")[..8];
         item.Slug = key;
 
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);
 
-        await db.Tags.InsertAsync(key, item.Name, item.Color, ct).ConfigureAwait(false);
-        return key;
+        using JauntyDb.Transaction tx = await db.BeginTransactionAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await db.Tags.InsertAsync(key, item.Name, item.Color, ct).ConfigureAwait(false);
+            await LinkAsync(db, key, item.Articles, ct).ConfigureAwait(false);
+            tx.Commit();
+            return key;
+        }
+        catch (PostgresException taken) when (IsSlugTaken(taken))
+        {
+            throw new ScaffoldRefusedException(Slugs.TakenMessage(key));
+        }
+        catch (PostgresException missing) when (JauntyArticleStore.IsMissingChoice(missing))
+        {
+            throw new ScaffoldRefusedException(JauntyArticleStore.MissingChoice(missing));
+        }
     }
 
     public async ValueTask<bool> UpdateAsync(string id, Tag item, CancellationToken ct)
@@ -107,9 +142,39 @@ internal sealed class JauntyTagStore(NpgsqlDataSource dataSource) : IScaffoldSto
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);
 
-        int affected = await db.Tags.UpdateAsync(item.Name, item.Color, id, ct).ConfigureAwait(false);
-        return affected > 0;
+        // The row and its links in one transaction, the links rewritten whole, as
+        // JauntyArticleStore.UpdateAsync does from the other side (spec 023 R2).
+        using JauntyDb.Transaction tx = await db.BeginTransactionAsync(ct).ConfigureAwait(false);
+        try
+        {
+            int affected = await db.Tags.UpdateAsync(item.Name, item.Color, id, ct).ConfigureAwait(false);
+            if (affected == 0)
+            {
+                return false;
+            }
+
+            await db.ArticleTags.DeleteForTagAsync(id, ct).ConfigureAwait(false);
+            await LinkAsync(db, id, item.Articles, ct).ConfigureAwait(false);
+            tx.Commit();
+            return true;
+        }
+        catch (PostgresException missing) when (JauntyArticleStore.IsMissingChoice(missing))
+        {
+            throw new ScaffoldRefusedException(JauntyArticleStore.MissingChoice(missing));
+        }
     }
+
+    private static async Task LinkAsync(JauntyDb db, string tagSlug, IReadOnlyList<string> articleIds, CancellationToken ct)
+    {
+        foreach (string articleId in articleIds)
+        {
+            await db.ArticleTags.InsertAsync(articleId, tagSlug, ct).ConfigureAwait(false);
+        }
+    }
+
+    private static bool IsSlugTaken(PostgresException e) =>
+        e.SqlState == PostgresErrorCodes.UniqueViolation
+        && string.Equals(e.ConstraintName, "tags_pkey", StringComparison.Ordinal);
 
     public async ValueTask<bool> DeleteAsync(string id, CancellationToken ct)
     {

@@ -133,3 +133,56 @@ public sealed class ScaffoldReadOnlyAttribute : Attribute;
 /// <summary>Mark the property that identifies a row. Exactly one per model.</summary>
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
 public sealed class ScaffoldKeyAttribute : Attribute;
+
+/// <summary>
+/// This <c>string?</c> property holds the key of one row of another scaffolded
+/// model, and the form offers that model's rows in a dropdown with a "(none)" choice.
+/// </summary>
+/// <remarks>
+/// The target must carry <see cref="ScaffoldAttribute"/> in the same assembly and
+/// be keyed by a string; the generator reports a diagnostic otherwise. The
+/// generated handler reads the choices through the target's own
+/// <see cref="IScaffoldStore{T}"/>, so a host that scaffolds a reference has to
+/// register the target's store too. Whether a posted key exists is the store's
+/// call, not the form's: a store refuses an unknown one with
+/// <see cref="ScaffoldRefusedException"/>, the way it refuses anything else it alone
+/// can know, and the emitted check against the loaded choices would only have been
+/// a snapshot.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+public sealed class ScaffoldReferenceAttribute(Type target) : Attribute
+{
+    /// <summary>The scaffolded model whose rows are the choices.</summary>
+    public Type Target { get; } = target;
+}
+
+/// <summary>
+/// This <c>IReadOnlyList&lt;string&gt;</c> property holds the keys of zero or more
+/// rows of another scaffolded model, and the form offers that model's rows as a
+/// checkbox list or, with <see cref="Control"/>, a multi-select.
+/// </summary>
+/// <remarks>
+/// Same rules as <see cref="ScaffoldReferenceAttribute"/> for the target and for
+/// who checks a posted key. Nothing ticked posts nothing, which binds as the empty
+/// list and saves as "no links"; the store replaces the held set with the posted
+/// one on every save rather than adding to it.
+/// </remarks>
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+public sealed class ScaffoldRelationAttribute(Type target) : Attribute
+{
+    /// <summary>The scaffolded model whose rows are the choices.</summary>
+    public Type Target { get; } = target;
+
+    /// <summary>Which control renders the choices. Checkboxes unless said otherwise.</summary>
+    public ScaffoldRelationControl Control { get; init; }
+}
+
+/// <summary>The two plain-HTML controls a <see cref="ScaffoldRelationAttribute"/> can render.</summary>
+public enum ScaffoldRelationControl
+{
+    /// <summary>One checkbox per choice. Every choice is visible; suits a short, stable set.</summary>
+    Checkboxes,
+
+    /// <summary>A <c>&lt;select multiple&gt;</c>. Compact and keyboard-searchable; suits a long list.</summary>
+    MultiSelect,
+}

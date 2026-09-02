@@ -15,12 +15,12 @@ JOIN tags t ON t.slug = at.tag_slug
 WHERE at.article_id IN (
     SELECT a.id
     FROM articles a
-    WHERE a.published
+    WHERE a.status = 'published'
       AND (@tagSlug IS NULL OR EXISTS (
           SELECT 1
           FROM article_tags w
           WHERE w.article_id = a.id
             AND w.tag_slug = @tagSlug))
-    ORDER BY a.created_at DESC, a.id DESC
+    ORDER BY COALESCE(a.published_at, (a.created_at AT TIME ZONE 'UTC')::date) DESC, a.created_at DESC, a.id DESC
     LIMIT @take)
 ORDER BY at.article_id, t.name, t.slug;

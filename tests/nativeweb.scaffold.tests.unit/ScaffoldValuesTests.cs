@@ -373,4 +373,110 @@ public sealed class ScaffoldValuesTests
         Assert.Equal("1", ScaffoldValues.CursorText(true));
         Assert.Equal("0", ScaffoldValues.CursorText(false));
     }
+
+    private enum Status
+    {
+        Draft,
+        InReview,
+        Published,
+    }
+
+    [Theory]
+    [InlineData("2026-03-04", true)]
+    [InlineData(" 2026-03-04 ", true)]
+    [InlineData("", true)]
+    [InlineData(null, true)]
+    [InlineData("2026-02-30", false)]
+    [InlineData("3/4/2026", false)]
+    [InlineData("2026-03-04T09:30", false)]
+    [InlineData("tomorrow", false)]
+    public void IsDateOnly_AcceptsIsoDatesAndBlank(string? raw, bool expected) =>
+        Assert.Equal(expected, ScaffoldValues.IsDateOnly(raw));
+
+    [Fact]
+    public void DateOnlyValue_ParsesIsoAndFallsBackOtherwise()
+    {
+        var fallback = new DateOnly(2000, 1, 1);
+
+        Assert.Equal(new DateOnly(2026, 3, 4), ScaffoldValues.DateOnlyValue("2026-03-04", fallback));
+        Assert.Equal(fallback, ScaffoldValues.DateOnlyValue("2026-02-30", fallback));
+        Assert.Equal(fallback, ScaffoldValues.DateOnlyValue(null, fallback));
+    }
+
+    [Fact]
+    public void NullableDateOnly_DistinguishesBlankFromMalformed()
+    {
+        Assert.Equal(new DateOnly(2026, 3, 4), ScaffoldValues.NullableDateOnly("2026-03-04"));
+        Assert.Null(ScaffoldValues.NullableDateOnly(""));
+        Assert.Null(ScaffoldValues.NullableDateOnly("2026-02-30"));
+    }
+
+    [Theory]
+    [InlineData("Published", true)]
+    [InlineData(" InReview ", true)]
+    [InlineData("", true)]
+    [InlineData(null, true)]
+    [InlineData("published", false)]
+    [InlineData("2", false)]
+    [InlineData("Deleted", false)]
+    [InlineData("In Review", false)]
+    public void IsEnumMember_TakesTheExactMemberNameOrBlank(string? raw, bool expected) =>
+        Assert.Equal(expected, ScaffoldValues.IsEnumMember<Status>(raw));
+
+    [Theory]
+    [InlineData("Published", true)]
+    [InlineData(" InReview ", true)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData(null, false)]
+    [InlineData("Deleted", false)]
+    public void IsRequiredEnumMember_RefusesBlankAsWellAsAStranger(string? raw, bool expected) =>
+        Assert.Equal(expected, ScaffoldValues.IsRequiredEnumMember<Status>(raw));
+
+    [Fact]
+    public void EnumValue_ParsesAMemberAndFallsBackOnAnythingElse()
+    {
+        Assert.Equal(Status.Published, ScaffoldValues.EnumValue("Published", Status.Draft));
+        Assert.Equal(Status.Draft, ScaffoldValues.EnumValue("2", Status.Draft));
+        Assert.Equal(Status.Draft, ScaffoldValues.EnumValue("Deleted", Status.Draft));
+        Assert.Equal(Status.Draft, ScaffoldValues.EnumValue(null, Status.Draft));
+    }
+
+    [Fact]
+    public void NullableEnum_IsNullForBlankAndForANonMember()
+    {
+        Assert.Equal(Status.InReview, ScaffoldValues.NullableEnum<Status>("InReview"));
+        Assert.Null(ScaffoldValues.NullableEnum<Status>(""));
+        Assert.Null(ScaffoldValues.NullableEnum<Status>("1"));
+    }
+
+    [Theory]
+    [InlineData("Draft", "Draft")]
+    [InlineData("InReview", "In Review")]
+    [InlineData("NativeAOT", "Native AOT")]
+    [InlineData("A", "A")]
+    public void EnumLabel_SpacesAtEachCaseChange(string member, string expected) =>
+        Assert.Equal(expected, ScaffoldValues.EnumLabel(member));
+
+    [Fact]
+    public void Display_LabelsAnEnumAndFormatsADate()
+    {
+        Assert.Equal("In Review", ScaffoldValues.Display(Status.InReview));
+        Assert.Equal("2026-03-04", ScaffoldValues.Display(new DateOnly(2026, 3, 4)));
+    }
+
+    [Fact]
+    public void Editable_KeepsTheMemberNameForTheOptionValue()
+    {
+        Assert.Equal("InReview", ScaffoldValues.Editable(Status.InReview));
+        Assert.Equal("2026-03-04", ScaffoldValues.Editable(new DateOnly(2026, 3, 4)));
+    }
+
+    [Fact]
+    public void Keys_TrimsDropsBlanksAndDuplicatesAndKeepsOrder()
+    {
+        Assert.Equal(["htmx", "aot"], ScaffoldValues.Keys([" htmx ", "", "aot", "htmx", "  "]));
+        Assert.Empty(ScaffoldValues.Keys(null));
+        Assert.Empty(ScaffoldValues.Keys([]));
+    }
 }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 
 using Microsoft.AspNetCore.Antiforgery;
 
@@ -82,6 +83,59 @@ public static class ScaffoldValues
     public static Guid? NullableGuid(string? raw) =>
         Guid.TryParse(Text(raw), out Guid value) ? value : null;
 
+    // Exact ISO form only. DateOnly.TryParse with no format would take "3/4/2026"
+    // and the invariant culture reads that as March 4th, which is not what the
+    // person who typed it in most of the world meant; <input type="date"> posts
+    // yyyy-MM-dd and nothing else, so nothing else is accepted.
+    public static DateOnly DateOnlyValue(string? raw, DateOnly fallback) =>
+        DateOnly.TryParseExact(Text(raw), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly value)
+            ? value
+            : fallback;
+
+    public static DateOnly? NullableDateOnly(string? raw) =>
+        DateOnly.TryParseExact(Text(raw), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly value)
+            ? value
+            : null;
+
+    // By member name and nothing else. Enum.TryParse would also take "2" and, with
+    // the flags it is usually called with, "draft" for Draft; a <select> posts the
+    // name the generator wrote into the option, so a value that is not one of
+    // those names did not come from the form.
+    public static TEnum EnumValue<TEnum>(string? raw, TEnum fallback)
+        where TEnum : struct, Enum =>
+        IsMember<TEnum>(Text(raw)) && Enum.TryParse(Text(raw), out TEnum value) ? value : fallback;
+
+    public static TEnum? NullableEnum<TEnum>(string? raw)
+        where TEnum : struct, Enum =>
+        IsMember<TEnum>(Text(raw)) && Enum.TryParse(Text(raw), out TEnum value) ? value : null;
+
+    /// <summary>
+    /// The posted keys of a relation field: trimmed, blanks dropped, duplicates
+    /// dropped, order kept. A field that was not posted at all is the empty list.
+    /// </summary>
+    public static IReadOnlyList<string> Keys(string?[]? raw)
+    {
+        if (raw is null || raw.Length == 0)
+        {
+            return [];
+        }
+
+        var keys = new List<string>(raw.Length);
+        foreach (string? one in raw)
+        {
+            if (Text(one) is string key && !keys.Contains(key, StringComparer.Ordinal))
+            {
+                keys.Add(key);
+            }
+        }
+
+        return keys;
+    }
+
+    private static bool IsMember<TEnum>(string? name)
+        where TEnum : struct, Enum =>
+        name is not null && Array.IndexOf(Enum.GetNames<TEnum>(), name) >= 0;
+
     // The validators the generated FromForm calls before Build converts anything.
     //
     // They exist because every converter above answers malformed input with a
@@ -115,6 +169,43 @@ public static class ScaffoldValues
 
     public static bool IsGuid(string? raw) => Blank(raw) || Guid.TryParse(Text(raw), out _);
 
+    public static bool IsDateOnly(string? raw) =>
+        Blank(raw) || DateOnly.TryParseExact(Text(raw), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+
+    public static bool IsEnumMember<TEnum>(string? raw)
+        where TEnum : struct, Enum =>
+        Blank(raw) || IsMember<TEnum>(Text(raw));
+
+    // A non-nullable enum's select has no blank option, so a blank did not come
+    // from the form either; taking it as the first member would silently reset a
+    // Published row to Draft on a post that merely dropped the field.
+    public static bool IsRequiredEnumMember<TEnum>(string? raw)
+        where TEnum : struct, Enum =>
+        IsMember<TEnum>(Text(raw));
+
+    /// <summary>"Published" from Published, "In Review" from InReview: the label a member gets in a select and a list cell.</summary>
+    public static string EnumLabel(string member)
+    {
+        if (member.Length < 2)
+        {
+            return member;
+        }
+
+        var sb = new StringBuilder(member.Length + 4);
+        sb.Append(member[0]);
+        for (int i = 1; i < member.Length; i++)
+        {
+            if (char.IsUpper(member[i]) && !char.IsUpper(member[i - 1]))
+            {
+                sb.Append(' ');
+            }
+
+            sb.Append(member[i]);
+        }
+
+        return sb.ToString();
+    }
+
     private static bool Blank(string? raw) => Text(raw) is null;
 
     /// <summary>Invariant display form for a list cell or a form input's value.</summary>
@@ -124,6 +215,10 @@ public static class ScaffoldValues
         string s => s,
         bool b => b ? "Yes" : "No",
         DateTime dt => dt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
+        DateOnly d => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        // Before IFormattable, which every enum also is: the formattable arm would
+        // print the member name too, but not spaced.
+        Enum e => EnumLabel(e.ToString()),
         IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
         _ => value.ToString() ?? "",
     };
@@ -134,6 +229,9 @@ public static class ScaffoldValues
         null => "",
         DateTime dt => dt.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
         bool b => b ? "on" : "",
+        // The option value is the member name, so the selected-state comparison
+        // has to see the name and not the spaced label.
+        Enum e => e.ToString(),
         _ => Display(value),
     };
 

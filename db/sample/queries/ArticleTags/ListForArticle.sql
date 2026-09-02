@@ -8,5 +8,5 @@ FROM articles a
 JOIN article_tags at ON at.article_id = a.id
 JOIN tags t ON t.slug = at.tag_slug
 WHERE a.slug = @slug
-  AND a.published
+  AND a.status = 'published'
 ORDER BY t.name, t.slug;

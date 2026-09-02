@@ -48,7 +48,7 @@ internal sealed class MemoryPublicTags(
         // Published articles only, and only ones the store still holds: the
         // relation keeps a link to a deleted article, and this is where it stops
         // counting.
-        var published = rows.Where(a => a.Published).Select(a => a.Id).ToList();
+        var published = rows.Where(a => a.Status == ArticleStatus.Published).Select(a => a.Id).ToList();
 
         return all
             .Select(t => new TagSummary(

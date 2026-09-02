@@ -2,6 +2,33 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Spec 023 — admin relations and field kinds** — `feat/023-admin-relations-and-field-kinds`,
+  2026-09-03. Eleven tasks ticked, spec `Status: done`. The scaffold generator derives four more
+  controls from the model alone: an enum property is a `<select>` of its members, a `DateOnly`
+  a date input, `[ScaffoldReference(typeof(T))]` a dropdown of T's rows with `(none)` first, and
+  `[ScaffoldRelation(typeof(T))]` a checkbox list or, with `Control = MultiSelect`, a
+  `<select multiple>`; a listed reference cell shows the target's label; four diagnostics refuse
+  a misdeclared target. The sample's `Article` has Status (Draft/Published/Archived, replacing
+  the bool), a nullable publication date the public order uses, a Category reference and Tags as
+  checkboxes; `Tag` edits the same relation from its side as a multi-select. Both store paths
+  persist it all (migration 0004, rehearsed on copies; the real databases await a yes),
+  `ViewCount` is read-only and counted on the held row, and the public site shows only
+  Published. Proved in all three tiers on both stores: scaffold unit 246, sample unit 214,
+  integration 168, e2e 31.
+  - **Review: 21 candidates across two lenses, 1 refuted by the Release publish, 2 refuted by
+    the refuters, 6 confirmed and fixed, 7 confirmed and noted in `work/todo.md`, 3 verified by
+    reading after a refuter batch hit its turn cap.** Fixed: a blank or omitted non-nullable enum
+    was accepted and silently reset a row to its first member (`IsRequiredEnumMember`); the
+    runtime map still mapped a model the generator had refused, burying the NWS diagnostic under
+    CS0103; the memory tag store took a key the SQL CHECK rejects; the two paths listed a
+    relation in different orders; the memory list served tags cached at the last article-side
+    save; and the memory path still lost a view counted while the form was open (`Mutate` under
+    the save lock). Noted: the article-side/tag-side save deadlock (40P01, reproduced with two
+    psql sessions), the memory category cascade's lock, read-only reference columns, an
+    emitted-string-only test, 0004's schema-less guard, the CSV column shift, and the public
+    cache's flash-cookie identity check.
+  - Cleanup: `scripts/cleanup/023-admin-relations-and-field-kinds.ps1` (the two rehearsal
+    databases, the JauntyQ pin worktree behind a second flag, the branch).
 - **Spec 022 — the sample's public site** — `feat/022-sample-public-site`, 2026-09-02 to
   2026-09-03. Eleven tasks ticked, spec `Status: done`. `/` is a home page rather than a redirect
   into the admin, every article has a unique slug and a page at `/articles/{slug}` that counts a

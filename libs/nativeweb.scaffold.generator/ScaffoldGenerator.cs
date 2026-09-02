@@ -146,10 +146,23 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                     || property.Type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T,
             };
 
-            // A type with no form conversion is displayed and carried through, never
-            // assigned from the form. ScaffoldEmitter.Convert is the one table that
-            // decides, so a type can never be editable here and unconvertible there.
-            pm.ReadOnly = ScaffoldEmitter.Convert(pm) is null;
+            // Status? is Nullable<Status>; the enum is the type argument.
+            ITypeSymbol bare = property.Type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
+                && property.Type is INamedTypeSymbol { TypeArguments.Length: 1 } nullable
+                ? nullable.TypeArguments[0]
+                : property.Type;
+            if (bare.TypeKind == TypeKind.Enum)
+            {
+                pm.IsEnum = true;
+                pm.TypeName = bare.ToDisplayString();
+                foreach (ISymbol enumMember in bare.GetMembers())
+                {
+                    if (enumMember is IFieldSymbol { HasConstantValue: true } field)
+                    {
+                        pm.EnumMembers.Add(field.Name);
+                    }
+                }
+            }
 
             pm.Label = SpaceCamelCase(property.Name);
 
@@ -176,10 +189,24 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                     case "NativeWeb.Scaffold.ScaffoldKeyAttribute":
                         pm.IsKey = true;
                         break;
+                    case "NativeWeb.Scaffold.ScaffoldReferenceAttribute":
+                        pm.Reference = TargetOf(attribute);
+                        break;
+                    case "NativeWeb.Scaffold.ScaffoldRelationAttribute":
+                        pm.Relation = TargetOf(attribute);
+                        pm.MultiSelect = attribute.NamedArguments.Any(a => a.Key == "Control" && a.Value.Value is int control && control == 1);
+                        break;
                     default:
                         break;
                 }
             }
+
+            // A type with no form conversion is displayed and carried through, never
+            // assigned from the form. ScaffoldEmitter.Convert is the one table that
+            // decides, so a type can never be editable here and unconvertible there.
+            // After the attribute loop, not before it: a relation's list type converts
+            // only because the attribute says what the list holds.
+            pm.ReadOnly = pm.ReadOnly || ScaffoldEmitter.Convert(pm) is null;
 
             // A key is never writable through a form. Emitting an editable input for
             // it would be a mass-assignment hole that looks like a feature.
@@ -201,6 +228,14 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
 
         return model;
     }
+
+    // The typeof(...) argument of [ScaffoldReference] or [ScaffoldRelation], as the
+    // same fully qualified name ScaffoldModel.FullyQualifiedName builds, so the two
+    // can be matched at emit time. Null when the argument is not a type at all.
+    private static string? TargetOf(AttributeData attribute) =>
+        attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is INamedTypeSymbol target
+            ? target.ToDisplayString()
+            : null;
 
     private static string? NamedArg(AttributeData attribute, string name)
     {
@@ -264,6 +299,13 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             return;
         }
 
+        var byName = new Dictionary<string, ScaffoldModel>();
+        foreach (ScaffoldModel model in models)
+        {
+            byName[model.FullyQualifiedName] = model;
+        }
+
+        var emitted = new List<ScaffoldModel>();
         foreach (ScaffoldModel model in models)
         {
             if (model.KeyProperty.Length == 0)
@@ -272,16 +314,68 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                 continue;
             }
 
+            if (!ChoicesResolve(spc, model, byName))
+            {
+                continue;
+            }
+
             spc.AddSource(
                 model.TypeName + ".Scaffold.g.cs",
-                SourceText.From(ScaffoldEmitter.Emit(model, root), Encoding.UTF8));
+                SourceText.From(ScaffoldEmitter.Emit(model, root, byName), Encoding.UTF8));
+            emitted.Add(model);
         }
 
+        // Only the classes that exist get mapped: a model refused above would
+        // otherwise surface as a CS0103 cascade beside the one diagnostic that
+        // names the real fault.
         spc.AddSource(
             "ScaffoldRuntime.g.cs",
-            SourceText.From(
-                ScaffoldEmitter.EmitRuntime(models.Where(m => m.KeyProperty.Length > 0).ToList(), root),
-                Encoding.UTF8));
+            SourceText.From(ScaffoldEmitter.EmitRuntime(emitted, root), Encoding.UTF8));
+    }
+
+    // Every [ScaffoldReference] and [ScaffoldRelation] on the model names a target
+    // this compilation scaffolds, keyed by a string, on a property of the one type
+    // the control binds to. Reported here rather than in Build because the target
+    // is another model, and only the collected set can say whether it exists.
+    private static bool ChoicesResolve(SourceProductionContext spc, ScaffoldModel model, Dictionary<string, ScaffoldModel> byName)
+    {
+        bool ok = true;
+        foreach (PropertyModel p in model.Properties)
+        {
+            string? targetName = p.Reference ?? p.Relation;
+            if (targetName is null)
+            {
+                continue;
+            }
+
+            string where = model.TypeName + "." + p.Name;
+            if (!byName.TryGetValue(targetName, out ScaffoldModel? target) || target.KeyProperty.Length == 0)
+            {
+                spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.TargetNotScaffolded, Location.None, where, targetName));
+                ok = false;
+                continue;
+            }
+
+            if (target.Properties.First(t => t.Name == target.KeyProperty).TypeName != "string")
+            {
+                spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.TargetKeyNotString, Location.None, where, targetName));
+                ok = false;
+            }
+
+            if (p.Reference is not null && !(p.TypeName == "string" && p.IsNullable))
+            {
+                spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.ReferenceNotNullableString, Location.None, where, p.TypeName));
+                ok = false;
+            }
+
+            if (p.Relation is not null && p.TypeName != "System.Collections.Generic.IReadOnlyList<string>")
+            {
+                spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.RelationNotKeyList, Location.None, where, p.TypeName));
+                ok = false;
+            }
+        }
+
+        return ok;
     }
 }
 
@@ -299,6 +393,38 @@ internal static class Diagnostics
         id: "NWS002",
         title: "Scaffold root is not a usable path",
         messageFormat: "[assembly: ScaffoldRoot(\"{0}\")] is not a usable prefix. It must begin with '/' and contain no query, fragment or space.",
+        category: "NativeWeb.Scaffold",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor TargetNotScaffolded = new(
+        id: "NWS003",
+        title: "Reference or relation target is not scaffolded",
+        messageFormat: "'{0}' refers to '{1}', which is not a [Scaffold] model with a [ScaffoldKey] in this assembly. The choices are read through the target's own IScaffoldStore, so the target has to be scaffolded too.",
+        category: "NativeWeb.Scaffold",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor ReferenceNotNullableString = new(
+        id: "NWS004",
+        title: "[ScaffoldReference] needs a string? property",
+        messageFormat: "'{0}' carries [ScaffoldReference] but is '{1}'. The property holds the target's key or nothing, so it must be string?.",
+        category: "NativeWeb.Scaffold",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor RelationNotKeyList = new(
+        id: "NWS005",
+        title: "[ScaffoldRelation] needs an IReadOnlyList<string> property",
+        messageFormat: "'{0}' carries [ScaffoldRelation] but is '{1}'. The property holds the target's keys, so it must be IReadOnlyList<string>.",
+        category: "NativeWeb.Scaffold",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor TargetKeyNotString = new(
+        id: "NWS006",
+        title: "Reference or relation target is not keyed by a string",
+        messageFormat: "'{0}' refers to '{1}', whose [ScaffoldKey] is not a string. A choice is posted as the target's key, and the property that holds it is a string.",
         category: "NativeWeb.Scaffold",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);

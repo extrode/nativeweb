@@ -6,10 +6,17 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing in flight.** Spec 022 merged into `dev` on 2026-09-03 (see `previous.md`). Next in
-  the agreed chain of sample examples: (b) admin editing of the article-tag relation, dropdowns,
-  dates, enums and status; then (c) forms — contact, upload, two-step; then (d) ops — two roles,
-  an audit trail, custom 404/500, `security.txt` on nw-dev.
+- **Nothing in flight.** Spec 023 merged into `dev` on 2026-09-03 (see `previous.md`). One
+  piece of it waits on a yes: migration `0004_status_dates_categories.sql` is applied to the
+  rehearsal copies only; `nativeweb_sample_dev` and `nativeweb_sample_test` still need it, and
+  until then every SQL-backed run needs `ConnectionStrings__Sample` pointed at
+  `nativeweb_sample_023rehearsal_test`. Next in the agreed chain of sample examples: (c) forms —
+  contact, upload, two-step; then (d) ops — two roles, an audit trail, custom 404/500,
+  `security.txt` on nw-dev.
+- **Every build depends on a JauntyQ pin.** `../jauntyq`'s current branch no longer carries
+  `src/`, so `JauntyQRoot=C:/home/code/extrode.com/jauntyq/.worktrees/nativeweb-build-2a005cb`
+  (a detached worktree at 2a005cb) has to be set for any `dotnet` command; the core now lives in
+  the public `extrode/jauntyq`. Where the pin should point long-term is an open question.
 - **Spec 021 — response formats and content negotiation. Done on
   `feat/021-response-formats-and-negotiation`, 2026-09-02.** `FormatResults` in
   `libs/nativeweb.render` answers text, Markdown, JSON (through a caller's `JsonTypeInfo<T>`),

@@ -158,17 +158,7 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         var articles = new List<Article>(rows.Count);
         foreach (Row row in rows)
         {
-            articles.Add(new Article
-            {
-                Id = row.Id,
-                Title = row.Title,
-                Slug = row.Slug,
-                Author = row.Author,
-                Body = row.Body,
-                Published = row.Published,
-                ViewCount = row.ViewCount,
-                CreatedAt = row.CreatedAt,
-            });
+            articles.Add(Map(row));
         }
 
         if (backward)
@@ -199,20 +189,19 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         var db = new JauntyDb(connection);
 
         Row? row = await db.Articles.GetByIdAsync(id, ct).ConfigureAwait(false);
+        if (row is null)
+        {
+            return null;
+        }
 
-        return row is null
-            ? null
-            : new Article
-            {
-                Id = row.Id,
-                Title = row.Title,
-                Slug = row.Slug,
-                Author = row.Author,
-                Body = row.Body,
-                Published = row.Published,
-                ViewCount = row.ViewCount,
-                CreatedAt = row.CreatedAt,
-            };
+        // One more query for the row's side of the relation (spec 023 R1): the
+        // edit form ticks what this list holds. The list pages never carry it.
+        Article article = Map(row);
+        List<ArticleTags.Result.ListSlugsForArticle> links =
+            await db.ArticleTags.ListSlugsForArticleAsync(id, ct).ConfigureAwait(false);
+        article.Tags = links.Select(l => l.TagSlug).ToList();
+
+        return article;
     }
 
     public async ValueTask<string> CreateAsync(Article item, CancellationToken ct)
@@ -236,15 +225,33 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         // pre-check would let two concurrent creates of one title both pass it. A
         // typed slug that collides is refused with the message the memory store
         // gives; a derived one is retried with the next suffix.
+        //
+        // The row and its links are one transaction (spec 023 R1, R7). A tag or
+        // category key that names no row fails its foreign key, and the attempt
+        // rolls back whole, so a refused form has saved nothing. A failed statement
+        // poisons a PostgreSQL transaction, which is why the slug retry begins a
+        // new one rather than issuing a second INSERT inside the first.
         string? typed = TypedSlug(item);
         string slug = typed ?? Slugs.Derive(item.Title);
         for (int attempt = 2; ; attempt++)
         {
+            using JauntyDb.Transaction tx = await db.BeginTransactionAsync(ct).ConfigureAwait(false);
             try
             {
                 await db.Articles.InsertAsync(
-                    key, slug, item.Title, item.Author, item.Body, item.Published, item.ViewCount, item.CreatedAt, ct)
-                    .ConfigureAwait(false);
+                    key,
+                    slug,
+                    item.Title,
+                    item.Author,
+                    item.Body,
+                    StatusText(item.Status),
+                    DayStart(item.PublishedAt),
+                    KeyOrNull(item.CategoryKey),
+                    item.ViewCount,
+                    item.CreatedAt,
+                    ct).ConfigureAwait(false);
+                await LinkAsync(db, key, item.Tags, ct).ConfigureAwait(false);
+                tx.Commit();
                 item.Slug = slug;
                 return key;
             }
@@ -256,6 +263,10 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
                 }
 
                 slug = string.Create(CultureInfo.InvariantCulture, $"{Slugs.Derive(item.Title)}-{attempt}");
+            }
+            catch (PostgresException missing) when (IsMissingChoice(missing))
+            {
+                throw new ScaffoldRefusedException(MissingChoice(missing));
             }
         }
     }
@@ -270,20 +281,104 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         // whether it matched.
         // A null slug reaches COALESCE(@slug, slug) in Update.sql and keeps the
         // row's own; a typed one is validated here and made unique by the index.
+        // The links are rewritten whole -- delete, then one insert per posted key --
+        // in the same transaction as the row, so the article's side of the
+        // relation is exactly the ticked set or nothing changed (spec 023 R1).
         string? typed = TypedSlug(item);
+        using JauntyDb.Transaction tx = await db.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
             int affected = await db.Articles.UpdateAsync(
-                item.Title, item.Author, item.Body, item.Published, item.ViewCount, typed, id, ct)
-                .ConfigureAwait(false);
+                item.Title,
+                item.Author,
+                item.Body,
+                StatusText(item.Status),
+                DayStart(item.PublishedAt),
+                KeyOrNull(item.CategoryKey),
+                typed,
+                id,
+                ct).ConfigureAwait(false);
+            if (affected == 0)
+            {
+                return false;
+            }
 
-            return affected > 0;
+            await db.ArticleTags.DeleteForArticleAsync(id, ct).ConfigureAwait(false);
+            await LinkAsync(db, id, item.Tags, ct).ConfigureAwait(false);
+            tx.Commit();
+            return true;
         }
         catch (PostgresException taken) when (IsSlugTaken(taken))
         {
             throw new ScaffoldRefusedException(Slugs.TakenMessage(typed ?? ""));
         }
+        catch (PostgresException missing) when (IsMissingChoice(missing))
+        {
+            throw new ScaffoldRefusedException(MissingChoice(missing));
+        }
     }
+
+    private static async Task LinkAsync(JauntyDb db, string articleId, IReadOnlyList<string> tagSlugs, CancellationToken ct)
+    {
+        foreach (string slug in tagSlugs)
+        {
+            await db.ArticleTags.InsertAsync(articleId, slug, ct).ConfigureAwait(false);
+        }
+    }
+
+    private static Article Map(Row row) => new()
+    {
+        Id = row.Id,
+        Title = row.Title,
+        Slug = row.Slug,
+        Author = row.Author,
+        Body = row.Body,
+        Status = StatusOf(row.Status),
+        PublishedAt = DayOf(row.PublishedAt),
+        CategoryKey = row.CategoryKey,
+        ViewCount = row.ViewCount,
+        CreatedAt = row.CreatedAt,
+    };
+
+    // The status column holds the enum's members in lower case, held to those
+    // three by articles_status_check; anything else in the column reads as Draft,
+    // which is the safe direction for a public site.
+    internal static string StatusText(ArticleStatus status) => status switch
+    {
+        ArticleStatus.Published => "published",
+        ArticleStatus.Archived => "archived",
+        _ => "draft",
+    };
+
+    internal static ArticleStatus StatusOf(string text) => text switch
+    {
+        "published" => ArticleStatus.Published,
+        "archived" => ArticleStatus.Archived,
+        _ => ArticleStatus.Draft,
+    };
+
+    // DATE crosses the wire as a DateTime in both directions: JauntyQ maps the
+    // column to System.DateTime, and the queries cast the parameter with ::date.
+    // Unspecified kind on the way out, because Npgsql refuses a UTC-kind value
+    // for a timestamp without time zone, which is what the parameter is typed as.
+    internal static DateTime? DayStart(DateOnly? day) => day?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+
+    internal static DateOnly? DayOf(DateTime? at) => at is DateTime when ? DateOnly.FromDateTime(when) : null;
+
+    // The form posts "" for the "(none)" option; the column wants NULL.
+    internal static string? KeyOrNull(string? key) => string.IsNullOrWhiteSpace(key) ? null : key.Trim();
+
+    // A posted key that names no row fails its foreign key (spec 023 R7). Which
+    // key is read off the constraint, so both stores give the memory stores'
+    // message for the same field.
+    internal static bool IsMissingChoice(PostgresException e) =>
+        e.SqlState == PostgresErrorCodes.ForeignKeyViolation;
+
+    internal static string MissingChoice(PostgresException e) =>
+        Refusals.MissingChoice(
+            e.ConstraintName?.Contains("category", StringComparison.Ordinal) == true ? "Category"
+            : e.ConstraintName?.Contains("tag_slug", StringComparison.Ordinal) == true ? "Tags"
+            : "Articles");
 
     public async ValueTask<bool> DeleteAsync(string id, CancellationToken ct)
     {

@@ -57,7 +57,14 @@ What scaffolding can and cannot express is in
 `apps/sample/PublishedArticles.cs` opens with a record and an interface:
 
 ```csharp
-public readonly record struct PublishedArticle(string Id, string Title, string? Author, DateTime CreatedAt);
+public readonly record struct PublishedArticle(
+    string Id,
+    string Slug,
+    string Title,
+    string? Author,
+    DateTime CreatedAt,
+    IReadOnlyList<TagRef> Tags,
+    DateOnly? PublishedAt = null);
 
 public interface IPublishedArticles
 {
@@ -65,8 +72,8 @@ public interface IPublishedArticles
 }
 ```
 
-Four fields, where the `Article` model has seven. **That narrowing is the point, not an
-optimisation.** `Article` is the scaffolding's model: its shape is decided by what the admin form
+Seven fields, where the `Article` model has eleven: no `Body`, no `Status`, no `CategoryKey`, no
+view count. **That narrowing is the point, not an optimisation.** `Article` is the scaffolding's model: its shape is decided by what the admin form
 edits, so handing it to a public page means the page silently gains a field the day someone adds
 one to the form. A read model that names exactly what it renders cannot drift that way — and
 `Body` never reaching a list page is a decision you can see rather than one you have to trust.
@@ -80,13 +87,19 @@ express either:
 
 ```csharp
 return all
-    .Where(a => a.Published)
-    .OrderByDescending(a => a.CreatedAt)
-    .ThenBy(a => a.Id, StringComparer.Ordinal)
-    .Take(take)
-    .Select(a => new PublishedArticle(a.Id, a.Title, a.Author, a.CreatedAt))
+    .Where(a => a.Status == ArticleStatus.Published)
+    .OrderByDescending(a => a.PublishedAt ?? DateOnly.FromDateTime(a.CreatedAt))
+    .ThenByDescending(a => a.CreatedAt)
+    .ThenByDescending(a => a.Id, StringComparer.Ordinal)
     .ToList();
 ```
+
+`Status` is an enum with three members and only `Published` is public: a `Draft` and an `Archived`
+row are equally absent from every public page, and the article page answers 404 for both. The
+order is the publication date the admin set, a row without one dated by its creation day, so an
+article can be published today and dated last week. The category the admin picked is not in the
+read model at all, which is the same narrowing again: the public site does not show it yet, so it
+does not carry it.
 
 **Over PostgreSQL**, the same class does nothing but map rows, because the filter and the ordering
 moved into SQL:
@@ -116,15 +129,22 @@ through a data library of its own, are in [`db/sample/README.md`](../../db/sampl
 
 ```sql
 -- @params take:int
--- @allow-sort demo table, three seeded rows; an index would cost more to explain than the sort costs to run
-SELECT id, title, author, body, published, view_count, created_at
+SELECT id, title, author, body, view_count, created_at, slug, status, published_at, category_key
 FROM articles
-WHERE published
-ORDER BY created_at DESC, id
+WHERE status = 'published'
+ORDER BY COALESCE(published_at, (created_at AT TIME ZONE 'UTC')::date) DESC, created_at DESC, id DESC
 LIMIT @take;
 ```
 
-Four things in six lines, and the second is the one worth the walk.
+The committed file is longer than this, because its comments record a directive that used to sit
+on its second line and no longer does. That story is the rest of this section: the query as it was
+first written carried it.
+
+```sql
+-- @allow-sort demo table, three seeded rows; an index would cost more to explain than the sort costs to run
+```
+
+Two declarations, and the one that has since gone is the one worth the walk.
 
 **`-- @params take:int`.** The generator infers a parameter's type by looking at the typed column it
 is compared against. `@take` appears in `LIMIT`, where there is no column, so it infers nothing and

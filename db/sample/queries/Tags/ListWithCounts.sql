@@ -9,6 +9,6 @@ SELECT
     COUNT(a.id) AS published_count
 FROM tags t
 LEFT JOIN article_tags at ON at.tag_slug = t.slug
-LEFT JOIN articles a ON a.id = at.article_id AND a.published
+LEFT JOIN articles a ON a.id = at.article_id AND a.status = 'published'
 GROUP BY t.slug, t.name, t.color
 ORDER BY t.name, t.slug;

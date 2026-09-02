@@ -18,7 +18,7 @@ public sealed class PublicTagsTests
 
     private void Seed(string id, bool published, params string[] tags)
     {
-        this._articles.Seed(new Article { Id = id, Slug = id, Title = id, Published = published });
+        this._articles.Seed(new Article { Id = id, Slug = id, Title = id, Status = published ? ArticleStatus.Published : ArticleStatus.Draft });
         foreach (string tag in tags)
         {
             this._relation.Link(id, tag);

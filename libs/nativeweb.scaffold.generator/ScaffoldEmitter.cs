@@ -8,7 +8,7 @@ namespace NativeWeb.Scaffold.Generator;
 // every view. One file per model, plus one shared runtime file.
 internal static class ScaffoldEmitter
 {
-    public static string Emit(ScaffoldModel model, string root)
+    public static string Emit(ScaffoldModel model, string root, IReadOnlyDictionary<string, ScaffoldModel> byName)
     {
         var sb = new StringBuilder(8192);
         string type = model.FullyQualifiedName;
@@ -17,6 +17,10 @@ internal static class ScaffoldEmitter
         string route = root + "/" + model.Route;
 
         var editable = model.Properties.Where(p => !p.ReadOnly).ToList();
+        var choices = model.Properties
+            .Where(p => !p.ReadOnly && (p.Reference ?? p.Relation) is not null)
+            .Select(p => new Choice(p, byName[p.Reference ?? p.Relation!]))
+            .ToList();
         var listed = model.Properties.Where(p => p.InList).ToList();
         if (listed.Count == 0)
         {
@@ -81,13 +85,14 @@ internal static class ScaffoldEmitter
         sb.AppendLine();
 
         EmitMap(sb, model, cls, form, route);
-        EmitList(sb, model, type, listed, searchable, sortable);
+        EmitList(sb, model, type, listed, searchable, sortable, choices);
+        EmitChoices(sb, model, choices);
         EmitNew(sb);
         EmitEdit(sb, type);
         EmitCreate(sb, type, form);
         EmitUpdate(sb, type, form);
         EmitDelete(sb, type);
-        EmitFormHtml(sb, model, type, editable);
+        EmitFormHtml(sb, model, type, editable, choices);
 
         sb.AppendLine("}");
         return sb.ToString();
@@ -107,7 +112,11 @@ internal static class ScaffoldEmitter
         sb.AppendLine($"public sealed record {form}(");
         for (int i = 0; i < editable.Count; i++)
         {
-            sb.AppendLine($"    string? {editable[i].Name}{(i < editable.Count - 1 ? "," : ") : IBindableFromHttpContext<" + form + ">")}");
+            // A relation field is posted once per ticked choice, so it binds as the
+            // whole StringValues rather than the comma-joined string every other
+            // field is; a key may hold a comma.
+            string fieldType = editable[i].IsCollection ? "string?[]" : "string?";
+            sb.AppendLine($"    {fieldType} {editable[i].Name}{(i < editable.Count - 1 ? "," : ") : IBindableFromHttpContext<" + form + ">")}");
         }
 
         if (editable.Count == 0)
@@ -141,7 +150,8 @@ internal static class ScaffoldEmitter
         {
             for (int i = 0; i < editable.Count; i++)
             {
-                sb.AppendLine($"            form[\"{editable[i].FieldName}\"].ToString(){(i < editable.Count - 1 ? "," : ");")}");
+                string read = editable[i].IsCollection ? "ToArray()" : "ToString()";
+                sb.AppendLine($"            form[\"{editable[i].FieldName}\"].{read}{(i < editable.Count - 1 ? "," : ");")}");
             }
         }
 
@@ -160,7 +170,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        group.MapGet(\"/\", ScaffoldEndpoints.Handle(http => ListAsync(http, http.RequestAborted)))");
         sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Read)};");
         sb.AppendLine();
-        sb.AppendLine("        group.MapGet(\"/new\", ScaffoldEndpoints.Handle(http => Task.FromResult(NewPage(http))))");
+        sb.AppendLine("        group.MapGet(\"/new\", ScaffoldEndpoints.Handle(http => NewAsync(http, http.RequestAborted)))");
         sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)};");
         sb.AppendLine();
         sb.AppendLine("        group.MapPost(\"/\", ScaffoldEndpoints.Handle(http => CreateAsync(http, http.RequestAborted)))");
@@ -212,8 +222,16 @@ internal static class ScaffoldEmitter
         string type,
         List<PropertyModel> listed,
         List<PropertyModel> searchable,
-        List<PropertyModel> sortable)
+        List<PropertyModel> sortable,
+        List<Choice> choices)
     {
+        // A listed reference shows the target's label, not the key it stores
+        // (spec 023 R5): one bounded query per reference column, the same rows
+        // the form's dropdown offers. A key past OptionLimit, or one whose row
+        // is gone, shows as itself rather than as blank.
+        var labelled = choices
+            .Where(c => c.Property.Reference is not null && listed.Contains(c.Property))
+            .ToList();
         sb.AppendLine("    private static async Task<IResult> ListAsync(HttpContext http, CancellationToken ct)");
         sb.AppendLine("    {");
         sb.AppendLine($"        IScaffoldStore<{type}> store = http.RequestServices.GetRequiredService<IScaffoldStore<{type}>>();");
@@ -260,6 +278,18 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        bool hasNext = backward || overflow;");
         sb.AppendLine("        bool hasPrevious = backward ? overflow : after.HasValue;");
         sb.AppendLine();
+        foreach (Choice c in labelled)
+        {
+            string f = c.Property.FieldName;
+            sb.AppendLine($"        var {f}Labels = new Dictionary<string, string>(StringComparer.Ordinal);");
+            sb.AppendLine($"        foreach ({c.Target.FullyQualifiedName} choice in await http.RequestServices.GetRequiredService<IScaffoldStore<{c.Target.FullyQualifiedName}>>()");
+            sb.AppendLine($"            .ListAsync(null, Array.Empty<string>(), null, {c.Target.TypeName}Scaffold.SortFields, null, OptionLimit, ct).ConfigureAwait(false))");
+            sb.AppendLine("        {");
+            sb.AppendLine($"            {f}Labels[ScaffoldValues.Display(choice.{c.Target.KeyProperty})] = ScaffoldValues.Display(choice.{c.LabelProperty});");
+            sb.AppendLine("        }");
+            sb.AppendLine();
+        }
+
         sb.AppendLine("        StringBuilder sb = new(4096);");
         sb.AppendLine("        sb.Append(\"<div class=\\\"nws-head\\\"><h1>\").Append(Enc(Display)).Append(\"</h1>\");");
         sb.AppendLine("        sb.Append(\"<a class=\\\"nws-btn nws-btn--primary\\\" href=\\\"\").Append(BasePath).Append(\"/new\\\">New</a></div>\");");
@@ -295,7 +325,10 @@ internal static class ScaffoldEmitter
         sb.AppendLine("            sb.Append(\"<tr>\");");
         foreach (PropertyModel p in listed)
         {
-            sb.AppendLine($"            sb.Append(\"<td>\").Append(Enc(ScaffoldValues.Display(row.{p.Name}))).Append(\"</td>\");");
+            string cell = labelled.Any(c => c.Property == p)
+                ? $"Label({p.FieldName}Labels, ScaffoldValues.Display(row.{p.Name}))"
+                : $"ScaffoldValues.Display(row.{p.Name})";
+            sb.AppendLine($"            sb.Append(\"<td>\").Append(Enc({cell})).Append(\"</td>\");");
         }
 
         sb.AppendLine("            sb.Append(\"<td class=\\\"nws-actions\\\">\");");
@@ -369,8 +402,64 @@ internal static class ScaffoldEmitter
 
     private static void EmitNew(StringBuilder sb)
     {
-        sb.AppendLine("    private static IResult NewPage(HttpContext http) =>");
-        sb.AppendLine($"        ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, null, BasePath, \"Create\", null));");
+        sb.AppendLine("    private static async Task<IResult> NewAsync(HttpContext http, CancellationToken ct) =>");
+        sb.AppendLine($"        ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, null, BasePath, \"Create\", null, await ChoicesAsync(http, ct).ConfigureAwait(false)));");
+        sb.AppendLine();
+    }
+
+    // The rows a reference or relation offers, one list per such property, read
+    // through the target's own store. Loaded only by the pages that render the
+    // form: a valid submission never pays for them.
+    private static void EmitChoices(StringBuilder sb, ScaffoldModel model, List<Choice> choices)
+    {
+        sb.AppendLine("    /// <summary>The most rows a reference or relation control offers. A key the row already holds is rendered whether or not it is among them.</summary>");
+        sb.AppendLine("    public const int OptionLimit = 500;");
+        sb.AppendLine();
+        sb.AppendLine($"    private sealed class Choices");
+        sb.AppendLine("    {");
+        foreach (Choice c in choices)
+        {
+            sb.AppendLine($"        public IReadOnlyList<{c.Target.FullyQualifiedName}> {c.Property.Name} {{ get; set; }} = Array.Empty<{c.Target.FullyQualifiedName}>();");
+        }
+
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine("    private static async Task<Choices> ChoicesAsync(HttpContext http, CancellationToken ct)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        var choices = new Choices();");
+        foreach (Choice c in choices)
+        {
+            string target = c.Target.FullyQualifiedName;
+            string targetCls = c.Target.TypeName + "Scaffold";
+            // Ordered by the label when the target declared it sortable, so the
+            // dropdown reads alphabetically; by key otherwise, which is the order
+            // every store must be able to give.
+            string sort = c.LabelSortable
+                ? $"new ScaffoldSortSpec(\"{Escape(c.LabelProperty)}\", ScaffoldSortDirection.Ascending)"
+                : "null";
+            sb.AppendLine($"        choices.{c.Property.Name} = await http.RequestServices.GetRequiredService<IScaffoldStore<{target}>>()");
+            sb.AppendLine($"            .ListAsync(null, Array.Empty<string>(), {sort}, {targetCls}.SortFields, null, OptionLimit, ct)");
+            sb.AppendLine("            .ConfigureAwait(false);");
+        }
+
+        sb.AppendLine("        return choices;");
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine("    private static string Label(Dictionary<string, string> labels, string key) =>");
+        sb.AppendLine("        labels.TryGetValue(key, out string? label) ? label : key;");
+        sb.AppendLine();
+        sb.AppendLine("    private static bool Has(IReadOnlyList<string> keys, string key)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        for (int i = 0; i < keys.Count; i++)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            if (string.Equals(keys[i], key, StringComparison.Ordinal))");
+        sb.AppendLine("            {");
+        sb.AppendLine("                return true;");
+        sb.AppendLine("            }");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine("        return false;");
+        sb.AppendLine("    }");
         sb.AppendLine();
     }
 
@@ -385,7 +474,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine("            return Results.NotFound();");
         sb.AppendLine("        }");
         sb.AppendLine();
-        sb.AppendLine("        return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, row, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", null));");
+        sb.AppendLine("        return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, row, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", null, await ChoicesAsync(http, ct).ConfigureAwait(false)));");
         sb.AppendLine("    }");
         sb.AppendLine();
     }
@@ -399,7 +488,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        var (item, error) = FromForm(form, null);");
         sb.AppendLine("        if (error is not null)");
         sb.AppendLine("        {");
-        sb.AppendLine("            return ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, null, BasePath, \"Create\", error, form));");
+        sb.AppendLine("            return ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, null, BasePath, \"Create\", error, await ChoicesAsync(http, ct).ConfigureAwait(false), form));");
         sb.AppendLine("        }");
         sb.AppendLine();
         // The returned key is used rather than discarded, and the redirect goes to
@@ -419,7 +508,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        }");
         sb.AppendLine("        catch (ScaffoldRefusedException refused)");
         sb.AppendLine("        {");
-        sb.AppendLine("            return ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, null, BasePath, \"Create\", refused.Message, form));");
+        sb.AppendLine("            return ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, null, BasePath, \"Create\", refused.Message, await ChoicesAsync(http, ct).ConfigureAwait(false), form));");
         sb.AppendLine("        }");
         sb.AppendLine();
         // Without this, an empty key redirects to BasePath + "/" -- which is the
@@ -450,7 +539,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        var (item, error) = FromForm(form, existing);");
         sb.AppendLine("        if (error is not null)");
         sb.AppendLine("        {");
-        sb.AppendLine("            return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, existing, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", error, form));");
+        sb.AppendLine("            return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, existing, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", error, await ChoicesAsync(http, ct).ConfigureAwait(false), form));");
         sb.AppendLine("        }");
         sb.AppendLine();
         // The row was there when GetAsync ran and may not be when UpdateAsync does:
@@ -465,7 +554,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        }");
         sb.AppendLine("        catch (ScaffoldRefusedException refused)");
         sb.AppendLine("        {");
-        sb.AppendLine("            return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, existing, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", refused.Message, form));");
+        sb.AppendLine("            return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, existing, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", refused.Message, await ChoicesAsync(http, ct).ConfigureAwait(false), form));");
         sb.AppendLine("        }");
         sb.AppendLine();
         sb.AppendLine("        if (!updated)");
@@ -495,7 +584,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine();
     }
 
-    private static void EmitFormHtml(StringBuilder sb, ScaffoldModel model, string type, List<PropertyModel> editable)
+    private static void EmitFormHtml(StringBuilder sb, ScaffoldModel model, string type, List<PropertyModel> editable, List<Choice> choices)
     {
         // Form -> model, with the key carried over from the existing row rather
         // than read from the submission. A key that round-trips through a form is
@@ -526,6 +615,19 @@ internal static class ScaffoldEmitter
                 sb.AppendLine($"        if (!ScaffoldValues.{check}(form.{p.Name}))");
                 sb.AppendLine("        {");
                 sb.AppendLine($"            return (Build(form, existing), \"{Escape(p.Label)} {message}\");");
+                sb.AppendLine("        }");
+                sb.AppendLine();
+            }
+
+            // A select posts one of the names the generator wrote into it, so any
+            // other value did not come from the form. Named in the message, since
+            // the person reading it may be looking at a request and not a page.
+            if (p.IsEnum)
+            {
+                string member = p.IsNullable ? "IsEnumMember" : "IsRequiredEnumMember";
+                sb.AppendLine($"        if (!ScaffoldValues.{member}<{p.TypeName}>(form.{p.Name}))");
+                sb.AppendLine("        {");
+                sb.AppendLine($"            return (Build(form, existing), \"{Escape(p.Label)} must be one of {Escape(string.Join(", ", p.EnumMembers))}.\");");
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }
@@ -563,7 +665,7 @@ internal static class ScaffoldEmitter
         // and the user could no longer see what they had typed. It also decides the
         // heading, because `row` is null on a rejected create, which is what makes
         // that page say "New" rather than "Edit".
-        sb.AppendLine($"    private static string FormHtml(HttpContext http, {type}? row, string action, string submitLabel, string? error, {model.TypeName}Form? submitted = null)");
+        sb.AppendLine($"    private static string FormHtml(HttpContext http, {type}? row, string action, string submitLabel, string? error, Choices choices, {model.TypeName}Form? submitted = null)");
         sb.AppendLine("    {");
         sb.AppendLine("        StringBuilder sb = new(2048);");
         sb.AppendLine("        sb.Append(\"<div class=\\\"nws-head\\\"><h1>\").Append(Enc(row is null ? \"New \" + Singular : \"Edit \" + Singular)).Append(\"</h1>\");");
@@ -577,12 +679,41 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        sb.Append(ScaffoldLayout.AntiforgeryField(http));");
         foreach (PropertyModel p in editable)
         {
+            if (p.Relation is not null)
+            {
+                EmitRelationControl(sb, p, choices.First(c => c.Property == p));
+                continue;
+            }
+
             // The submitted string wins over the stored value, so a rejected form
             // comes back carrying what the user typed.
             string value = $"submitted is not null ? (submitted.{p.Name} ?? \"\") : row is null ? \"\" : ScaffoldValues.Editable(row.{p.Name})";
 
             sb.AppendLine($"        sb.Append(\"<label for=\\\"{p.FieldName}\\\">{Escape(p.Label)}</label>\");");
-            if (p.Multiline)
+            if (p.IsEnum)
+            {
+                // One option per member, value = name, text = the spaced label. A
+                // nullable enum gets a blank first option, which posts "" and binds
+                // as null; a non-nullable one has no way to say nothing.
+                sb.AppendLine($"        string {p.FieldName}Value = {value};");
+                sb.AppendLine($"        sb.Append(\"<select id=\\\"{p.FieldName}\\\" name=\\\"{p.FieldName}\\\">\");");
+                if (p.IsNullable)
+                {
+                    sb.AppendLine("        sb.Append(\"<option value=\\\"\\\">(none)</option>\");");
+                }
+
+                foreach (string member in p.EnumMembers)
+                {
+                    sb.AppendLine($"        sb.Append(\"<option value=\\\"{Escape(member)}\\\"\").Append({p.FieldName}Value == \"{Escape(member)}\" ? \" selected\" : \"\").Append(\">{Escape(ScaffoldLabel(member))}</option>\");");
+                }
+
+                sb.AppendLine("        sb.Append(\"</select>\");");
+            }
+            else if (p.Reference is not null)
+            {
+                EmitReferenceControl(sb, p, choices.First(c => c.Property == p), value);
+            }
+            else if (p.Multiline)
             {
                 sb.AppendLine($"        sb.Append(\"<textarea id=\\\"{p.FieldName}\\\" name=\\\"{p.FieldName}\\\" rows=\\\"6\\\">\").Append(Enc({value})).Append(\"</textarea>\");");
             }
@@ -609,6 +740,113 @@ internal static class ScaffoldEmitter
         sb.AppendLine("    private static string Enc(string value) => HtmlEncoder.Default.Encode(value);");
     }
 
+    // A dropdown of the target's rows with a "(none)" first. The held key is
+    // rendered selected even when it is not among the offered rows -- past
+    // OptionLimit, or a row the store no longer lists -- because a select that
+    // cannot show the current value silently posts a different one.
+    private static void EmitReferenceControl(StringBuilder sb, PropertyModel p, Choice c, string value)
+    {
+        string f = p.FieldName;
+        sb.AppendLine($"        string {f}Value = {value};");
+        sb.AppendLine($"        bool {f}Seen = {f}Value.Length == 0;");
+        sb.AppendLine($"        sb.Append(\"<select id=\\\"{f}\\\" name=\\\"{f}\\\"><option value=\\\"\\\">(none)</option>\");");
+        sb.AppendLine($"        foreach ({c.Target.FullyQualifiedName} choice in choices.{p.Name})");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            string key = ScaffoldValues.Display(choice.{c.Target.KeyProperty});");
+        sb.AppendLine($"            bool selected = string.Equals(key, {f}Value, StringComparison.Ordinal);");
+        sb.AppendLine($"            {f}Seen |= selected;");
+        sb.AppendLine($"            sb.Append(\"<option value=\\\"\").Append(Enc(key)).Append(\"\\\"\").Append(selected ? \" selected\" : \"\").Append(\">\").Append(Enc(ScaffoldValues.Display(choice.{c.LabelProperty}))).Append(\"</option>\");");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine($"        if (!{f}Seen)");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            sb.Append(\"<option value=\\\"\").Append(Enc({f}Value)).Append(\"\\\" selected>\").Append(Enc({f}Value)).Append(\"</option>\");");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine("        sb.Append(\"</select>\");");
+    }
+
+    // Checkboxes or a multi-select over the target's rows, the same markup
+    // contract either way: every ticked choice posts `name=key`, nothing ticked
+    // posts nothing. Held keys not among the offered rows are rendered ticked and
+    // labelled by their key, for the reason EmitReferenceControl gives.
+    private static void EmitRelationControl(StringBuilder sb, PropertyModel p, Choice c)
+    {
+        string f = p.FieldName;
+        string target = c.Target.FullyQualifiedName;
+        sb.AppendLine($"        IReadOnlyList<string> {f}Keys = submitted is not null ? ScaffoldValues.Keys(submitted.{p.Name}) : row is null ? Array.Empty<string>() : row.{p.Name};");
+        sb.AppendLine($"        var {f}Seen = new HashSet<string>(StringComparer.Ordinal);");
+        if (p.MultiSelect)
+        {
+            sb.AppendLine($"        sb.Append(\"<label for=\\\"{f}\\\">{Escape(p.Label)}</label>\");");
+            sb.AppendLine($"        sb.Append(\"<select multiple id=\\\"{f}\\\" name=\\\"{f}\\\" size=\\\"8\\\">\");");
+        }
+        else
+        {
+            sb.AppendLine($"        sb.Append(\"<fieldset class=\\\"nws-choices\\\" id=\\\"{f}\\\"><legend>{Escape(p.Label)}</legend>\");");
+        }
+
+        sb.AppendLine($"        foreach ({target} choice in choices.{p.Name})");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            string key = ScaffoldValues.Display(choice.{c.Target.KeyProperty});");
+        sb.AppendLine($"            bool held = Has({f}Keys, key);");
+        sb.AppendLine($"            {f}Seen.Add(key);");
+        EmitChoiceItem(sb, p, f, "key", $"ScaffoldValues.Display(choice.{c.LabelProperty})", "held");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine($"        foreach (string key in {f}Keys)");
+        sb.AppendLine("        {");
+        sb.AppendLine($"            if ({f}Seen.Add(key))");
+        sb.AppendLine("            {");
+        EmitChoiceItem(sb, p, f, "key", "key", "true", indent: "                ");
+        sb.AppendLine("            }");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine(p.MultiSelect ? "        sb.Append(\"</select>\");" : "        sb.Append(\"</fieldset>\");");
+    }
+
+    private static void EmitChoiceItem(StringBuilder sb, PropertyModel p, string f, string key, string label, string held, string indent = "            ")
+    {
+        sb.AppendLine(p.MultiSelect
+            ? $"{indent}sb.Append(\"<option value=\\\"\").Append(Enc({key})).Append(\"\\\"\").Append({held} ? \" selected\" : \"\").Append(\">\").Append(Enc({label})).Append(\"</option>\");"
+            : $"{indent}sb.Append(\"<label class=\\\"nws-choice\\\"><input type=\\\"checkbox\\\" name=\\\"{f}\\\" value=\\\"\").Append(Enc({key})).Append(\"\\\"\").Append({held} ? \" checked\" : \"\").Append(\"> \").Append(Enc({label})).Append(\"</label>\");");
+    }
+
+    // One reference or relation property and the model its choices come from.
+    private sealed class Choice(PropertyModel property, ScaffoldModel target)
+    {
+        public PropertyModel Property { get; } = property;
+
+        public ScaffoldModel Target { get; } = target;
+
+        // The first listed string that is not the key, else the key itself: what
+        // an option shows. A [Scaffold(Display)]-style override is a later spec.
+        public string LabelProperty { get; } =
+            target.Properties.FirstOrDefault(t => t.InList && !t.IsKey && t.TypeName == "string")?.Name ?? target.KeyProperty;
+
+        public bool LabelSortable =>
+            Target.Properties.First(t => t.Name == LabelProperty).Sortable;
+    }
+
+    // "Published" from Published, "InReview" to "In Review": the same rule
+    // ScaffoldValues.EnumLabel applies at run time, repeated here because the
+    // generator cannot reference the runtime assembly.
+    private static string ScaffoldLabel(string member)
+    {
+        var sb = new StringBuilder(member.Length + 4);
+        for (int i = 0; i < member.Length; i++)
+        {
+            if (i > 0 && char.IsUpper(member[i]) && !char.IsUpper(member[i - 1]))
+            {
+                sb.Append(' ');
+            }
+
+            sb.Append(member[i]);
+        }
+
+        return sb.ToString();
+    }
+
     private static bool IsStringLike(PropertyModel p) => p.TypeName == "string";
 
     // The ScaffoldValues check for a property's declared type, and the tail of the
@@ -624,6 +862,7 @@ internal static class ScaffoldEmitter
         "double" => ("IsDouble", "must be a number."),
         "float" => ("IsSingle", "must be a number."),
         "System.DateTime" => ("IsDateTime", "must be a date and time."),
+        "System.DateOnly" => ("IsDateOnly", "must be a date."),
         "System.Guid" => ("IsGuid", "must be a valid id."),
         _ => null,
     };
@@ -633,6 +872,7 @@ internal static class ScaffoldEmitter
         "int" or "long" or "short" => "number",
         "decimal" or "double" or "float" => "number\\\" step=\\\"any",
         "System.DateTime" => "datetime-local",
+        "System.DateOnly" => "date",
         _ => "text",
     };
 
@@ -650,6 +890,10 @@ internal static class ScaffoldEmitter
         string raw = $"form.{p.Name}";
         return p.TypeName switch
         {
+            // Before the string arm: a relation's type name is the list, not string.
+            _ when p.Relation is not null => $"ScaffoldValues.Keys({raw})",
+            _ when p.IsEnum && p.IsNullable => $"ScaffoldValues.NullableEnum<{p.TypeName}>({raw})",
+            _ when p.IsEnum => $"ScaffoldValues.EnumValue<{p.TypeName}>({raw}, default({p.TypeName}))",
             "string" when p.IsNullable => $"ScaffoldValues.Text({raw})",
             "string" => $"ScaffoldValues.Text({raw}) ?? string.Empty",
             // short and float used to fall through to the string case at the
@@ -674,6 +918,8 @@ internal static class ScaffoldEmitter
             "bool" => $"ScaffoldValues.Boolean({raw})",
             "System.DateTime" when p.IsNullable => $"ScaffoldValues.NullableDateTime({raw})",
             "System.DateTime" => $"ScaffoldValues.DateTimeValue({raw}, DateTime.UtcNow)",
+            "System.DateOnly" when p.IsNullable => $"ScaffoldValues.NullableDateOnly({raw})",
+            "System.DateOnly" => $"ScaffoldValues.DateOnlyValue({raw}, DateOnly.FromDateTime(DateTime.UtcNow))",
             "System.Guid" when p.IsNullable => $"ScaffoldValues.NullableGuid({raw})",
             "System.Guid" => $"ScaffoldValues.GuidValue({raw})",
             _ => null,
@@ -964,6 +1210,12 @@ internal static class ScaffoldEmitter
         .nws-form input,.nws-form textarea{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}
         .nws-form input:focus,.nws-form textarea:focus{outline:none;border-color:var(--accent)}
         .nws-form input[type=checkbox]{width:18px;height:18px;align-self:flex-start;accent-color:var(--accent)}
+        .nws-form select{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}
+        .nws-form select:focus{outline:none;border-color:var(--accent)}
+        .nws-form select[multiple]{padding:6px}
+        .nws-choices{border:1px solid var(--line);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:6px;margin-top:10px}
+        .nws-choices legend{font-size:13px;color:var(--muted);padding:0 4px}
+        .nws-form .nws-choice{display:flex;align-items:center;gap:8px;margin-top:0;color:var(--fg);font-size:14px}
         .nws-form button{margin-top:20px;align-self:flex-start}
         .nws-error{background:rgba(210,105,95,.12);border:1px solid var(--danger);color:#f0c2bd;padding:10px 14px;border-radius:8px}
         .nws-pager{display:flex;gap:16px;align-items:center;justify-content:center;margin-top:20px;color:var(--muted)}

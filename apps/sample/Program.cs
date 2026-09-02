@@ -141,12 +141,11 @@ public sealed class Program
         // this line differs.
         if (string.IsNullOrWhiteSpace(options.ConnectionString))
         {
-            var articles = new ArticleStore();
-            var tags = new TagStore();
-            var relation = new MemoryRelation();
+            (ArticleStore articles, TagStore tags, CategoryStore categories, MemoryRelation relation) = MemoryStores.Create();
             builder.Services.AddSingleton<IScaffoldStore<Article>>(articles);
             builder.Services.AddSingleton<IScaffoldStore<Tag>>(tags);
-            Seed.Fill(articles, tags, relation);
+            builder.Services.AddSingleton<IScaffoldStore<Category>>(categories);
+            Seed.Fill(articles, tags, categories, relation);
 
             // The public pages read through the same seams. In-memory they have to
             // filter, sort and count themselves; see MemoryPublishedArticles.
@@ -168,6 +167,8 @@ public sealed class Program
             // seeded tags are rows migration 0003 inserts, so nothing seeds here.
             builder.Services.AddSingleton<IScaffoldStore<Tag>>(
                 sp => new JauntyTagStore(sp.GetRequiredService<NpgsqlDataSource>()));
+            builder.Services.AddSingleton<IScaffoldStore<Category>>(
+                sp => new JauntyCategoryStore(sp.GetRequiredService<NpgsqlDataSource>()));
 
             // Same seam, but the filter and the ordering move into SQL. This is the
             // pair the tutorial in docs/00-quick-start/tutorial-first-feature.md compares.
@@ -262,8 +263,10 @@ internal static class Seed
     // are what spec 022 R4 asks the demo to show: one article with two tags, one
     // with none, and one tag (postgres) whose only article is a draft, so the tag
     // listing has a zero to show and the tag page an empty state.
-    internal static void Fill(ArticleStore articles, TagStore tags, MemoryRelation relation)
+    internal static void Fill(ArticleStore articles, TagStore tags, CategoryStore categories, MemoryRelation relation)
     {
+        categories.Seed(new Category { Key = "guides", Name = "Guides" });
+        categories.Seed(new Category { Key = "notes", Name = "Notes" });
         tags.Seed(new Tag { Slug = "aot", Name = "NativeAOT", Color = "#5bbd83" });
         tags.Seed(new Tag { Slug = "htmx", Name = "HTMX", Color = "#7aa2f7" });
         tags.Seed(new Tag { Slug = "postgres", Name = "PostgreSQL", Color = "#336791" });
@@ -277,7 +280,9 @@ internal static class Seed
             Slug = "lean-native-web",
             Author = "Sy",
             Body = "Server-rendered HTML, one native binary, no client build step.",
-            Published = true,
+            Status = ArticleStatus.Published,
+            PublishedAt = new DateOnly(2026, 3, 5),
+            CategoryKey = "guides",
             ViewCount = 1420,
             CreatedAt = new DateTime(2026, 3, 4, 9, 30, 0, DateTimeKind.Utc),
         });
@@ -289,7 +294,9 @@ internal static class Seed
             Slug = "binding-forms-under-nativeaot",
             Author = "Sy",
             Body = "Complex-type [FromForm] does not compile. IBindableFromHttpContext does.",
-            Published = true,
+            Status = ArticleStatus.Published,
+            PublishedAt = new DateOnly(2026, 6, 20),
+            CategoryKey = "notes",
             ViewCount = 388,
             CreatedAt = new DateTime(2026, 6, 18, 14, 5, 0, DateTimeKind.Utc),
         });
@@ -301,7 +308,7 @@ internal static class Seed
             Slug = "scaffolding-without-reflection",
             Author = null,
             Body = "Draft.",
-            Published = false,
+            Status = ArticleStatus.Draft,
             ViewCount = 0,
             CreatedAt = new DateTime(2026, 8, 19, 8, 0, 0, DateTimeKind.Utc),
         });
