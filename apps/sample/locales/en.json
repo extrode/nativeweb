@@ -19,5 +19,14 @@
     "placeholder": "Title or author",
     "submit": "Filter",
     "empty": "No published articles yet."
+  },
+  "signin": {
+    "title": "Sign in",
+    "lede": "The admin is for the operator. Enter the passphrase from this host's secrets.env.",
+    "passphrase": "Passphrase",
+    "submit": "Sign in",
+    "refused": "Not accepted.",
+    "signedin": "Signed in as",
+    "signout": "Sign out"
   }
 }

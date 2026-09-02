@@ -1,0 +1,30 @@
+<!--#template
+  @layout layout/page
+  @param string SignedInAs
+  @param bool Refused
+  @param string ReturnUrl
+  @param string AntiforgeryFieldName
+  @param string AntiforgeryToken
+-->
+<h1 class="page__title">{{t:signin.title}}</h1>
+{{if SignedInAs.Length != 0}}
+<p class="page__lede">{{t:signin.signedin}} {{SignedInAs}}.</p>
+<form class="signin" method="post" action="/signout">
+{{> shared/antiforgery FieldName=AntiforgeryFieldName Token=AntiforgeryToken}}
+<button class="btn" type="submit">{{t:signin.signout}}</button>
+</form>
+{{else}}
+<p class="page__lede">{{t:signin.lede}}</p>
+{{if Refused}}
+<p class="nws-error" role="alert">{{t:signin.refused}}</p>
+{{/if}}
+<form class="signin" method="post" action="/signin">
+{{> shared/antiforgery FieldName=AntiforgeryFieldName Token=AntiforgeryToken}}
+<input type="hidden" name="return" value="{{ReturnUrl}}">
+<div class="field">
+<label class="field__label" for="passphrase">{{t:signin.passphrase}}</label>
+<input class="input" id="passphrase" name="passphrase" type="password" autocomplete="current-password" required autofocus>
+</div>
+<button class="btn btn--primary" type="submit">{{t:signin.submit}}</button>
+</form>
+{{/if}}
