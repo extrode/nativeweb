@@ -14,6 +14,18 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **Admin relations and field kinds (spec 023).** The scaffold generator derives four more
+  controls from the model: an enum property renders a `<select>` of its members, a `DateOnly`
+  property a date input, a `[ScaffoldReference(typeof(T))]` string a dropdown of T's rows with
+  `(none)` first, and a `[ScaffoldRelation(typeof(T))]` list of keys a checkbox list or, with
+  `Control = ScaffoldRelationControl.MultiSelect`, a `<select multiple>`. A listed reference cell
+  shows the target's label; a posted value outside the offered set is refused with a message
+  beside the field, a blank required enum included; a misdeclared target is a build error
+  (NWS003–NWS006). The sample's `Article` has a Status (Draft, Published, Archived) in place of
+  the `Published` bool, a nullable publication date the public pages order by, a Category, and
+  its Tags as checkboxes; a `Tag` edits the same relation from its side as a multi-select. Only
+  Published is public. `ViewCount` is read-only, so a view counted while the form is open is
+  kept. Migration `0004_status_dates_categories.sql` carries the schema on the database path.
 - **The sample has a public site (spec 022).** `/` is a home page listing the newest published
   articles, each at `/articles/{slug}` with its tags and a view counted per render; `/tags` and
   `/tags/{slug}` list every tag with its published count and one tag's articles. Every article

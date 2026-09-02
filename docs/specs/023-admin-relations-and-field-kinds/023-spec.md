@@ -1,5 +1,5 @@
 # 023 — Admin relations and field kinds
-Status: draft
+Status: done
 Created: 2026-09-03
 
 ## Problem
