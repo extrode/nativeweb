@@ -123,6 +123,23 @@ internal sealed class PropertyModel
 
     public bool IsKey { get; set; }
 
+    public bool IsEnum { get; set; }
+
+    /// The enum's member names in declaration order; empty unless IsEnum.
+    public List<string> EnumMembers { get; set; } = [];
+
+    /// The fully qualified name of the [ScaffoldReference] target, or null.
+    public string? Reference { get; set; }
+
+    /// The fully qualified name of the [ScaffoldRelation] target, or null.
+    public string? Relation { get; set; }
+
+    /// True when the relation renders as a multi-select rather than checkboxes.
+    public bool MultiSelect { get; set; }
+
+    /// A relation property holds many keys and binds as string[] rather than string?.
+    public bool IsCollection => Relation is not null;
+
     // The form field name. Lower-camel, matching the HTML the generator emits, so
     // the binder and the markup cannot drift apart -- they are produced from this
     // one value.
@@ -140,12 +157,18 @@ internal sealed class PropertyModel
         && Sortable == other.Sortable
         && Multiline == other.Multiline
         && ReadOnly == other.ReadOnly
-        && IsKey == other.IsKey;
+        && IsKey == other.IsKey
+        && IsEnum == other.IsEnum
+        && EnumMembers.SequenceEqual(other.EnumMembers)
+        && Reference == other.Reference
+        && Relation == other.Relation
+        && MultiSelect == other.MultiSelect;
 
     // Sortable belongs in both members, not just Equals. The incremental pipeline
     // caches on this value, so a field the hash omits is a field whose change can
     // land in a bucket the comparer never re-runs -- adding [ScaffoldSort] then
     // regenerates nothing and the column stays unsortable with no error anywhere.
     public override int GetHashCode() =>
-        (Name, TypeName, IsNullable, InList, Searchable, Sortable, Multiline, ReadOnly, IsKey).GetHashCode();
+        (Name, TypeName, IsNullable, InList, Searchable, Sortable, Multiline, ReadOnly, IsKey).GetHashCode()
+        ^ (IsEnum, string.Join(",", EnumMembers), Reference, Relation, MultiSelect).GetHashCode();
 }
