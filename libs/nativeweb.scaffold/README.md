@@ -102,9 +102,11 @@ attribute. `apps/sample`'s `Article` carries all four so they can be compared si
 
 A reference or relation target must itself be `[Scaffold]`ed, in the same assembly, keyed by a
 string, and have its `IScaffoldStore<T>` registered: the form's choices come from that store, and a
-listed reference column shows the target's label rather than the key. The generator offers at most
-`OptionLimit` (500) rows as choices; a held key past that limit is still rendered, so saving a form
-never silently drops a link the admin could not see.
+listed reference column shows the target's label rather than the key. Both reads go to the target's
+store directly, under the referrer's own `[Auth]`, so a target scaffolded under a stricter role
+still lends its labels to anyone who may read the referrer. The generator offers at most
+`OptionLimit` (500) rows as choices, and reads the same 500 to label a list page; a held key past
+that limit is still rendered, so saving a form never silently drops a link the admin could not see.
 
 The relation control is a rendering choice and nothing else. Both post the same field, both bind to
 the same list, both save the whole ticked set; switch between them by editing one attribute and

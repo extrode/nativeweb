@@ -64,6 +64,7 @@ public sealed class ScaffoldedDefectTests
             new("title", "Malformed number"),
             new("author", "xunit"),
             new("body", "hello"),
+            new("status", "Draft"),
             new("publishedAt", "not-a-date"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -122,6 +123,7 @@ public sealed class ScaffoldedDefectTests
             new("title", "Blank number"),
             new("author", "xunit"),
             new("body", "hello"),
+            new("status", "Draft"),
             new("publishedAt", ""));
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);

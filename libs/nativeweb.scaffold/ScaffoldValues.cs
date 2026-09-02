@@ -176,6 +176,13 @@ public static class ScaffoldValues
         where TEnum : struct, Enum =>
         Blank(raw) || IsMember<TEnum>(Text(raw));
 
+    // A non-nullable enum's select has no blank option, so a blank did not come
+    // from the form either; taking it as the first member would silently reset a
+    // Published row to Draft on a post that merely dropped the field.
+    public static bool IsRequiredEnumMember<TEnum>(string? raw)
+        where TEnum : struct, Enum =>
+        IsMember<TEnum>(Text(raw));
+
     /// <summary>"Published" from Published, "In Review" from InReview: the label a member gets in a select and a list cell.</summary>
     public static string EnumLabel(string member)
     {

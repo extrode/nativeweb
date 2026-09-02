@@ -624,7 +624,8 @@ internal static class ScaffoldEmitter
             // the person reading it may be looking at a request and not a page.
             if (p.IsEnum)
             {
-                sb.AppendLine($"        if (!ScaffoldValues.IsEnumMember<{p.TypeName}>(form.{p.Name}))");
+                string member = p.IsNullable ? "IsEnumMember" : "IsRequiredEnumMember";
+                sb.AppendLine($"        if (!ScaffoldValues.{member}<{p.TypeName}>(form.{p.Name}))");
                 sb.AppendLine("        {");
                 sb.AppendLine($"            return (Build(form, existing), \"{Escape(p.Label)} must be one of {Escape(string.Join(", ", p.EnumMembers))}.\");");
                 sb.AppendLine("        }");

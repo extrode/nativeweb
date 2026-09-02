@@ -954,7 +954,7 @@ public sealed class ScaffoldGeneratorTests
     {
         (_, string source) = Run(Attributes, RelationModel);
 
-        Assert.Contains("if (!ScaffoldValues.IsEnumMember<Demo.Status>(form.Status))", source, StringComparison.Ordinal);
+        Assert.Contains("if (!ScaffoldValues.IsRequiredEnumMember<Demo.Status>(form.Status))", source, StringComparison.Ordinal);
         Assert.Contains("\"Status must be one of Draft, InReview, Published.\"", source, StringComparison.Ordinal);
         Assert.Contains("Status = ScaffoldValues.EnumValue<Demo.Status>(form.Status, default(Demo.Status)),", source, StringComparison.Ordinal);
         Assert.Contains("Mood = ScaffoldValues.NullableEnum<Demo.Status>(form.Mood),", source, StringComparison.Ordinal);
@@ -1009,7 +1009,9 @@ public sealed class ScaffoldGeneratorTests
 
         Assert.Contains(diagnostics, d => d.Id == id);
         Assert.DoesNotContain("class OwnerScaffold", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapOwnerScaffold()", source, StringComparison.Ordinal);
         Assert.Contains("class TargetScaffold", source, StringComparison.Ordinal);
+        Assert.Contains("MapTargetScaffold()", source, StringComparison.Ordinal);
     }
 
     private static int Occurrences(string haystack, string needle)

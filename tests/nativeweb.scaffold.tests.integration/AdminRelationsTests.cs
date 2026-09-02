@@ -229,6 +229,7 @@ public sealed class AdminRelationsTests
             foreach (bool sql in new[] { false, true })
             {
                 data.Add(sql, "status", "Deleted", "Status must be one of Draft, Published, Archived.");
+                data.Add(sql, "status", "", "Status must be one of Draft, Published, Archived.");
                 data.Add(sql, "tags", "no-such-tag", "Tags has a choice that does not exist.");
                 data.Add(sql, "publishedAt", "2026-02-30", "Published must be a date.");
                 data.Add(sql, "categoryKey", "no-such-category", "Category has a choice that does not exist.");

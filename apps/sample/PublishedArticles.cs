@@ -106,7 +106,7 @@ public interface IPublishedArticles
 /// means taking the field out of the form, which is the next spec's admin work.
 /// </remarks>
 internal sealed class MemoryPublishedArticles(
-    IScaffoldStore<Article> store,
+    ArticleStore store,
     IScaffoldStore<Tag> tags,
     MemoryRelation relation) : IPublishedArticles
 {
@@ -115,7 +115,6 @@ internal sealed class MemoryPublishedArticles(
     // public feed through a paging admin seam at all.
     private const int ScanLimit = 1000;
 
-    private readonly Lock _views = new();
 
     public async ValueTask<IReadOnlyList<PublishedArticle>> RecentAsync(int take, CancellationToken ct)
     {
@@ -140,18 +139,11 @@ internal sealed class MemoryPublishedArticles(
 
     public async ValueTask<bool> CountViewAsync(string slug, CancellationToken ct)
     {
+        // Counted on the store's held instance under its save lock (R8), not on
+        // the reference FindAsync answered, which an admin save may since have
+        // replaced.
         Article? found = await FindAsync(slug, ct).ConfigureAwait(false);
-        if (found is null)
-        {
-            return false;
-        }
-
-        lock (this._views)
-        {
-            found.ViewCount++;
-        }
-
-        return true;
+        return found is not null && store.CountView(found.Id);
     }
 
     public async ValueTask<IReadOnlyList<PublishedArticle>> ByTagAsync(string tagSlug, int take, CancellationToken ct)

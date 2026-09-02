@@ -87,6 +87,26 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
     /// <summary>Every row, for a rule in <see cref="BeforeSave"/> that must look across them.</summary>
     protected IEnumerable<T> Items => this._items.Values;
 
+    /// <summary>
+    /// Changes the held row in place, under the save lock, so the change lands
+    /// either on the instance a concurrent save is about to copy from or on the
+    /// one it has already put in place, and never on one in between. False when
+    /// no row has the key.
+    /// </summary>
+    protected bool Mutate(string key, Action<T> change)
+    {
+        lock (this._saves)
+        {
+            if (!this._items.TryGetValue(key, out T? current))
+            {
+                return false;
+            }
+
+            change(current);
+            return true;
+        }
+    }
+
     private readonly Lock _saves = new();
 
     /// <summary>The key a new row gets; a store whose caller may supply one overrides this.</summary>
@@ -133,7 +153,7 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
             // trims a backward page from its TAIL, so a full take here reads as an
             // overflowing backward page and the first row is trimmed away unseen.
             int first = after?.Backward == true ? Math.Max(take - 1, 0) : take;
-            return ValueTask.FromResult<IReadOnlyList<T>>(ordered.GetRange(0, Math.Min(first, ordered.Count)));
+            return ValueTask.FromResult<IReadOnlyList<T>>(Loaded(ordered.GetRange(0, Math.Min(first, ordered.Count))));
         }
 
         if (after!.Value.Backward)
@@ -142,11 +162,24 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
             // the FIRST `take` of everything before it would be a different page
             // entirely, and one the reader can reach from neither direction.
             int start = Math.Max(0, at - take);
-            return ValueTask.FromResult<IReadOnlyList<T>>(ordered.GetRange(start, at - start));
+            return ValueTask.FromResult<IReadOnlyList<T>>(Loaded(ordered.GetRange(start, at - start)));
         }
 
         int from = at + 1;
-        return ValueTask.FromResult<IReadOnlyList<T>>(ordered.GetRange(from, Math.Min(take, ordered.Count - from)));
+        return ValueTask.FromResult<IReadOnlyList<T>>(Loaded(ordered.GetRange(from, Math.Min(take, ordered.Count - from))));
+    }
+
+    // A row's relation side is cached on it at its last save from this side; an
+    // edit from the other side moves the relation and not the cache, so the page
+    // reads it back the way GetAsync does.
+    private List<T> Loaded(List<T> rows)
+    {
+        foreach (T row in rows)
+        {
+            Load(row);
+        }
+
+        return rows;
     }
 
     // Nulls last ascending, first descending -- PostgreSQL's own default, so the
@@ -334,6 +367,14 @@ internal sealed class ArticleStore(
     {
         Choices(item);
 
+        // The count is the row's, never the form's (R8): the handler copied it at
+        // entry, and a view counted since then is on the held instance. Taken
+        // here, under the same lock CountView takes, so none is lost between.
+        if (existing is not null)
+        {
+            item.ViewCount = existing.ViewCount;
+        }
+
         string? typed = string.IsNullOrWhiteSpace(item.Slug) ? null : item.Slug.Trim();
         if (typed is null)
         {
@@ -389,6 +430,9 @@ internal sealed class ArticleStore(
     protected override void Load(Article item) => item.Tags = relation.TagsOf(item.Id);
 
     protected override void OnDelete(string key) => relation.RemoveArticle(key);
+
+    /// <summary>One more view on the row, on whichever instance is held right now.</summary>
+    internal bool CountView(string id) => Mutate(id, article => article.ViewCount++);
 
     /// <summary>What a category's delete does to the rows that pointed at it: nothing points any more.</summary>
     internal void ClearCategory(string key)
@@ -451,7 +495,7 @@ internal sealed class MemoryRelation
         }
     }
 
-    /// <summary>The slugs of this article's tags, in link order; empty for an article with none.</summary>
+    /// <summary>The slugs of this article's tags, in ordinal order as the SQL path lists them; empty for an article with none.</summary>
     internal IReadOnlyList<string> TagsOf(string articleId)
     {
         lock (this._links)
@@ -460,7 +504,7 @@ internal sealed class MemoryRelation
         }
     }
 
-    /// <summary>The ids of this tag's articles, in link order; empty for a tag with none.</summary>
+    /// <summary>The ids of this tag's articles, in ordinal order as the SQL path lists them; empty for a tag with none.</summary>
     internal IReadOnlyList<string> ArticlesOf(string tagSlug)
     {
         lock (this._links)
@@ -495,7 +539,7 @@ internal sealed class MemoryRelation
 
     private static void Add(Dictionary<string, string[]> index, string key, string value) =>
         index[key] = index.TryGetValue(key, out string[]? existing)
-            ? existing.Contains(value, StringComparer.Ordinal) ? existing : [.. existing, value]
+            ? existing.Contains(value, StringComparer.Ordinal) ? existing : [.. existing.Append(value).Order(StringComparer.Ordinal)]
             : [value];
 
     private static void Remove(Dictionary<string, string[]> index, string key, string value)
@@ -522,7 +566,7 @@ internal sealed class MemoryRelation
         string key,
         IReadOnlyList<string> values)
     {
-        string[] next = values.Distinct(StringComparer.Ordinal).ToArray();
+        string[] next = values.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         string[] previous = forward.TryGetValue(key, out string[]? had) ? had : [];
 
         foreach (string gone in previous.Except(next, StringComparer.Ordinal))
@@ -561,7 +605,9 @@ internal sealed class TagStore(MemoryRelation relation, Func<string, bool>? arti
     // A slug the caller supplied is the key (R9); a blank one is generated. The
     // form never carries the key, so a typed slug reaches here from code.
     protected override string KeyFor(Tag item) =>
-        string.IsNullOrWhiteSpace(item.Slug) ? base.KeyFor(item) : item.Slug.Trim();
+        string.IsNullOrWhiteSpace(item.Slug) ? base.KeyFor(item)
+        : Slugs.IsValid(item.Slug.Trim()) ? item.Slug.Trim()
+        : throw new ScaffoldRefusedException(Slugs.InvalidMessage);
 
     protected override void BeforeSave(Tag item, Tag? existing)
     {

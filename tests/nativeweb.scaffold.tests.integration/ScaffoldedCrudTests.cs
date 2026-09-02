@@ -129,6 +129,7 @@ public sealed class ScaffoldedCrudTests
             "/admin/articles",
             new("title", "Mass assignment attempt"),
             new("body", "x"),
+            new("status", "Draft"),
             new("id", "hacked"),
             new("createdAt", "1999-01-01T00:00"));
 

@@ -203,6 +203,51 @@ public sealed class RelationStoreTests
     }
 
     [Fact]
+    public async Task ATypedTagSlugThatIsNotASlug_IsRefusedAsTheSqlPathRefusesIt()
+    {
+        ScaffoldRefusedException refused = await Assert.ThrowsAsync<ScaffoldRefusedException>(
+            () => this.Tags.CreateAsync(new Tag { Slug = "Not A Slug!", Name = "No" }, CancellationToken.None).AsTask());
+
+        Assert.Equal(Slugs.InvalidMessage, refused.Message);
+        Assert.Null(await this.Tags.GetAsync("Not A Slug!", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task TagsComeBackInOrdinalOrder_WhicheverOrderTheyWerePosted()
+    {
+        string id = await this.Articles.CreateAsync(ArticleWith("htmx", "aot"), CancellationToken.None);
+
+        Assert.Equal(["aot", "htmx"], (await this.Articles.GetAsync(id, CancellationToken.None))!.Tags);
+        Assert.Equal(["aot", "htmx"], this.Relation.TagsOf(id));
+    }
+
+    [Fact]
+    public async Task ListAsync_ShowsATagSideEditTheRowWasSavedBefore()
+    {
+        string id = await this.Articles.CreateAsync(ArticleWith("aot"), CancellationToken.None);
+        await this.Tags.UpdateAsync("aot", new Tag { Slug = "aot", Name = "NativeAOT", Articles = [] }, CancellationToken.None);
+
+        IReadOnlyList<Article> listed = await this.Articles.ListAsync(null, [], null, [], null, 100, CancellationToken.None);
+
+        Assert.Empty(listed.Single(a => a.Id == id).Tags);
+    }
+
+    [Fact]
+    public async Task AViewCountedWhileTheFormIsOpen_SurvivesTheSave()
+    {
+        string id = await this.Articles.CreateAsync(ArticleWith(), CancellationToken.None);
+        Article opened = (await this.Articles.GetAsync(id, CancellationToken.None))!;
+        Assert.True(this.Articles.CountView(id));
+        Assert.True(this.Articles.CountView(id));
+
+        Article posted = new() { Title = "renamed", Body = "b", ViewCount = opened.ViewCount };
+        Assert.True(await this.Articles.UpdateAsync(id, posted, CancellationToken.None));
+
+        Assert.Equal(2, (await this.Articles.GetAsync(id, CancellationToken.None))!.ViewCount);
+        Assert.False(this.Articles.CountView("no-such-article"));
+    }
+
+    [Fact]
     public async Task ATypedTagSlugThatIsTaken_IsRefused()
     {
         ScaffoldRefusedException refused = await Assert.ThrowsAsync<ScaffoldRefusedException>(
@@ -224,11 +269,11 @@ public sealed class RelationStoreTests
     }
 
     [Fact]
-    public void Relation_ReplaceDeduplicatesAndKeepsPostedOrder()
+    public void Relation_ReplaceDeduplicatesAndOrdersOrdinally()
     {
         this.Relation.ReplaceTagsOf("a1", ["htmx", "aot", "htmx"]);
 
-        Assert.Equal(["htmx", "aot"], this.Relation.TagsOf("a1"));
+        Assert.Equal(["aot", "htmx"], this.Relation.TagsOf("a1"));
         Assert.Equal(["a1"], this.Relation.ArticlesOf("htmx"));
     }
 

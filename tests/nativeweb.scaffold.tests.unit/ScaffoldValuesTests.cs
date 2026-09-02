@@ -423,6 +423,16 @@ public sealed class ScaffoldValuesTests
     public void IsEnumMember_TakesTheExactMemberNameOrBlank(string? raw, bool expected) =>
         Assert.Equal(expected, ScaffoldValues.IsEnumMember<Status>(raw));
 
+    [Theory]
+    [InlineData("Published", true)]
+    [InlineData(" InReview ", true)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData(null, false)]
+    [InlineData("Deleted", false)]
+    public void IsRequiredEnumMember_RefusesBlankAsWellAsAStranger(string? raw, bool expected) =>
+        Assert.Equal(expected, ScaffoldValues.IsRequiredEnumMember<Status>(raw));
+
     [Fact]
     public void EnumValue_ParsesAMemberAndFallsBackOnAnythingElse()
     {

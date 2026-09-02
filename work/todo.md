@@ -1875,6 +1875,40 @@ an answer different from the one the audit assumed.
   repo suite red. Excluded on the 021 branch; the sweep still walks the whole tree, so a slow disk
   pays for it. Found 2026-09-02.
 
+## Found by the 023 code review, 2026-09-03 — noted, not fixed
+
+- **Two admins saving the same link from opposite sides can deadlock on the SQL path** (40P01):
+  the article save locks its `articles` row then rewrites `article_tags`, the tag save locks its
+  `tags` row then rewrites the same links, and the cycle closes when the article save also
+  changes `slug`, a key column the link's FK holds `FOR KEY SHARE`. Reproduced with two psql
+  sessions on the rehearsal database; no catch filter names 40P01, so the loser is a 500 rather
+  than a re-rendered form. Catching it and refusing with "saved by someone else, try again" is
+  the fix; it needs a deterministic test first. Found in the 023 review.
+- **The memory category delete cascade runs under the category store's lock, not the article
+  store's**, so an article save that passed the category check can land pointing at a deleted
+  category; the SQL path's `ON DELETE SET NULL` cannot. The `MemoryStore.OnDelete` remark claims
+  otherwise. Demo store only. Found in the 023 review.
+- **A `[ScaffoldReadOnly]` `[ScaffoldReference]` column lists the raw key**, since the emitter
+  builds its label lookups from the writable choices only; a writable reference shows the
+  target's label. Nothing in the spec says which is right for a read-only one. Found in the 023
+  review.
+- **`AHeldKeyThatIsNotOffered_IsStillRenderedTicked` asserts two emitted strings and no tier
+  renders a form whose held key is past `OptionLimit` or absent from the target store.** The
+  SQL-side tag-form case brushes it only because the test table holds ~50k articles. Found in
+  the 023 review.
+- **Migration 0004's backfill guard reads `information_schema.columns` by `table_name` alone**,
+  with no `table_schema` predicate; an `articles` table in another schema would satisfy it.
+  Applied as written to the rehearsal copy; the real databases still await the same file.
+  Found in the 023 review.
+- **`/articles.csv` gained `published` as column 6, before `tags`**, which moved from 6 to 7; a
+  positional consumer of the 022 layout breaks silently. Nothing versions the CSV columns.
+  Found in the 023 review.
+- **The public output cache's identity check is the flash cookie alone** (`PublicPageCache.
+  CarriesIdentityCookie` reads `__Host-nw-flash`, not the signin cookie), so a signed-in admin
+  reads the same sixty-second-old home and tag pages as everyone else; the tests read public
+  pages with an `Authorization` header to get past it. Whether an admin should see fresh pages
+  is a product question. Found while building 023.
+
 ## Found by the 022 code review, 2026-09-03 — noted, not fixed
 
 - ~~**The admin form posts the view count back as a value on both store paths**, so a view

@@ -305,6 +305,7 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             byName[model.FullyQualifiedName] = model;
         }
 
+        var emitted = new List<ScaffoldModel>();
         foreach (ScaffoldModel model in models)
         {
             if (model.KeyProperty.Length == 0)
@@ -321,13 +322,15 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             spc.AddSource(
                 model.TypeName + ".Scaffold.g.cs",
                 SourceText.From(ScaffoldEmitter.Emit(model, root, byName), Encoding.UTF8));
+            emitted.Add(model);
         }
 
+        // Only the classes that exist get mapped: a model refused above would
+        // otherwise surface as a CS0103 cascade beside the one diagnostic that
+        // names the real fault.
         spc.AddSource(
             "ScaffoldRuntime.g.cs",
-            SourceText.From(
-                ScaffoldEmitter.EmitRuntime(models.Where(m => m.KeyProperty.Length > 0).ToList(), root),
-                Encoding.UTF8));
+            SourceText.From(ScaffoldEmitter.EmitRuntime(emitted, root), Encoding.UTF8));
     }
 
     // Every [ScaffoldReference] and [ScaffoldRelation] on the model names a target
