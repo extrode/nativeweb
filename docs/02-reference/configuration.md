@@ -37,6 +37,7 @@ with the key named on stderr, and the rest fall back silently.
 | `{Section}:Db:CommandTimeoutSeconds` | driver default | Ignored unless a positive integer |
 | `{Section}:Db:MaxAutoPrepare` | `20` | Falls back to 20 |
 | `{Section}:ForwardedHeaders:KnownProxies` | empty | Unparseable entries are **skipped, not fatal** — a typo costs a degraded rate-limit partition, not an outage. **Required behind a proxy**: `deploy.sh` refuses to promote a release without it, because unset means ASP.NET Core trusts loopback only, `RemoteIpAddress` is the proxy hop, and every client shares one rate-limit partition with nothing logged |
+| `{Section}:ForwardedHeaders:ForwardLimit` | `1` | **Fails startup** unless a positive whole number. The number of proxy hops in front of the app, and separate from `KnownProxies`: that decides *which* hops may be unwound, this caps *how many* are, so a chain longer than the cap stops early however well-trusted its hops are. `provision.sh --edge` builds two hops and seeds `2`. Raising it opens no spoofing surface — every step is still gated by the trust check |
 | `{Section}:Telemetry:Enabled` | `false` | **Fails startup.** `"1"`, `"yes"` and `"Enabled"` are all things an operator writes meaning on, and every one of them would read as off under an equality check |
 | `{Section}:DataProtection:KeyDirectory` | a directory under the process's home | A **configured** value is taken as given and never probed — an operator's explicit statement, checked instead by `deploy.sh`'s preflight against `ReadWritePaths`. Only the fallback is proved, and **fails startup** when there is no home to fall back to |
 | `{Section}:BotTraps:MinAgeSeconds` | unset, and the trap still runs: `BotTrapOptions.MinAge` is 3 s and the binder overrides it only when the key is set | **Fails startup** unless a non-negative number |
@@ -64,15 +65,6 @@ what stops the process is having no usable fallback, not a configured directory 
 be unwritable, which the deploy preflight catches rather than startup. The exit is code 78 with the key
 named on stderr — never a modal dialog, which under NativeAOT on Windows a supervisor reads as
 a hung service.
-
-### Not read, despite appearances
-
-`{Section}:ForwardedHeaders:ForwardLimit` is **seeded by `scripts/deploy/provision.sh` and bound
-by nothing.** `AddNativeWebForwardedHeaders` sets `ForwardedHeaders` and `KnownProxies` and
-leaves `ForwardLimit` at the ASP.NET Core default of 1. On a two-hop deployment (`provision.sh
---edge`) that means only the local hop is unwound and every request appears to originate from
-the edge proxy — the exact failure the seeded comment says it prevents. Recorded in
-`work/todo.md`; do not rely on setting it.
 
 ## Sign-in settings
 

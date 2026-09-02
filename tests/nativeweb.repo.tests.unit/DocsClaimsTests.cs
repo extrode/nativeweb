@@ -51,10 +51,7 @@ public sealed partial class DocsClaimsTests
 
     private const string ConfigurationReference = "docs/02-reference/configuration.md";
 
-    private static readonly string[] DocumentedAsUnread =
-    [
-        "ForwardedHeaders:ForwardLimit",
-    ];
+    private static readonly string[] DocumentedAsUnread = [];
 
     /// <summary>
     /// Key-shaped literals in the two binders that are not configuration keys.
@@ -248,10 +245,10 @@ public sealed partial class DocsClaimsTests
     /// <remarks>
     /// The expectation is extracted from the two binders at run time rather than
     /// held as a list here, because a list here would go stale in the same way the
-    /// document does. <c>ForwardedHeaders:ForwardLimit</c> is the one key the
-    /// reference names that no binder reads, and it says so in a section about not
-    /// relying on it -- <see cref="DocumentedAsUnread"/> is how that stays sayable
-    /// without weakening the check.
+    /// document does. <see cref="DocumentedAsUnread"/> is the exemption for a key the
+    /// reference names and no binder reads; it is empty since
+    /// <c>ForwardedHeaders:ForwardLimit</c> was bound, and its own test is what turned
+    /// red when that happened.
     /// </remarks>
     [Fact]
     public void TheConfigurationReference_NamesEveryKeyTheBindersRead()

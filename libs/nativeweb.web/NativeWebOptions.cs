@@ -61,6 +61,28 @@ public sealed record NativeWebOptions
     /// </summary>
     public IReadOnlyList<IPAddress> KnownProxies { get; init; } = [];
 
+    /// <summary>
+    /// How many <c>X-Forwarded-For</c> entries may be unwound, which is the
+    /// length of the proxy chain in front of the app. Defaults to ASP.NET Core's
+    /// own 1.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="KnownProxies"/>, and both are needed: the trust
+    /// check gates <i>which</i> hops may be unwound and this caps <i>how many</i>,
+    /// so a chain longer than the cap stops early however well-trusted its hops
+    /// are. Two hops is what <c>provision.sh --edge</c> builds — an edge proxy
+    /// terminating TLS in front of the local Caddy that owns the blue/green swap
+    /// — and at 1 the walk stops on the edge proxy's own address, which becomes
+    /// every request's client IP: one rate-limit partition for the whole world,
+    /// and no client attribution in the logs, with nothing failing to say so.
+    /// <para>
+    /// Raising it opens no spoofing surface. Every step is still gated by the
+    /// trust check, so the walk stops at the first address that is not a known
+    /// proxy whatever this is set to.
+    /// </para>
+    /// </remarks>
+    public int ForwardLimit { get; init; } = 1;
+
     /// <summary>Whether metrics and traces are exported at all.</summary>
     public bool TelemetryEnabled { get; init; }
 
@@ -305,6 +327,20 @@ public sealed record NativeWebOptions
             }
         }
 
+        // Named error rather than a silent fallback to 1, unlike the proxy list
+        // above: a skipped proxy costs a degraded rate-limit partition, and so
+        // does a limit that quietly stays at 1, but here the operator wrote a
+        // value and would have no way to learn it was ignored.
+        int forwardLimit = 1;
+        if (configuration[Key("ForwardedHeaders:ForwardLimit")] is { Length: > 0 } forwardLimitRaw
+            && (!int.TryParse(forwardLimitRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out forwardLimit)
+                || forwardLimit < 1))
+        {
+            error = $"{Key("ForwardedHeaders:ForwardLimit")} must be a positive whole number — the "
+                + $"number of proxy hops in front of this app; got '{forwardLimitRaw}'.";
+            return false;
+        }
+
         // A named error rather than a silent false. "1", "yes" and "Enabled" are
         // all things an operator writes meaning on, and every one of them read as
         // off under an equality check against "true" — telemetry that an operator
@@ -360,6 +396,7 @@ public sealed record NativeWebOptions
                 ? maxAutoPrepare
                 : 20,
             KnownProxies = knownProxies,
+            ForwardLimit = forwardLimit,
             TelemetryEnabled = telemetryEnabled,
             // Not under the product's section: OTEL_SERVICE_NAME is the standard
             // environment variable and lives at the configuration root.
