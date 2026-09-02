@@ -3,7 +3,8 @@
 The scaffolding demo's schema, kept apart from the identity schema next door.
 
 ```
-migrations/  0001 the table, 0002 the sort indexes, 0003 slugs and tags -- applied in order
+migrations/  0001 the table, 0002 the sort indexes, 0003 slugs and tags,
+             0004 status, dates and categories -- applied in order
 queries/     inline .sql the JauntyQ generator turns into typed C#
 schema/      sample.schema.json -- the committed snapshot, from `jaunty schema pull`
 ```
@@ -60,7 +61,14 @@ rows into the future to be certain they are on the page — and a future-dated r
 left behind would displace the *next* run's. Each one deletes exactly the ids it
 minted, by prefix, in a `finally`; a row the admin created, whose id the store
 minted, goes by its slug. Two overlapping runs still cannot collide. The
-`article_tags` rows a test links go with the article, by the cascade in 0003.
+`article_tags` rows a test links go with the article, by the cascade in 0003;
+a `categories` row a test creates is deleted by the test, and any article still
+pointing at it is set to no category by the `ON DELETE SET NULL` in 0004.
+
+0004 also replaced the `published` boolean with a `status` text column checked
+against `draft`, `published` and `archived`, and added the nullable
+`published_at` date the public pages order by. Every public query filters
+`status = 'published'` in SQL, so a Draft and an Archived row are equally absent.
 
 ## Selecting the store
 

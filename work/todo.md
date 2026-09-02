@@ -1877,11 +1877,13 @@ an answer different from the one the audit assumed.
 
 ## Found by the 022 code review, 2026-09-03 — noted, not fixed
 
-- **The admin form posts the view count back as a value on both store paths**, so a view
+- ~~**The admin form posts the view count back as a value on both store paths**, so a view
   counted between the edit form's GET and its POST is lost: the memory store replaces the
   instance, `Update.sql` writes the posted number. Taking `ViewCount` out of the form
   (`[ScaffoldReadOnly]`) closes it; that is the next spec's admin editing work, and
-  `JauntyStoreTests` posts `viewCount` today. Found in the 022 review.
+  `JauntyStoreTests` posts `viewCount` today. Found in the 022 review.~~ **Closed 2026-09-03 by
+  spec 023:** `ViewCount` is `[ScaffoldReadOnly]`, neither store takes it from the form, and
+  `AdminRelationsTests` counts three visits through an open form on both paths.
 - **`/articles/{slug}` is an anonymous GET that writes a row**, rate-limited at 120 a minute per
   client and uncached. Inflatable by anyone with a loop and a few addresses, and a hot article
   serialises on its row lock. Decided for 022 ("count it, page rendered per visit"); a product
@@ -1902,18 +1904,22 @@ an answer different from the one the audit assumed.
 - **`SET NOT NULL` and `CREATE UNIQUE INDEX` in 0003 take full-table locks**; on the 46k-row test
   database that was seconds, on a live one it is a write outage for the duration. `CONCURRENTLY`
   for the index if this pattern ever reaches a product's migration. Found in the 022 review.
-- **Deleting a tag cascades its links on the database path and orphans them in memory**, where
+- ~~**Deleting a tag cascades its links on the database path and orphans them in memory**, where
   the readers filter dangling slugs out. Same page either way today; re-creating the tag revives
   the memory links and not the SQL ones. Spec (b) decides which is right when it adds relation
-  editing. Found in the 022 review.
+  editing. Found in the 022 review.~~ **Closed 2026-09-03 by spec 023:** the memory relation
+  drops a deleted tag's links the way the cascade does, so a re-created tag starts with none on
+  both paths.
 - **The derived-slug retry loops in `JauntyArticleStore.CreateAsync` and `Slugs.Unique` are
   unbounded**: nine hundred articles titled alike cost nine hundred failed INSERTs on the next
   create. Admin-only input; a cap with a refusal message is the fix. Found in the 022 review.
 - **`Slugs.IsValid` has no length bound.** A pasted 4 KB slug fails the btree index insert with
   a `PostgresException` that is not a unique violation, which escapes as a 500 rather than the
   refusal message a bad character gets. Found in the 022 review.
-- **`TagStore.AssignKey` overwrites a typed tag slug with a generated hex key** on the memory
+- ~~**`TagStore.AssignKey` overwrites a typed tag slug with a generated hex key** on the memory
   path, so the two paths disagree about whether an admin can choose a tag's slug. Spec (b).
-  Found in the 022 review.
+  Found in the 022 review.~~ **Closed 2026-09-03 by spec 023 (R9):** both stores keep a valid
+  typed slug and generate one only for a blank; the form never carries the key, so the fact is
+  proved at the store seam.
 - **`/articles.html` is still a second, untested URL for the listing** (carried from the 021
   review); `/articles/{slug}` sits beside it and neither canonicalises the other.
