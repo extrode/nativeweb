@@ -8,9 +8,10 @@
 <ul class="articles">
 {{for article in Articles}}
 <li class="articles__item">
-<h2 class="articles__title">{{article.Title}}</h2>
+<h2 class="articles__title"><a href="/articles/{{article.Slug}}">{{article.Title}}</a></h2>
 {{if article.Author != null}}<span class="articles__author">{{article.Author}}</span>{{/if}}
 <time class="articles__date" datetime="{{article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}">{{article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}</time>
+{{> shared/tags Tags=article.Tags}}
 </li>
 {{/for}}
 </ul>

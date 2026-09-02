@@ -213,7 +213,9 @@ public sealed class Program
         // the same articles as Atom, RSS, JSON and CSV beside the page above.
         app.MapPublicDocuments();
 
-        app.MapGet("/", () => Results.Redirect("/admin"));
+        // The site itself (spec 022): home, one page per article, the tags. Until
+        // then / redirected to /admin, which made the editor the front door.
+        app.MapPublicSite();
 
         // /healthz, /version, /readyz, /csp-report and /.well-known/security.txt.
         // /healthz used to be a MapGet on this line; it is the framework's now, and

@@ -225,7 +225,9 @@ public sealed class JauntyStoreTests
         using var factory = new SampleJauntyFactory();
         using HttpClient client = await factory.CreateSignedInAsync();
 
-        string tags = await BodyAsync(client, "/admin/tags");
+        // Searched for rather than read off the first page: tags other tests
+        // create outrank a three-letter key once enough of them accumulate.
+        string tags = await BodyAsync(client, "/admin/tags?q=NativeAOT");
         Assert.Contains("NativeAOT", tags, StringComparison.Ordinal);
 
         // And the articles list renders from PostgreSQL in the same request pipeline.

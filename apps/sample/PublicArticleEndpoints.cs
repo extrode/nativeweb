@@ -30,7 +30,7 @@ internal static class PublicArticleEndpoints
     // How many articles the page shows. A constant rather than a query-string
     // parameter on purpose: an attacker-controlled page size is a denial-of-service
     // lever, and a demo feed has no reason to offer one.
-    private const int PageSize = 20;
+    internal const int PageSize = 20;
 
     // The most the filter form will show, whatever it asks for. Same reasoning as
     // PageSize: the number comes from the request now, so it needs a ceiling.

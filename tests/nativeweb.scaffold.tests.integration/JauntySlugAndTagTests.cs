@@ -220,19 +220,29 @@ public sealed class JauntySlugAndTagTests
             keys.Add(location[(location.LastIndexOf('/') + 1)..]);
         }
 
-        keys.Sort(StringComparer.Ordinal);
-        if (dir == "desc")
+        try
         {
-            keys.Reverse();
+            keys.Sort(StringComparer.Ordinal);
+            if (dir == "desc")
+            {
+                keys.Reverse();
+            }
+
+            using HttpResponseMessage response = await client.GetAsync(
+                new Uri($"/admin/tags?q={name}&sort=Name&dir={dir}", UriKind.Relative));
+            string page = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            int[] positions = [.. keys.Select(k => page.IndexOf(k, StringComparison.Ordinal))];
+            Assert.All(positions, p => Assert.True(p >= 0));
+            Assert.Equal(positions.Order(), positions);
         }
-
-        using HttpResponseMessage response = await client.GetAsync(
-            new Uri($"/admin/tags?q={name}&sort=Name&dir={dir}", UriKind.Relative));
-        string page = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        int[] positions = [.. keys.Select(k => page.IndexOf(k, StringComparison.Ordinal))];
-        Assert.All(positions, p => Assert.True(p >= 0));
-        Assert.Equal(positions.Order(), positions);
+        finally
+        {
+            foreach (string key in keys)
+            {
+                using HttpResponseMessage deleted = await Forms.PostAsync(client, "/admin/tags", $"/admin/tags/{key}/delete");
+            }
+        }
     }
 }
