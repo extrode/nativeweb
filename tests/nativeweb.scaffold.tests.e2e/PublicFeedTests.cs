@@ -34,7 +34,7 @@ namespace NativeWeb.Scaffold.Tests.E2e;
 /// </para>
 /// </remarks>
 [Collection(ScaffoldE2eFixture.Name)]
-public sealed class PublicFeedTests(JauntySampleFixture app, BrowserFixture browsers)
+public sealed class PublicFeedTests(JauntySampleFixture app, BrowserFixture browsers) : IClassFixture<LeakedFeedRowsSweep>
 {
     /// <summary>A context that has never visited <c>/signin</c> and holds no cookie.</summary>
     private async Task<IPage> AnonymousPageAsync()
