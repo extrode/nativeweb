@@ -270,6 +270,36 @@ public sealed partial class DocsClaimsTests
         }
     }
 
+    /// <summary>
+    /// The one key the reference app reads for itself. It is written under its own section
+    /// name rather than as <c>{Section}:</c>, so neither parity check above can see it, and
+    /// without this the row would outlive the key it describes with the suite green.
+    /// </summary>
+    [Fact]
+    public void TheConfigurationReference_NamesTheSampleAdminKeyAndNoOther()
+    {
+        string root = RepoRoot();
+        string source = File.ReadAllText(Path.Combine(root, "apps/sample/AdminSignIn.cs"));
+        string reference = File.ReadAllText(Path.Combine(root, ConfigurationReference));
+
+        Match declared = ConstantDeclaration("Key").Match(source);
+        Assert.True(declared.Success, "apps/sample/AdminSignIn.cs no longer declares a const string Key.");
+
+        string key = declared.Groups[1].Value;
+        HashSet<string> bound = [.. BoundKeys(root)];
+        string[] documented = [.. SampleKey().Matches(reference).Select(m => m.Groups[1].Value).Distinct()];
+
+        Assert.Contains(key, documented);
+        foreach (string name in documented)
+        {
+            // The prose spells a framework key with the Sample prefix where it shows the
+            // environment-variable form; that is a bound key, not a stray one.
+            Assert.True(
+                name == key || bound.Contains(name),
+                $"{ConfigurationReference} documents `Sample:{name}`, which neither the framework binders nor apps/sample read.");
+        }
+    }
+
     [Fact]
     public void TheConfigurationReference_NamesNoKeyTheBindersDoNotRead()
     {
@@ -724,6 +754,9 @@ public sealed partial class DocsClaimsTests
 
     [GeneratedRegex(@"`\{Section\}:([^`]+)`")]
     private static partial Regex SectionRelativeKey();
+
+    [GeneratedRegex(@"`Sample:([^`]+)`")]
+    private static partial Regex SampleKey();
 
     [GeneratedRegex(@"^[A-Z][A-Za-z0-9]*$")]
     private static partial Regex SignInKeyShape();

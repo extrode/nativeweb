@@ -96,6 +96,12 @@ public sealed class Program
             });
         }
 
+        // The passphrase that admits an operator outside Development (spec 020). Read
+        // here so Production fails at startup, not at the first /signin.
+        var adminPassphrase = AdminPassphrase.FromConfiguration(
+            builder.Configuration, "Sample", builder.Environment);
+        builder.Services.AddAdminSignInRateLimiting();
+
         // Authentication is deliberately NOT part of that call: who may reach /admin
         // is this app's decision, and a default from a library is one nobody reviews.
         builder.Services
@@ -227,6 +233,12 @@ public sealed class Program
             app.MapSignIn();
             app.MapDemoProvider();
             app.MapDemoSignIn();
+        }
+        else
+        {
+            // Everywhere else the admin is behind the passphrase (spec 020): the
+            // form, the POST it submits to, and the one sign-out the sample has.
+            app.MapAdminSignIn(adminPassphrase);
         }
 
         app.Run();

@@ -207,6 +207,21 @@ ${CONFIG_PREFIX}__Telemetry__Enabled=false")"
 
 # 0640 root:nativeweb. The service reads it; no other account can. Asserted on
 # every run, because this is the file whose mode silently drifting matters most.
+# Only the reference app reads the admin passphrase (spec 020). A product stamped from
+# skeleton/ signs in through its OAuth provider, and seeding it a key nothing reads is
+# the dead-key habit the preflight comment in deploy.sh describes. Note that seed_config
+# writes only a file that does not exist yet: a host provisioned before this key was
+# added needs the line put into its secrets.env by hand.
+admin_passphrase_stanza=""
+if [[ "$CONFIG_PREFIX" == "Sample" ]]; then
+	admin_passphrase_stanza="
+
+# REQUIRED for the reference app (spec 020). Outside Development its admin is behind
+# a passphrase form at /signin, and a Production binary exits 78 at startup without
+# one.
+${CONFIG_PREFIX}__Admin__Passphrase="
+fi
+
 seed_config "$CONFIG_ROOT/secrets.env" 0640 "root:$SERVICE_GROUP" \
 	"# Secrets. NOT in the repository, NOT world-readable, NOT set with Environment=
 # (which systemctl show would expose to any local user).
@@ -224,7 +239,7 @@ seed_config "$CONFIG_ROOT/secrets.env" 0640 "root:$SERVICE_GROUP" \
 # preflight that demanded them made the operator invent values for a departed
 # product before it would deploy.
 ConnectionStrings__${CONFIG_PREFIX}=
-${CONFIG_PREFIX}__Db__ConnectionString="
+${CONFIG_PREFIX}__Db__ConnectionString=${admin_passphrase_stanza}"
 
 seed_config "$CONFIG_ROOT/blue.env" 0644 "root:$SERVICE_GROUP" \
 	'ASPNETCORE_URLS=http://127.0.0.1:5011'
