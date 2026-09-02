@@ -6,7 +6,10 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 022 — sample public site. In progress on `feat/022-sample-public-site`, started 2026-09-02.** A home page at `/`, article pages at `/articles/{slug}`, tag listing and tag pages; slugs and a persisted article-tag relation on both store paths; the feed, sitemap, JSON and CSV link to the new pages. Spec, plan and tasks under `docs/specs/022-sample-public-site/`.
+- **Nothing in flight.** Spec 022 merged into `dev` on 2026-09-03 (see `previous.md`). Next in
+  the agreed chain of sample examples: (b) admin editing of the article-tag relation, dropdowns,
+  dates, enums and status; then (c) forms — contact, upload, two-step; then (d) ops — two roles,
+  an audit trail, custom 404/500, `security.txt` on nw-dev.
 - **Spec 021 — response formats and content negotiation. Done on
   `feat/021-response-formats-and-negotiation`, 2026-09-02.** `FormatResults` in
   `libs/nativeweb.render` answers text, Markdown, JSON (through a caller's `JsonTypeInfo<T>`),

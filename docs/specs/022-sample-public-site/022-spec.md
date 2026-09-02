@@ -1,5 +1,5 @@
 # 022 — Sample public site
-Status: draft
+Status: done
 Created: 2026-09-02
 
 ## Problem

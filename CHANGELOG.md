@@ -14,6 +14,18 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **The sample has a public site (spec 022).** `/` is a home page listing the newest published
+  articles, each at `/articles/{slug}` with its tags and a view counted per render; `/tags` and
+  `/tags/{slug}` list every tag with its published count and one tag's articles. Every article
+  has a unique slug, derived from the title when the admin leaves it blank and refused with a
+  message when typed and taken or malformed. Tags and the article-tag relation persist on the
+  database path too (migration `0003_slugs_and_tags.sql`, which also backfills slugs for existing
+  rows). The feed, sitemap, JSON and CSV link to the pages and carry the slug and tag slugs.
+  Home and tag pages sit in the public-page cache; the article page does not, so every visit
+  counts. One framework seam: `ScaffoldRefusedException` lets a store refuse a save and the
+  generated handler re-renders the form with the store's message. Proved in all three tiers on
+  both stores. Note for an existing deployment: CI never applied `0002_scaffold_sort_indexes.sql`
+  before this branch, so a database migrated by hand needs 0002 as well as 0003.
 - **Response formats and content negotiation (spec 021).** `FormatResults` in
   `libs/nativeweb.render` answers text, Markdown, JSON (source-generated `JsonTypeInfo<T>` only),
   XML, CSV (RFC 4180 with a formula guard), Atom, RSS and a sitemap, each buffered with a declared

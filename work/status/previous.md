@@ -2,6 +2,38 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Spec 022 — the sample's public site** — `feat/022-sample-public-site`, 2026-09-02 to
+  2026-09-03. Eleven tasks ticked, spec `Status: done`. `/` is a home page rather than a redirect
+  into the admin, every article has a unique slug and a page at `/articles/{slug}` that counts a
+  view per render, `/tags` and `/tags/{slug}` list tags with published counts, and tags plus the
+  article-tag relation persist on both store paths (migration 0003, rehearsed on a copy and then
+  applied to `nativeweb_sample_dev` and `nativeweb_sample_test`). The feed, sitemap, JSON and CSV
+  carry the slug and link to the pages. One framework seam: a store may refuse a save with
+  `ScaffoldRefusedException` and the generated handler re-renders the form with the message.
+  - **Review: 23 candidates across two lenses, 8 confirmed and fixed, 5 refuted by measurement,
+    10 noted in `work/todo.md`.** Fixed: the migration suffixed a duplicate title with the raw id,
+    which a free-text id would have pushed past the CHECK constraint (now eight hex digits of
+    `md5(id)`, proved on `A1`/`demo_2` in a rolled-back transaction); the memory reader broke
+    timestamp ties ascending where the SQL breaks them descending; a remark claimed the SQL path
+    had no admin-edit window over the view count when `Update.sql` writes the posted value; three
+    tests that would have passed with their code broken (the slug column test satisfied by the id
+    column, the tag index test reading no count, the 80-char cap test accepting any shorter
+    length). Refuted: a collation claim about `[a-z]` (measured `é` outside it on
+    `English_United States.1252`), Host-keyed cache poisoning (the output cache's base key carries
+    the host), a lock-lifetime claim (both readers are singletons), `public, max-age` on a
+    signed-in render (the header is set only when the anonymous CSP resolved), and a LIMIT
+    misread on `ListForWindow.sql`.
+  - **The e2e suite's first full run failed for a reason outside the code**: MSB4216, the ILLink
+    task host refusing to start while other `dotnet` builds ran alongside the fixture's AOT
+    publish. Alone, the publish is clean and the suite is 29/29. Two pre-existing e2e expectations
+    moved with the branch: the admin list's Views column is one to the right of the new Slug
+    column, and sign-out now lands on the home page rather than bouncing into the admin.
+  - Final counts: sample unit 183, scaffold integration 145, scaffold unit 202, render 219,
+    web 164, forms 85, sample integration 8, repo 146, e2e 29; Release AOT publish zero warnings;
+    structure audit 0 errors (3 pre-existing naming warnings under `scripts/deploy`).
+  - **Needs decision, carried:** `nativeweb_sample_dev` never had 0002's three indexes applied
+    (CI never ran it); 0003 is applied there, 0002 is not.
+
 - **Spec 021 — response formats and content negotiation** —
   `feat/021-response-formats-and-negotiation`, 2026-09-02. Twelve tasks ticked, spec
   `Status: done`. Eight document formats from one call each in `libs/nativeweb.render`,
