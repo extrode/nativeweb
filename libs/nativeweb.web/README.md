@@ -120,9 +120,6 @@ an identity through it would leak that user's name into a shared cache entry.
 - **No `robots.txt` or `sitemap.xml`.** `/security.txt` is here because it is a fixed-format
   file with one configurable value. The other two need a canonical base URL and a route
   inventory the framework does not own.
-- **`{Section}:ForwardedHeaders:ForwardLimit` is not bound.** `AddNativeWebForwardedHeaders`
-  sets `ForwardedHeaders` and `KnownProxies` only, so the limit stays at the ASP.NET Core
-  default of 1 whatever configuration says.
 
 ## Proved by
 

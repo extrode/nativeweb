@@ -211,6 +211,13 @@ public static class NativeWebPipeline
         return services.Configure<ForwardedHeadersOptions>(forwarded =>
         {
             forwarded.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+            // Both are needed and they gate different things: KnownProxies below
+            // decides which hops may be unwound, this caps how many are, and the
+            // framework default of 1 stops on the outermost proxy of a two-hop
+            // chain however well-trusted the rest of it is.
+            forwarded.ForwardLimit = options.ForwardLimit;
+
             foreach (IPAddress proxy in options.KnownProxies)
             {
                 forwarded.KnownProxies.Add(proxy);

@@ -39,6 +39,7 @@ public sealed class NativeWebOptionsTests
         Assert.Null(options.SecurityContact);
         Assert.Null(options.BotTrapMinAge);
         Assert.Empty(options.KnownProxies);
+        Assert.Equal(1, options.ForwardLimit);
         Assert.False(options.TelemetryEnabled);
         Assert.Equal(20, options.MaxAutoPrepare);
         Assert.Equal(120, options.GeneralPermitLimit);
@@ -217,6 +218,27 @@ public sealed class NativeWebOptionsTests
         NativeWebOptions options = Bind(("Demo:ForwardedHeaders:KnownProxies", "10.0.0.1, nonsense, 10.0.0.3"));
 
         Assert.Equal([IPAddress.Parse("10.0.0.1"), IPAddress.Parse("10.0.0.3")], options.KnownProxies);
+    }
+
+    [Fact]
+    public void TheForwardLimitIsBound()
+    {
+        Assert.Equal(2, Bind(("Demo:ForwardedHeaders:ForwardLimit", "2")).ForwardLimit);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("two")]
+    [InlineData("1.5")]
+    public void AMalformedForwardLimitIsAStartupError(string value)
+    {
+        Assert.False(NativeWebOptions.TryFromConfiguration(
+            Config(("Demo:ForwardedHeaders:ForwardLimit", value)), "Demo", out NativeWebOptions? options, out string? error));
+
+        Assert.Null(options);
+        Assert.Contains("Demo:ForwardedHeaders:ForwardLimit", error, StringComparison.Ordinal);
+        Assert.Contains(value, error, StringComparison.Ordinal);
     }
 
     [Fact]

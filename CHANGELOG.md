@@ -88,6 +88,17 @@ Merged into `dev`, not yet tagged.
   that would put a directory listing under the product's hostname. Live on `nw-dev.example.com`.
 
 ### Fixed
+- **`ForwardedHeaders:ForwardLimit` is bound by the framework, closing a regression.** The key was
+  read by `apps/web/Program.cs` and left with it on 2026-08-31; `libs/nativeweb.web` never carried
+  it, so `provision.sh` went on seeding `2` into every `--edge` host and
+  `AddNativeWebForwardedHeaders` went on leaving the limit at ASP.NET Core's default of 1. Behind
+  an edge proxy `X-Forwarded-For` arrives as `<client>, <edge>`, one hop stops on the edge, and
+  every client in the world shares one rate-limit partition while the request log names the edge
+  as the caller — with nothing failing to say so. `NativeWebOptions.ForwardLimit` now binds it,
+  fails startup on anything but a positive whole number, and `AddNativeWebForwardedHeaders`
+  applies it. The default is unchanged at 1, and raising it opens no spoofing surface because
+  every step is still gated by `KnownProxies`. Asserted through the real middleware over a
+  two-hop chain, in all three of its outcomes.
 - **`ScaffoldCursor.Encode` substituted for an unpaired surrogate where `TryDecode` refuses one.**
   `Encoding.UTF8.GetBytes` replaces a lone surrogate with U+FFFD, so a row whose `Property`,
   `SortValue` or `Key` carried one produced a token that decoded to a *different* cursor: the
