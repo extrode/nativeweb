@@ -88,6 +88,14 @@ Merged into `dev`, not yet tagged.
   that would put a directory listing under the product's hostname. Live on `nw-dev.example.com`.
 
 ### Fixed
+- **Two libraries named a configuration prefix that no longer exists.** `SmtpOptions.Validate`
+  threw `NativeWeb:Smtp:FromAddress` and `NativeWeb:Smtp:SecurityMode=None` at an operator whose
+  configuration says `Sample:Smtp:*`, and four `ContactProtector` comments named
+  `NativeWeb:ContactKey`. No library binds configuration — the host owns the section — so each was
+  a key a reader could set and nothing would read. The messages are section-relative now and the
+  comments name no key. `DepartedPrefixTests` sweeps every `.cs` and `.md` under `libs/` for the
+  departed prefix in key shape, which is what stops the next copy: a draft README had already
+  documented both as settings, because a comment is what documentation gets written from.
 - **An e2e feed test claimed an absolute DOM slot it could not own.**
   `Feed_UnderNativeAot_OrdersNewestFirst` asserted `titles.First` and `titles.Nth(1)`, which is a
   claim about every other row in `articles`. It went red without the feed changing: the mutation
