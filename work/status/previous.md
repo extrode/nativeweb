@@ -31,8 +31,8 @@ The task completed most recently, kept for one rotation so the next one has cont
   - Final counts: sample unit 183, scaffold integration 145, scaffold unit 202, render 219,
     web 164, forms 85, sample integration 8, repo 146, e2e 29; Release AOT publish zero warnings;
     structure audit 0 errors (3 pre-existing naming warnings under `scripts/deploy`).
-  - **Needs decision, carried:** `nativeweb_sample_dev` never had 0002's three indexes applied
-    (CI never ran it); 0003 is applied there, 0002 is not.
+  - `nativeweb_sample_dev` never had 0002's three indexes applied (CI never ran it); applied by
+    hand on 2026-09-03 with the user's yes, so dev now carries 0001 through 0003.
 
 - **Spec 021 — response formats and content negotiation** —
   `feat/021-response-formats-and-negotiation`, 2026-09-02. Twelve tasks ticked, spec
