@@ -6,7 +6,12 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing in flight.** Spec 022 merged into `dev` on 2026-09-03 (see `previous.md`). Next in
+- **Spec 023 — admin relations and field kinds. In progress on
+  `feat/023-admin-relations-and-field-kinds`, started 2026-09-03.** The scaffold learns enums,
+  date-only, a reference dropdown and a relation as checkbox list or multi-select; the sample
+  gets status, a publication date, categories and tag editing from both sides. Spec, plan and
+  tasks under `docs/specs/023-admin-relations-and-field-kinds/`.
+- Spec 022 merged into `dev` on 2026-09-03 (see `previous.md`). After 023, next in
   the agreed chain of sample examples: (b) admin editing of the article-tag relation, dropdowns,
   dates, enums and status; then (c) forms — contact, upload, two-step; then (d) ops — two roles,
   an audit trail, custom 404/500, `security.txt` on nw-dev.
