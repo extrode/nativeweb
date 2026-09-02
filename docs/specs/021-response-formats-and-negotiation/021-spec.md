@@ -93,7 +93,7 @@ proved in the sample.
   unchanged.
 - R8. **Existing headers apply.** Every representation passes through the same security
   headers, rate limiting and request logging as HTML. Non-HTML responses carry the nosniff
-  header and no nonce, and the content-security policy does not break them.
+  header, depend on no nonce, and the content-security policy does not break them.
 - R9. **The sample proves every format.** The sample publishes, against its real article data:
   a JSON listing of published articles; the same listing as CSV; the same listing negotiated
   from the existing HTML listing route by extension and by Accept; an Atom feed and an RSS
@@ -121,9 +121,12 @@ proved in the sample.
   emitted as XML, Atom, RSS, JSON and CSV, then each document parses with a standard parser and
   the title reads back unchanged, and the CSV cell for a title beginning with `=` opens as text
   (R3).
-- Given a feed with two entries, when the output is validated against the Atom and RSS
-  schemas, then it passes, and every link starts with the scheme and host of the request, or
-  with the supplied base when one is given (R4).
+- Given a feed with two entries, when the output is checked against what RFC 4287 and RSS 2.0
+  require (a feed id, title and updated time, an author on the feed or on every entry, an id,
+  title and updated time on every entry; a channel title, link and description, a title and
+  guid on every item), then it passes, the sitemap validates against the sitemaps.org schema,
+  and every link starts with the scheme and host of the request, or with the supplied base when
+  one is given (R4). Neither Atom nor RSS publishes an XML Schema, so the check is structural.
 - Given a route offering HTML by default and JSON as an alternative, when a client requests the
   path with a `.json` extension and `Accept: text/html`, then it receives JSON; when it sends
   `Accept: application/json` with no extension, it receives JSON with `Vary: Accept`; when it
@@ -134,9 +137,12 @@ proved in the sample.
   `text/html` and `application/json` (R6).
 - Given a cached route offering two cookie-free representations, when one client fetches the
   first and another the second of the same path within the cache window, then each receives its
-  own type, and the locale variance still holds. In the sample the JSON listing is stored and the
-  HTML listing is not, because its filter form sets the antiforgery cookie and spec 006 refuses to
-  store a cookie-setting response; the HTML is still never served to a JSON request (R7).
+  own type, and the locale variance still holds. In the sample the feed's Atom and RSS
+  representations are stored and the article listing is not cached in any representation: its
+  filter form embeds an antiforgery token, so a returning visitor's render (which sets no cookie)
+  would be stored and served to a stranger whose cookie cannot match it, measured on 2026-09-02;
+  a public page is one that carries no token. The HTML is still never served to a JSON request
+  (R7).
 - Given any non-HTML sample response, when its headers are read, then it carries
   `X-Content-Type-Options: nosniff` and the same rate-limit policy as the HTML pages (R8).
 - Given the deployed sample, when `/sitemap.xml`, `/robots.txt`, the feed URLs, the JSON and

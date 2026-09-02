@@ -93,6 +93,16 @@ internal static class FeedWriter
 
     public static void Atom(XmlWriter w, Feed feed, Uri baseUrl)
     {
+        // RFC 4287 section 4.1.1: a feed names an author unless every entry does.
+        // Refused here rather than written, because a reader that rejects the
+        // document says nothing about why.
+        if (feed.Author is not { Length: > 0 } && feed.Entries.Any(static e => e.Author is not { Length: > 0 }))
+        {
+            throw new ArgumentException(
+                "An Atom feed needs an author on the feed or on every entry (RFC 4287 section 4.1.1).",
+                nameof(feed));
+        }
+
         w.WriteStartElement("feed", AtomNamespace);
         w.WriteElementString("id", AtomNamespace, feed.Id);
         w.WriteElementString("title", AtomNamespace, feed.Title);
@@ -212,7 +222,7 @@ internal static class FeedWriter
                 w.WriteElementString(
                     "priority",
                     SitemapNamespace,
-                    priority.ToString("0.0", CultureInfo.InvariantCulture));
+                    priority.ToString("0.0##", CultureInfo.InvariantCulture));
             }
 
             w.WriteEndElement();

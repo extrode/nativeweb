@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
 
@@ -62,8 +63,26 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(mediaType, response.Content.Headers.ContentType?.MediaType);
         Assert.NotEmpty(body);
-        Assert.NotNull(response.Content.Headers.ContentLength);
+        Assert.Equal(Encoding.UTF8.GetByteCount(body), response.Content.Headers.ContentLength);
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.False(response.Headers.Contains("Set-Cookie"), "A data document must not set a cookie.");
+    }
+
+    [Fact]
+    public async Task TheListingPageIsRenderedForEveryVisitorNeverSharedFromACache()
+    {
+        using var factory = new SampleFactory();
+        using HttpClient returning = factory.CreateFollowingNothing();
+        using HttpClient stranger = factory.CreateFollowingNothing();
+
+        (HttpResponseMessage first, _) = await GetAsync(returning, "/articles");
+        (HttpResponseMessage second, string secondBody) = await GetAsync(returning, "/articles");
+        (HttpResponseMessage third, string thirdBody) = await GetAsync(stranger, "/articles");
+
+        Assert.True(first.Headers.Contains("Set-Cookie"));
+        Assert.False(second.Headers.Contains("Set-Cookie"));
+        Assert.True(third.Headers.Contains("Set-Cookie"), "The stranger got the returning visitor's page from a cache.");
+        Assert.NotEqual(secondBody, thirdBody);
     }
 
     [Fact]

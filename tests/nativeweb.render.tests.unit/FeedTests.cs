@@ -15,6 +15,8 @@ public sealed class FeedTests
     private static readonly XNamespace DublinCore = "http://purl.org/dc/elements/1.1/";
     private static readonly Uri Base = new("https://nw.example/");
     private static readonly DateTimeOffset When = new(2026, 9, 2, 10, 30, 0, TimeSpan.FromHours(2));
+    private static readonly string[] AtomRequired = ["id", "title", "updated"];
+    private static readonly string[] RssChannelRequired = ["title", "link", "description"];
 
     private static Feed SampleFeed() => new(
         Id: "https://nw.example/feed.atom",
@@ -114,7 +116,7 @@ public sealed class FeedTests
     {
         SitemapEntry[] entries =
         [
-            new("/articles", When, ChangeFrequency.Daily, 0.8),
+            new("/articles", When, ChangeFrequency.Daily, 0.85),
             new("/about"),
             new("https://other.example/x", Priority: 1.0),
         ];
@@ -137,8 +139,62 @@ public sealed class FeedTests
         Assert.Equal(3, urls.Length);
         Assert.Equal("https://nw.example/articles", urls[0].Element(ns + "loc")?.Value);
         Assert.Equal("daily", urls[0].Element(ns + "changefreq")?.Value);
-        Assert.Equal("0.8", urls[0].Element(ns + "priority")?.Value);
+        Assert.Equal("0.85", urls[0].Element(ns + "priority")?.Value);
         Assert.Null(urls[1].Element(ns + "lastmod"));
+    }
+
+    [Fact]
+    public void Atom_RefusesAFeedWithNoAuthorAnywhere()
+    {
+        Feed feed = SampleFeed() with { Author = null };
+
+        ArgumentException error = Assert.Throws<ArgumentException>(() => FormatResults.Atom(feed, Base));
+
+        Assert.Contains("RFC 4287", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Atom_AcceptsAFeedWhoseEveryEntryNamesAnAuthor()
+    {
+        Feed feed = SampleFeed() with
+        {
+            Author = null,
+            Entries = [new FeedEntry("urn:a1", "One", "/a1", When, Author: "Ann")],
+        };
+
+        (_, XDocument doc) = await ParseAsync(FormatResults.Atom(feed, Base));
+
+        Assert.Null(doc.Root!.Element(Atom + "author"));
+        Assert.Equal("Ann", doc.Root.Element(Atom + "entry")?.Element(Atom + "author")?.Element(Atom + "name")?.Value);
+    }
+
+    [Fact]
+    public async Task Atom_EveryEntryCarriesWhatRfc4287Requires()
+    {
+        (_, XDocument doc) = await ParseAsync(FormatResults.Atom(SampleFeed(), Base));
+
+        XElement feed = doc.Root!;
+        Assert.All(AtomRequired, name => Assert.NotNull(feed.Element(Atom + name)));
+        Assert.All(feed.Elements(Atom + "entry"), entry =>
+        {
+            Assert.All(AtomRequired, name => Assert.NotNull(entry.Element(Atom + name)));
+            Assert.Equal("alternate", entry.Element(Atom + "link")?.Attribute("rel")?.Value);
+        });
+    }
+
+    [Fact]
+    public async Task Rss_EveryItemCarriesWhatRss20Requires()
+    {
+        (_, XDocument doc) = await ParseAsync(FormatResults.Rss(SampleFeed(), Base));
+
+        XElement channel = doc.Root!.Element("channel")!;
+        Assert.All(RssChannelRequired, name => Assert.NotNull(channel.Element(name)));
+        Assert.All(channel.Elements("item"), item =>
+        {
+            Assert.NotNull(item.Element("title"));
+            Assert.NotNull(item.Element("guid"));
+            Assert.Equal("false", item.Element("guid")?.Attribute("isPermaLink")?.Value);
+        });
     }
 
     [Fact]

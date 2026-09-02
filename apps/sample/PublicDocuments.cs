@@ -17,10 +17,10 @@ namespace NativeWeb.Sample;
 /// <see cref="PublicArticleEndpoints"/>.
 /// </para>
 /// <para>
-/// Links are written relative and resolved against the request's public base,
-/// which <c>UseForwardedHeaders</c> has already corrected to the scheme and host
-/// the visitor used. A feed reader on the far side of a proxy then sees the
-/// same absolute URLs a browser does.
+/// Links are written relative and resolved against the request's public base:
+/// the scheme <c>UseForwardedHeaders</c> took from the proxy, and the host name
+/// the proxy passed through. A feed reader on the far side of that proxy then
+/// sees the same absolute URLs a browser does.
 /// </para>
 /// </remarks>
 internal static class PublicDocuments
@@ -135,12 +135,16 @@ internal static class PublicDocuments
                 Author: article.Author));
         }
 
+        // A feed-level author, because an article's author is optional and an
+        // Atom feed without one anywhere is invalid; FormatResults.Atom refuses
+        // to write it.
         return new Feed(
             Id: new Uri(baseUrl, "/feed").AbsoluteUri,
             Title: "NativeWeb sample: articles",
             Link: "/articles",
             Updated: entries.Count > 0 ? entries[0].Updated : DateTimeOffset.UnixEpoch,
             Entries: entries,
+            Author: "NativeWeb sample",
             Subtitle: "The published articles, newest first.");
     }
 }

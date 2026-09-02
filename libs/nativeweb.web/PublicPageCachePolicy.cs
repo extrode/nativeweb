@@ -35,7 +35,14 @@ public sealed class PublicPageCachePolicy : IOutputCachePolicy
         // page) and no storage (its own response may be personal). Both
         // directions matter -- allowing only one would leave a poisoning path
         // open.
-        bool shareable = !PublicPageCache.CarriesIdentityCookie(http.Request)
+        //
+        // Narrowed from what the default policy already decided, never widened:
+        // it has refused a request carrying an Authorization header or an
+        // authenticated user before this runs, and assigning from scratch here
+        // would hand those requests the shared store back (spec 021 review).
+        bool shareable = context.AllowCacheLookup
+            && context.AllowCacheStorage
+            && !PublicPageCache.CarriesIdentityCookie(http.Request)
             && (HttpMethods.IsGet(http.Request.Method) || HttpMethods.IsHead(http.Request.Method));
 
         context.EnableOutputCaching = shareable;
@@ -114,16 +121,8 @@ public sealed class PublicPageCachePolicy : IOutputCachePolicy
         return ValueTask.CompletedTask;
     }
 
-    private static bool AnswersTheChosenFormat(HttpContext http)
-    {
-        if (!http.Items.TryGetValue(Negotiation.ItemKey, out object? chosen) || chosen is not Format format)
-        {
-            return true;
-        }
-
-        string? contentType = http.Response.ContentType;
-
-        return contentType is not null
-            && contentType.StartsWith(format.MediaType, StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool AnswersTheChosenFormat(HttpContext http) =>
+        !http.Items.TryGetValue(Negotiation.ItemKey, out object? chosen)
+        || chosen is not Format format
+        || Negotiation.ContentTypeIs(http.Response.ContentType, format);
 }

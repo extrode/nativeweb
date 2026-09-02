@@ -150,10 +150,13 @@ The returned `NegotiatedRouteBuilder` applies a convention to both routes, so `.
 policy, `PublicPageCachePolicy` runs the same chooser and keys the entry on the chosen media
 type, and refuses to store a response whose `Content-Type` is not that type, so two cookie-free
 representations of one path are cached separately and a handler that answered the wrong type is
-never stored under a key promising the right one. A representation that sets a cookie, as an
-HTML page with an antiforgery form does, is still refused by the default policy; `apps/sample`
-shows that route declared with `CacheOutput` alone and its cookie-free neighbours with
-`AsPublicPage`.
+never stored under a key promising the right one. A route whose HTML embeds an antiforgery
+token takes no cache policy at all: the first visit sets the cookie and is refused, but a return
+visit sets nothing, is stored, and is served to the next stranger, whose cookie cannot match the
+token on the page. `apps/sample` leaves `/articles` uncached for that reason and declares its
+cookie-free neighbours (`/feed`, `/sitemap.xml`, `/robots.txt`, `/about`) with `AsPublicPage`.
+The policy never widens what the default policy refused: a request carrying `Authorization` or
+an authenticated user neither reads nor fills the shared store.
 
 ## What this library does not do
 

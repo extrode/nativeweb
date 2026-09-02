@@ -57,14 +57,18 @@ internal static class PublicArticleEndpoints
         // before this handler runs, so an extension the route does not offer is
         // a 404 that never touches the store.
         //
-        // CacheOutput rather than AsPublicPage, and the difference is the
-        // antiforgery cookie. The HTML branch mints one for the filter form, so
-        // the framework's default policy refuses to store it and the headers
-        // must not tell a proxy it is public either. The JSON and CSV branches
-        // set no cookie, and the policy keys on the chosen format, so those two
-        // are served from the in-process store under their own entries while
-        // the page renders every time. PublicDocuments.cs shows the other shape:
-        // cookie-free routes that are public all the way down.
+        // No output cache on this route, and the reason is the antiforgery token
+        // the HTML branch embeds for the filter form. A first visit sets the
+        // cookie, which the default policy refuses to store; a return visit
+        // carries it, sets nothing, and would be stored and then served to the
+        // next stranger, whose own cookie cannot match the token on the page.
+        // Measured on 2026-09-02 through SampleFactory: the third visitor got no
+        // Set-Cookie at all. A public page is one that carries no token, which is
+        // what Chrome.Anonymous is for; a page with a form is rendered per visit.
+        // The JSON and CSV branches go uncached with it, since one route carries
+        // one policy. PublicDocuments.cs shows the other shape: cookie-free
+        // routes that are public all the way down, the feed's two representations
+        // cached under their own keys.
         endpoints.MapNegotiated("/articles", [Format.Html, Format.Json, Format.Csv], async (http, format) =>
         {
             IPublishedArticles articles = http.RequestServices.GetRequiredService<IPublishedArticles>();
@@ -85,8 +89,7 @@ internal static class PublicArticleEndpoints
             AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
             return Page(http, recent, query: null, take: PageSize, tokens);
         })
-        .RequireRateLimiting(NativeWebPipeline.GeneralRateLimitPolicy)
-        .CacheOutput(NativeWebPipeline.PublicPagePolicy);
+        .RequireRateLimiting(NativeWebPipeline.GeneralRateLimitPolicy);
 
         // The declarative-binding demo (spec 014). Three things are worth reading
         // here, because all three are the point:

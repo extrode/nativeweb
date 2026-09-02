@@ -78,13 +78,22 @@ public sealed class NegotiatedCacheTests : IAsyncLifetime
         await _app.DisposeAsync();
     }
 
-    private async Task<(HttpResponseMessage Response, string Body)> GetAsync(string path, string? accept = null, string? language = null)
+    private async Task<(HttpResponseMessage Response, string Body)> GetAsync(
+        string path,
+        string? accept = null,
+        string? language = null,
+        string? authorization = null)
     {
         using HttpRequestMessage request = new(HttpMethod.Get, path);
 
         if (accept is not null)
         {
             request.Headers.TryAddWithoutValidation("Accept", accept);
+        }
+
+        if (authorization is not null)
+        {
+            request.Headers.TryAddWithoutValidation("Authorization", authorization);
         }
 
         if (language is not null)
@@ -140,6 +149,20 @@ public sealed class NegotiatedCacheTests : IAsyncLifetime
         Assert.NotEqual(en, fr);
         Assert.Equal(en, enAgain);
         Assert.Equal(2, _renders);
+    }
+
+    [Fact]
+    public async Task ARequestCarryingAuthorizationNeitherReadsNorFillsTheSharedStore()
+    {
+        (_, string bearer1) = await GetAsync("/doc", accept: "text/plain", authorization: "Bearer x");
+        (_, string bearer2) = await GetAsync("/doc", accept: "text/plain", authorization: "Bearer x");
+        (_, string anonymous1) = await GetAsync("/doc", accept: "text/plain");
+        (_, string anonymous2) = await GetAsync("/doc", accept: "text/plain");
+
+        Assert.NotEqual(bearer1, bearer2);
+        Assert.NotEqual(bearer2, anonymous1);
+        Assert.Equal(anonymous1, anonymous2);
+        Assert.Equal(3, _renders);
     }
 
     [Fact]

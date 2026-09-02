@@ -129,6 +129,20 @@ public sealed partial class NegotiatedEndpointsTests : IAsyncLifetime
         Assert.Equal(before, _handlerRuns);
     }
 
+    [Theory]
+    [InlineData("/articles", "text/html")]
+    [InlineData("/articles.csv", "text/csv")]
+    public async Task HeadIsAnsweredWithTheSameHeadersAsGet(string path, string mediaType)
+    {
+        using HttpRequestMessage head = new(HttpMethod.Head, path);
+        using HttpResponseMessage headResponse = await _client.SendAsync(head);
+        using HttpResponseMessage getResponse = await _client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, headResponse.StatusCode);
+        Assert.Equal(mediaType, headResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(getResponse.Content.Headers.ContentLength, headResponse.Content.Headers.ContentLength);
+    }
+
     [Fact]
     public void AConventionLandsOnBothRoutes()
     {

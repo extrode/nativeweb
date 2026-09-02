@@ -44,6 +44,10 @@ public sealed class NegotiationTests
     [InlineData("image/png, */*;q=0.1", "text/html", true)]
     [InlineData("text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8", "text/html", true)]
     [InlineData("this is not a media type", "text/html", true)]
+    [InlineData("*/*, text/html;q=0", "application/json", true)]
+    [InlineData("text/*, text/html;q=0.1", "text/csv", true)]
+    [InlineData("text/*;q=0.2, text/html;q=0.9, application/json;q=0.5", "text/html", true)]
+    [InlineData("text/*;q=0, application/json", "application/json", true)]
     public void Choose_FollowsAcceptByQualityThenSpecificityThenOrder(string? accept, string expected, bool byAccept)
     {
         Negotiated choice = Negotiation.Choose(Request(accept), HtmlJsonCsv);
@@ -84,6 +88,7 @@ public sealed class NegotiationTests
     [InlineData("application/xml, image/*")]
     [InlineData("text/html;q=0")]
     [InlineData("text/html;q=0, */*;q=0")]
+    [InlineData("text/*;q=0, application/*;q=0, */*")]
     public void Choose_RefusesAnAcceptHeaderThatAdmitsNothing(string accept)
     {
         Negotiated choice = Negotiation.Choose(Request(accept), HtmlJsonCsv);
@@ -97,7 +102,30 @@ public sealed class NegotiationTests
     {
         Negotiated choice = Negotiation.Choose(Request(), [Format.Atom, Format.Rss]);
 
+        Assert.Equal(NegotiationOutcome.Chosen, choice.Outcome);
         Assert.Equal(Format.Atom, choice.Format);
+    }
+
+    [Fact]
+    public void Choose_TreatsAHandBuiltMediaTypeWithoutASlashAsMatchingOnlyTheWildcard()
+    {
+        Format[] offers = [new Format("bin", "octets", IsText: false), Format.Json];
+
+        Assert.Equal(Format.Json, Negotiation.Choose(Request("application/json, octets"), offers).Format);
+        Assert.Equal(offers[0], Negotiation.Choose(Request("*/*"), offers).Format);
+    }
+
+    [Theory]
+    [InlineData("application/json", true)]
+    [InlineData("application/json; charset=utf-8", true)]
+    [InlineData("Application/JSON;charset=utf-8", true)]
+    [InlineData("application/jsonl", false)]
+    [InlineData("application/json+ld", false)]
+    [InlineData("text/plain", false)]
+    [InlineData(null, false)]
+    public void ContentTypeIs_ComparesTheMediaTypeAlone(string? contentType, bool expected)
+    {
+        Assert.Equal(expected, Negotiation.ContentTypeIs(contentType, Format.Json));
     }
 
     [Fact]

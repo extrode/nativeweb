@@ -35,8 +35,19 @@ internal static class CsvWriter
         StringBuilder csv = new();
         AppendRow(csv, headers);
 
+        int number = 0;
+
         foreach (IReadOnlyList<string> row in rows)
         {
+            number++;
+
+            if (row.Count != headers.Count)
+            {
+                throw new ArgumentException(
+                    $"Row {number} has {row.Count} cells for {headers.Count} headers.",
+                    nameof(rows));
+            }
+
             AppendRow(csv, row);
         }
 
@@ -82,6 +93,8 @@ internal static class CsvWriter
         UnicodeCategory category = char.GetUnicodeCategory(s, index);
 
         return category is UnicodeCategory.SpaceSeparator
+            or UnicodeCategory.LineSeparator
+            or UnicodeCategory.ParagraphSeparator
             or UnicodeCategory.Control
             or UnicodeCategory.Format;
     }

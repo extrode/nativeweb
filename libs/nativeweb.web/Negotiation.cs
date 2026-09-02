@@ -48,9 +48,10 @@ public sealed class NegotiationMetadata(IReadOnlyList<Format> offers)
 /// <remarks>
 /// Precedence: an extension on the path, then the Accept header by quality and then
 /// specificity (<c>type/sub</c> over <c>type/*</c> over <c>*/*</c>), then the first
-/// offer. A header that does not parse counts as absent. A candidate with
-/// <c>q=0</c> is excluded. When a candidate matches several offers, the earliest
-/// offer wins, which is what makes <c>*/*</c> select the default.
+/// offer. A header that does not parse counts as absent. An offer whose most
+/// specific matching range says <c>q=0</c> is refused even when a wildcard would
+/// admit it. When a range matches several offers, the earliest offer wins, which
+/// is what makes <c>*/*</c> select the default.
 /// </remarks>
 public static class Negotiation
 {
@@ -88,18 +89,60 @@ public static class Negotiation
             return new Negotiated(NegotiationOutcome.Chosen, fallback, ByAccept: true);
         }
 
-        foreach (MediaTypeHeaderValue candidate in Ordered(candidates))
+        // Each offer's quality is that of the most specific range matching it,
+        // which is how RFC 9110 reads an Accept header: "*/*, text/html;q=0"
+        // refuses text/html and welcomes everything else. Among the offers with
+        // the highest quality, the one whose deciding range is more specific
+        // wins, then the one whose range came first in the header, then the
+        // earlier offer.
+        Format? best = null;
+        (double Quality, int Specificity, int Index) bestRank = (0.0, -1, int.MaxValue);
+
+        foreach (Format offer in offers)
         {
-            foreach (Format offer in offers)
+            if (Rank(candidates, offer) is not { Quality: > 0.0 } rank)
             {
-                if (Matches(candidate, offer))
-                {
-                    return new Negotiated(NegotiationOutcome.Chosen, offer, ByAccept: true);
-                }
+                continue;
+            }
+
+            bool better = best is null
+                || rank.Quality > bestRank.Quality
+                || (rank.Quality == bestRank.Quality
+                    && (rank.Specificity > bestRank.Specificity
+                        || (rank.Specificity == bestRank.Specificity && rank.Index < bestRank.Index)));
+
+            if (better)
+            {
+                best = offer;
+                bestRank = rank;
             }
         }
 
-        return new Negotiated(NegotiationOutcome.NotAcceptable, fallback, ByAccept: true);
+        return best is { } chosen
+            ? new Negotiated(NegotiationOutcome.Chosen, chosen, ByAccept: true)
+            : new Negotiated(NegotiationOutcome.NotAcceptable, fallback, ByAccept: true);
+    }
+
+    /// <summary>
+    /// Whether a response's <c>Content-Type</c> is <paramref name="format"/>'s media
+    /// type, parameters aside: <c>application/json; charset=utf-8</c> is, and
+    /// <c>application/jsonl</c> is not.
+    /// </summary>
+    /// <param name="contentType">The response's Content-Type header, or null.</param>
+    /// <param name="format">The format the response was meant to answer.</param>
+    /// <returns>True when the media type is the format's.</returns>
+    public static bool ContentTypeIs(string? contentType, Format format)
+    {
+        if (contentType is null)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> mediaType = contentType.AsSpan();
+        int end = mediaType.IndexOf(';');
+        mediaType = (end < 0 ? mediaType : mediaType[..end]).Trim();
+
+        return mediaType.Equals(format.MediaType, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The 404 or 406 body: the offered media types, one line.</summary>
@@ -112,30 +155,59 @@ public static class Negotiation
         return "Offered: " + string.Join(", ", offers.Select(static o => o.MediaType)) + "\n";
     }
 
-    // Quality first, then specificity, then the header's own order; q=0 dropped.
-    private static IEnumerable<MediaTypeHeaderValue> Ordered(IList<MediaTypeHeaderValue> candidates) =>
-        candidates
-            .Select(static (candidate, index) => (Candidate: candidate, Index: index))
-            .Where(static c => (c.Candidate.Quality ?? 1.0) > 0.0)
-            .OrderByDescending(static c => c.Candidate.Quality ?? 1.0)
-            .ThenByDescending(static c => Specificity(c.Candidate))
-            .ThenBy(static c => c.Index)
-            .Select(static c => c.Candidate);
+    // The most specific range matching the offer decides its quality; among
+    // equally specific ranges the first in the header does. Null when nothing
+    // matches at all.
+    private static (double Quality, int Specificity, int Index)? Rank(IList<MediaTypeHeaderValue> candidates, Format offer)
+    {
+        (double Quality, int Specificity, int Index)? rank = null;
+
+        for (int index = 0; index < candidates.Count; index++)
+        {
+            MediaTypeHeaderValue candidate = candidates[index];
+
+            if (!Matches(candidate, offer))
+            {
+                continue;
+            }
+
+            int specificity = Specificity(candidate);
+
+            if (rank is null || specificity > rank.Value.Specificity)
+            {
+                rank = (candidate.Quality ?? 1.0, specificity, index);
+            }
+        }
+
+        return rank;
+    }
 
     private static int Specificity(MediaTypeHeaderValue candidate) =>
         candidate.MatchesAllTypes ? 0
         : candidate.MatchesAllSubTypes ? 1
         : 2;
 
+    // A media type without a slash is a caller's mistake in a hand-built Format;
+    // it matches nothing but */* rather than throwing inside every request.
     private static bool Matches(MediaTypeHeaderValue candidate, Format offer)
     {
+        if (candidate.MatchesAllTypes)
+        {
+            return true;
+        }
+
         int slash = offer.MediaType.IndexOf('/', StringComparison.Ordinal);
+
+        if (slash < 0)
+        {
+            return false;
+        }
+
         ReadOnlySpan<char> type = offer.MediaType.AsSpan(0, slash);
         ReadOnlySpan<char> subtype = offer.MediaType.AsSpan(slash + 1);
 
-        return candidate.MatchesAllTypes
-            || (candidate.Type.AsSpan().Equals(type, StringComparison.OrdinalIgnoreCase)
-                && (candidate.MatchesAllSubTypes
-                    || candidate.SubType.AsSpan().Equals(subtype, StringComparison.OrdinalIgnoreCase)));
+        return candidate.Type.AsSpan().Equals(type, StringComparison.OrdinalIgnoreCase)
+            && (candidate.MatchesAllSubTypes
+                || candidate.SubType.AsSpan().Equals(subtype, StringComparison.OrdinalIgnoreCase));
     }
 }

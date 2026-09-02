@@ -27,6 +27,8 @@ public sealed class CsvTests
     [InlineData("​=SUM(A1)", "\"'​=SUM(A1)\"")]
     [InlineData("‮=SUM(A1)", "\"'‮=SUM(A1)\"")]
     [InlineData("\n=SUM(A1)", "\"'\n=SUM(A1)\"")]
+    [InlineData("\u2028=SUM(A1)", "\"'\u2028=SUM(A1)\"")]
+    [InlineData("\u2029=SUM(A1)", "\"'\u2029=SUM(A1)\"")]
     [InlineData("-5", "-5")]
     [InlineData("-5.25", "-5.25")]
     [InlineData("+7", "+7")]
@@ -35,6 +37,15 @@ public sealed class CsvTests
     public void Field_QuotesAndNeutralisesAsRfc4180AndOwaspSay(string? value, string expected)
     {
         Assert.Equal(expected, CsvWriter.Field(value));
+    }
+
+    [Fact]
+    public void Write_RefusesARowWhoseCellCountIsNotTheHeaderCount()
+    {
+        ArgumentException error = Assert.Throws<ArgumentException>(() =>
+            CsvWriter.Write(["a", "b"], [["1", "2"], ["3"]]));
+
+        Assert.StartsWith("Row 2 has 1 cells for 2 headers.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -56,9 +67,6 @@ public sealed class CsvTests
         Assert.Equal((byte)'t', body[0]);
 
         string text = Encoding.UTF8.GetString(body);
-        Assert.Equal("title\r\n" + CsvWriter.Field(FormatResultsTests.HostileTitle) + "\r\n", text);
-        Assert.Equal(
-            "\"<b>\"\"Q&A\"\" & Co,</b>\nline two \U0001F600\"",
-            CsvWriter.Field(FormatResultsTests.HostileTitle));
+        Assert.Equal("title\r\n\"<b>\"\"Q&A\"\" & Co,</b>\nline two \U0001F600\"\r\n", text);
     }
 }

@@ -42,6 +42,8 @@ public sealed class NegotiatedRouteBuilder : IEndpointConventionBuilder
 /// </summary>
 public static class NegotiatedEndpoints
 {
+    private static readonly string[] Methods = [HttpMethods.Get, HttpMethods.Head];
+
     /// <summary>
     /// Maps <paramref name="pattern"/> and <c>pattern.{format}</c> to one handler
     /// that is told which of <paramref name="offers"/> the request asked for.
@@ -121,9 +123,14 @@ public static class NegotiatedEndpoints
             return await handler(http, format).ConfigureAwait(false);
         }
 
-        IEndpointConventionBuilder plain = endpoints.MapGet(pattern, (RequestDelegate)Handle).WithMetadata(metadata);
+        // GET and HEAD: a feed reader or crawler that asks HEAD first is answered
+        // with the headers and no body, rather than 405. Kestrel drops the body
+        // of a HEAD response itself, so the handler is not told apart.
+        IEndpointConventionBuilder plain = endpoints
+            .MapMethods(pattern, Methods, (RequestDelegate)Handle)
+            .WithMetadata(metadata);
         IEndpointConventionBuilder extension = endpoints
-            .MapGet(pattern + ".{" + Negotiation.RouteValue + "}", (RequestDelegate)Handle)
+            .MapMethods(pattern + ".{" + Negotiation.RouteValue + "}", Methods, (RequestDelegate)Handle)
             .WithMetadata(metadata);
 
         return new NegotiatedRouteBuilder(plain, extension);
