@@ -302,6 +302,20 @@ preflight_config() {
        Without one this host answers /healthz green while serving no database at all."
 	fi
 
+	# The reference app's admin is behind a passphrase outside Development (spec 020),
+	# and a Production binary refuses to start without one -- so this check is not
+	# what keeps the host up. It is what names the cause here, at promote time,
+	# rather than in a journal line after the new colour has already failed /readyz.
+	# Only for the reference app, whose prefix is Sample: a stamped product signs in
+	# through its OAuth provider and reads no such key, and a gate on a value nothing
+	# reads is the failure the comment above this function describes.
+	if [[ "$CONFIG_PREFIX" == "Sample" ]] &&
+		! grep -qE "^\s*${CONFIG_PREFIX}__Admin__Passphrase\s*=\s*\S" <<<"$combined"; then
+		die "${CONFIG_PREFIX}__Admin__Passphrase is not set in /etc/nativeweb/secrets.env.
+       Outside Development the admin at /admin is reached only through the passphrase
+       form at /signin, and a Production binary exits 78 at startup without one."
+	fi
+
 	# The path half is what makes this pass only when the app can do the thing.
 	# Unset, the framework falls back to a directory under the process's home,
 	# and the unit has no home: User=nativeweb is --system --no-create-home, so

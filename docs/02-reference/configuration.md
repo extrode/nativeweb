@@ -66,6 +66,22 @@ be unwritable, which the deploy preflight catches rather than startup. The exit 
 named on stderr — never a modal dialog, which under NativeAOT on Windows a supervisor reads as
 a hung service.
 
+### The reference application's own key
+
+`apps/sample` reads one setting the framework does not, under its own `Sample` section.
+It is the sample's, not a framework key: a single shared passphrase in front of one
+product's admin is that product's decision, and a product stamped from `skeleton/` signs
+in through its OAuth provider instead.
+
+| Key | Default | On a missing value |
+|---|---|---|
+| `Sample:Admin:Passphrase` | none | **Production fails startup** with the key named, exit 78. Any other environment but Development serves the form at `/signin` and refuses every attempt. Development ignores it: there `/signin` signs the visitor in without a form |
+
+On a deployed host it lives in `/etc/nativeweb/secrets.env` as `Sample__Admin__Passphrase`,
+which `provision.sh` seeds blank and `deploy.sh` refuses to promote without. The comparison
+is constant-time over a digest of each side, the POST is rate-limited to 10 attempts per
+client address per minute, and a refusal is one fixed page whatever was typed.
+
 ## Sign-in settings
 
 Bound by `SignInConfiguration` in `libs/nativeweb.signin/SignInConfiguration.cs`, under a

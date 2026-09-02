@@ -224,7 +224,13 @@ seed_config "$CONFIG_ROOT/secrets.env" 0640 "root:$SERVICE_GROUP" \
 # preflight that demanded them made the operator invent values for a departed
 # product before it would deploy.
 ConnectionStrings__${CONFIG_PREFIX}=
-${CONFIG_PREFIX}__Db__ConnectionString="
+${CONFIG_PREFIX}__Db__ConnectionString=
+
+# REQUIRED for the reference app (spec 020). Outside Development its admin is behind
+# a passphrase form at /signin, and a Production binary exits 78 at startup without
+# one. A product stamped from skeleton/ signs in through its OAuth provider and does
+# not read this line; delete it there.
+${CONFIG_PREFIX}__Admin__Passphrase="
 
 seed_config "$CONFIG_ROOT/blue.env" 0644 "root:$SERVICE_GROUP" \
 	'ASPNETCORE_URLS=http://127.0.0.1:5011'
