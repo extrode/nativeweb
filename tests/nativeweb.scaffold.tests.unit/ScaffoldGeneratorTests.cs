@@ -891,7 +891,7 @@ public sealed class ScaffoldGeneratorTests
                 public Status? Mood { get; set; }
                 [ScaffoldList] public System.DateOnly? PublishedAt { get; set; }
                 public System.DateOnly Day { get; set; }
-                [ScaffoldReference(typeof(Category))] public string? CategoryKey { get; set; }
+                [ScaffoldList][ScaffoldReference(typeof(Category))] public string? CategoryKey { get; set; }
                 [ScaffoldRelation(typeof(Tag))] public IReadOnlyList<string> TagSlugs { get; set; } = new string[0];
             }
         }
@@ -936,6 +936,17 @@ public sealed class ScaffoldGeneratorTests
         Assert.Contains("<select id=\\\"categoryKey\\\" name=\\\"categoryKey\\\"><option value=\\\"\\\">(none)</option>", source, StringComparison.Ordinal);
         Assert.Contains("Enc(ScaffoldValues.Display(choice.Name))", source, StringComparison.Ordinal);
         Assert.Contains(".ListAsync(null, Array.Empty<string>(), new ScaffoldSortSpec(\"Name\", ScaffoldSortDirection.Ascending), CategoryScaffold.SortFields, null, OptionLimit, ct)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AListedReference_ShowsTheTargetLabelAndFallsBackToTheKey()
+    {
+        (_, string source) = Run(Attributes, RelationModel);
+
+        Assert.Contains("categoryKeyLabels[ScaffoldValues.Display(choice.Key)] = ScaffoldValues.Display(choice.Name);", source, StringComparison.Ordinal);
+        Assert.Contains("Enc(Label(categoryKeyLabels, ScaffoldValues.Display(row.CategoryKey)))", source, StringComparison.Ordinal);
+        Assert.Contains("labels.TryGetValue(key, out string? label) ? label : key;", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("tagSlugsLabels", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -85,7 +85,7 @@ internal static class ScaffoldEmitter
         sb.AppendLine();
 
         EmitMap(sb, model, cls, form, route);
-        EmitList(sb, model, type, listed, searchable, sortable);
+        EmitList(sb, model, type, listed, searchable, sortable, choices);
         EmitChoices(sb, model, choices);
         EmitNew(sb);
         EmitEdit(sb, type);
@@ -222,8 +222,16 @@ internal static class ScaffoldEmitter
         string type,
         List<PropertyModel> listed,
         List<PropertyModel> searchable,
-        List<PropertyModel> sortable)
+        List<PropertyModel> sortable,
+        List<Choice> choices)
     {
+        // A listed reference shows the target's label, not the key it stores
+        // (spec 023 R5): one bounded query per reference column, the same rows
+        // the form's dropdown offers. A key past OptionLimit, or one whose row
+        // is gone, shows as itself rather than as blank.
+        var labelled = choices
+            .Where(c => c.Property.Reference is not null && listed.Contains(c.Property))
+            .ToList();
         sb.AppendLine("    private static async Task<IResult> ListAsync(HttpContext http, CancellationToken ct)");
         sb.AppendLine("    {");
         sb.AppendLine($"        IScaffoldStore<{type}> store = http.RequestServices.GetRequiredService<IScaffoldStore<{type}>>();");
@@ -270,6 +278,18 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        bool hasNext = backward || overflow;");
         sb.AppendLine("        bool hasPrevious = backward ? overflow : after.HasValue;");
         sb.AppendLine();
+        foreach (Choice c in labelled)
+        {
+            string f = c.Property.FieldName;
+            sb.AppendLine($"        var {f}Labels = new Dictionary<string, string>(StringComparer.Ordinal);");
+            sb.AppendLine($"        foreach ({c.Target.FullyQualifiedName} choice in await http.RequestServices.GetRequiredService<IScaffoldStore<{c.Target.FullyQualifiedName}>>()");
+            sb.AppendLine($"            .ListAsync(null, Array.Empty<string>(), null, {c.Target.TypeName}Scaffold.SortFields, null, OptionLimit, ct).ConfigureAwait(false))");
+            sb.AppendLine("        {");
+            sb.AppendLine($"            {f}Labels[ScaffoldValues.Display(choice.{c.Target.KeyProperty})] = ScaffoldValues.Display(choice.{c.LabelProperty});");
+            sb.AppendLine("        }");
+            sb.AppendLine();
+        }
+
         sb.AppendLine("        StringBuilder sb = new(4096);");
         sb.AppendLine("        sb.Append(\"<div class=\\\"nws-head\\\"><h1>\").Append(Enc(Display)).Append(\"</h1>\");");
         sb.AppendLine("        sb.Append(\"<a class=\\\"nws-btn nws-btn--primary\\\" href=\\\"\").Append(BasePath).Append(\"/new\\\">New</a></div>\");");
@@ -305,7 +325,10 @@ internal static class ScaffoldEmitter
         sb.AppendLine("            sb.Append(\"<tr>\");");
         foreach (PropertyModel p in listed)
         {
-            sb.AppendLine($"            sb.Append(\"<td>\").Append(Enc(ScaffoldValues.Display(row.{p.Name}))).Append(\"</td>\");");
+            string cell = labelled.Any(c => c.Property == p)
+                ? $"Label({p.FieldName}Labels, ScaffoldValues.Display(row.{p.Name}))"
+                : $"ScaffoldValues.Display(row.{p.Name})";
+            sb.AppendLine($"            sb.Append(\"<td>\").Append(Enc({cell})).Append(\"</td>\");");
         }
 
         sb.AppendLine("            sb.Append(\"<td class=\\\"nws-actions\\\">\");");
@@ -421,6 +444,9 @@ internal static class ScaffoldEmitter
 
         sb.AppendLine("        return choices;");
         sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine("    private static string Label(Dictionary<string, string> labels, string key) =>");
+        sb.AppendLine("        labels.TryGetValue(key, out string? label) ? label : key;");
         sb.AppendLine();
         sb.AppendLine("    private static bool Has(IReadOnlyList<string> keys, string key)");
         sb.AppendLine("    {");
