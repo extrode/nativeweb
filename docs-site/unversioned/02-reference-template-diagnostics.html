@@ -95,7 +95,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#at-a-glance">At a glance</a><a class="toc-l2" href="#the-header-nwt001-nwt002-nwt003">The header: NWT001, NWT002, NWT003</a><a class="toc-l2" href="#layouts-slots-and-fills-nwt004-nwt007-nwt010-nwt011">Layouts, slots and fills: NWT004, NWT007, NWT010, NWT011</a><a class="toc-l2" href="#partials-nwt005-nwt006">Partials: NWT005, NWT006</a><a class="toc-l2" href="#blocks-and-expressions-nwt008-nwt012">Blocks and expressions: NWT008, NWT012</a><a class="toc-l2" href="#localization-nwt013-nwt014-nwt015">Localization: NWT013, NWT014, NWT015</a><a class="toc-l2" href="#nwt016-interpolation-outside-a-quoted-attribute-value">NWT016 — interpolation outside a quoted attribute value</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#at-a-glance">At a glance</a><a class="toc-l2" href="#the-header-nwt001-nwt002-nwt003">The header: NWT001, NWT002, NWT003</a><a class="toc-l2" href="#layouts-slots-and-fills-nwt004-nwt007-nwt010-nwt011">Layouts, slots and fills: NWT004, NWT007, NWT010, NWT011</a><a class="toc-l2" href="#partials-nwt005-nwt006">Partials: NWT005, NWT006</a><a class="toc-l2" href="#blocks-and-expressions-nwt008-nwt012">Blocks and expressions: NWT008, NWT012</a><a class="toc-l2" href="#localization-nwt013-nwt014-nwt015">Localization: NWT013, NWT014, NWT015</a><a class="toc-l2" href="#nwt016--interpolation-outside-a-quoted-attribute-value">NWT016 — interpolation outside a quoted attribute value</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">NWT template diagnostics</nav>
         <article>
@@ -372,7 +372,7 @@ the English root, they do not extend it, so this is almost always a typo.</p>
 </table>
 <p>A nested <code>_</code>-prefixed key is metadata, not a string key: <code>{&quot;app&quot;: {&quot;_note&quot;: …}}</code> does <strong>not</strong>
 become <code>app._note</code> and does not trip NWT014.</p>
-<h2 id="nwt016-interpolation-outside-a-quoted-attribute-value">NWT016 — interpolation outside a quoted attribute value</h2>
+<h2 id="nwt016--interpolation-outside-a-quoted-attribute-value">NWT016 — interpolation outside a quoted attribute value</h2>
 <p>The newest and the only one that exists purely as a security guard. <code>TemplateWriter</code> encodes
 <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>&quot;</code> and <code>'</code> — and nothing else. That set is safe in text and inside a <strong>quoted</strong>
 attribute value, and nowhere else. A space is not encoded, so a value interpolated into an

@@ -95,7 +95,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#iscaffoldstoret.listasync-takes-an-ordering-and-a-cursor">2026-09-01 — IScaffoldStore&lt;T&gt;.ListAsync takes an ordering and a cursor</a><a class="toc-l3" href="#what-a-consumer-does">What a consumer does</a><a class="toc-l2" href="#libsnativeweb.signin.epass-removed">2026-08-31 — libs/nativeweb.signin.epass removed</a><a class="toc-l2" href="#libsnativeweb.auth-and-libsnativeweb.data-removed">2026-08-31 — libs/nativeweb.auth and libs/nativeweb.data removed</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — IScaffoldStore&lt;T&gt;.ListAsync takes an ordering and a cursor</a><a class="toc-l3" href="#what-a-consumer-does">What a consumer does</a><a class="toc-l2" href="#2026-08-31--libsnativewebsigninepass-removed">2026-08-31 — libs/nativeweb.signin.epass removed</a><a class="toc-l2" href="#2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — libs/nativeweb.auth and libs/nativeweb.data removed</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Breaking changes</nav>
         <article>
@@ -112,7 +112,7 @@ shim that makes the wrong shape survivable, because a shim outlives the reason f
 next reader cannot tell which of the two overloads is the one to write against. What is owed
 instead is this file: what changed, why, and the before/after a consumer edits by.</p>
 <hr />
-<h2 id="iscaffoldstoret.listasync-takes-an-ordering-and-a-cursor">2026-09-01 — <code>IScaffoldStore&lt;T&gt;.ListAsync</code> takes an ordering and a cursor</h2>
+<h2 id="2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — <code>IScaffoldStore&lt;T&gt;.ListAsync</code> takes an ordering and a cursor</h2>
 <p><strong>Seam:</strong> <code>NativeWeb.Scaffold.IScaffoldStore&lt;T&gt;</code> — <code>libs/nativeweb.scaffold/IScaffoldStore.cs</code>.
 <strong>Spec:</strong> 017.
 <strong>Affects:</strong> every hand-written store. Nothing generated changes: the generated endpoints, forms
@@ -168,7 +168,7 @@ alone; it will be correct, just not sortable.</p>
 <p>Callers of <code>ListAsync</code> that are not stores — anything that lists rows for its own purposes — pass
 <code>(null, [], null, [], null, take, ct)</code>.</p>
 <hr />
-<h2 id="libsnativeweb.signin.epass-removed">2026-08-31 — <code>libs/nativeweb.signin.epass</code> removed</h2>
+<h2 id="2026-08-31--libsnativewebsigninepass-removed">2026-08-31 — <code>libs/nativeweb.signin.epass</code> removed</h2>
 <p><strong>Seam:</strong> the whole library, and the <code>AddEpass(...)</code> builder on top of <code>AddNativeWebSignIn</code>.
 <strong>Commit:</strong> <code>f743436</code>. <strong>Decision:</strong>
 007.
@@ -182,7 +182,7 @@ from a compiled-in provider class.</p>
 OAuth2/OIDC server to a third-party package. A sign-in <strong>client</strong> is framework; a named
 provider's integration is a product's.</p>
 <hr />
-<h2 id="libsnativeweb.auth-and-libsnativeweb.data-removed">2026-08-31 — <code>libs/nativeweb.auth</code> and <code>libs/nativeweb.data</code> removed</h2>
+<h2 id="2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — <code>libs/nativeweb.auth</code> and <code>libs/nativeweb.data</code> removed</h2>
 <p><strong>Commit:</strong> <code>f743436</code>. <strong>Decision:</strong>
 007.
 <strong>Affects:</strong> anything referencing <code>TokenIssuer</code>, <code>SilentConsent</code>, <code>RealmResolver</code>, <code>SsoModes</code>,

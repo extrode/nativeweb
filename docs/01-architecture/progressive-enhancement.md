@@ -215,12 +215,31 @@ for browser capabilities.
 
 ### Any content type (R12)
 
-LNW apps serve whatever media types they need on the Minimal-API result primitives — no
-framework machinery, no content-negotiation layer. `Results.Text` with a content type,
-`Results.Bytes`, or a streamed writer is the whole convention, already proven by
-`security.txt` (text/plain), favicon bytes (image/*), and the transfer export endpoints
-(JSON and Netscape HTML). An app that wants RSS/Atom/sitemap-XML builds the document and
-returns it the same way; the framework's job is only to not get in the way.
+LNW apps answer the web's text formats through one typed helper each, and offer several
+representations of one route through one mapping call
+([decision 009](../decisions/2026-09-02-009-response-formats-in-the-framework.md), spec 021).
+This section used to say the opposite — "no framework machinery, no content-negotiation layer" —
+and that stance was withdrawn when the sample became the first product to rebuild the same five
+things by hand.
+
+- **One call per format.** `FormatResults` in `libs/nativeweb.render` has `Text`, `Markdown`,
+  `Json` (source-generated `JsonTypeInfo<T>` only, so it trims), `Xml` (an `XmlWriter` callback),
+  `Csv` (RFC 4180, CRLF, formula-neutralising), `Atom`, `Rss` and `Sitemap` (structured input,
+  absolute links resolved against the request's public base). Every helper buffers, declares
+  `Content-Length` and writes once, for the throughput reason `TemplateResults.Html` records.
+- **One route, several representations.** `MapNegotiated("/articles", [Html, Json, Csv], ...)`
+  in `libs/nativeweb.web` maps `/articles` and `/articles.{format}` to one handler that is told
+  which format was chosen. Precedence is the extension, then `Accept` by quality and
+  specificity, then the first offer. An extension the route does not offer is a 404 and an
+  `Accept` that admits nothing is a 406, both `text/plain` naming the offers and neither
+  reaching the handler. The extensionless route says `Vary: Accept` on every response.
+- **The cache keys on the choice.** `PublicPageCachePolicy` runs the same chooser and varies its
+  key by the chosen media type, and refuses to store a response whose `Content-Type` is not the
+  chosen format's. Two cookie-free representations of one path each get their own entry.
+- **What stays on the raw primitives.** Bytes, streams and any body that cannot know its length
+  stay on `Results.Bytes` and `Results.Stream`, as `favicon` does. What a sitemap lists and what
+  `robots.txt` disallows are the application's, because the framework owns no route inventory;
+  `apps/sample/PublicDocuments.cs` is the model.
 
 ---
 

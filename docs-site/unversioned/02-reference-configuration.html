@@ -95,7 +95,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#the-section-prefix">The section prefix</a><a class="toc-l2" href="#framework-settings">Framework settings</a><a class="toc-l3" href="#outside-the-section">Outside the section</a><a class="toc-l3" href="#three-that-stop-the-process">Three that stop the process</a><a class="toc-l2" href="#sign-in-settings">Sign-in settings</a><a class="toc-l2" href="#what-a-provisioned-host-holds">What a provisioned host holds</a><a class="toc-l2" href="#related">Related</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#the-section-prefix">The section prefix</a><a class="toc-l2" href="#framework-settings">Framework settings</a><a class="toc-l3" href="#outside-the-section">Outside the section</a><a class="toc-l3" href="#three-that-stop-the-process">Three that stop the process</a><a class="toc-l3" href="#the-reference-applications-own-key">The reference application's own key</a><a class="toc-l2" href="#sign-in-settings">Sign-in settings</a><a class="toc-l2" href="#what-a-provisioned-host-holds">What a provisioned host holds</a><a class="toc-l2" href="#related">Related</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Configuration reference</nav>
         <article>
@@ -252,6 +252,33 @@ what stops the process is having no usable fallback, not a configured directory 
 be unwritable, which the deploy preflight catches rather than startup. The exit is code 78 with the key
 named on stderr — never a modal dialog, which under NativeAOT on Windows a supervisor reads as
 a hung service.</p>
+<h3 id="the-reference-applications-own-key">The reference application's own key</h3>
+<p><code>apps/sample</code> reads one setting the framework does not, under its own <code>Sample</code> section.
+It is the sample's, not a framework key: a single shared passphrase in front of one
+product's admin is that product's decision, and a product stamped from <code>skeleton/</code> signs
+in through its OAuth provider instead.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>On a missing value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Sample:Admin:Passphrase</code></td>
+<td>none</td>
+<td><strong>Production fails startup</strong> with the key named, exit 78. Any other environment but Development serves the form at <code>/signin</code> and refuses every attempt. Development ignores it: there <code>/signin</code> signs the visitor in without a form</td>
+</tr>
+</tbody>
+</table>
+<p>On a deployed host it lives in <code>/etc/nativeweb/secrets.env</code> as <code>Sample__Admin__Passphrase</code>,
+which <code>provision.sh</code> seeds blank and <code>deploy.sh</code> refuses to promote without, a quoted empty
+value included. The provisioner writes only a <code>secrets.env</code> that does not exist yet, so a
+host provisioned before the key existed gets the line added by hand. The comparison
+is constant-time over a digest of each side, the POST is rate-limited to 10 attempts per
+client address per minute, and a refusal is one fixed page whatever was typed.</p>
 <h2 id="sign-in-settings">Sign-in settings</h2>
 <p>Bound by <code>SignInConfiguration</code> in <code>libs/nativeweb.signin/SignInConfiguration.cs</code>, under a
 section the product names when it calls <code>AddSignIn</code>. See

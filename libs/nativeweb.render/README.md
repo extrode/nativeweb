@@ -26,6 +26,10 @@ generator never reads disk, only what the compiler hands it.
 | `TemplateRender` | The delegate a template body compiles to |
 | `TemplateResults.Html` | Wraps a `TemplateRender` as an `IResult`: buffered, length declared, one write |
 | `TemplateResults.ToHtmlString` | Materialises the same body as a string, for e-mail and tests |
+| `FormatResults` | One `IResult` per text format: `Text`, `Markdown`, `Json`, `Xml`, `Csv`, `Atom`, `Rss`, `Sitemap` |
+| `Format` | A representation: extension, media type, and whether it takes a charset |
+| `Feed`, `FeedEntry`, `SitemapEntry` | The structured input `Atom`, `Rss` and `Sitemap` write |
+| `RequestBase.PublicBase` | The request's scheme and host as the base every relative link resolves against |
 | `LocaleCatalog` | One locale's fully resolved string table |
 | `LocaleNegotiation` | `UseLocaleNegotiation` middleware and the `GetLocale` reader |
 | `LocaleNegotiationOptions` | Configures that middleware |
@@ -155,6 +159,56 @@ app.MapGet("/articles", async (HttpContext context, ArticleStore store) =>
 `Result` returns the buffered `IResult`; `ToHtmlString` returns the same markup as a
 string for the paths that still compose one.
 
+## Other formats
+
+The same buffered, length-declared, one-write shape as `TemplateResults.Html`, for
+everything that is not a page (spec 021):
+
+```csharp
+app.MapGet("/export.csv", async (IPublishedArticles articles, CancellationToken ct) =>
+{
+    IReadOnlyList<PublishedArticle> rows = await articles.RecentAsync(100, ct);
+    return FormatResults.Csv(
+        ["id", "title", "author"],
+        rows.Select(r => new[] { r.Id, r.Title, r.Author ?? "" }));
+});
+
+app.MapGet("/feed.atom", async (IPublishedArticles articles, HttpRequest request, CancellationToken ct) =>
+{
+    IReadOnlyList<PublishedArticle> rows = await articles.RecentAsync(20, ct);
+    Feed feed = new(
+        Id: new Uri(request.PublicBase(), "/feed").AbsoluteUri,
+        Title: "Articles",
+        Link: "/articles",
+        Updated: rows.Count > 0 ? rows[0].CreatedAt : DateTimeOffset.UnixEpoch,
+        Entries: rows.Select(r => new FeedEntry(
+            Id: new Uri(request.PublicBase(), "/articles/" + r.Id).AbsoluteUri,
+            Title: r.Title,
+            Link: "/articles/" + r.Id,
+            Updated: r.CreatedAt)).ToList());
+    return FormatResults.Atom(feed, request);
+});
+```
+
+| Helper | Emits |
+| --- | --- |
+| `Text`, `Markdown` | `text/plain` and `text/markdown`, UTF-8, no BOM; `Text` takes a status code for refusals |
+| `Json<T>` | Through the `JsonTypeInfo<T>` the caller supplies, so nothing reflects and nothing trims away |
+| `Xml` | An `XmlWriter` over the buffer, declaration included; `WriteRaw` on it is the one unescaped path |
+| `Csv` | RFC 4180: CRLF, fields quoted when they hold a comma, quote or line break, quotes doubled |
+| `Atom`, `Rss` | RFC 4287 and RSS 2.0 from a `Feed`; RFC 3339 and RFC 822 dates in UTC |
+| `Sitemap` | sitemaps.org 0.9 from `SitemapEntry` values; priority outside 0..1 throws |
+
+`Csv` neutralises spreadsheet formulas: a cell whose first printable character is `=`, `+`,
+`-` or `@` is prefixed with an apostrophe and quoted, unless the whole cell parses as a
+number, so `-5` survives and `=CMD()` does not. Leading spaces and invisible characters are
+skipped before that test, which is where the known bypasses hide.
+
+Feed and sitemap links are written relative and resolved against a base: the `HttpRequest`
+overloads take it from the request through `PublicBase`, after `UseForwardedHeaders` has
+corrected the scheme and host; the `Uri` overloads take it from the caller. Choosing a
+representation from the path or the `Accept` header is `MapNegotiated` in `nativeweb.web`.
+
 ## The generator
 
 `RenderTemplateGenerator` is an incremental generator. A consumer references it as an
@@ -210,8 +264,11 @@ validation in the calling C#: no HTML encoder stops a javascript: href.
 
 `TemplateResults.Html` is for pages. It renders into a private buffer, declares the
 length, and hands the body over in one write, because a chunked page costs 35% of its
-throughput for framing no page needs. A body that cannot know its length needs a
-different result type, one that streams.
+throughput for framing no page needs. Every `FormatResults` helper buffers the same way.
+A body that cannot know its length needs a different result type, one that streams.
+
+`FormatResults` writes documents; it does not decide which one to write. Negotiation is
+`nativeweb.web`'s, and what a sitemap lists is the application's.
 
 `LocaleCatalog` lookup never throws mid-render: a miss returns the key itself. Keys
 are compile-checked against the English root, so a miss can only come from a
@@ -229,5 +286,6 @@ one- and two-subtag ids.
 `tests/nativeweb.render.tests.unit`: `TemplateWriterTests` (the encoding decisions),
 `TemplateHtmlResultTests` (the `IResult` path), `LocalizationTests` (catalogs,
 fallthrough, negotiation), `GeneratedTemplateTests` and `FormattingTests` (generated
-output), `InlineScriptHashTests`, and `GeneratorDiagnosticsTests` with
-`DiagnosticsReferenceTests` over the NWT set above.
+output), `InlineScriptHashTests`, `FormatResultsTests`, `CsvTests` and `FeedTests` (the
+other formats, the sitemap validated against the vendored `sitemap.xsd`), and
+`GeneratorDiagnosticsTests` with `DiagnosticsReferenceTests` over the NWT set above.

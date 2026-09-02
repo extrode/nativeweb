@@ -95,11 +95,11 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#why-this-feature-is-hand-written-at-all">Why this feature is hand-written at all</a><a class="toc-l2" href="#the-read-model-and-its-seam">1. The read model and its seam</a><a class="toc-l2" href="#the-query">2. The query</a><a class="toc-l2" href="#the-renderer">3. The renderer</a><a class="toc-l2" href="#the-endpoint">4. The endpoint</a><a class="toc-l2" href="#the-wiring">5. The wiring</a><a class="toc-l2" href="#the-unit-tier">6. The unit tier</a><a class="toc-l2" href="#the-integration-tier">7. The integration tier</a><a class="toc-l2" href="#the-end-to-end-tier">8. The end-to-end tier</a><a class="toc-l2" href="#perturb-every-green-test">9. Perturb every green test</a><a class="toc-l2" href="#run-it-all">Run it all</a><a class="toc-l2" href="#what-to-take-to-your-own-feature">What to take to your own feature</a></nav>
+      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#why-this-feature-is-hand-written-at-all">Why this feature is hand-written at all</a><a class="toc-l2" href="#1-the-read-model-and-its-seam">1. The read model and its seam</a><a class="toc-l2" href="#2-the-query">2. The query</a><a class="toc-l2" href="#3-the-renderer">3. The renderer</a><a class="toc-l2" href="#4-the-endpoint">4. The endpoint</a><a class="toc-l2" href="#5-the-wiring">5. The wiring</a><a class="toc-l2" href="#6-the-unit-tier">6. The unit tier</a><a class="toc-l2" href="#7-the-integration-tier">7. The integration tier</a><a class="toc-l2" href="#8-the-end-to-end-tier">8. The end-to-end tier</a><a class="toc-l2" href="#9-perturb-every-green-test">9. Perturb every green test</a><a class="toc-l2" href="#run-it-all">Run it all</a><a class="toc-l2" href="#what-to-take-to-your-own-feature">What to take to your own feature</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Tutorial — build your first feature</nav>
         <article>
-<h1 id="tutorial-build-your-first-feature">Tutorial — build your first feature</h1>
+<h1 id="tutorial--build-your-first-feature">Tutorial — build your first feature</h1>
 <p>One feature, through every layer it touches: a read model, a JauntyQ query, a renderer, an
 endpoint, and a test at each of the three tiers. Nothing is deferred to a later page, because the
 layers only make sense against each other.</p>
@@ -169,7 +169,7 @@ that is a property of the table. <strong>A real product is mostly the hand-writt
 is there so the CRUD costs you nothing, not so the product does.</p>
 <p>What scaffolding can and cannot express is in
 <code>libs/nativeweb.scaffold/README.md</code>.</p>
-<h2 id="the-read-model-and-its-seam">1. The read model and its seam</h2>
+<h2 id="1-the-read-model-and-its-seam">1. The read model and its seam</h2>
 <p><code>apps/sample/PublishedArticles.cs</code> opens with a record and an interface:</p>
 <div class="code-block">
   <div class="code-header">
@@ -223,7 +223,7 @@ connection from the pool per call — the reasoning is in <code>JauntyArticleSto
 <p>Keeping both is deliberate. The in-memory path is why the demo, the integration tier and the
 browser tier all work with no database at all, and the pair is the clearest statement this
 codebase makes that persistence is a registration rather than a rewrite.</p>
-<h2 id="the-query">2. The query</h2>
+<h2 id="2-the-query">2. The query</h2>
 <p>All data access goes through JauntyQ — no EF Core, no Dapper, no hand-written ADO.NET — and a
 JauntyQ query is a <code>.sql</code> file that the source generator turns into a typed method. There is no
 step where you write the C# for it. Drop the file in <code>db/sample/queries/Articles/</code>, build, and
@@ -291,7 +291,7 @@ table it buys nothing and costs a type.</p>
 can give several rows one timestamp. Without the tiebreak the page order is whatever the database
 happens to return: stable enough to look fine locally, unstable enough to reorder between requests
 in production.</p>
-<h2 id="the-renderer">3. The renderer</h2>
+<h2 id="3-the-renderer">3. The renderer</h2>
 <p>There is no view engine and no template file. A page is a static method that returns a string:</p>
 <div class="code-block">
   <div class="code-header">
@@ -344,7 +344,7 @@ rather than rendered as an empty <code>&lt;span&gt;</code>, so an author-less ar
 is a property of this feature, not permission to skip the rules: the moment a page gains an
 interaction, <a href="01-architecture-progressive-enhancement.html"><code>progressive-enhancement.md</code></a> is mandatory, and it
 requires the page work without JavaScript first — which this one does by construction.</p>
-<h2 id="the-endpoint">4. The endpoint</h2>
+<h2 id="4-the-endpoint">4. The endpoint</h2>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
@@ -379,7 +379,7 @@ antiforgery token. Every other article route in this app redirects an anonymous 
 <code>/signin</code>; this one must not, and adding the guard here would be the thing to reconsider rather
 than omitting it. Two tests below exist solely to hold that line, because an absent guard is
 invisible in a diff.</p>
-<h2 id="the-wiring">5. The wiring</h2>
+<h2 id="5-the-wiring">5. The wiring</h2>
 <p>One line in <code>Program.cs</code>, next to the generated routes it contrasts with:</p>
 <div class="code-block">
   <div class="code-header">
@@ -408,7 +408,7 @@ builder.Services.AddSingleton&lt;IPublishedArticles&gt;(<span class="tok-kw">new
 <code>ConnectionStrings:Sample</code>. That key — and the environment-variable spelling
 <code>ConnectionStrings__Sample</code> the test tiers and CI use — is in
 <a href="02-reference-configuration.html"><code>configuration.md</code></a>.</p>
-<h2 id="the-unit-tier">6. The unit tier</h2>
+<h2 id="6-the-unit-tier">6. The unit tier</h2>
 <p><code>AGENTS.md</code> requires all three tiers for every feature, and the order in that requirement is not
 decorative: <strong>test each unit against its own inputs, failure paths included, and only then
 holistically through the real entry point.</strong> Both layers, not one standing in for the other.</p>
@@ -461,7 +461,7 @@ here does a failure name the rule that broke rather than the page that did.</p>
 <p><strong><code>JauntyPublishedArticles</code> is absent from this tier on purpose.</strong> Its whole body is one generated
 call and a row-to-record loop, so a unit test of it would be a test of a mock. What it actually does
 is a claim about PostgreSQL, and it gets asserted against PostgreSQL one tier up.</p>
-<h2 id="the-integration-tier">7. The integration tier</h2>
+<h2 id="7-the-integration-tier">7. The integration tier</h2>
 <p><code>WebApplicationFactory</code> against a real host, and this file has two halves because the feature has
 two implementations. What is unproven until here: that the route exists, that it needs no sign-in,
 and — for the JauntyQ half — that the SQL binds its parameter and applies its <code>WHERE</code> and
@@ -500,7 +500,7 @@ runs. Hence a <code>finally</code> that deletes exactly the ids this test minted
 <p><strong>Assert the open route by requesting it.</strong> <code>Feed_IsReachableWithoutSigningIn</code> asks for a <code>200</code> and
 for <code>&lt;h1&gt;Articles&lt;/h1&gt;</code> in the body, with <code>AllowAutoRedirect = false</code>. Nothing but a request proves
 which side of the authentication line a route landed on.</p>
-<h2 id="the-end-to-end-tier">8. The end-to-end tier</h2>
+<h2 id="8-the-end-to-end-tier">8. The end-to-end tier</h2>
 <p>Playwright, a real browser, the NativeAOT binary, real PostgreSQL. The usual argument for this tier
 is that only a browser can drive a dialog or a script, and <strong>this page has no JavaScript, so that
 argument does not apply.</strong> Two others do, and they are the ones to reason from when you are deciding
@@ -527,7 +527,7 @@ Assert.False(<span class="tok-kw">await</span> page.EvaluateAsync&lt;bool&gt;(&q
 </div>
 <p>An injected <code>script</code> element would be in the DOM, and every string assertion below would have passed
 all the way up.</p>
-<h2 id="perturb-every-green-test">9. Perturb every green test</h2>
+<h2 id="9-perturb-every-green-test">9. Perturb every green test</h2>
 <p><code>AGENTS.md</code> again, and it is the rule most easily skipped: <strong>a test that passes because the code
 under it never executed asserts nothing.</strong> When a new test passes on its first run, change the code
 so it should fail, and confirm it does.</p>
