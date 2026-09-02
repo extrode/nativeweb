@@ -132,9 +132,11 @@ proved in the sample.
 - Given the same route, when a client requests a `.xml` extension the route does not offer,
   then it receives 404; when it sends `Accept: image/png` alone, it receives 406 naming
   `text/html` and `application/json` (R6).
-- Given the sample's public listing is cached, when one client fetches the HTML and another
-  the JSON of the same path within the cache window, then each receives its own type, and the
-  locale variance still holds (R7).
+- Given a cached route offering two cookie-free representations, when one client fetches the
+  first and another the second of the same path within the cache window, then each receives its
+  own type, and the locale variance still holds. In the sample the JSON listing is stored and the
+  HTML listing is not, because its filter form sets the antiforgery cookie and spec 006 refuses to
+  store a cookie-setting response; the HTML is still never served to a JSON request (R7).
 - Given any non-HTML sample response, when its headers are read, then it carries
   `X-Content-Type-Options: nosniff` and the same rate-limit policy as the HTML pages (R8).
 - Given the deployed sample, when `/sitemap.xml`, `/robots.txt`, the feed URLs, the JSON and
