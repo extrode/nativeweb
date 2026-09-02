@@ -1,6 +1,6 @@
 import { assert, assertAlmostEquals, assertEquals, assertFalse } from "jsr:@std/assert@1";
 
-import { isRegression, type MutationReport, scoreReport } from "./mutation-triage.ts";
+import { isRegression, type MutationReport, scoreReport, strykerArgs, TARGETS } from "./mutation-triage.ts";
 
 function report(...statuses: string[][]): MutationReport {
 	return {
@@ -75,4 +75,16 @@ Deno.test("importing the script does not shell out to stryker", async () => {
 	const module = await import("./mutation-triage.ts");
 
 	assertEquals(typeof module.scoreReport, "function");
+});
+
+Deno.test("every target runs under the committed stryker config", () => {
+	assertEquals(TARGETS.length, 3);
+
+	for (const target of TARGETS) {
+		const args = strykerArgs(target, "/repo");
+
+		assertEquals(args[args.indexOf("--config-file") + 1], "/repo/tools/stryker-config.json");
+		assertEquals(args[args.indexOf("--project") + 1], target.underTest);
+		assertEquals(args[args.indexOf("--output") + 1], `/repo/tmp/stryker/${target.name}`);
+	}
 });

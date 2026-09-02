@@ -308,4 +308,32 @@ internal static class SampleE2eDatabase
 
         await command.ExecuteNonQueryAsync();
     }
+
+    /// <summary>
+    /// Removes the future-dated feed rows a killed test host left behind, and
+    /// nothing a running one could still be using. The same predicate and the
+    /// same reasoning as the integration tier's
+    /// <c>SampleTestDatabase.SweepLeakedFeedRowsAsync</c>: the database is
+    /// shared, so either tier's leak lands on the other's feed page, and a row
+    /// minted more than thirty minutes ago cannot belong to a live test.
+    /// </summary>
+    internal static async Task SweepLeakedFeedRowsAsync()
+    {
+        DateTime cutoff = DateTime.UtcNow.AddYears(5).AddMinutes(-30);
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            """
+            DELETE FROM articles
+            WHERE (id LIKE 'feed-%' OR id LIKE 'e2e-%')
+              AND created_at > now()
+              AND created_at < @cutoff
+            """,
+            connection);
+        command.Parameters.AddWithValue("cutoff", cutoff);
+
+        await command.ExecuteNonQueryAsync();
+    }
 }

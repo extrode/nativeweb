@@ -21,6 +21,11 @@ What this is about, because the residue is not obvious and it is not inert:
   them -- it asserted an absolute DOM slot, and a leaked row had landed between its two rows.
   That assertion was the defect and is fixed on this branch; these rows are the residue.
 
+  Since spec 019 (2026-09-02) the feed tests in both tiers sweep this same residue themselves
+  before inserting -- the same predicate, plus an age gate of thirty minutes so a concurrent
+  host's live rows are left alone. Running either feed suite clears it; this script is the
+  fallback for looking without running one, or for a row younger than the gate.
+
   The predicate is narrow on purpose: only ids the two feed suites mint ('feed-' from the
   integration tier, 'e2e-' from the e2e tier) AND created_at in the future. A demo row, a 'jq-'
   row, a 'kq'/'e2esort' keyset row (those are the 017 script's business) and anything dated in

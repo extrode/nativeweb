@@ -1805,7 +1805,11 @@ an answer different from the one the audit assumed.
   `AdjustToUniversal` does not change whether `TryParse` succeeds, and `IsDateTime` returns only
   that. `ScaffoldValues.cs:177` — a `break` whose loop would reassign the same value.
   `ScaffoldAccess.cs:71` — `ConfigureAwait(false)` flipped to `true`.
-- **The `sample-integration` triage target leaves live rows behind, and they are not inert.**
+- ~~**The `sample-integration` triage target leaves live rows behind, and they are not inert.**~~
+  — **done 2026-09-02**, spec 019: both fixes, not one. `tools/stryker-config.json` raises the
+  per-mutant additional timeout to 30 s so fewer hosts are killed, and both tiers' feed tests
+  sweep feed-prefixed future-dated rows minted more than thirty minutes earlier before they
+  insert, age-gated because Stryker's parallel hosts share the database. Original entry:
   Stryker kills a host it judges hung, so the killed process skips the `finally` that removes its
   fixture rows, and the feed suites date theirs five years out on purpose. One run left five
   future-dated published rows in `nativeweb_sample_test` and broke an e2e feed test an hour
@@ -1813,7 +1817,9 @@ an answer different from the one the audit assumed.
   `scripts/cleanup/018-paging-property-tests.ps1`; the durable fix would be a Stryker
   `--dev-mode`/higher timeout for that target, or fixture rows that a session-scoped sweep can
   find by prefix without a `finally`. Neither is done.
-- **`ConfigureAwait` mutants inflate every survivor count in this repo.** Roughly fifteen of
+- ~~**`ConfigureAwait` mutants inflate every survivor count in this repo.**~~ — **done
+  2026-09-02**, spec 019: `tools/stryker-config.json` with `ignore-methods: ["ConfigureAwait"]`,
+  passed by the triage tool, and the baseline re-recorded under it. Original entry: Roughly fifteen of
   `JauntyArticleStore`'s thirty-four integration-tier survivors are `.ConfigureAwait(false)` →
   `true`, which is behaviour-identical under a test host. A `stryker-config.json` with
   `ignore-methods: ["ConfigureAwait"]` would make the raw numbers mean what they look like.

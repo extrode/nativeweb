@@ -34,7 +34,7 @@ namespace NativeWeb.Scaffold.Tests.E2e;
 /// </para>
 /// </remarks>
 [Collection(ScaffoldE2eFixture.Name)]
-public sealed class PublicFeedTests(JauntySampleFixture app, BrowserFixture browsers)
+public sealed class PublicFeedTests(JauntySampleFixture app, BrowserFixture browsers) : IClassFixture<LeakedFeedRowsSweep>
 {
     /// <summary>A context that has never visited <c>/signin</c> and holds no cookie.</summary>
     private async Task<IPage> AnonymousPageAsync()
@@ -95,7 +95,7 @@ public sealed class PublicFeedTests(JauntySampleFixture app, BrowserFixture brow
         {
             // Inserted oldest first, so page order cannot be insertion order.
             await SampleE2eDatabase.InsertAsync($"{prefix}-1", $"{prefix}-older", true, future);
-            await SampleE2eDatabase.InsertAsync($"{prefix}-2", $"{prefix}-newer", true, future.AddHours(1));
+            await SampleE2eDatabase.InsertAsync($"{prefix}-2", $"{prefix}-newer", true, future.AddMinutes(2));
 
             IPage page = await AnonymousPageAsync();
             await page.GotoAsync("/articles");

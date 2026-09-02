@@ -27,7 +27,7 @@ namespace NativeWeb.Scaffold.Tests.Integration;
 /// shared TRUNCATE this suite refuses to have.
 /// </para>
 /// </remarks>
-public sealed class PublicFeedTests
+public sealed class PublicFeedTests : IClassFixture<LeakedFeedRowsSweep>
 {
     private static async Task<string> FeedAsync(HttpClient client)
     {
@@ -145,7 +145,7 @@ public sealed class PublicFeedTests
             await SampleTestDatabase.InsertAsync(
                 $"{prefix}-1", $"{prefix}-older", "xunit", "body", published: true, createdAt: future);
             await SampleTestDatabase.InsertAsync(
-                $"{prefix}-2", $"{prefix}-newer", "xunit", "body", published: true, createdAt: future.AddHours(1));
+                $"{prefix}-2", $"{prefix}-newer", "xunit", "body", published: true, createdAt: future.AddMinutes(2));
 
             using var factory = new SampleJauntyFactory();
             using HttpClient client = factory.CreateFollowingNothing();
