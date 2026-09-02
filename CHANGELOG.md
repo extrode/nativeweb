@@ -240,6 +240,17 @@ Merged into `dev`, not yet tagged.
   green (376 tests).
 
 ### Changed
+- **Mutation runs leave nothing behind, and the baseline counts only what a test could kill**
+  (spec 019, 2026-09-02). Every Stryker target now runs under `tools/stryker-config.json`, which
+  ignores `ConfigureAwait` mutants (7, 41 and 15 per target, each a flag flip no test host can
+  observe) and allows 30 s per mutant beyond the initial run rather than Stryker's 5 s. Both
+  tiers' feed tests sweep future-dated feed rows minted more than thirty minutes earlier before
+  they insert, age-gated because Stryker's parallel hosts share the database, so a host Stryker
+  kills no longer leaves rows for the next suite to trip on. `tools/mutation-baseline.json` is
+  re-recorded under that config: scaffold 88.30%, sample-unit 27.81%, sample-integration 43.05%.
+  The last is 7.25 points below the 2026-09-01 figure because 38 of its 39 timeouts, which had
+  scored as detected, now finish and are counted for what they are. A figure from before this is
+  not comparable.
 - **Spec 008 closed.** R1, R11 and R12 were amended on 2026-09-02 to describe what shipped
   rather than what was written before the code existed: a consumer supplies a configuration
   section and reads nothing by hand (the overload arrived with spec 016), the cookie name has the

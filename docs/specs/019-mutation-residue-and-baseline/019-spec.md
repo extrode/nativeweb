@@ -1,5 +1,5 @@
 # 019 — Mutation runs that leave nothing behind, and a baseline that means what it says
-Status: draft
+Status: done — 2026-09-02, `chore/019-mutation-residue-and-baseline`
 Created: 2026-09-02
 
 ## Problem

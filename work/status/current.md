@@ -6,10 +6,19 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Spec 019 — mutation residue and baseline. In flight on
-  `chore/019-mutation-residue-and-baseline`, 2026-09-02.** `ConfigureAwait` mutants out of the
-  count, a raised per-mutant timeout, an age-gated sweep of leaked feed rows in both database
-  tiers, and the baseline re-recorded. `docs/specs/019-mutation-residue-and-baseline/`.
+- **Spec 019 — mutation residue and baseline. Done on
+  `chore/019-mutation-residue-and-baseline`, 2026-09-02.** `tools/stryker-config.json` with
+  `ignore-methods: ["ConfigureAwait"]` and `additional-timeout: 30000`, passed by the triage tool
+  through an extracted, tested `strykerArgs`. `SweepLeakedFeedRowsAsync` in both tiers' database
+  helpers, run once per class through an `IClassFixture` before the feed tests insert: the cleanup
+  script's predicate plus `created_at < UtcNow.AddYears(5).AddMinutes(-30)`, computed in C# so a
+  leap year cannot differ from the tests' own arithmetic, and age-gated because a sweep by prefix
+  alone would delete a parallel Stryker host's live rows. A three-row test pins it and goes red
+  without the gate. Baseline re-recorded from a full run: scaffold 88.30% (151/8/12, 56 s),
+  sample-unit 27.81% (83/13/205), sample-integration 43.05% (129/103/69, timeouts 39 → 1). The
+  sample-integration drop of 7.25 points is the timeouts becoming survivors, not weaker tests;
+  the run left zero future-dated rows. Integration suite 82 green, e2e feed tests 5 green after a
+  `dotnet build-server shutdown` cleared an MSB4216 task-host failure in the fixture's publish.
 - **Spec 008 closed, 2026-09-02, `docs/008-close`.** The three criteria the 2026-08-25 review
   could not flip were amended rather than the code changed, on the user's call: R1 now asks for a
   configuration section and no hand reading (the `AddSignIn(IConfiguration)` overload the review
