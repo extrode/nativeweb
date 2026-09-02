@@ -137,19 +137,21 @@ public sealed class Program
         // string is not an error, it selects the in-memory store. That keeps
         // `dotnet run`, the integration tier and the Playwright tier working with no
         // database, while a configured string exercises the JauntyQ path against a
-        // real one. Both are IScaffoldStore<Article>; nothing above this line differs.
-        var tags = new TagStore();
-        builder.Services.AddSingleton<IScaffoldStore<Tag>>(tags);
-
+        // real one. Both models are IScaffoldStore<T> on both paths; nothing above
+        // this line differs.
         if (string.IsNullOrWhiteSpace(options.ConnectionString))
         {
             var articles = new ArticleStore();
+            var tags = new TagStore();
+            var relation = new MemoryRelation();
             builder.Services.AddSingleton<IScaffoldStore<Article>>(articles);
-            Seed.Fill(articles, tags);
+            builder.Services.AddSingleton<IScaffoldStore<Tag>>(tags);
+            Seed.Fill(articles, tags, relation);
 
-            // The public feed reads through the same seam. In-memory it has to
-            // filter and sort itself; see MemoryPublishedArticles.
-            builder.Services.AddSingleton<IPublishedArticles>(new MemoryPublishedArticles(articles));
+            // The public pages read through the same seams. In-memory they have to
+            // filter, sort and count themselves; see MemoryPublishedArticles.
+            builder.Services.AddSingleton<IPublishedArticles>(new MemoryPublishedArticles(articles, tags, relation));
+            builder.Services.AddSingleton<IPublicTags>(new MemoryPublicTags(tags, articles, relation));
         }
         else
         {
@@ -161,15 +163,18 @@ public sealed class Program
             builder.Services.AddSingleton<IScaffoldStore<Article>>(
                 sp => new JauntyArticleStore(sp.GetRequiredService<NpgsqlDataSource>()));
 
+            // Tags persist too, from spec 022: until then they were an in-memory list
+            // on this path and an admin's edit did not survive a restart. The three
+            // seeded tags are rows migration 0003 inserts, so nothing seeds here.
+            builder.Services.AddSingleton<IScaffoldStore<Tag>>(
+                sp => new JauntyTagStore(sp.GetRequiredService<NpgsqlDataSource>()));
+
             // Same seam, but the filter and the ordering move into SQL. This is the
             // pair the tutorial in docs/00-quick-start/tutorial-first-feature.md compares.
             builder.Services.AddSingleton<IPublishedArticles>(
                 sp => new JauntyPublishedArticles(sp.GetRequiredService<NpgsqlDataSource>()));
-
-            // Tags are still in-memory, deliberately. Two models behind one seam with
-            // two entirely different implementations is the claim this demo is making,
-            // and it is only visible if they actually differ.
-            Seed.FillTags(tags);
+            builder.Services.AddSingleton<IPublicTags>(
+                sp => new JauntyPublicTags(sp.GetRequiredService<NpgsqlDataSource>()));
         }
 
         WebApplication app = builder.Build();
@@ -208,7 +213,9 @@ public sealed class Program
         // the same articles as Atom, RSS, JSON and CSV beside the page above.
         app.MapPublicDocuments();
 
-        app.MapGet("/", () => Results.Redirect("/admin"));
+        // The site itself (spec 022): home, one page per article, the tags. Until
+        // then / redirected to /admin, which made the editor the front door.
+        app.MapPublicSite();
 
         // /healthz, /version, /readyz, /csp-report and /.well-known/security.txt.
         // /healthz used to be a MapGet on this line; it is the framework's now, and
@@ -251,13 +258,23 @@ public sealed class Program
 
 internal static class Seed
 {
-    internal static void Fill(ArticleStore articles, TagStore tags)
+    // The same three tags migration 0003 seeds on the database path. The links
+    // are what spec 022 R4 asks the demo to show: one article with two tags, one
+    // with none, and one tag (postgres) whose only article is a draft, so the tag
+    // listing has a zero to show and the tag page an empty state.
+    internal static void Fill(ArticleStore articles, TagStore tags, MemoryRelation relation)
     {
-        FillTags(tags);
+        tags.Seed(new Tag { Slug = "aot", Name = "NativeAOT", Color = "#5bbd83" });
+        tags.Seed(new Tag { Slug = "htmx", Name = "HTMX", Color = "#7aa2f7" });
+        tags.Seed(new Tag { Slug = "postgres", Name = "PostgreSQL", Color = "#336791" });
+        relation.Link("a1", "aot");
+        relation.Link("a1", "htmx");
+        relation.Link("a3", "postgres");
         articles.Seed(new Article
         {
             Id = "a1",
             Title = "Lean Native Web",
+            Slug = "lean-native-web",
             Author = "Sy",
             Body = "Server-rendered HTML, one native binary, no client build step.",
             Published = true,
@@ -269,6 +286,7 @@ internal static class Seed
         {
             Id = "a2",
             Title = "Binding forms under NativeAOT",
+            Slug = "binding-forms-under-nativeaot",
             Author = "Sy",
             Body = "Complex-type [FromForm] does not compile. IBindableFromHttpContext does.",
             Published = true,
@@ -280,6 +298,7 @@ internal static class Seed
         {
             Id = "a3",
             Title = "Scaffolding without reflection",
+            Slug = "scaffolding-without-reflection",
             Author = null,
             Body = "Draft.",
             Published = false,
@@ -287,14 +306,5 @@ internal static class Seed
             CreatedAt = new DateTime(2026, 8, 19, 8, 0, 0, DateTimeKind.Utc),
         });
 
-    }
-
-    // Split out because the JauntyQ path seeds tags but not articles: article rows
-    // live in PostgreSQL and are whatever the database already holds, which is the
-    // whole difference between a demo store and a real one.
-    internal static void FillTags(TagStore tags)
-    {
-        tags.Seed(new Tag { Slug = "aot", Name = "NativeAOT", Color = "#5bbd83" });
-        tags.Seed(new Tag { Slug = "htmx", Name = "HTMX", Color = "#7aa2f7" });
     }
 }

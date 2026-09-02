@@ -212,7 +212,7 @@ public sealed class JauntyBackedAdminTests(JauntySampleFixture app, BrowserFixtu
         await page.ClickAsync("form.nws-search button[type=submit]");
 
         Assert.Contains("q=", page.Url, StringComparison.Ordinal);
-        await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByText(title).First).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByText(other)).ToHaveCountAsync(0);
     }
 }
@@ -278,8 +278,8 @@ internal static class SampleE2eDatabase
 
         await using var command = new NpgsqlCommand(
             """
-            INSERT INTO articles (id, title, author, body, published, view_count, created_at)
-            VALUES (@id, @title, 'playwright', 'body', @published, 0, @created_at)
+            INSERT INTO articles (id, slug, title, author, body, published, view_count, created_at)
+            VALUES (@id, @id, @title, 'playwright', 'body', @published, 0, @created_at)
             """,
             connection);
         command.Parameters.AddWithValue("id", id);

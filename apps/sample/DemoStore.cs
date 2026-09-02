@@ -54,6 +54,24 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
     {
     }
 
+    /// <summary>
+    /// The last word before a row is written, for create and update alike. Runs
+    /// under the save lock, so a rule that reads the other rows (a value that must
+    /// be unique) sees a table no concurrent save is halfway through. Throw
+    /// <see cref="ScaffoldRefusedException"/> to refuse; the scaffolded form shows
+    /// the message.
+    /// </summary>
+    /// <param name="item">What is about to be stored, its key already assigned.</param>
+    /// <param name="existing">The row being replaced, or null on create.</param>
+    protected virtual void BeforeSave(T item, T? existing)
+    {
+    }
+
+    /// <summary>Every row, for a rule in <see cref="BeforeSave"/> that must look across them.</summary>
+    protected IEnumerable<T> Items => this._items.Values;
+
+    private readonly Lock _saves = new();
+
     protected virtual string NewKey() => Guid.NewGuid().ToString("n")[..8];
 
     public ValueTask<IReadOnlyList<T>> ListAsync(
@@ -152,7 +170,12 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
         string key = NewKey();
         AssignKey(item, key);
         OnCreate(item);
-        this._items[key] = item;
+        lock (this._saves)
+        {
+            BeforeSave(item, null);
+            this._items[key] = item;
+        }
+
         return ValueTask.FromResult(key);
     }
 
@@ -176,11 +199,18 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
         // rows-affected reports.
         AssignKey(item, id);
 
-        while (this._items.TryGetValue(id, out T? current))
+        // The lock is for BeforeSave, whose rules read the other rows; the loop
+        // above still carries the semantics, and the lock makes its retry moot
+        // rather than wrong.
+        lock (this._saves)
         {
-            if (this._items.TryUpdate(id, item, current))
+            while (this._items.TryGetValue(id, out T? current))
             {
-                return ValueTask.FromResult(true);
+                BeforeSave(item, current);
+                if (this._items.TryUpdate(id, item, current))
+                {
+                    return ValueTask.FromResult(true);
+                }
             }
         }
 
@@ -223,6 +253,35 @@ internal sealed class ArticleStore : MemoryStore<Article>
     // the store is the only thing that can set it. That is the intended division.
     protected override void OnCreate(Article item) => item.CreatedAt = DateTime.UtcNow;
 
+    // The slug rules (spec 022 R2), the same ones JauntyArticleStore applies:
+    // blank derives from the title on create and keeps the row's own on edit; a
+    // typed one must match the alphabet and be free. Runs under the save lock, so
+    // two concurrent creates of one title cannot both see the derived slug as free.
+    protected override void BeforeSave(Article item, Article? existing)
+    {
+        string? typed = string.IsNullOrWhiteSpace(item.Slug) ? null : item.Slug.Trim();
+        if (typed is null)
+        {
+            item.Slug = existing?.Slug ?? Slugs.Unique(Slugs.Derive(item.Title), Taken(item.Id));
+            return;
+        }
+
+        if (!Slugs.IsValid(typed))
+        {
+            throw new ScaffoldRefusedException(Slugs.InvalidMessage);
+        }
+
+        if (Taken(item.Id)(typed))
+        {
+            throw new ScaffoldRefusedException(Slugs.TakenMessage(typed));
+        }
+
+        item.Slug = typed;
+    }
+
+    private Func<string, bool> Taken(string ownId) =>
+        slug => Items.Any(a => a.Id != ownId && string.Equals(a.Slug, slug, StringComparison.Ordinal));
+
     protected override string? Field(Article item, string name) => name switch
     {
         nameof(Article.Title) => item.Title,
@@ -238,6 +297,34 @@ internal sealed class ArticleStore : MemoryStore<Article>
         nameof(Article.CreatedAt) => item.CreatedAt,
         _ => item.Id,
     };
+}
+
+/// <summary>
+/// The article-tag relation on the no-database path (spec 022 R4): article id to
+/// the slugs of its tags, held beside <see cref="ArticleStore"/> and
+/// <see cref="TagStore"/> rather than inside either, since both public read seams
+/// need it and neither store owns the other's rows.
+/// </summary>
+/// <remarks>
+/// Nothing cascades. A deleted article leaves its links here and a deleted tag
+/// stays in every article's list; the readers filter against the two stores
+/// instead, which is the in-memory answer to what PostgreSQL's
+/// <c>ON DELETE CASCADE</c> does for the real one.
+/// </remarks>
+internal sealed class MemoryRelation
+{
+    private readonly ConcurrentDictionary<string, string[]> _tagsByArticle = new(StringComparer.Ordinal);
+
+    /// <summary>Links one article to one tag; linking twice is one link.</summary>
+    internal void Link(string articleId, string tagSlug) =>
+        this._tagsByArticle.AddOrUpdate(
+            articleId,
+            _ => [tagSlug],
+            (_, existing) => existing.Contains(tagSlug, StringComparer.Ordinal) ? existing : [.. existing, tagSlug]);
+
+    /// <summary>The slugs of this article's tags, in link order; empty for an article with none.</summary>
+    internal IReadOnlyList<string> TagsOf(string articleId) =>
+        this._tagsByArticle.TryGetValue(articleId, out string[]? slugs) ? slugs : [];
 }
 
 internal sealed class TagStore : MemoryStore<Tag>

@@ -3,7 +3,7 @@
 The scaffolding demo's schema, kept apart from the identity schema next door.
 
 ```
-migrations/  0001_articles.sql -- the demo's one table
+migrations/  0001 the table, 0002 the sort indexes, 0003 slugs and tags -- applied in order
 queries/     inline .sql the JauntyQ generator turns into typed C#
 schema/      sample.schema.json -- the committed snapshot, from `jaunty schema pull`
 ```
@@ -27,11 +27,11 @@ Two databases, both owned by `nativeweb_app`:
 ```bash
 # the one `dotnet run` uses when you configure a connection string
 psql -U postgres -c "CREATE DATABASE nativeweb_sample_dev OWNER nativeweb_app"
-psql -U nativeweb_app -d nativeweb_sample_dev -f db/sample/migrations/0001_articles.sql
+for f in db/sample/migrations/*.sql; do psql -U nativeweb_app -d nativeweb_sample_dev -v ON_ERROR_STOP=1 -f "$f"; done
 
 # the one the integration and e2e tiers use
 psql -U postgres -c "CREATE DATABASE nativeweb_sample_test OWNER nativeweb_app"
-psql -U nativeweb_app -d nativeweb_sample_test -f db/sample/migrations/0001_articles.sql
+for f in db/sample/migrations/*.sql; do psql -U nativeweb_app -d nativeweb_sample_test -v ON_ERROR_STOP=1 -f "$f"; done
 ```
 
 Re-pull the snapshot after any change to `migrations/`:
@@ -54,11 +54,13 @@ visible consequence: a newly created row is not on page one of the scaffolded
 list, so browser tests filter before they click. Drop and recreate the database
 if it ever gets large enough to slow the suite.
 
-**The public feed's tests are the one exception, and not a shared TRUNCATE.**
-`GET /articles` shows the newest twenty, so those tests date their rows into the
-future to be certain they are on the page — and a future-dated row left behind
-would displace the *next* run's. Each one deletes exactly the ids it minted, by
-prefix, in a `finally`. Two overlapping runs still cannot collide.
+**The public pages' tests are the one exception, and not a shared TRUNCATE.**
+`GET /` and `GET /articles` show the newest twenty, so those tests date their
+rows into the future to be certain they are on the page — and a future-dated row
+left behind would displace the *next* run's. Each one deletes exactly the ids it
+minted, by prefix, in a `finally`; a row the admin created, whose id the store
+minted, goes by its slug. Two overlapping runs still cannot collide. The
+`article_tags` rows a test links go with the article, by the cascade in 0003.
 
 ## Selecting the store
 

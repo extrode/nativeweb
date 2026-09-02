@@ -23,7 +23,7 @@ namespace NativeWeb.Sample.Tests.Unit;
 public sealed class ArticleFilterTests
 {
     private static PublishedArticle Article(string title) =>
-        new(title, title, "Ada", new DateTime(2026, 8, 30, 0, 0, 0, DateTimeKind.Utc));
+        new(title, title, title, "Ada", new DateTime(2026, 8, 30, 0, 0, 0, DateTimeKind.Utc), []);
 
     /// <summary>
     /// A blank box means "everything". Treating it as a filter that matches nothing

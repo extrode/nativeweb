@@ -233,6 +233,11 @@ things by hand.
   specificity, then the first offer. An extension the route does not offer is a 404 and an
   `Accept` that admits nothing is a 406, both `text/plain` naming the offers and neither
   reaching the handler. The extensionless route says `Vary: Accept` on every response.
+- **A page is cached only when every render is the same page.** `apps/sample` declares `/`,
+  `/tags` and `/tags/{slug}` with `AsPublicPage` and leaves `/articles/{slug}` out of the cache
+  on purpose: that page counts a view per render, and a cached copy would count one visit a
+  minute. The three 404s an article slug can earn — unknown, unpublished, malformed — are one
+  response, so the page never says which.
 - **The cache keys on the choice.** `PublicPageCachePolicy` runs the same chooser and varies its
   key by the chosen media type, and refuses to store a response whose `Content-Type` is not the
   chosen format's. Two cookie-free representations of one path each get their own entry.

@@ -83,7 +83,7 @@ public sealed class ScaffoldedAdminFlowTests(InMemorySampleFixture app, BrowserF
         // The helper asserted the redirect named the new row and then came back to
         // the list, which is where the row must now appear.
         Assert.EndsWith(ListPath, page.Url, StringComparison.Ordinal);
-        await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByText(title).First).ToBeVisibleAsync();
 
         // Edit through the row's own Edit link, not a hand-built URL: that the link
         // points at the right key is part of what is under test.
@@ -130,7 +130,7 @@ public sealed class ScaffoldedAdminFlowTests(InMemorySampleFixture app, BrowserF
         Assert.True(asked, "The delete form did not raise a confirm dialog at all.");
 
         await page.ReloadAsync();
-        await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByText(title).First).ToBeVisibleAsync();
     }
 
     /// <summary>
@@ -175,7 +175,7 @@ public sealed class ScaffoldedAdminFlowTests(InMemorySampleFixture app, BrowserF
         await page.ClickAsync("form.nws-search button[type=submit]");
 
         Assert.Contains("q=", page.Url, StringComparison.Ordinal);
-        await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByText(title).First).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByText(other)).ToHaveCountAsync(0);
     }
 }

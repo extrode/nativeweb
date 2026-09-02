@@ -641,7 +641,7 @@ public sealed class ScaffoldGeneratorTests
 
         AssertBranchBody(
             source,
-            "if (!await store.UpdateAsync(id, item, ct).ConfigureAwait(false))",
+            "if (!updated)",
             "return Results.NotFound();");
     }
 
@@ -661,7 +661,8 @@ public sealed class ScaffoldGeneratorTests
     {
         (_, string source) = Run(Attributes, ArticleModel);
 
-        Assert.Contains("string created = await store.CreateAsync(item, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("updated = await store.UpdateAsync(id, item, ct).ConfigureAwait(false);", source, StringComparison.Ordinal);
+        Assert.Contains("created = await store.CreateAsync(item, ct)", source, StringComparison.Ordinal);
         Assert.Contains("Results.Redirect(BasePath + \"/\" + Uri.EscapeDataString(created))", source, StringComparison.Ordinal);
     }
 
@@ -824,6 +825,17 @@ public sealed class ScaffoldGeneratorTests
         // required check it already had.
         Assert.DoesNotContain("ScaffoldValues.IsBool", source, StringComparison.Ordinal);
         Assert.Contains("if (ScaffoldValues.Text(form.Note) is null)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CreateAndUpdate_CatchAStoreRefusalAndReRenderTheForm_AndNothingElse()
+    {
+        (_, string source) = Run(AwkwardModel);
+
+        Assert.Equal(2, Occurrences(source, "catch (ScaffoldRefusedException refused)"));
+        Assert.Contains("FormHtml(http, null, BasePath, \"Create\", refused.Message, form)", source, StringComparison.Ordinal);
+        Assert.Contains("\"Save\", refused.Message, form)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("catch (Exception", source, StringComparison.Ordinal);
     }
 
     private static int Occurrences(string haystack, string needle)

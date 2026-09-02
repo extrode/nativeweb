@@ -162,6 +162,7 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
             {
                 Id = row.Id,
                 Title = row.Title,
+                Slug = row.Slug,
                 Author = row.Author,
                 Body = row.Body,
                 Published = row.Published,
@@ -205,6 +206,7 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
             {
                 Id = row.Id,
                 Title = row.Title,
+                Slug = row.Slug,
                 Author = row.Author,
                 Body = row.Body,
                 Published = row.Published,
@@ -230,11 +232,32 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);
 
-        await db.Articles.InsertAsync(
-            key, item.Title, item.Author, item.Body, item.Published, item.ViewCount, item.CreatedAt, ct)
-            .ConfigureAwait(false);
+        // Insert first and let articles_slug_key say whether the slug is free: a
+        // pre-check would let two concurrent creates of one title both pass it. A
+        // typed slug that collides is refused with the message the memory store
+        // gives; a derived one is retried with the next suffix.
+        string? typed = TypedSlug(item);
+        string slug = typed ?? Slugs.Derive(item.Title);
+        for (int attempt = 2; ; attempt++)
+        {
+            try
+            {
+                await db.Articles.InsertAsync(
+                    key, slug, item.Title, item.Author, item.Body, item.Published, item.ViewCount, item.CreatedAt, ct)
+                    .ConfigureAwait(false);
+                item.Slug = slug;
+                return key;
+            }
+            catch (PostgresException taken) when (IsSlugTaken(taken))
+            {
+                if (typed is not null)
+                {
+                    throw new ScaffoldRefusedException(Slugs.TakenMessage(typed));
+                }
 
-        return key;
+                slug = string.Create(CultureInfo.InvariantCulture, $"{Slugs.Derive(item.Title)}-{attempt}");
+            }
+        }
     }
 
     public async ValueTask<bool> UpdateAsync(string id, Article item, CancellationToken ct)
@@ -245,11 +268,21 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         // Rows affected, not a prior existence check: a SELECT-then-UPDATE pair
         // answers the wrong question under concurrency, and UPDATE already reports
         // whether it matched.
-        int affected = await db.Articles.UpdateAsync(
-            item.Title, item.Author, item.Body, item.Published, item.ViewCount, id, ct)
-            .ConfigureAwait(false);
+        // A null slug reaches COALESCE(@slug, slug) in Update.sql and keeps the
+        // row's own; a typed one is validated here and made unique by the index.
+        string? typed = TypedSlug(item);
+        try
+        {
+            int affected = await db.Articles.UpdateAsync(
+                item.Title, item.Author, item.Body, item.Published, item.ViewCount, typed, id, ct)
+                .ConfigureAwait(false);
 
-        return affected > 0;
+            return affected > 0;
+        }
+        catch (PostgresException taken) when (IsSlugTaken(taken))
+        {
+            throw new ScaffoldRefusedException(Slugs.TakenMessage(typed ?? ""));
+        }
     }
 
     public async ValueTask<bool> DeleteAsync(string id, CancellationToken ct)
@@ -260,6 +293,24 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         int affected = await db.Articles.DeleteAsync(id, ct).ConfigureAwait(false);
         return affected > 0;
     }
+
+    // The slug rules shared with ArticleStore (spec 022 R2): blank means derive
+    // on create and keep on update; typed must match the alphabet. Uniqueness is
+    // the unique index's to enforce, not a query's to pre-check.
+    private static string? TypedSlug(Article item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Slug))
+        {
+            return null;
+        }
+
+        string typed = item.Slug.Trim();
+        return Slugs.IsValid(typed) ? typed : throw new ScaffoldRefusedException(Slugs.InvalidMessage);
+    }
+
+    private static bool IsSlugTaken(PostgresException e) =>
+        e.SqlState == PostgresErrorCodes.UniqueViolation
+        && string.Equals(e.ConstraintName, "articles_slug_key", StringComparison.Ordinal);
 
     /// <summary>
     /// Turns a search box's contents into the ILIKE pattern the queries take.

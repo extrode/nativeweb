@@ -215,8 +215,9 @@ public sealed class JauntyStoreTests
 
     /// <summary>
     /// The seam's own claim, stated as a test: swapping the store changes nothing
-    /// above it. Tags are still in-memory in this configuration, and their generated
-    /// endpoints behave exactly as they do under <see cref="SampleFactory"/>.
+    /// above it. Both models read from PostgreSQL in this configuration (tags since
+    /// spec 022, seeded by migration 0003), and their generated endpoints behave
+    /// exactly as they do under <see cref="SampleFactory"/>.
     /// </summary>
     [Fact]
     public async Task TwoModelsWithDifferentStoresBothWorkThroughTheSameSeam()
@@ -224,7 +225,9 @@ public sealed class JauntyStoreTests
         using var factory = new SampleJauntyFactory();
         using HttpClient client = await factory.CreateSignedInAsync();
 
-        string tags = await BodyAsync(client, "/admin/tags");
+        // Searched for rather than read off the first page: tags other tests
+        // create outrank a three-letter key once enough of them accumulate.
+        string tags = await BodyAsync(client, "/admin/tags?q=NativeAOT");
         Assert.Contains("NativeAOT", tags, StringComparison.Ordinal);
 
         // And the articles list renders from PostgreSQL in the same request pipeline.

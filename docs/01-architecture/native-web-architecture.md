@@ -406,7 +406,9 @@ survives, retargeted at `apps/sample`, and its baseline was re-measured rather t
 over: a smaller app measured against a larger one's ceiling passes for the wrong reason. The
 figures `--check` compares against now, recorded 2026-08-31 on the same bench-host: `/healthz` 23,068.6
 req/s, 0.60 ms p50, 45.0 MB peak RSS; `/articles` 19,937.6 req/s, 0.61 ms p50, 40.3 MB, zero
-errors. `/articles`, not `/`, because `/` on `apps/sample` is a 302 and would measure the router.
+errors. `/articles`, not `/`, because `/` on `apps/sample` was a 302 when the baseline was taken
+and would have measured the router; since spec 022 it is a cached home page, and the baseline
+was not re-taken.
 Tolerances stay 20% down on throughput and 25% up on RSS, sized from a measured 16.3%
 run-to-run spread. `tools/bench/README.md` has the rest.
 

@@ -1,0 +1,15 @@
+<!--#template
+  @layout layout/page
+  @param System.Collections.Generic.IReadOnlyList<NativeWeb.Sample.TagSummary> Tags
+-->
+<h1 class="page__title">{{t:tags.title}}</h1>
+<p class="page__lede">{{t:tags.lede}}</p>
+{{if Tags.Count == 0}}
+<p class="articles__empty">{{t:tags.empty}}</p>
+{{else}}
+<ul class="tags tags--index">
+{{for tag in Tags}}
+<li class="tags__item"><a class="tag" href="/tags/{{tag.Slug}}">{{tag.Name}}</a> <span class="tags__count" title="{{t:tags.published}}">{{tag.PublishedCount}}</span></li>
+{{/for}}
+</ul>
+{{/if}}

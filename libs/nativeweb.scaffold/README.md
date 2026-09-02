@@ -199,6 +199,14 @@ the omission so it cannot be helpfully added later.
 
 Rate limiting. The scaffolded routes carry no policy.
 
+Meaning. The generated form checks shape: a required text is present, a number parses, a date
+reads. What a value *means* is the store's, and the store has one way to say no:
+throw `ScaffoldRefusedException("Slug 'aot' is already used.")` from `CreateAsync` or
+`UpdateAsync`. The generated handler catches that one type and re-renders the form with the
+message where its own "Title is required." would go, the submitted values still in their inputs.
+Any other exception is an error and is not caught: a store that wraps a broken connection in a
+refusal turns an outage into a form message.
+
 ## Running the demo
 
 ```

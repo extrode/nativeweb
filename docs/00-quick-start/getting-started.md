@@ -52,9 +52,12 @@ that can be wrong.
 dotnet run --project apps/sample
 ```
 
-Then open `http://localhost:5399/articles` — the public feed, rendered through the framework's own
-compiled templates, with the filter posting over htmx and swapping only the list.
-`http://localhost:5399/admin/articles` is the scaffolded CRUD behind the demo sign-in.
+Then open `http://localhost:5399/` — the home page, the newest published articles rendered through
+the framework's own compiled templates. Each title links to `/articles/{slug}`, each tag to
+`/tags/{slug}`, and `/tags` lists every tag with its count. `/articles` is the same listing with the
+filter posting over htmx and swapping only the list, and it also answers as JSON and CSV.
+`http://localhost:5399/admin/articles` is the scaffolded CRUD behind the demo sign-in, where an
+article's slug is derived from its title when left blank.
 
 **To edit and see the change without restarting**, one command:
 

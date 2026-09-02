@@ -8,6 +8,7 @@ SELECT
     body,
     published,
     view_count,
-    created_at
+    created_at,
+    slug
 FROM articles
 WHERE id = @id;

@@ -16,6 +16,10 @@
     if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
     var s = parseFloat(localStorage.getItem('dg-fs'));
     if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+    var w = parseInt(localStorage.getItem('dg-nav-w'), 10);
+    if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+    if (localStorage.getItem('dg-toc') === 'hidden') d.setAttribute('data-toc', 'hidden');
+    if (localStorage.getItem('dg-nav') === 'hidden') d.setAttribute('data-nav', 'hidden');
   } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
 })();
 </script>
@@ -28,7 +32,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">nativeweb</span>
-      <span class="brand-crumb">NWT template diagnostics</span>
+      <span class="brand-crumb">Reference &#8250; NWT template diagnostics</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -38,6 +42,9 @@
           <li aria-current="page"><span>unversioned</span></li>
         </ul>
       </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
       <div class="fs-group" role="group" aria-label="Text size">
         <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
         <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
@@ -64,40 +71,41 @@
         <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">Overview</span>
+    <span class="nav-group-label">General</span>
   </div>
-  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">quick-start</span>
+    <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">architecture</span>
+    <span class="nav-group-label">Architecture</span>
   </div>
-  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">reference</span>
+    <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html" class="active" aria-current="page">Template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html" class="active" aria-current="page">NWT template diagnostics</a>  </div>
 </div>
 
       </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
     </nav>
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#at-a-glance">At a glance</a><a class="toc-l2" href="#the-header-nwt001-nwt002-nwt003">The header: NWT001, NWT002, NWT003</a><a class="toc-l2" href="#layouts-slots-and-fills-nwt004-nwt007-nwt010-nwt011">Layouts, slots and fills: NWT004, NWT007, NWT010, NWT011</a><a class="toc-l2" href="#partials-nwt005-nwt006">Partials: NWT005, NWT006</a><a class="toc-l2" href="#blocks-and-expressions-nwt008-nwt012">Blocks and expressions: NWT008, NWT012</a><a class="toc-l2" href="#localization-nwt013-nwt014-nwt015">Localization: NWT013, NWT014, NWT015</a><a class="toc-l2" href="#nwt016--interpolation-outside-a-quoted-attribute-value">NWT016 — interpolation outside a quoted attribute value</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#at-a-glance">At a glance</a><a class="toc-l2" href="#the-header-nwt001-nwt002-nwt003">The header: NWT001, NWT002, NWT003</a><a class="toc-l2" href="#layouts-slots-and-fills-nwt004-nwt007-nwt010-nwt011">Layouts, slots and fills: NWT004, NWT007, NWT010, NWT011</a><a class="toc-l2" href="#partials-nwt005-nwt006">Partials: NWT005, NWT006</a><a class="toc-l2" href="#blocks-and-expressions-nwt008-nwt012">Blocks and expressions: NWT008, NWT012</a><a class="toc-l2" href="#localization-nwt013-nwt014-nwt015">Localization: NWT013, NWT014, NWT015</a><a class="toc-l2" href="#nwt016--interpolation-outside-a-quoted-attribute-value">NWT016 — interpolation outside a quoted attribute value</a></nav>
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">NWT template diagnostics</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; NWT template diagnostics</nav>
         <article>
 <h1 id="nwt-template-diagnostics">NWT template diagnostics</h1>
 <p>Every mistake in a <code>.html</code> template is a <strong>build error</strong>, never a runtime blank (spec 003 R12).
@@ -206,13 +214,13 @@ triggering its diagnostic, that test file is what to trust.</p>
 <p>The optional header is an HTML comment at the top of the file:</p>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">html</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <span class="code-lang">HTML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="html"><code class="language-html">&lt;!--#template
+  <pre data-lang="html"><code class="language-html"><span class="tok-com">&lt;!--#template
 @layout layout/page
 @param string Title
---&gt;
+--&gt;</span>
 </code></pre>
 </div>
 <p><strong>NWT001</strong> covers three things, because all three make the header itself unusable:</p>
@@ -228,23 +236,23 @@ sees it as broken rather than half-rendered.</li>
 </ul>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">html</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <span class="code-lang">HTML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="html"><code class="language-html">&lt;!--#template
+  <pre data-lang="html"><code class="language-html"><span class="tok-com">&lt;!--#template
 @param string writer
---&gt;&lt;p&gt;x&lt;/p&gt;            &lt;!-- NWT001: 'writer' is reserved --&gt;
+--&gt;</span><span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>            <span class="tok-com">&lt;!-- NWT001: 'writer' is reserved --&gt;</span>
 </code></pre>
 </div>
 <p><strong>NWT002</strong> is the catch-all for a fourth directive: only <code>@layout</code> and <code>@param</code> exist.</p>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">html</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <span class="code-lang">HTML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="html"><code class="language-html">&lt;!--#template
+  <pre data-lang="html"><code class="language-html"><span class="tok-com">&lt;!--#template
 @bogus thing
---&gt;&lt;p&gt;x&lt;/p&gt;            &lt;!-- NWT002 --&gt;
+--&gt;</span><span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>            <span class="tok-com">&lt;!-- NWT002 --&gt;</span>
 </code></pre>
 </div>
 <p><strong>NWT003</strong> is shape alone — <code>@param</code> takes exactly a type and a name. Types are validated here
@@ -252,12 +260,12 @@ too, so <code>@param My Type Name</code> is NWT003 rather than a C# syntax error
 you did not write.</p>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">html</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <span class="code-lang">HTML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="html"><code class="language-html">&lt;!--#template
+  <pre data-lang="html"><code class="language-html"><span class="tok-com">&lt;!--#template
 @param OnlyOneToken
---&gt;&lt;p&gt;x&lt;/p&gt;            &lt;!-- NWT003 --&gt;
+--&gt;</span><span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>            <span class="tok-com">&lt;!-- NWT003 --&gt;</span>
 </code></pre>
 </div>
 <h2 id="layouts-slots-and-fills-nwt004-nwt007-nwt010-nwt011">Layouts, slots and fills: NWT004, NWT007, NWT010, NWT011</h2>
@@ -327,10 +335,10 @@ This is a hard syntactic bar rather than a parse of what the expression does, wh
 it cannot be argued around.</p>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">html</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <span class="code-lang">HTML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="html"><code class="language-html">&lt;p&gt;{{X; System.IO.File.Delete(&quot;x&quot;)}}&lt;/p&gt;   &lt;!-- NWT012 --&gt;
+  <pre data-lang="html"><code class="language-html"><span class="tok-punc">&lt;</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>{{X; System.IO.File.Delete(&quot;x&quot;)}}<span class="tok-punc">&lt;/</span><span class="tok-tag">p</span><span class="tok-punc">&gt;</span>   <span class="tok-com">&lt;!-- NWT012 --&gt;</span>
 </code></pre>
 </div>
 <h2 id="localization-nwt013-nwt014-nwt015">Localization: NWT013, NWT014, NWT015</h2>
@@ -383,24 +391,24 @@ NWT016 is what makes it checkable.</p>
 <p>Rejected:</p>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">html</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <span class="code-lang">HTML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="html"><code class="language-html">&lt;div class={{Value}}&gt;x&lt;/div&gt;
-&lt;div class = {{Value}}&gt;x&lt;/div&gt;
-&lt;div data-x=prefix{{Value}}&gt;x&lt;/div&gt;
-&lt;div {{Value}}&gt;x&lt;/div&gt;
-&lt;div class=&quot;a&quot; {{Value}}&gt;x&lt;/div&gt;
-&lt;div title={{t:app.name}}&gt;x&lt;/div&gt;
+  <pre data-lang="html"><code class="language-html"><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">class</span>={{<span class="tok-attr">Value</span>}}<span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">class</span> = {{<span class="tok-attr">Value</span>}}<span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">data-x</span>=<span class="tok-attr">prefix</span>{{<span class="tok-attr">Value</span>}}<span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">div</span> {{<span class="tok-attr">Value</span>}}<span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">class</span>=<span class="tok-str">&quot;a&quot;</span> {{<span class="tok-attr">Value</span>}}<span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">title</span>={{<span class="tok-attr">t:app.name</span>}}<span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span>
 </code></pre>
 </div>
 <p>Accepted — quote the value, single or double:</p>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">html</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <span class="code-lang">HTML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="html"><code class="language-html">&lt;div class=&quot;{{Value}}&quot;&gt;x&lt;/div&gt;
+  <pre data-lang="html"><code class="language-html"><span class="tok-punc">&lt;</span><span class="tok-tag">div</span> <span class="tok-attr">class</span>=<span class="tok-str">&quot;{{Value}}&quot;</span><span class="tok-punc">&gt;</span>x<span class="tok-punc">&lt;/</span><span class="tok-tag">div</span><span class="tok-punc">&gt;</span>
 </code></pre>
 </div>
 <p>The negative cases carry more weight than the positive ones here. A guard that fires on ordinary
@@ -411,7 +419,7 @@ shapes that must <strong>not</strong> raise NWT016 than of shapes that must.</p>
         <div class="page-nav" id="page-nav">
           <div class="prev-next"><a class="pn-prev" href="02-reference-security-baseline.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">Security baseline</span>
+  <span class="pn-title">Security baseline (spec 003, R29)</span>
 </a><span></span></div>
         </div>
       </div>
@@ -421,7 +429,36 @@ shapes that must <strong>not</strong> raise NWT016 than of shapes that must.</p>
   <!-- ===== status bar ===== -->
   <footer class="jt-statusbar">
     <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
   </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
 </div>
 <script src="nav.js"></script>
 </body>

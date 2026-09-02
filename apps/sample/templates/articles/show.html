@@ -1,0 +1,18 @@
+<!--#template
+  @layout layout/page
+  @param NativeWeb.Sample.ArticleDetail Article
+  @param System.Collections.Generic.IReadOnlyList<string> Paragraphs
+-->
+<article class="article">
+<h1 class="page__title">{{Article.Title}}</h1>
+<p class="article__meta">
+{{if Article.Author != null}}<span class="articles__author">{{Article.Author}}</span>{{/if}}
+<time class="articles__date" datetime="{{Article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}">{{Article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}</time>
+</p>
+{{> shared/tags Tags=Article.Tags}}
+<div class="article__body">
+{{for paragraph in Paragraphs}}
+<p>{{paragraph}}</p>
+{{/for}}
+</div>
+</article>

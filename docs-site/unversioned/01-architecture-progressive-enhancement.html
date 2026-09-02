@@ -16,6 +16,10 @@
     if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
     var s = parseFloat(localStorage.getItem('dg-fs'));
     if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+    var w = parseInt(localStorage.getItem('dg-nav-w'), 10);
+    if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+    if (localStorage.getItem('dg-toc') === 'hidden') d.setAttribute('data-toc', 'hidden');
+    if (localStorage.getItem('dg-nav') === 'hidden') d.setAttribute('data-nav', 'hidden');
   } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
 })();
 </script>
@@ -28,7 +32,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">nativeweb</span>
-      <span class="brand-crumb">Lean Native Web: Progressive Enhancement Layer</span>
+      <span class="brand-crumb">Architecture &#8250; Lean Native Web: Progressive Enhancement Layer</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -38,6 +42,9 @@
           <li aria-current="page"><span>unversioned</span></li>
         </ul>
       </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
       <div class="fs-group" role="group" aria-label="Text size">
         <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
         <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
@@ -64,40 +71,41 @@
         <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">Overview</span>
+    <span class="nav-group-label">General</span>
   </div>
-  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">quick-start</span>
+    <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">architecture</span>
+    <span class="nav-group-label">Architecture</span>
   </div>
-  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html" class="active" aria-current="page">Progressive enhancement</a>  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html" class="active" aria-current="page">Lean Native Web: Progressive Enhancement Layer</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">reference</span>
+    <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
 </div>
 
       </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
     </nav>
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#philosophy">Philosophy</a><a class="toc-l2" href="#the-enhancement-layer-bootjs">The enhancement layer: boot.js</a><a class="toc-l2" href="#attribute-conventions">Attribute conventions</a><a class="toc-l2" href="#core-rules">Core rules</a><a class="toc-l2" href="#post-only-endpoints">POST-only endpoints</a><a class="toc-l2" href="#html-ownership">HTML ownership</a><a class="toc-l2" href="#built-in-ux-defaults-spec-005">Built-in UX defaults (spec 005)</a><a class="toc-l3" href="#busy-states-r3">Busy states (R3)</a><a class="toc-l3" href="#focus-after-swap-r6">Focus after swap (R6)</a><a class="toc-l3" href="#flash-messages-r4">Flash messages (R4)</a><a class="toc-l3" href="#keyboard-r5">Keyboard (R5)</a><a class="toc-l3" href="#validation-r7-r8">Validation (R7, R8)</a><a class="toc-l3" href="#version-and-error-pages-r1-r2">/version and error pages (R1, R2)</a><a class="toc-l3" href="#browser-native-first">Browser-native first</a><a class="toc-l3" href="#any-content-type-r12">Any content type (R12)</a><a class="toc-l2" href="#considered-and-rejected-from-the-v2-handoff">Considered and rejected (from the v2 handoff)</a><a class="toc-l2" href="#guarantee">Guarantee</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#philosophy">Philosophy</a><a class="toc-l2" href="#the-enhancement-layer-bootjs">The enhancement layer: boot.js</a><a class="toc-l2" href="#attribute-conventions">Attribute conventions</a><a class="toc-l2" href="#core-rules">Core rules</a><a class="toc-l2" href="#post-only-endpoints">POST-only endpoints</a><a class="toc-l2" href="#html-ownership">HTML ownership</a><a class="toc-l2" href="#built-in-ux-defaults-spec-005">Built-in UX defaults (spec 005)</a><a class="toc-l3" href="#busy-states-r3">Busy states (R3)</a><a class="toc-l3" href="#focus-after-swap-r6">Focus after swap (R6)</a><a class="toc-l3" href="#flash-messages-r4">Flash messages (R4)</a><a class="toc-l3" href="#keyboard-r5">Keyboard (R5)</a><a class="toc-l3" href="#validation-r7-r8">Validation (R7, R8)</a><a class="toc-l3" href="#version-and-error-pages-r1-r2">/version and error pages (R1, R2)</a><a class="toc-l3" href="#browser-native-first">Browser-native first</a><a class="toc-l3" href="#any-content-type-r12">Any content type (R12)</a><a class="toc-l2" href="#considered-and-rejected-from-the-v2-handoff">Considered and rejected (from the v2 handoff)</a><a class="toc-l2" href="#guarantee">Guarantee</a></nav>
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">Lean Native Web: Progressive Enhancement Layer</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Architecture &#8250; Lean Native Web: Progressive Enhancement Layer</nav>
         <article>
 <h1 id="lean-native-web-progressive-enhancement-layer">Lean Native Web: Progressive Enhancement Layer</h1>
 <p>The frontend enhancement conventions for Lean Native Web (spec 004, R1–R8; extended by spec
@@ -186,10 +194,10 @@ the two paths would diverge. Enhanced forms always carry an explicit <code>actio
 <p>Example:</p>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">html</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <span class="code-lang">HTML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="html"><code class="language-html">&lt;form method=&quot;post&quot; action=&quot;/bookmarks&quot; data-nw-target=&quot;#list&quot; data-nw-swap=&quot;beforeend&quot;&gt;
+  <pre data-lang="html"><code class="language-html"><span class="tok-punc">&lt;</span><span class="tok-tag">form</span> <span class="tok-attr">method</span>=<span class="tok-str">&quot;post&quot;</span> <span class="tok-attr">action</span>=<span class="tok-str">&quot;/bookmarks&quot;</span> <span class="tok-attr">data-nw-target</span>=<span class="tok-str">&quot;#list&quot;</span> <span class="tok-attr">data-nw-swap</span>=<span class="tok-str">&quot;beforeend&quot;</span><span class="tok-punc">&gt;</span>
 </code></pre>
 </div>
 <p>Without JavaScript the form POSTs and the server redirects (Post/Redirect/Get). With
@@ -212,7 +220,7 @@ stays valid and the enhancement remains inspectable.</li>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">text</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
   <pre data-lang="text"><code class="language-text">POST /todos/5/delete
 </code></pre>
@@ -316,6 +324,11 @@ which format was chosen. Precedence is the extension, then <code>Accept</code> b
 specificity, then the first offer. An extension the route does not offer is a 404 and an
 <code>Accept</code> that admits nothing is a 406, both <code>text/plain</code> naming the offers and neither
 reaching the handler. The extensionless route says <code>Vary: Accept</code> on every response.</li>
+<li><strong>A page is cached only when every render is the same page.</strong> <code>apps/sample</code> declares <code>/</code>,
+<code>/tags</code> and <code>/tags/{slug}</code> with <code>AsPublicPage</code> and leaves <code>/articles/{slug}</code> out of the cache
+on purpose: that page counts a view per render, and a cached copy would count one visit a
+minute. The three 404s an article slug can earn — unknown, unpublished, malformed — are one
+response, so the page never says which.</li>
 <li><strong>The cache keys on the choice.</strong> <code>PublicPageCachePolicy</code> runs the same chooser and varies its
 key by the chosen media type, and refuses to store a response whose <code>Content-Type</code> is not the
 chosen format's. Two cookie-free representations of one path each get their own entry.</li>
@@ -370,7 +383,7 @@ business logic. The JS-off e2e suites are the enforcement, not a review checklis
         <div class="page-nav" id="page-nav">
           <div class="prev-next"><a class="pn-prev" href="01-architecture-native-web-architecture.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">Native web architecture</span>
+  <span class="pn-title">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</span>
 </a><a class="pn-next" href="02-reference-breaking-changes.html">
   <span class="pn-label">next &#8594;</span>
   <span class="pn-title">Breaking changes</span>
@@ -383,7 +396,36 @@ business logic. The JS-off e2e suites are the enforcement, not a review checklis
   <!-- ===== status bar ===== -->
   <footer class="jt-statusbar">
     <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
   </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
 </div>
 <script src="nav.js"></script>
 </body>

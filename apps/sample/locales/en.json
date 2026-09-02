@@ -6,7 +6,21 @@
   },
   "nav": {
     "articles": "Articles",
+    "tags": "Tags",
     "admin": "Admin"
+  },
+  "home": {
+    "title": "Latest articles",
+    "lede": "The newest published articles. Each one links to its page and to its tags."
+  },
+  "tags": {
+    "title": "Tags",
+    "lede": "Every tag, with how many published articles carry it.",
+    "published": "Published articles",
+    "empty": "No tags yet."
+  },
+  "tag": {
+    "lede": "Published articles carrying this tag, newest first."
   },
   "title": {
     "articles": "Articles"

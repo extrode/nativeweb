@@ -1,0 +1,10 @@
+<!--#template
+  @param System.Collections.Generic.IReadOnlyList<NativeWeb.Sample.TagRef> Tags
+-->
+{{if Tags.Count != 0}}
+<ul class="tags">
+{{for tag in Tags}}
+<li class="tags__item"><a class="tag" href="/tags/{{tag.Slug}}">{{tag.Name}}</a></li>
+{{/for}}
+</ul>
+{{/if}}
