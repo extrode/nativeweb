@@ -33,8 +33,8 @@ public sealed class PublicSiteTests(InMemorySampleFixture app, BrowserFixture br
         IPage page = await AnonymousPageAsync();
 
         await page.GotoAsync("/");
-        await Assertions.Expect(page.Locator("h1.page__title")).ToHaveTextAsync("Latest articles");
-        await Assertions.Expect(page.Locator("h2.articles__title a")).ToHaveCountAsync(2);
+        await Assertions.Expect(page.Locator("h1.hero__title")).ToHaveTextAsync("Server-rendered HTML, one native binary");
+        await Assertions.Expect(page.Locator("h2.articles__title a")).ToHaveCountAsync(6);
 
         await page.ClickAsync("h2.articles__title a:has-text(\"Lean Native Web\")");
         Assert.Equal("/articles/lean-native-web", new Uri(page.Url).AbsolutePath);
@@ -44,11 +44,12 @@ public sealed class PublicSiteTests(InMemorySampleFixture app, BrowserFixture br
         await page.ClickAsync("a.tag:has-text(\"NativeAOT\")");
         Assert.Equal("/tags/aot", new Uri(page.Url).AbsolutePath);
         await Assertions.Expect(page.Locator("h1.page__title")).ToHaveTextAsync("NativeAOT");
-        await Assertions.Expect(page.Locator("h2.articles__title a")).ToHaveTextAsync("Lean Native Web");
+        await Assertions.Expect(page.Locator("h2.articles__title a")).ToHaveCountAsync(4);
+        await Assertions.Expect(page.Locator("h2.articles__title a", new PageLocatorOptions { HasTextString = "Lean Native Web" })).ToHaveCountAsync(1);
 
         await page.ClickAsync("a.topbar__brand");
         Assert.Equal("/", new Uri(page.Url).AbsolutePath);
-        await Assertions.Expect(page.Locator("h1.page__title")).ToHaveTextAsync("Latest articles");
+        await Assertions.Expect(page.Locator("h1.hero__title")).ToHaveTextAsync("Server-rendered HTML, one native binary");
     }
 
     [Fact]
