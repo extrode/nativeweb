@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Antiforgery;
 
 using NativeWeb.Forms;
 using NativeWeb.Render;
+using NativeWeb.Web;
 
 namespace NativeWeb.Sample;
 
@@ -35,14 +36,57 @@ internal static class PublicArticleEndpoints
     // PageSize: the number comes from the request now, so it needs a ceiling.
     private const int MaxPageSize = 100;
 
+    private static readonly string[] CsvHeaders = ["id", "title", "author", "created"];
+
+    // The CSV row for one article. Dates as RFC 3339 UTC so a spreadsheet and a
+    // script read the same instant; the writer quotes and neutralises whatever
+    // the title holds.
+    internal static string[] CsvRow(PublishedArticle article) =>
+    [
+        article.Id,
+        article.Title,
+        article.Author ?? "",
+        article.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+    ];
+
     public static IEndpointRouteBuilder MapPublicArticles(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/articles", async (IAntiforgery antiforgery, HttpContext http, IPublishedArticles articles, CancellationToken ct) =>
+        // One route, three representations (spec 021). /articles answers the
+        // page; /articles.json and /articles.csv, or an Accept header naming
+        // either type, answer the same twenty rows as data. The choice is made
+        // before this handler runs, so an extension the route does not offer is
+        // a 404 that never touches the store.
+        //
+        // CacheOutput rather than AsPublicPage, and the difference is the
+        // antiforgery cookie. The HTML branch mints one for the filter form, so
+        // the framework's default policy refuses to store it and the headers
+        // must not tell a proxy it is public either. The JSON and CSV branches
+        // set no cookie, and the policy keys on the chosen format, so those two
+        // are served from the in-process store under their own entries while
+        // the page renders every time. PublicDocuments.cs shows the other shape:
+        // cookie-free routes that are public all the way down.
+        endpoints.MapNegotiated("/articles", [Format.Html, Format.Json, Format.Csv], async (http, format) =>
         {
-            IReadOnlyList<PublishedArticle> recent = await articles.RecentAsync(PageSize, ct).ConfigureAwait(false);
+            IPublishedArticles articles = http.RequestServices.GetRequiredService<IPublishedArticles>();
+            IReadOnlyList<PublishedArticle> recent = await articles
+                .RecentAsync(PageSize, http.RequestAborted).ConfigureAwait(false);
+
+            if (format == Format.Json)
+            {
+                return FormatResults.Json(recent, SampleJson.Default.IReadOnlyListPublishedArticle);
+            }
+
+            if (format == Format.Csv)
+            {
+                return FormatResults.Csv(CsvHeaders, recent.Select(CsvRow));
+            }
+
+            IAntiforgery antiforgery = http.RequestServices.GetRequiredService<IAntiforgery>();
             AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
             return Page(http, recent, query: null, take: PageSize, tokens);
-        });
+        })
+        .RequireRateLimiting(NativeWebPipeline.GeneralRateLimitPolicy)
+        .CacheOutput(NativeWebPipeline.PublicPagePolicy);
 
         // The declarative-binding demo (spec 014). Three things are worth reading
         // here, because all three are the point:
