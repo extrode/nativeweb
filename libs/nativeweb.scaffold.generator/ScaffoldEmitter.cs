@@ -407,7 +407,21 @@ internal static class ScaffoldEmitter
         // (IScaffoldStore.CreateAsync says so), and a store that returns a stale or
         // empty one now shows it on the very next request instead of at the next
         // silent overwrite.
-        sb.AppendLine("        string created = await store.CreateAsync(item, ct).ConfigureAwait(false);");
+        // A store refuses with ScaffoldRefusedException and only that: it is the
+        // one thing the store knows that the form cannot (a slug already taken, a
+        // state the row cannot enter), and it is shown where a "Title is required."
+        // goes, the submitted values still in place. Any other exception is an
+        // error and stays one.
+        sb.AppendLine("        string created;");
+        sb.AppendLine("        try");
+        sb.AppendLine("        {");
+        sb.AppendLine("            created = await store.CreateAsync(item, ct).ConfigureAwait(false);");
+        sb.AppendLine("        }");
+        sb.AppendLine("        catch (ScaffoldRefusedException refused)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            return ScaffoldLayout.Page(http, \"New \" + Singular, FormHtml(http, null, BasePath, \"Create\", refused.Message, form));");
+        sb.AppendLine("        }");
+        sb.AppendLine();
         // Without this, an empty key redirects to BasePath + "/" -- which is the
         // list route -- and a store that assigned no key looks like a successful
         // create. The guard is what makes the paragraph above true.
@@ -442,7 +456,19 @@ internal static class ScaffoldEmitter
         // The row was there when GetAsync ran and may not be when UpdateAsync does:
         // a concurrent delete between the two is one request, not a rare race. A
         // discarded false redirected to the list as if the edit had been saved.
-        sb.AppendLine("        if (!await store.UpdateAsync(id, item, ct).ConfigureAwait(false))");
+        // Same refusal seam as CreateAsync: the store's message goes where the
+        // form's own would, with the submitted values kept.
+        sb.AppendLine("        bool updated;");
+        sb.AppendLine("        try");
+        sb.AppendLine("        {");
+        sb.AppendLine("            updated = await store.UpdateAsync(id, item, ct).ConfigureAwait(false);");
+        sb.AppendLine("        }");
+        sb.AppendLine("        catch (ScaffoldRefusedException refused)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            return ScaffoldLayout.Page(http, \"Edit \" + Singular, FormHtml(http, existing, BasePath + \"/\" + Uri.EscapeDataString(id), \"Save\", refused.Message, form));");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine("        if (!updated)");
         sb.AppendLine("        {");
         sb.AppendLine("            return Results.NotFound();");
         sb.AppendLine("        }");
