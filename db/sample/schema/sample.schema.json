@@ -1,6 +1,54 @@
 {
   "dialect": "postgres",
   "tables": {
+    "article_tags": {
+      "name": "article_tags",
+      "columns": {
+        "article_id": {
+          "name": "article_id",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "tag_slug": {
+          "name": "tag_slug",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "article_tags_pkey",
+          "columns": [
+            "article_id",
+            "tag_slug"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "article_tags_tag_slug_article_id_idx",
+          "columns": [
+            "tag_slug",
+            "article_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
     "articles": {
       "name": "articles",
       "columns": {
@@ -70,6 +118,16 @@
           "isIdentity": false,
           "isRowVersion": false,
           "isComputed": false
+        },
+        "slug": {
+          "name": "slug",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
         }
       },
       "indexes": [
@@ -103,6 +161,15 @@
           "hasExpressionKeyPart": false
         },
         {
+          "name": "articles_slug_key",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
           "name": "articles_title_id_idx",
           "columns": [
             "title",
@@ -114,9 +181,79 @@
         }
       ],
       "isView": false
+    },
+    "tags": {
+      "name": "tags",
+      "columns": {
+        "slug": {
+          "name": "slug",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "color": {
+          "name": "color",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "tags_name_slug_idx",
+          "columns": [
+            "name",
+            "slug"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "tags_pkey",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
     }
   },
-  "foreignKeys": [],
+  "foreignKeys": [
+    {
+      "fromTable": "article_tags",
+      "fromColumn": "article_id",
+      "toTable": "articles",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "article_tags",
+      "fromColumn": "tag_slug",
+      "toTable": "tags",
+      "toColumn": "slug"
+    }
+  ],
   "procedures": {},
   "sequences": {},
   "enums": {},

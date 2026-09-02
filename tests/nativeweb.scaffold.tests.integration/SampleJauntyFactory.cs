@@ -104,6 +104,26 @@ internal static class SampleTestDatabase
             reader.GetDateTime(3));
     }
 
+    /// <summary>The slug of the one row carrying this title, or null. Spec 022.</summary>
+    internal static Task<string?> SlugByTitleAsync(string title) =>
+        ScalarStringAsync("SELECT slug FROM articles WHERE title = @p", title);
+
+    /// <summary>A tag's colour by key, or null when there is no such tag. Spec 022.</summary>
+    internal static Task<string?> TagColorAsync(string slug) =>
+        ScalarStringAsync("SELECT color FROM tags WHERE slug = @p", slug);
+
+    private static async Task<string?> ScalarStringAsync(string sql, string parameter)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("p", parameter);
+
+        object? value = await command.ExecuteScalarAsync();
+        return value is string text ? text : null;
+    }
+
     /// <summary>How many rows carry this exact title. Used to prove a delete landed.</summary>
     internal static async Task<int> CountByTitleAsync(string title)
     {
@@ -125,8 +145,8 @@ internal static class SampleTestDatabase
 
         await using var command = new NpgsqlCommand(
             """
-            INSERT INTO articles (id, title, author, body, published, view_count, created_at)
-            VALUES (@id, @title, @author, @body, TRUE, 0, NOW())
+            INSERT INTO articles (id, slug, title, author, body, published, view_count, created_at)
+            VALUES (@id, @id, @title, @author, @body, TRUE, 0, NOW())
             """,
             connection);
         command.Parameters.AddWithValue("id", id);
@@ -154,8 +174,8 @@ internal static class SampleTestDatabase
 
         await using var command = new NpgsqlCommand(
             """
-            INSERT INTO articles (id, title, author, body, published, view_count, created_at)
-            VALUES (@id, @title, @author, @body, @published, 0, @created_at)
+            INSERT INTO articles (id, slug, title, author, body, published, view_count, created_at)
+            VALUES (@id, @id, @title, @author, @body, @published, 0, @created_at)
             """,
             connection);
         command.Parameters.AddWithValue("id", id);

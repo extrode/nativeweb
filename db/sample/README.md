@@ -3,7 +3,7 @@
 The scaffolding demo's schema, kept apart from the identity schema next door.
 
 ```
-migrations/  0001_articles.sql -- the demo's one table
+migrations/  0001 the table, 0002 the sort indexes, 0003 slugs and tags -- applied in order
 queries/     inline .sql the JauntyQ generator turns into typed C#
 schema/      sample.schema.json -- the committed snapshot, from `jaunty schema pull`
 ```
@@ -27,11 +27,11 @@ Two databases, both owned by `nativeweb_app`:
 ```bash
 # the one `dotnet run` uses when you configure a connection string
 psql -U postgres -c "CREATE DATABASE nativeweb_sample_dev OWNER nativeweb_app"
-psql -U nativeweb_app -d nativeweb_sample_dev -f db/sample/migrations/0001_articles.sql
+for f in db/sample/migrations/*.sql; do psql -U nativeweb_app -d nativeweb_sample_dev -v ON_ERROR_STOP=1 -f "$f"; done
 
 # the one the integration and e2e tiers use
 psql -U postgres -c "CREATE DATABASE nativeweb_sample_test OWNER nativeweb_app"
-psql -U nativeweb_app -d nativeweb_sample_test -f db/sample/migrations/0001_articles.sql
+for f in db/sample/migrations/*.sql; do psql -U nativeweb_app -d nativeweb_sample_test -v ON_ERROR_STOP=1 -f "$f"; done
 ```
 
 Re-pull the snapshot after any change to `migrations/`:

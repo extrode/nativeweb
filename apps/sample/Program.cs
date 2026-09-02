@@ -137,14 +137,14 @@ public sealed class Program
         // string is not an error, it selects the in-memory store. That keeps
         // `dotnet run`, the integration tier and the Playwright tier working with no
         // database, while a configured string exercises the JauntyQ path against a
-        // real one. Both are IScaffoldStore<Article>; nothing above this line differs.
-        var tags = new TagStore();
-        builder.Services.AddSingleton<IScaffoldStore<Tag>>(tags);
-
+        // real one. Both models are IScaffoldStore<T> on both paths; nothing above
+        // this line differs.
         if (string.IsNullOrWhiteSpace(options.ConnectionString))
         {
             var articles = new ArticleStore();
+            var tags = new TagStore();
             builder.Services.AddSingleton<IScaffoldStore<Article>>(articles);
+            builder.Services.AddSingleton<IScaffoldStore<Tag>>(tags);
             Seed.Fill(articles, tags);
 
             // The public feed reads through the same seam. In-memory it has to
@@ -161,15 +161,16 @@ public sealed class Program
             builder.Services.AddSingleton<IScaffoldStore<Article>>(
                 sp => new JauntyArticleStore(sp.GetRequiredService<NpgsqlDataSource>()));
 
+            // Tags persist too, from spec 022: until then they were an in-memory list
+            // on this path and an admin's edit did not survive a restart. The three
+            // seeded tags are rows migration 0003 inserts, so nothing seeds here.
+            builder.Services.AddSingleton<IScaffoldStore<Tag>>(
+                sp => new JauntyTagStore(sp.GetRequiredService<NpgsqlDataSource>()));
+
             // Same seam, but the filter and the ordering move into SQL. This is the
             // pair the tutorial in docs/00-quick-start/tutorial-first-feature.md compares.
             builder.Services.AddSingleton<IPublishedArticles>(
                 sp => new JauntyPublishedArticles(sp.GetRequiredService<NpgsqlDataSource>()));
-
-            // Tags are still in-memory, deliberately. Two models behind one seam with
-            // two entirely different implementations is the claim this demo is making,
-            // and it is only visible if they actually differ.
-            Seed.FillTags(tags);
         }
 
         WebApplication app = builder.Build();
@@ -253,7 +254,8 @@ internal static class Seed
 {
     internal static void Fill(ArticleStore articles, TagStore tags)
     {
-        FillTags(tags);
+        tags.Seed(new Tag { Slug = "aot", Name = "NativeAOT", Color = "#5bbd83" });
+        tags.Seed(new Tag { Slug = "htmx", Name = "HTMX", Color = "#7aa2f7" });
         articles.Seed(new Article
         {
             Id = "a1",
@@ -290,14 +292,5 @@ internal static class Seed
             CreatedAt = new DateTime(2026, 8, 19, 8, 0, 0, DateTimeKind.Utc),
         });
 
-    }
-
-    // Split out because the JauntyQ path seeds tags but not articles: article rows
-    // live in PostgreSQL and are whatever the database already holds, which is the
-    // whole difference between a demo store and a real one.
-    internal static void FillTags(TagStore tags)
-    {
-        tags.Seed(new Tag { Slug = "aot", Name = "NativeAOT", Color = "#5bbd83" });
-        tags.Seed(new Tag { Slug = "htmx", Name = "HTMX", Color = "#7aa2f7" });
     }
 }

@@ -18,10 +18,17 @@
 --
 -- Rows affected is the return, which is what UpdateAsync's bool is derived from:
 -- 0 means no such key.
+-- @params title:string, author:string?, body:string, published:bool, viewCount:int, slug:string?, id:string
+--
+-- slug is nullable on purpose (spec 022 R2): a blank slug on the edit form means
+-- "keep the one the row has", and COALESCE is where that rule lives on this path.
+-- The store validates a typed slug before it gets here; a duplicate is refused by
+-- articles_slug_key, which the store turns into the form's message.
 UPDATE articles
 SET title = @title,
     author = @author,
     body = @body,
     published = @published,
-    view_count = @viewCount
+    view_count = @viewCount,
+    slug = COALESCE(@slug, slug)
 WHERE id = @id;

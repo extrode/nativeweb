@@ -113,8 +113,10 @@ jobs:
         run: |
           PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d postgres -v ON_ERROR_STOP=1 \
             -c "CREATE DATABASE nativeweb_sample_test;"
-          PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_sample_test -v ON_ERROR_STOP=1 \
-            -f db/sample/migrations/0001_articles.sql
+          for migration in db/sample/migrations/*.sql; do
+            PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_sample_test -v ON_ERROR_STOP=1 \
+              -f "$migration"
+          done
 
       # NativeWeb.slnx lists the two JauntyQ projects as solution members, so a
       # local checkout can co-develop them. That listing is unconditional,
