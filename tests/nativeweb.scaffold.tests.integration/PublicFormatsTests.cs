@@ -116,8 +116,13 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
 
         Assert.Equal(["a2", "a1"], ids);
         Assert.Equal("Binding forms under NativeAOT", first.GetProperty("title").GetString());
+        Assert.Equal("binding-forms-under-nativeaot", first.GetProperty("slug").GetString());
         Assert.Equal("Sy", first.GetProperty("author").GetString());
         Assert.Equal("2026-06-18T14:05:00Z", first.GetProperty("createdAt").GetString());
+        Assert.Equal(0, first.GetProperty("tags").GetArrayLength());
+        Assert.Equal(
+            ["htmx", "aot"],
+            document.RootElement[1].GetProperty("tags").EnumerateArray().Select(t => t.GetProperty("slug").GetString()));
     }
 
     [Fact]
@@ -129,9 +134,9 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         (_, string body) = await GetAsync(client, "/articles.csv");
 
         Assert.Equal(
-            "id,title,author,created\r\n" +
-            "a2,Binding forms under NativeAOT,Sy,2026-06-18T14:05:00Z\r\n" +
-            "a1,Lean Native Web,Sy,2026-03-04T09:30:00Z\r\n",
+            "id,slug,title,author,created,tags\r\n" +
+            "a2,binding-forms-under-nativeaot,Binding forms under NativeAOT,Sy,2026-06-18T14:05:00Z,\r\n" +
+            "a1,lean-native-web,Lean Native Web,Sy,2026-03-04T09:30:00Z,htmx aot\r\n",
             body);
     }
 
@@ -165,7 +170,9 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         Assert.Equal("http://localhost/articles", root.Element(Atom + "link")?.Attribute("href")?.Value);
         Assert.Equal(2, entries.Length);
         Assert.Equal("Binding forms under NativeAOT", entries[0].Element(Atom + "title")?.Value);
-        Assert.Equal("http://localhost/articles#a2", entries[0].Element(Atom + "link")?.Attribute("href")?.Value);
+        Assert.Equal(
+            "http://localhost/articles/binding-forms-under-nativeaot",
+            entries[0].Element(Atom + "link")?.Attribute("href")?.Value);
         Assert.Equal("2026-06-18T14:05:00Z", entries[0].Element(Atom + "updated")?.Value);
         Assert.Equal("2026-06-18T14:05:00Z", root.Element(Atom + "updated")?.Value);
         Assert.StartsWith("public, max-age=", response.Headers.CacheControl?.ToString(), StringComparison.Ordinal);
@@ -187,12 +194,12 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         Assert.Equal("http://localhost/articles", channel.Element("link")?.Value);
         Assert.Equal(2, items.Length);
         Assert.Equal("Lean Native Web", items[1].Element("title")?.Value);
-        Assert.Equal("http://localhost/articles#a1", items[1].Element("link")?.Value);
+        Assert.Equal("http://localhost/articles/lean-native-web", items[1].Element("link")?.Value);
         Assert.Equal("Wed, 04 Mar 2026 09:30:00 GMT", items[1].Element("pubDate")?.Value);
     }
 
     [Fact]
-    public async Task TheSitemapListsThePageTheFeedAndTheAboutDocument()
+    public async Task TheSitemapListsTheFixedPagesThenEveryTagThenEveryPublishedArticle()
     {
         using var factory = new SampleFactory();
         using HttpClient client = factory.CreateFollowingNothing();
@@ -200,14 +207,24 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         (_, string body) = await GetAsync(client, "/sitemap.xml");
 
         var sitemap = XDocument.Parse(body);
-        string[] locations = sitemap.Root!
-            .Elements(Sitemap + "url")
-            .Select(u => u.Element(Sitemap + "loc")!.Value)
-            .ToArray();
+        XElement[] urls = sitemap.Root!.Elements(Sitemap + "url").ToArray();
+        string[] locations = urls.Select(u => u.Element(Sitemap + "loc")!.Value).ToArray();
 
         Assert.Equal(
-            ["http://localhost/articles", "http://localhost/feed.atom", "http://localhost/about"],
+            [
+                "http://localhost/",
+                "http://localhost/articles",
+                "http://localhost/tags",
+                "http://localhost/feed.atom",
+                "http://localhost/about",
+                "http://localhost/tags/htmx",
+                "http://localhost/tags/aot",
+                "http://localhost/tags/postgres",
+                "http://localhost/articles/binding-forms-under-nativeaot",
+                "http://localhost/articles/lean-native-web",
+            ],
             locations);
+        Assert.Equal("2026-03-04T09:30:00Z", urls[^1].Element(Sitemap + "lastmod")?.Value);
     }
 
     [Fact]

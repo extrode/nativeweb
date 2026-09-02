@@ -36,17 +36,20 @@ internal static class PublicArticleEndpoints
     // PageSize: the number comes from the request now, so it needs a ceiling.
     private const int MaxPageSize = 100;
 
-    private static readonly string[] CsvHeaders = ["id", "title", "author", "created"];
+    private static readonly string[] CsvHeaders = ["id", "slug", "title", "author", "created", "tags"];
 
     // The CSV row for one article. Dates as RFC 3339 UTC so a spreadsheet and a
     // script read the same instant; the writer quotes and neutralises whatever
-    // the title holds.
+    // the title holds. Tags are their slugs, space-joined, since a slug holds no
+    // space and a cell holds one value.
     internal static string[] CsvRow(PublishedArticle article) =>
     [
         article.Id,
+        article.Slug,
         article.Title,
         article.Author ?? "",
         article.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+        string.Join(' ', article.Tags.Select(t => t.Slug)),
     ];
 
     public static IEndpointRouteBuilder MapPublicArticles(this IEndpointRouteBuilder endpoints)
