@@ -113,7 +113,7 @@ public static class ScaffoldValues
     /// The posted keys of a relation field: trimmed, blanks dropped, duplicates
     /// dropped, order kept. A field that was not posted at all is the empty list.
     /// </summary>
-    public static IReadOnlyList<string> Keys(string[]? raw)
+    public static IReadOnlyList<string> Keys(string?[]? raw)
     {
         if (raw is null || raw.Length == 0)
         {
@@ -121,7 +121,7 @@ public static class ScaffoldValues
         }
 
         var keys = new List<string>(raw.Length);
-        foreach (string one in raw)
+        foreach (string? one in raw)
         {
             if (Text(one) is string key && !keys.Contains(key, StringComparer.Ordinal))
             {
