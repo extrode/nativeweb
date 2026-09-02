@@ -6,6 +6,10 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Spec 019 — mutation residue and baseline. In flight on
+  `chore/019-mutation-residue-and-baseline`, 2026-09-02.** `ConfigureAwait` mutants out of the
+  count, a raised per-mutant timeout, an age-gated sweep of leaked feed rows in both database
+  tiers, and the baseline re-recorded. `docs/specs/019-mutation-residue-and-baseline/`.
 - **Spec 008 closed, 2026-09-02, `docs/008-close`.** The three criteria the 2026-08-25 review
   could not flip were amended rather than the code changed, on the user's call: R1 now asks for a
   configuration section and no hand reading (the `AddSignIn(IConfiguration)` overload the review

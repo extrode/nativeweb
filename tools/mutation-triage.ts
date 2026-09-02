@@ -65,6 +65,7 @@ const TARGETS: readonly Target[] = [
 ];
 
 const BASELINE = "tools/mutation-baseline.json";
+const CONFIG = "tools/stryker-config.json";
 const TOLERANCE = 1.0;
 
 export interface Score {
@@ -119,18 +120,25 @@ function scoreOf(report: string): Score {
 	return scoreReport(JSON.parse(Deno.readTextFileSync(report)) as MutationReport);
 }
 
+// Absolute paths throughout, because Stryker resolves --output and --config-file against
+// its own working directory, which is the test project, not the repository.
+export function strykerArgs(target: Pick<Target, "name" | "underTest">, root: string): string[] {
+	return [
+		"stryker",
+		"--project",
+		target.underTest,
+		"--config-file",
+		`${root}/${CONFIG}`,
+		"--output",
+		`${root}/tmp/stryker/${target.name}`,
+		"--reporter",
+		"json",
+	];
+}
+
 async function run(target: Target): Promise<Score> {
-	const output = `tmp/stryker/${target.name}`;
 	const command = new Deno.Command("dotnet", {
-		args: [
-			"stryker",
-			"--project",
-			target.underTest,
-			"--output",
-			`${Deno.cwd()}/${output}`,
-			"--reporter",
-			"json",
-		],
+		args: strykerArgs(target, Deno.cwd()),
 		cwd: `${Deno.cwd()}/${target.testProject}`,
 		stdout: "inherit",
 		stderr: "inherit",
@@ -142,7 +150,7 @@ async function run(target: Target): Promise<Score> {
 		throw new Error(`stryker exited ${code} for ${target.name}`);
 	}
 
-	return scoreOf(`${output}/reports/mutation-report.json`);
+	return scoreOf(`tmp/stryker/${target.name}/reports/mutation-report.json`);
 }
 
 if (import.meta.main) {
