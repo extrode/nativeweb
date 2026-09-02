@@ -20,8 +20,9 @@ public enum SmtpSecurityMode
 }
 
 /// <summary>
-/// Configuration for outbound SMTP delivery. Binds from the <c>NativeWeb:Smtp</c>
-/// configuration section.
+/// Configuration for outbound SMTP delivery. This library binds nothing itself: the
+/// host binds a <c>Smtp</c> section under whatever prefix it chose, so the keys named
+/// below and in <see cref="Validate"/> are written section-relative.
 /// </summary>
 /// <remarks>
 /// Config-swap contract: an empty/whitespace <see cref="Host"/> means SMTP is
@@ -100,7 +101,9 @@ public sealed class SmtpOptions
 
         if (string.IsNullOrWhiteSpace(FromAddress))
         {
-            throw new InvalidOperationException("NativeWeb:Smtp:FromAddress is required when SMTP is enabled.");
+            throw new InvalidOperationException(
+                "Smtp:FromAddress is required when SMTP is enabled, under the configuration "
+                + "section this host binds.");
         }
 
         // Enforce the SecurityMode.None contract: it is test-only, so it is permitted
@@ -110,7 +113,7 @@ public sealed class SmtpOptions
         if (SecurityMode == SmtpSecurityMode.None && !IsLoopbackHost(Host))
         {
             throw new InvalidOperationException(
-                "NativeWeb:Smtp:SecurityMode=None is permitted only for a loopback host "
+                "Smtp:SecurityMode=None is permitted only for a loopback host "
                 + "(localhost/127.0.0.1/::1); use StartTls for any real SMTP server.");
         }
     }

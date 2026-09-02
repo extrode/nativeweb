@@ -61,9 +61,8 @@ product with no tenancy passes a constant.
 
 **This library reads no configuration.** `DeriveKey` takes the secret as a string and the
 product decides where it comes from and what to call it, under its own configuration section.
-Comments in `ContactProtector.cs` still name a `NativeWeb:ContactKey` key: that prefix belonged
-to an application that left on 2026-08-31, nothing binds it, and it is a stale comment rather
-than a setting to configure.
+No key name appears in this library's source, and none should: a name written here is one a
+reader tries to set, and nothing would bind it.
 
 `StoreDataProtector.Unprotect` refuses a value without the versioned prefix: in a store
 this type has always protected, the only ways to reach that branch are a column that was

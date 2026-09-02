@@ -56,7 +56,8 @@ public sealed class SmtpOptionsTests
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(options.Validate);
 
-        Assert.Contains("NativeWeb:Smtp:FromAddress", ex.Message);
+        Assert.Contains("Smtp:FromAddress", ex.Message);
+        Assert.DoesNotContain("NativeWeb:", ex.Message);
     }
 
     [Theory]
@@ -94,6 +95,7 @@ public sealed class SmtpOptionsTests
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(options.Validate);
 
         Assert.Contains("SecurityMode=None", ex.Message);
+        Assert.DoesNotContain("NativeWeb:", ex.Message);
     }
 
     [Theory]

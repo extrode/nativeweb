@@ -1593,8 +1593,12 @@ another project's deployment and runbook, not to this repo.
   documented as unread in `configuration.md` and held there by `DocsClaimsTests`. The fix is
   either to bind it or to stop writing it, and which one is the decision above.
 
-- **The departed `NativeWeb:` prefix survives in source comments and in two user-visible error
-  messages.** `libs/nativeweb.mail/SmtpOptions.cs:23` says `SmtpOptions` binds from
+- ~~**The departed `NativeWeb:` prefix survives in source comments and in two user-visible error
+  messages.**~~ — **done 2026-09-02**, `dc4d3d9`. Both messages are section-relative now
+  (`Smtp:FromAddress`, `Smtp:SecurityMode=None`), the four `ContactProtector` comments name no key
+  at all, and `DepartedPrefixTests` sweeps every `.cs` and `.md` under `libs/` so the next copy
+  fails rather than reaching a README. Original entry:
+  `libs/nativeweb.mail/SmtpOptions.cs:23` says `SmtpOptions` binds from
   `NativeWeb:Smtp` and lines 103 and 113 throw `InvalidOperationException` naming
   `NativeWeb:Smtp:FromAddress` and `NativeWeb:Smtp:SecurityMode`; `ContactProtector.cs` names
   `NativeWeb:ContactKey`. Neither library binds anything — the host chooses the section — and that

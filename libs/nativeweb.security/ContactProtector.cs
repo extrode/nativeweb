@@ -12,8 +12,9 @@ namespace NativeWeb.Security;
 // of the normalized value, deterministic and non-reversible, stored beside the
 // ciphertext and queried instead of the plaintext.
 //
-// Two independent subkeys are derived from one configured secret (`NativeWeb:ContactKey`)
-// so the encryption key and the index key are never the same value:
+// Two independent subkeys are derived from one configured secret — supplied by the
+// product, which names the key, since this library reads no configuration — so the
+// encryption key and the index key are never the same value:
 //   master   = StoreDataProtector.DeriveKey(secret)   (32 bytes)
 //   encKey   = SHA-256(master ‖ "enc")    -> AES-256-GCM (via StoreDataProtector)
 //   indexKey = SHA-256(master ‖ "index")  -> HMAC-SHA-256 blind index
@@ -27,8 +28,8 @@ namespace NativeWeb.Security;
 /// At-rest protection for contact PII (an email address or phone number): AES-256-GCM
 /// encryption for plaintext round-trip, plus a scope-bound HMAC-SHA-256 blind index for
 /// equality lookup and uniqueness, since the ciphertext itself cannot back either.
-/// Encryption and index keys are independent subkeys of one configured secret
-/// (<c>NativeWeb:ContactKey</c>).
+/// Encryption and index keys are independent subkeys of one secret the product supplies
+/// and names.
 /// </summary>
 public sealed class ContactProtector
 {
@@ -47,9 +48,9 @@ public sealed class ContactProtector
     }
 
     // Same decoding rule as the store key: a 32-byte base64/hex value is used verbatim,
-    // anything else is SHA-256'd — so operators configure NativeWeb:ContactKey exactly like
-    // NativeWeb:StoreEncryptionKey.
-    /// <summary>Derives the 32-byte master key from a configured <c>NativeWeb:ContactKey</c> secret.</summary>
+    // anything else is SHA-256'd — so whatever a product calls its contact key, an operator
+    // supplies it the same way as the store encryption key.
+    /// <summary>Derives the 32-byte master key from the configured contact secret.</summary>
     public static byte[] DeriveKey(string secret) => StoreDataProtector.DeriveKey(secret);
 
     /// <summary>Encrypts a contact value for storage.</summary>

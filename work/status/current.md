@@ -61,6 +61,16 @@ worth seeing here rather than hiding, but it is the exception.
   Spec 018's fourth acceptance criterion claimed a test fails whenever a named type or path moves;
   that absolute is not met and now states its limits in place.
 
+- **The departed `NativeWeb:` prefix, out of the libraries. Done on `fix/stale-nativeweb-prefix`
+  (2026-09-02).** The backlog note above became work: `SmtpOptions.Validate` threw
+  `NativeWeb:Smtp:FromAddress` at an operator whose configuration says `Sample:Smtp:*`, and four
+  `ContactProtector` comments named `NativeWeb:ContactKey`. Neither library binds configuration,
+  so both were keys nothing reads. Messages are section-relative now, the comments name no key,
+  and `DepartedPrefixTests` sweeps every `.cs` and `.md` under `libs/` for the prefix in key shape
+  — prose like "for NativeWeb: a source-generated ..." is not a setting, so an uppercase letter
+  after the colon is what matches. Two mutations, each red: the prefix back in a comment, and the
+  old message restored.
+
 - **Plan 008 — mutation-driven test strategy for the paging seam. Done and merged into `dev`,
   unpushed (2026-09-01).** `test/018-paging-property-tests`, prompted by the user's
   `testing-strategy-handover.md` and by the fact below: 017 shipped eight defects and **no test
