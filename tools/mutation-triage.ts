@@ -32,12 +32,13 @@
 // suite removes what this one left. scripts/cleanup/018-paging-property-tests.ps1 remains the
 // operator's fallback for looking without running a suite:
 //
-//   psql -d nativeweb_sample_test -U nativeweb_app //     -c "SELECT id, created_at FROM articles WHERE created_at > now();"
+//   psql -d nativeweb_sample_test -U nativeweb_app \
+//     -c "SELECT id, created_at FROM articles WHERE created_at > now();"
 //   pwsh scripts/cleanup/018-paging-property-tests.ps1        # dry run; -e to act
 //
 // Every target runs under tools/stryker-config.json, passed with --config-file: ConfigureAwait
 // mutants are ignored there because flipping the flag is behaviour-identical under a test host
-// (about fifteen of the SQL store's survivors were that, on 2026-09-01), and the per-mutant
+// (41 of the sample project's mutants and 7 of the scaffold's are that), and the per-mutant
 // additional timeout is 30 s rather than Stryker's 5 s so a host slow under load is not killed
 // for it. The baseline was re-recorded under that config on 2026-09-02; a figure from before it
 // is not comparable.
@@ -51,7 +52,7 @@ interface Target {
 	readonly note: string;
 }
 
-const TARGETS: readonly Target[] = [
+export const TARGETS: readonly Target[] = [
 	{
 		name: "scaffold",
 		testProject: "tests/nativeweb.scaffold.tests.unit",
@@ -138,10 +139,14 @@ export function strykerArgs(target: Pick<Target, "name" | "underTest">, root: st
 		"--config-file",
 		`${root}/${CONFIG}`,
 		"--output",
-		`${root}/tmp/stryker/${target.name}`,
+		`${root}/${outputDir(target.name)}`,
 		"--reporter",
 		"json",
 	];
+}
+
+function outputDir(name: string): string {
+	return `tmp/stryker/${name}`;
 }
 
 async function run(target: Target): Promise<Score> {
@@ -158,7 +163,7 @@ async function run(target: Target): Promise<Score> {
 		throw new Error(`stryker exited ${code} for ${target.name}`);
 	}
 
-	return scoreOf(`tmp/stryker/${target.name}/reports/mutation-report.json`);
+	return scoreOf(`${outputDir(target.name)}/reports/mutation-report.json`);
 }
 
 if (import.meta.main) {

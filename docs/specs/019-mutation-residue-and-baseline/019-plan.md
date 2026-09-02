@@ -57,9 +57,10 @@ DELETE FROM articles
    AND created_at < @cutoff   -- UtcNow.AddYears(5).AddMinutes(-30)
 ```
 
-The largest offset a feed test adds to its five-year date is one hour, so a row minted now sits at
-least thirty minutes past the cutoff, and a row minted two hours ago sits at least thirty minutes
-before it whatever its offset.
+The largest offset a feed test adds to its five-year date is two minutes (it was an hour; the
+sweep's window is thirty minutes plus the offset, so the two `-newer` rows came down to it), so a
+row minted now sits at least thirty minutes past the cutoff and a leaked row is swept within
+thirty-two minutes of its mint.
 
 ## Risks & mitigations
 

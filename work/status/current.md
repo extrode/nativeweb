@@ -15,9 +15,16 @@ worth seeing here rather than hiding, but it is the exception.
   leap year cannot differ from the tests' own arithmetic, and age-gated because a sweep by prefix
   alone would delete a parallel Stryker host's live rows. A three-row test pins it and goes red
   without the gate. Baseline re-recorded from a full run: scaffold 88.30% (151/8/12, 56 s),
-  sample-unit 27.81% (83/13/205), sample-integration 43.05% (129/103/69, timeouts 39 → 1). The
+  sample-unit 27.81% (83/13/205), sample-integration 43.05% (129/103/69, timeouts 39 → 1);
+  scaffold's total rose 166 → 171 because `aa15806` changed the cursor codec after the old
+  recording. The
   sample-integration drop of 7.25 points is the timeouts becoming survivors, not weaker tests;
-  the run left zero future-dated rows. Integration suite 82 green, e2e feed tests 5 green after a
+  the run left zero future-dated rows. Two-lens review: 16 candidate findings, 7 fixed (a
+  collapsed shell continuation in the header, the one-hour feed offset that made the sweep window
+  ninety minutes, a test that never exercised the prefix clause and published its rows, a wrong
+  filter count in the changelog, a duplicated output path, a test not bound to `TARGETS`), the
+  rest refuted by measurement or accepted as the tier's charter. Integration suite 82 green, e2e
+  feed tests 5 green after a
   `dotnet build-server shutdown` cleared an MSB4216 task-host failure in the fixture's publish.
 - **Spec 008 closed, 2026-09-02, `docs/008-close`.** The three criteria the 2026-08-25 review
   could not flip were amended rather than the code changed, on the user's call: R1 now asks for a

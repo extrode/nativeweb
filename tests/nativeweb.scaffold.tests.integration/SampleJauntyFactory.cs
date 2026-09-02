@@ -215,7 +215,7 @@ internal static class SampleTestDatabase
     /// date — plus an age gate, because Stryker runs test hosts in parallel
     /// against this one database and a sweep by prefix alone would delete a
     /// sibling's live rows. A feed row's <c>created_at</c> is
-    /// <c>UtcNow.AddYears(5)</c> plus at most an hour, so the mint time is
+    /// <c>UtcNow.AddYears(5)</c> plus at most two minutes, so the mint time is
     /// recoverable from it, and a row minted more than thirty minutes ago cannot
     /// belong to a test that is still running. The cutoff is computed here with
     /// the same <c>AddYears</c> the tests use rather than a PostgreSQL interval,

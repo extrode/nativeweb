@@ -95,7 +95,7 @@ public sealed class PublicFeedTests(JauntySampleFixture app, BrowserFixture brow
         {
             // Inserted oldest first, so page order cannot be insertion order.
             await SampleE2eDatabase.InsertAsync($"{prefix}-1", $"{prefix}-older", true, future);
-            await SampleE2eDatabase.InsertAsync($"{prefix}-2", $"{prefix}-newer", true, future.AddHours(1));
+            await SampleE2eDatabase.InsertAsync($"{prefix}-2", $"{prefix}-newer", true, future.AddMinutes(2));
 
             IPage page = await AnonymousPageAsync();
             await page.GotoAsync("/articles");

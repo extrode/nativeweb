@@ -91,6 +91,7 @@ None. Two decisions were taken while grounding and are recorded so the plan does
   operator step.
 - **Age, not liveness.** A sweep by prefix alone would delete a concurrent host's live rows, since
   Stryker runs test hosts in parallel against the one database. Rows are dated
-  `UtcNow.AddYears(5)` plus at most one hour, so the mint time is recoverable from `created_at`,
-  and a row minted more than thirty minutes before the sweep cannot belong to a test that is
-  still running.
+  `UtcNow.AddYears(5)` plus at most two minutes, so the mint time is recoverable from
+  `created_at`, and a row minted more than thirty minutes before the sweep cannot belong to a
+  test that is still running. The largest offset was an hour before this work; review pointed out
+  that the sweep's window is thirty minutes plus the offset, so the offset came down.
