@@ -5,8 +5,58 @@
     try {
       if (value === null) localStorage.removeItem(key);
       else localStorage.setItem(key, value);
+      localStorage.setItem('dg-ts', String(Date.now()));
     } catch (e) { /* storage denied; the choice still holds for this page */ }
   }
+
+  // ---- preferences ride the link over file:// ----
+  // Firefox gives every file:// page its own localStorage, so a hop to the next page
+  // would forget every preference. Under file:// each internal link is given the live
+  // preferences as ?dg=…, which the head script reads before first paint. Served over
+  // http storage is shared and the links stay clean.
+  function prefsQuery() {
+    var parts = [];
+    var t = d.getAttribute('data-theme'); if (t) parts.push('theme:' + t);
+    var s = d.style.getPropertyValue('--fs-scale'); if (s) parts.push('fs:' + s);
+    var w = parseInt(d.style.getPropertyValue('--nav-w'), 10); if (w) parts.push('nav-w:' + w);
+    if (d.getAttribute('data-toc') === 'hidden') parts.push('toc:hidden');
+    if (d.getAttribute('data-nav') === 'hidden') parts.push('nav:hidden');
+    if (!parts.length) return '';
+    var ts = 0;
+    try { ts = parseInt(localStorage.getItem('dg-ts'), 10) || 0; } catch (e) { /* no storage */ }
+    parts.push('ts:' + (ts || Date.now()));
+    return 'dg=' + parts.join(',');
+  }
+
+  function isInternal(href) {
+    return !!href && !/^[a-z][a-z0-9+.-]*:/i.test(href) && href.indexOf('//') !== 0 && href.charAt(0) !== '#';
+  }
+
+  function withPrefs(href) {
+    if (location.protocol !== 'file:' || !isInternal(href)) return href;
+    var q = prefsQuery();
+    var hash = '', i = href.indexOf('#');
+    if (i >= 0) { hash = href.slice(i); href = href.slice(0, i); }
+    var j = href.indexOf('?');
+    var query = j >= 0 ? href.slice(j + 1).split('&').filter(function (p) { return p.indexOf('dg=') !== 0; }) : [];
+    if (j >= 0) href = href.slice(0, j);
+    if (q) query.push(q);
+    return href + (query.length ? '?' + query.join('&') : '') + hash;
+  }
+
+  function go(href) { if (href) window.location.href = withPrefs(href); }
+
+  function carryPrefs(e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+    var href = a.getAttribute('href');
+    var carried = withPrefs(href);
+    if (carried !== href) a.setAttribute('href', carried);
+  }
+  // Capturing, so the href is rewritten before the browser follows it; auxclick is the
+  // middle button, which opens the link in a new tab without a click event.
+  document.addEventListener('click', carryPrefs, true);
+  document.addEventListener('auxclick', carryPrefs, true);
 
   // ---- group toggle ----
   window.toggleGroup = function (header) {
@@ -63,11 +113,37 @@
     }
     resizer.addEventListener('pointerup', endDrag);
     resizer.addEventListener('pointercancel', endDrag);
-    resizer.addEventListener('dblclick', function () {
-      d.style.removeProperty('--nav-w');
-      store('dg-nav-w', null);
-    });
+    resizer.addEventListener('dblclick', function () { resetNavWidth(); });
   }
+
+  window.resetNavWidth = function () {
+    d.style.removeProperty('--nav-w');
+    store('dg-nav-w', null);
+  };
+
+  // ---- nav filter keys ----
+  // `f` lands here; Enter opens the first page still showing, Escape clears and leaves.
+  var navFilter = document.getElementById('nav-filter');
+  window.focusFilter = function () {
+    if (!navFilter) return;
+    var sidebar = document.getElementById('jt-sidebar');
+    if (isDrawer() ? !sidebar.classList.contains('open') : d.getAttribute('data-nav') === 'hidden') toggleNav();
+    navFilter.focus();
+    navFilter.select();
+  };
+  function clearFilter() {
+    if (!navFilter) return;
+    navFilter.value = '';
+    filterNav('');
+    navFilter.blur();
+  }
+  if (navFilter) navFilter.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      var first = document.querySelector('.nav-group:not(.nav-hidden) .nav-group-items a:not(.nav-hidden)');
+      if (first) go(first.getAttribute('href'));
+      e.preventDefault();
+    } else if (e.key === 'Escape') { clearFilter(); e.preventDefault(); }
+  });
 
   // ---- nav filter ----
   window.filterNav = function (q) {
@@ -299,7 +375,7 @@
     else if (e.key === 'ArrowUp') { if (hits.length) selected = (selected - 1 + hits.length) % hits.length; render(); e.preventDefault(); }
     else if (e.key === 'Enter') {
       var a = results.querySelector('.selected');
-      if (a) window.location.href = a.getAttribute('href');
+      if (a) go(a.getAttribute('href'));
       e.preventDefault();
     }
     else if (e.key === 'Escape') { closeSearch(); e.preventDefault(); }
@@ -320,7 +396,22 @@
 
   function follow(sel) {
     var a = document.querySelector(sel);
-    if (a) window.location.href = a.getAttribute('href');
+    if (a) go(a.getAttribute('href'));
+  }
+
+  // j / k: the next heading below the sticky header's bottom edge, or the last one above
+  // it. scrollIntoView lands a heading on that edge (the page sets scroll-margin-top), so
+  // the 4px margin keeps the heading just landed on from counting as "below" again.
+  function stepHeading(dir) {
+    var header = document.querySelector('.jt-header');
+    var line = (header ? header.getBoundingClientRect().bottom : 0) + 4;
+    var hs = Array.prototype.slice.call(document.querySelectorAll('article h2, article h3, article h4'));
+    var target = null;
+    hs.forEach(function (h) {
+      var top = h.getBoundingClientRect().top;
+      if (dir > 0 ? top > line && !target : top < line - 8) target = h;
+    });
+    if (target) target.scrollIntoView({ block: 'start' });
   }
 
   document.addEventListener('keydown', function (e) {
@@ -337,10 +428,15 @@
     if (typing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
     switch (e.key) {
       case '/': openSearch(); break;
+      case 'f': focusFilter(); break;
+      case 'h': go('index.html'); break;
       case '[': follow('.pn-prev'); break;
       case ']': follow('.pn-next'); break;
+      case 'j': stepHeading(1); break;
+      case 'k': stepHeading(-1); break;
       case 'b': toggleNav(); break;
       case 'o': toggleToc(); break;
+      case 'w': resetNavWidth(); break;
       case 't': cycleTheme(); break;
       case '-': fontSize(-1); break;
       case '=': case '+': fontSize(1); break;
