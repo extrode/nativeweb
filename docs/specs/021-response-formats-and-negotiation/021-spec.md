@@ -1,5 +1,5 @@
 # 021 — Response formats and content negotiation
-Status: draft
+Status: done
 Created: 2026-09-02
 
 ## Problem

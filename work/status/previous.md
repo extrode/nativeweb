@@ -2,6 +2,23 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Spec 021 — response formats and content negotiation** —
+  `feat/021-response-formats-and-negotiation`, 2026-09-02. Twelve tasks ticked, spec
+  `Status: done`. Eight document formats from one call each in `libs/nativeweb.render`,
+  `MapNegotiated` with a stated precedence and stated refusals in `libs/nativeweb.web`, the
+  public-page cache keyed on the chosen format, every format published by `apps/sample` and
+  proved in three tiers. Review: 27 candidates, 13 confirmed and fixed, 8 refuted, 6 noted.
+  - **The finding that mattered most was a cache defect the plan had called a feature.** The
+    plan put `/articles` under the public-page policy expecting its antiforgery cookie to keep it
+    out of the cache. A returning visitor already holds the cookie, so their render sets none, is
+    stored, and the next stranger receives a page whose token cannot match any cookie they hold.
+    Measured through `SampleFactory`: the third visitor got no `Set-Cookie` at all. The listing
+    is uncached now in every representation and a test holds it there; the feed's Atom and RSS
+    representations show per-representation caching instead.
+  - **The chooser was wrong twice at once**: a `q=0` range only vetoed an offer when it was the
+    first match, and specificity never ranked, so `*/*, text/html;q=0` chose HTML. It ranks each
+    offer by its most specific matching range now.
+
 - **Spec 016 — the OAuth relying party** — `feat/016-oauth-relying-party`, 2026-09-01. All 27
   tasks ticked, spec `Status: done`. **1313 tests across 15 assemblies, 0 failed**; AOT publish
   gate 21 s with zero IL2xxx/IL3xxx. NativeWeb is the client half and never the server:

@@ -345,6 +345,7 @@ public sealed partial class AssetParityTests
             .Where(d => !d.Replace('\\', '/').Contains("/bin/", StringComparison.Ordinal))
             .Where(d => !d.Replace('\\', '/').Contains("/obj/", StringComparison.Ordinal))
             .Where(d => !d.Replace('\\', '/').Contains("/tmp/", StringComparison.Ordinal))
+            .Where(d => !d.Replace('\\', '/').Contains("/.worktrees/", StringComparison.Ordinal))
             .Select(d => Path.GetRelativePath(root, d))
             .ToArray();
 
