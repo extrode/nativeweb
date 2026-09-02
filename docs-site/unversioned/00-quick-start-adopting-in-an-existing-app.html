@@ -16,6 +16,10 @@
     if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
     var s = parseFloat(localStorage.getItem('dg-fs'));
     if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+    var w = parseInt(localStorage.getItem('dg-nav-w'), 10);
+    if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+    if (localStorage.getItem('dg-toc') === 'hidden') d.setAttribute('data-toc', 'hidden');
+    if (localStorage.getItem('dg-nav') === 'hidden') d.setAttribute('data-nav', 'hidden');
   } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
 })();
 </script>
@@ -28,7 +32,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">nativeweb</span>
-      <span class="brand-crumb">Adopting NativeWeb in an existing application</span>
+      <span class="brand-crumb">Quick start &#8250; Adopting NativeWeb in an existing application</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -38,6 +42,9 @@
           <li aria-current="page"><span>unversioned</span></li>
         </ul>
       </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
       <div class="fs-group" role="group" aria-label="Text size">
         <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
         <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
@@ -64,40 +71,41 @@
         <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">Overview</span>
+    <span class="nav-group-label">General</span>
   </div>
-  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">quick-start</span>
+    <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html" class="active" aria-current="page">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html" class="active" aria-current="page">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">architecture</span>
+    <span class="nav-group-label">Architecture</span>
   </div>
-  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">reference</span>
+    <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
 </div>
 
       </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
     </nav>
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#1-reference-the-framework">1. Reference the framework</a><a class="toc-l3" href="#why-not-packages">Why not packages</a><a class="toc-l3" href="#the-project-references">The project references</a><a class="toc-l3" href="#declare-your-templates">Declare your templates</a><a class="toc-l2" href="#2-wire-the-pipeline">2. Wire the pipeline</a><a class="toc-l3" href="#two-things-that-stop-the-process-if-you-skip-them">Two things that stop the process if you skip them</a><a class="toc-l2" href="#3-delete-what-the-framework-now-owns">3. Delete what the framework now owns</a><a class="toc-l2" href="#4-what-you-must-keep">4. What you must keep</a><a class="toc-l2" href="#5-constraints-you-inherit">5. Constraints you inherit</a><a class="toc-l2" href="#6-check-it-worked">6. Check it worked</a><a class="toc-l2" href="#if-you-get-stuck">If you get stuck</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#1-reference-the-framework">1. Reference the framework</a><a class="toc-l3" href="#why-not-packages">Why not packages</a><a class="toc-l3" href="#the-project-references">The project references</a><a class="toc-l3" href="#declare-your-templates">Declare your templates</a><a class="toc-l2" href="#2-wire-the-pipeline">2. Wire the pipeline</a><a class="toc-l3" href="#two-things-that-stop-the-process-if-you-skip-them">Two things that stop the process if you skip them</a><a class="toc-l2" href="#3-delete-what-the-framework-now-owns">3. Delete what the framework now owns</a><a class="toc-l2" href="#4-what-you-must-keep">4. What you must keep</a><a class="toc-l2" href="#5-constraints-you-inherit">5. Constraints you inherit</a><a class="toc-l2" href="#6-check-it-worked">6. Check it worked</a><a class="toc-l2" href="#if-you-get-stuck">If you get stuck</a></nav>
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">Adopting NativeWeb in an existing application</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Quick start &#8250; Adopting NativeWeb in an existing application</nav>
         <article>
 <h1 id="adopting-nativeweb-in-an-existing-application">Adopting NativeWeb in an existing application</h1>
 <p><a href="00-quick-start-getting-started.html"><code>getting-started.md</code></a> is the greenfield path: clone, build, run
@@ -112,11 +120,17 @@ the day before the library that provides them completed.</p>
 <p><strong>Checkout mode is what works today.</strong> Clone this repository as a <strong>sibling</strong> of your product —
 and clone JauntyQ beside it too, because NativeWeb's own libraries reference it and
 its checkout is probed relative to the NativeWeb one:</p>
-<pre><code>your-org/
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">your-org/
   nativeweb/          &lt;- this repository
   jauntyq/            &lt;- required: nativeweb.web, .render and .security all build against it
   your-product/       &lt;- yours
 </code></pre>
+</div>
 <p>Without <code>jauntyq/</code> the first build stops at <code>JauntyQ checkout not found at '&lt;...&gt;\..\jauntyq'</code> before any of your own code compiles. <code>-p:JauntyQRoot=&lt;path&gt;</code> overrides the
 location. Do not reach for <code>-p:JauntyQUsePackages=true</code>: that path exists for this repository's
 CI and the packages are not available to you.</p>
@@ -131,22 +145,22 @@ to clone it as <code>NativeWeb</code>.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">XML</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="xml"><code class="language-xml">&lt;PropertyGroup&gt;
-  &lt;NativeWebRoot Condition=&quot;'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\nativeweb')&quot;&gt;$(MSBuildThisFileDirectory)..\nativeweb&lt;/NativeWebRoot&gt;
-  &lt;NativeWebRoot Condition=&quot;'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\NativeWeb')&quot;&gt;$(MSBuildThisFileDirectory)..\NativeWeb&lt;/NativeWebRoot&gt;
-  &lt;NativeWebRoot Condition=&quot;'$(NativeWebRoot)' == ''&quot;&gt;$(MSBuildThisFileDirectory)..\nativeweb&lt;/NativeWebRoot&gt;
-&lt;/PropertyGroup&gt;
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">NativeWebRoot</span> <span class="tok-attr">Condition</span>=<span class="tok-str">&quot;'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\nativeweb')&quot;</span><span class="tok-punc">&gt;</span>$(MSBuildThisFileDirectory)..\nativeweb<span class="tok-punc">&lt;/</span><span class="tok-tag">NativeWebRoot</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">NativeWebRoot</span> <span class="tok-attr">Condition</span>=<span class="tok-str">&quot;'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\NativeWeb')&quot;</span><span class="tok-punc">&gt;</span>$(MSBuildThisFileDirectory)..\NativeWeb<span class="tok-punc">&lt;/</span><span class="tok-tag">NativeWebRoot</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">NativeWebRoot</span> <span class="tok-attr">Condition</span>=<span class="tok-str">&quot;'$(NativeWebRoot)' == ''&quot;</span><span class="tok-punc">&gt;</span>$(MSBuildThisFileDirectory)..\nativeweb<span class="tok-punc">&lt;/</span><span class="tok-tag">NativeWebRoot</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
 
-&lt;Target Name=&quot;EnsureNativeWebRoot&quot; BeforeTargets=&quot;BeforeBuild&quot;
-        Condition=&quot;!Exists('$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj')&quot;&gt;
-  &lt;Error Text=&quot;NativeWeb checkout not found at '$(NativeWebRoot)'. Pass -p:NativeWebRoot=&amp;lt;path&amp;gt;.&quot; /&gt;
-&lt;/Target&gt;
+<span class="tok-punc">&lt;</span><span class="tok-tag">Target</span> <span class="tok-attr">Name</span>=<span class="tok-str">&quot;EnsureNativeWebRoot&quot;</span> <span class="tok-attr">BeforeTargets</span>=<span class="tok-str">&quot;BeforeBuild&quot;</span>
+        <span class="tok-attr">Condition</span>=<span class="tok-str">&quot;!Exists('$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj')&quot;</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">Error</span> <span class="tok-attr">Text</span>=<span class="tok-str">&quot;NativeWeb checkout not found at '$(NativeWebRoot)'. Pass -p:NativeWebRoot=&amp;lt;path&amp;gt;.&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">Target</span><span class="tok-punc">&gt;</span>
 
-&lt;Target Name=&quot;ReportFrameworkResolution&quot; BeforeTargets=&quot;BeforeBuild&quot;&gt;
-  &lt;Message Importance=&quot;high&quot; Text=&quot;NativeWeb: checkout mode ($(NativeWebRoot))&quot; /&gt;
-&lt;/Target&gt;
+<span class="tok-punc">&lt;</span><span class="tok-tag">Target</span> <span class="tok-attr">Name</span>=<span class="tok-str">&quot;ReportFrameworkResolution&quot;</span> <span class="tok-attr">BeforeTargets</span>=<span class="tok-str">&quot;BeforeBuild&quot;</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">Message</span> <span class="tok-attr">Importance</span>=<span class="tok-str">&quot;high&quot;</span> <span class="tok-attr">Text</span>=<span class="tok-str">&quot;NativeWeb: checkout mode ($(NativeWebRoot))&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">Target</span><span class="tok-punc">&gt;</span>
 </code></pre>
 </div>
 <p>The guard matters. An unresolved root drops the project references with nothing worse than
@@ -162,9 +176,9 @@ worktree fails:</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">XML</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="xml"><code class="language-xml">&lt;NativeWebRoot Condition=&quot;'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\..\nativeweb')&quot;&gt;$(MSBuildThisFileDirectory)..\..\..\nativeweb&lt;/NativeWebRoot&gt;
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">NativeWebRoot</span> <span class="tok-attr">Condition</span>=<span class="tok-str">&quot;'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\..\nativeweb')&quot;</span><span class="tok-punc">&gt;</span>$(MSBuildThisFileDirectory)..\..\..\nativeweb<span class="tok-punc">&lt;/</span><span class="tok-tag">NativeWebRoot</span><span class="tok-punc">&gt;</span>
 </code></pre>
 </div>
 <h3 id="why-not-packages">Why not packages</h3>
@@ -181,14 +195,14 @@ pulling.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">XML</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="xml"><code class="language-xml">&lt;ItemGroup&gt;
-  &lt;ProjectReference Include=&quot;$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj&quot; /&gt;
-  &lt;ProjectReference Include=&quot;$(NativeWebRoot)\libs\nativeweb.render.generator\nativeweb.render.generator.csproj&quot;
-                    OutputItemType=&quot;Analyzer&quot; ReferenceOutputAssembly=&quot;false&quot; /&gt;
-  &lt;ProjectReference Include=&quot;$(NativeWebRoot)\libs\nativeweb.web\nativeweb.web.csproj&quot; /&gt;
-&lt;/ItemGroup&gt;
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">ProjectReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">ProjectReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;$(NativeWebRoot)\libs\nativeweb.render.generator\nativeweb.render.generator.csproj&quot;</span>
+                    <span class="tok-attr">OutputItemType</span>=<span class="tok-str">&quot;Analyzer&quot;</span> <span class="tok-attr">ReferenceOutputAssembly</span>=<span class="tok-str">&quot;false&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">ProjectReference</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;$(NativeWebRoot)\libs\nativeweb.web\nativeweb.web.csproj&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
 </code></pre>
 </div>
 <p>A generator is referenced as an <strong>analyzer</strong>, with <code>ReferenceOutputAssembly=&quot;false&quot;</code>. Reference
@@ -200,9 +214,9 @@ with no build error:</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">XML</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="xml"><code class="language-xml">&lt;Import Project=&quot;$(NativeWebRoot)\libs\nativeweb.web\build\NativeWeb.Web.targets&quot; /&gt;
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">Import</span> <span class="tok-attr">Project</span>=<span class="tok-str">&quot;$(NativeWebRoot)\libs\nativeweb.web\build\NativeWeb.Web.targets&quot;</span> <span class="tok-punc">/&gt;</span>
 </code></pre>
 </div>
 <h3 id="declare-your-templates">Declare your templates</h3>
@@ -212,12 +226,12 @@ the generator emits no classes and your first reference to one is a <code>CS0103
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">XML</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="xml"><code class="language-xml">&lt;ItemGroup&gt;
-  &lt;AdditionalFiles Include=&quot;templates\**\*.html&quot; /&gt;
-  &lt;AdditionalFiles Include=&quot;locales\*.json&quot; /&gt;
-&lt;/ItemGroup&gt;
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;templates\**\*.html&quot;</span> <span class="tok-punc">/&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">AdditionalFiles</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;locales\*.json&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
 </code></pre>
 </div>
 <p><code>locales/en.json</code> is the root catalog and every <code>{{t:...}}</code> key must exist in it, so a product
@@ -227,20 +241,20 @@ that ships one language still ships that file.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp">WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(args);
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-type">WebApplicationBuilder</span> builder = <span class="tok-type">WebApplication</span>.<span class="tok-fn">CreateSlimBuilder</span>(args);
 
-NativeWebOptions options = NativeWebOptions.FromConfiguration(builder.Configuration, &quot;MyProduct&quot;);
-builder.AddNativeWebWeb(options, <span class="tok-kw">typeof</span>(Program).Assembly);
+<span class="tok-type">NativeWebOptions</span> options = <span class="tok-type">NativeWebOptions</span>.<span class="tok-fn">FromConfiguration</span>(builder.<span class="tok-var">Configuration</span>, <span class="tok-str">&quot;MyProduct&quot;</span>);
+builder.<span class="tok-fn">AddNativeWebWeb</span>(options, <span class="tok-kw">typeof</span>(<span class="tok-type">Program</span>).<span class="tok-var">Assembly</span>);
 
-WebApplication app = builder.Build();
-app.UseNativeWebPipeline(Locales.All);
-app.MapNativeWebEndpoints(options, <span class="tok-kw">typeof</span>(Program).Assembly);
+<span class="tok-type">WebApplication</span> app = builder.<span class="tok-fn">Build</span>();
+app.<span class="tok-fn">UseNativeWebPipeline</span>(<span class="tok-type">Locales</span>.<span class="tok-var">All</span>);
+app.<span class="tok-fn">MapNativeWebEndpoints</span>(options, <span class="tok-kw">typeof</span>(<span class="tok-type">Program</span>).<span class="tok-var">Assembly</span>);
 
 <span class="tok-com">// your own routes here</span>
 
-app.Run();
+app.<span class="tok-fn">Run</span>();
 </code></pre>
 </div>
 <p>The two calls take different things and the difference is not a slip. <code>UseNativeWebPipeline</code>
@@ -335,8 +349,14 @@ trim-compatible fails your publish, not ours.</li>
 source or binaries, and never ship a binary built against it to a third party.</li>
 </ul>
 <h2 id="6-check-it-worked">6. Check it worked</h2>
-<pre><code>dotnet build
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet build
 </code></pre>
+</div>
 <p>The <code>ReportFrameworkResolution</code> target above prints <code>NativeWeb: checkout mode (&lt;path&gt;)</code>, so a
 wrong root is visible in the log rather than at the first <code>CS0246</code>. Then run your app:</p>
 <table>
@@ -394,7 +414,7 @@ between the version you cloned and the one you pulled.</li>
         <div class="page-nav" id="page-nav">
           <div class="prev-next"><a class="pn-prev" href="00-quick-start-README.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">README</span>
+  <span class="pn-title">NativeWeb</span>
 </a><a class="pn-next" href="00-quick-start-getting-started.html">
   <span class="pn-label">next &#8594;</span>
   <span class="pn-title">Getting started</span>
@@ -407,7 +427,36 @@ between the version you cloned and the one you pulled.</li>
   <!-- ===== status bar ===== -->
   <footer class="jt-statusbar">
     <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
   </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
 </div>
 <script src="nav.js"></script>
 </body>

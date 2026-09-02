@@ -57,7 +57,7 @@ standing in for the feed, and the same command fails on a clean machine.
 rather than failing, which makes this the fastest way to see the thing work.
 
 ```
-dotnet run --project apps/sample                          # http://localhost:5399/articles
+dotnet run --project apps/sample                          # http://localhost:5399/
 dotnet watch run --project apps/sample --no-hot-reload    # the edit-and-see-it loop
 ```
 

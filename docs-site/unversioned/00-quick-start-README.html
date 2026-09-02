@@ -16,6 +16,10 @@
     if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
     var s = parseFloat(localStorage.getItem('dg-fs'));
     if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+    var w = parseInt(localStorage.getItem('dg-nav-w'), 10);
+    if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+    if (localStorage.getItem('dg-toc') === 'hidden') d.setAttribute('data-toc', 'hidden');
+    if (localStorage.getItem('dg-nav') === 'hidden') d.setAttribute('data-nav', 'hidden');
   } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
 })();
 </script>
@@ -28,7 +32,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">nativeweb</span>
-      <span class="brand-crumb">NativeWeb</span>
+      <span class="brand-crumb">Quick start &#8250; NativeWeb</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -38,6 +42,9 @@
           <li aria-current="page"><span>unversioned</span></li>
         </ul>
       </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
       <div class="fs-group" role="group" aria-label="Text size">
         <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
         <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
@@ -64,40 +71,41 @@
         <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">Overview</span>
+    <span class="nav-group-label">General</span>
   </div>
-  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">quick-start</span>
+    <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html" class="active" aria-current="page">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html" class="active" aria-current="page">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">architecture</span>
+    <span class="nav-group-label">Architecture</span>
   </div>
-  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">reference</span>
+    <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
 </div>
 
       </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
     </nav>
 
     <!-- content -->
     <main class="jt-content" id="jt-content">
       
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">NativeWeb</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Quick start &#8250; NativeWeb</nav>
         <article>
 <h1 id="nativeweb">NativeWeb</h1>
 <p>A server-first architecture for ASP.NET Core: Minimal APIs, server-rendered HTML, NativeAOT,
@@ -145,10 +153,10 @@ how the project is built rather than how to use it.</p>
         <div class="page-nav" id="page-nav">
           <div class="prev-next"><a class="pn-prev" href="conventions.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">Conventions</span>
+  <span class="pn-title">Conventions — NativeWeb</span>
 </a><a class="pn-next" href="00-quick-start-adopting-in-an-existing-app.html">
   <span class="pn-label">next &#8594;</span>
-  <span class="pn-title">Adopting in an existing app</span>
+  <span class="pn-title">Adopting NativeWeb in an existing application</span>
 </a></div>
         </div>
       </div>
@@ -158,7 +166,36 @@ how the project is built rather than how to use it.</p>
   <!-- ===== status bar ===== -->
   <footer class="jt-statusbar">
     <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
   </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
 </div>
 <script src="nav.js"></script>
 </body>

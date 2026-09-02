@@ -16,6 +16,10 @@
     if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
     var s = parseFloat(localStorage.getItem('dg-fs'));
     if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+    var w = parseInt(localStorage.getItem('dg-nav-w'), 10);
+    if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+    if (localStorage.getItem('dg-toc') === 'hidden') d.setAttribute('data-toc', 'hidden');
+    if (localStorage.getItem('dg-nav') === 'hidden') d.setAttribute('data-nav', 'hidden');
   } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
 })();
 </script>
@@ -28,7 +32,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">nativeweb</span>
-      <span class="brand-crumb">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</span>
+      <span class="brand-crumb">Architecture &#8250; Lean Native Web (LNW) — Architecture Specification &amp; Handoff</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -38,6 +42,9 @@
           <li aria-current="page"><span>unversioned</span></li>
         </ul>
       </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
       <div class="fs-group" role="group" aria-label="Text size">
         <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
         <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
@@ -64,40 +71,41 @@
         <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">Overview</span>
+    <span class="nav-group-label">General</span>
   </div>
-  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">quick-start</span>
+    <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">architecture</span>
+    <span class="nav-group-label">Architecture</span>
   </div>
-  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html" class="active" aria-current="page">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html" class="active" aria-current="page">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">reference</span>
+    <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
 </div>
 
       </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
     </nav>
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#status">Status</a><a class="toc-l2" href="#1-vision">1. Vision</a><a class="toc-l2" href="#2-core-principles">2. Core Principles</a><a class="toc-l2" href="#3-technology-stack">3. Technology Stack</a><a class="toc-l2" href="#4-technologies-explicitly-avoided">4. Technologies Explicitly Avoided</a><a class="toc-l2" href="#5-project-structure">5. Project Structure</a><a class="toc-l2" href="#6-data-access--jauntyq">6. Data Access — JauntyQ</a><a class="toc-l2" href="#7-dependency-injection">7. Dependency Injection</a><a class="toc-l2" href="#8-where-htmx-goes-where-alpine-goes-where-neither-goes">8. Where HTMX goes, where Alpine goes, where neither goes</a><a class="toc-l2" href="#9-web-components">9. Web Components</a><a class="toc-l2" href="#10-authentication--authorization">10. Authentication &amp; Authorization</a><a class="toc-l2" href="#11-static-assets-serialization-configuration">11. Static Assets, Serialization, Configuration</a><a class="toc-l2" href="#12-error-handling">12. Error Handling</a><a class="toc-l2" href="#13-migration-from-svelte--deno-bff">13. Migration from Svelte + Deno BFF</a><a class="toc-l2" href="#14-measured-benchmarks">14. Measured Benchmarks</a><a class="toc-l2" href="#15-upgrading-to-htmx-40">15. Upgrading to htmx 4.0</a><a class="toc-l2" href="#16-handoff-checklist--the-original-open-risks-kept-as-a-record">16. Handoff Checklist — the original open risks, kept as a record</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#status">Status</a><a class="toc-l2" href="#1-vision">1. Vision</a><a class="toc-l2" href="#2-core-principles">2. Core Principles</a><a class="toc-l2" href="#3-technology-stack">3. Technology Stack</a><a class="toc-l2" href="#4-technologies-explicitly-avoided">4. Technologies Explicitly Avoided</a><a class="toc-l2" href="#5-project-structure">5. Project Structure</a><a class="toc-l2" href="#6-data-access--jauntyq">6. Data Access — JauntyQ</a><a class="toc-l2" href="#7-dependency-injection">7. Dependency Injection</a><a class="toc-l2" href="#8-where-htmx-goes-where-alpine-goes-where-neither-goes">8. Where HTMX goes, where Alpine goes, where neither goes</a><a class="toc-l2" href="#9-web-components">9. Web Components</a><a class="toc-l2" href="#10-authentication--authorization">10. Authentication &amp; Authorization</a><a class="toc-l2" href="#11-static-assets-serialization-configuration">11. Static Assets, Serialization, Configuration</a><a class="toc-l2" href="#12-error-handling">12. Error Handling</a><a class="toc-l2" href="#13-migration-from-svelte--deno-bff">13. Migration from Svelte + Deno BFF</a><a class="toc-l2" href="#14-measured-benchmarks">14. Measured Benchmarks</a><a class="toc-l2" href="#15-upgrading-to-htmx-40">15. Upgrading to htmx 4.0</a><a class="toc-l2" href="#16-handoff-checklist--the-original-open-risks-kept-as-a-record">16. Handoff Checklist — the original open risks, kept as a record</a></nav>
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Architecture &#8250; Lean Native Web (LNW) — Architecture Specification &amp; Handoff</nav>
         <article>
 <h1 id="lean-native-web-lnw--architecture-specification--handoff">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</h1>
 <h2 id="status">Status</h2>
@@ -223,7 +231,12 @@ Locator, dynamic plugins</li>
 </ul>
 <hr />
 <h2 id="5-project-structure">5. Project Structure</h2>
-<pre><code>LeanNativeWeb/
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">LeanNativeWeb/
 ├── Program.cs
 ├── LeanNativeWeb.csproj
 ├── appsettings.json
@@ -239,6 +252,7 @@ Locator, dynamic plugins</li>
     ├── css/
     └── components/       hand-written or Lit-based Web Components (see §9)
 </code></pre>
+</div>
 <p>Organize by feature, not by technical layer — <code>Endpoints/</code>, <code>Render/</code>, and <code>Queries/</code> each
 hold one file per feature, not one folder per feature containing mixed concerns. A single
 <code>Auth/</code> folder is the one deliberate exception, since authentication is infrastructure
@@ -288,19 +302,19 @@ which database driver sits underneath it).</li>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> jaunty = <span class="tok-kw">new</span> JauntyContext(connectionString);
-<span class="tok-kw">var</span> jwt = <span class="tok-kw">new</span> JwtService(secret);
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">var</span> jaunty = <span class="tok-kw">new</span> <span class="tok-type">JauntyContext</span>(connectionString);
+<span class="tok-kw">var</span> jwt = <span class="tok-kw">new</span> <span class="tok-type">JwtService</span>(secret);
 </code></pre>
 </div>
 <p>instead of</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp">builder.Services.AddSingleton&lt;JauntyContext&gt;();
+  <pre data-lang="csharp"><code class="language-csharp">builder.<span class="tok-var">Services</span>.<span class="tok-fn">AddSingleton</span>&lt;<span class="tok-type">JauntyContext</span>&gt;();
 </code></pre>
 </div>
 <p>The container should only be used where framework integrations require it — authentication
@@ -551,7 +565,9 @@ survives, retargeted at <code>apps/sample</code>, and its baseline was re-measur
 over: a smaller app measured against a larger one's ceiling passes for the wrong reason. The
 figures <code>--check</code> compares against now, recorded 2026-08-31 on the same bench-host: <code>/healthz</code> 23,068.6
 req/s, 0.60 ms p50, 45.0 MB peak RSS; <code>/articles</code> 19,937.6 req/s, 0.61 ms p50, 40.3 MB, zero
-errors. <code>/articles</code>, not <code>/</code>, because <code>/</code> on <code>apps/sample</code> is a 302 and would measure the router.
+errors. <code>/articles</code>, not <code>/</code>, because <code>/</code> on <code>apps/sample</code> was a 302 when the baseline was taken
+and would have measured the router; since spec 022 it is a cached home page, and the baseline
+was not re-taken.
 Tolerances stay 20% down on throughput and 25% up on RSS, sized from a measured 16.3%
 run-to-run spread. <code>tools/bench/README.md</code> has the rest.</p>
 <p>What the htmx upgrade itself changed was the client asset, and that was measured directly — the
@@ -650,10 +666,10 @@ in the real codebase, not just specified here (§5, §11) — both are opt-in, n
         <div class="page-nav" id="page-nav">
           <div class="prev-next"><a class="pn-prev" href="00-quick-start-tutorial-first-feature.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">Tutorial first feature</span>
+  <span class="pn-title">Tutorial — build your first feature</span>
 </a><a class="pn-next" href="01-architecture-progressive-enhancement.html">
   <span class="pn-label">next &#8594;</span>
-  <span class="pn-title">Progressive enhancement</span>
+  <span class="pn-title">Lean Native Web: Progressive Enhancement Layer</span>
 </a></div>
         </div>
       </div>
@@ -663,7 +679,36 @@ in the real codebase, not just specified here (§5, §11) — both are opt-in, n
   <!-- ===== status bar ===== -->
   <footer class="jt-statusbar">
     <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
   </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
 </div>
 <script src="nav.js"></script>
 </body>

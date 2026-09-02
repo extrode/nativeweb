@@ -16,6 +16,10 @@
     if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
     var s = parseFloat(localStorage.getItem('dg-fs'));
     if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+    var w = parseInt(localStorage.getItem('dg-nav-w'), 10);
+    if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+    if (localStorage.getItem('dg-toc') === 'hidden') d.setAttribute('data-toc', 'hidden');
+    if (localStorage.getItem('dg-nav') === 'hidden') d.setAttribute('data-nav', 'hidden');
   } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
 })();
 </script>
@@ -28,7 +32,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">nativeweb</span>
-      <span class="brand-crumb">Getting started</span>
+      <span class="brand-crumb">Quick start &#8250; Getting started</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -38,6 +42,9 @@
           <li aria-current="page"><span>unversioned</span></li>
         </ul>
       </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
       <div class="fs-group" role="group" aria-label="Text size">
         <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
         <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
@@ -64,40 +71,41 @@
         <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">Overview</span>
+    <span class="nav-group-label">General</span>
   </div>
-  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">quick-start</span>
+    <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html" class="active" aria-current="page">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html" class="active" aria-current="page">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">architecture</span>
+    <span class="nav-group-label">Architecture</span>
   </div>
-  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">reference</span>
+    <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
 </div>
 
       </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
     </nav>
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#before-you-start">Before you start</a><a class="toc-l2" href="#1-clone">1. Clone</a><a class="toc-l2" href="#2-build">2. Build</a><a class="toc-l2" href="#3-run-it-with-no-database-at-all">3. Run it, with no database at all</a><a class="toc-l2" href="#4-run-the-tests">4. Run the tests</a><a class="toc-l2" href="#next">Next</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#before-you-start">Before you start</a><a class="toc-l2" href="#1-clone">1. Clone</a><a class="toc-l2" href="#2-build">2. Build</a><a class="toc-l2" href="#3-run-it-with-no-database-at-all">3. Run it, with no database at all</a><a class="toc-l2" href="#4-run-the-tests">4. Run the tests</a><a class="toc-l2" href="#next">Next</a></nav>
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">Getting started</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Quick start &#8250; Getting started</nav>
         <article>
 <h1 id="getting-started">Getting started</h1>
 <p>From a clean clone to a running application and a green suite. Every command below was executed in
@@ -112,9 +120,15 @@ NativeWeb is a template; you stamp a new product out of <code>skeleton/</code> a
 README. Read that table now — the JauntyQ one is not optional and
 not obvious, and it is the only thing here that can stop you before you begin.</p>
 <h2 id="1-clone">1. Clone</h2>
-<pre><code>git clone &lt;this repository&gt; NativeWeb
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">git clone &lt;this repository&gt; NativeWeb
 cd NativeWeb
 </code></pre>
+</div>
 <p>Put it beside your <code>jauntyq</code> checkout, as the README's diagram shows. That adjacency is the only
 layout requirement: the solution build needs it, and a per-project build probes for the same
 sibling (plus the deeper spot a worktree checkout sits at). Neither cares what the source root is
@@ -124,8 +138,14 @@ called. If your JauntyQ checkout is somewhere else entirely, pass <code>-p:Jaunt
 on which you pick. It only matters on a case-sensitive filesystem, and only for a <em>third</em> name —
 if you clone under something else on Linux, set <code>NativeWebRoot</code> rather than relying on the probe.</p>
 <h2 id="2-build">2. Build</h2>
-<pre><code>dotnet build
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet build
 </code></pre>
+</div>
 <p>Roughly a minute cold. If it fails immediately with two <code>error MSB3202</code> lines naming
 <code>../jauntyq/src/...</code>, your checkout is not beside <code>jauntyq</code> — that is the prerequisite above, and
 <code>-p:JauntyQUsePackages=true</code> will <strong>not</strong> work around it. Build one project instead
@@ -133,14 +153,29 @@ if you clone under something else on Linux, set <code>NativeWebRoot</code> rathe
 <h2 id="3-run-it-with-no-database-at-all">3. Run it, with no database at all</h2>
 <p>This is the checkpoint worth reaching first, because it removes PostgreSQL from the list of things
 that can be wrong.</p>
-<pre><code>dotnet run --project apps/sample
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet run --project apps/sample
 </code></pre>
-<p>Then open <code>http://localhost:5399/articles</code> — the public feed, rendered through the framework's own
-compiled templates, with the filter posting over htmx and swapping only the list.
-<code>http://localhost:5399/admin/articles</code> is the scaffolded CRUD behind the demo sign-in.</p>
+</div>
+<p>Then open <code>http://localhost:5399/</code> — the home page, the newest published articles rendered through
+the framework's own compiled templates. Each title links to <code>/articles/{slug}</code>, each tag to
+<code>/tags/{slug}</code>, and <code>/tags</code> lists every tag with its count. <code>/articles</code> is the same listing with the
+filter posting over htmx and swapping only the list, and it also answers as JSON and CSV.
+<code>http://localhost:5399/admin/articles</code> is the scaffolded CRUD behind the demo sign-in, where an
+article's slug is derived from its title when left blank.</p>
 <p><strong>To edit and see the change without restarting</strong>, one command:</p>
-<pre><code>dotnet watch run --project apps/sample --no-hot-reload
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet watch run --project apps/sample --no-hot-reload
 </code></pre>
+</div>
 <p>Both halves of that line were measured on 2026-08-31 and neither is decoration:</p>
 <table>
 <thead>
@@ -201,11 +236,22 @@ carries the comment explaining why the choice is made in the application rather 
 </tbody>
 </table>
 <p>Install the browser once:</p>
-<pre><code>pwsh tests/nativeweb.scaffold.tests.e2e/bin/Debug/net10.0/playwright.ps1 install chromium
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">pwsh tests/nativeweb.scaffold.tests.e2e/bin/Debug/net10.0/playwright.ps1 install chromium
 </code></pre>
+</div>
 <p>Then run a tier at a time. Naming a tier rather than globbing is deliberate: a suite that stops
 being discovered fails by name instead of vanishing from the run.</p>
-<pre><code>dotnet test tests/nativeweb.repo.tests.unit
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet test tests/nativeweb.repo.tests.unit
 dotnet test tests/nativeweb.render.tests.unit
 dotnet test tests/nativeweb.web.tests.unit
 dotnet test tests/nativeweb.forms.tests.unit
@@ -216,6 +262,7 @@ dotnet test tests/nativeweb.scaffold.tests.integration
 dotnet test tests/nativeweb.scaffold.tests.e2e
 dotnet test tests/nativeweb.sample.tests.unit
 </code></pre>
+</div>
 <p>The full set, and what each returned on the verification run:</p>
 <table>
 <thead>
@@ -301,9 +348,15 @@ single shell can make them contend. Check a wholly-failing e2e tier alone before
 three test tiers, CI, deploy units and the repo operating files, with <code>__PRODUCT__</code>/<code>__product__</code>
 where your name goes. <code>tools/new-product.ps1</code> stamps a copy.</p>
 <p><strong>1. Stamp it.</strong> Bare invocation is the dry run; <code>-Execute</code> acts.</p>
-<pre><code>pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe
 pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe -Execute
 </code></pre>
+</div>
 <p>The dry run lists every file it would copy, stamp and rename — 168 files, from what git tracks or
 does not ignore. It also does <code>git init</code>, an initial commit, and a <code>dev</code> branch, so what you get is
 a repository rather than a directory.</p>
@@ -314,7 +367,7 @@ you skip this.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">SQL</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
   <pre data-lang="sql"><code class="language-sql"><span class="tok-kw">CREATE</span> ROLE probe_app LOGIN PASSWORD <span class="tok-str">'...'</span>;
 <span class="tok-kw">CREATE</span> DATABASE probe_dev OWNER probe_app;
@@ -322,19 +375,31 @@ you skip this.</p>
 </div>
 <p><strong>3. Apply the schema.</strong> <code>migrate.sh</code> takes its settings from the environment and defaults to the
 local dev names, so this usually needs nothing but a password:</p>
-<pre><code>cd ../probe
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">cd ../probe
 PGPASSWORD=... bash db/migrate.sh
 </code></pre>
+</div>
 <p>The first migration runs as <code>postgres</code> because it creates the <code>citext</code> extension, which the app
 role may not; every later one runs as the app role. Re-runs skip what is already applied.</p>
 <p><strong>4. Build and test.</strong> Two things here are not obvious, and both were found by running this rather
 than by reading it:</p>
-<pre><code>export Probe__Db__ConnectionString=&quot;Host=127.0.0.1;Database=probe_dev;Username=probe_app;Password=...&quot;
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">export Probe__Db__ConnectionString=&quot;Host=127.0.0.1;Database=probe_dev;Username=probe_app;Password=...&quot;
 dotnet build
 dotnet test tests/probe.tests.unit
 dotnet test tests/probe.tests.integration
 dotnet test tests/probe.tests.e2e
 </code></pre>
+</div>
 <ul>
 <li><p><strong>The integration tier needs <code>&lt;Product&gt;__Db__ConnectionString</code> in the environment.</strong> Without it
 the tier still runs, but <code>/readyz</code> reports <code>ServiceUnavailable</code> and one fact fails. The
@@ -344,8 +409,14 @@ double-underscore spelling is the environment form of <code>Probe:Db:ConnectionS
 <code>-p:</code> flags.</strong> <code>-p:NativeWebRoot=... -p:JauntyQRoot=...</code> works for <code>dotnet build</code> and then fails
 the e2e tier, because that tier's fixture shells out to its own <code>dotnet publish</code> and command-line
 properties do not cross into a child process. Environment variables do:</p>
-<pre><code>export NativeWebRoot=/path/to/NativeWeb JauntyQRoot=/path/to/jauntyq
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">export NativeWebRoot=/path/to/NativeWeb JauntyQRoot=/path/to/jauntyq
 </code></pre>
+</div>
 <p>The symptom if you get this wrong is a publish failure inside the e2e fixture reading
 <em>&quot;Skipping project … because it was not found&quot;</em>, which names NativeWeb's libraries and looks
 nothing like a path-resolution problem.</p>
@@ -381,10 +452,10 @@ build files.</p>
         <div class="page-nav" id="page-nav">
           <div class="prev-next"><a class="pn-prev" href="00-quick-start-adopting-in-an-existing-app.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">Adopting in an existing app</span>
+  <span class="pn-title">Adopting NativeWeb in an existing application</span>
 </a><a class="pn-next" href="00-quick-start-tutorial-first-feature.html">
   <span class="pn-label">next &#8594;</span>
-  <span class="pn-title">Tutorial first feature</span>
+  <span class="pn-title">Tutorial — build your first feature</span>
 </a></div>
         </div>
       </div>
@@ -394,7 +465,36 @@ build files.</p>
   <!-- ===== status bar ===== -->
   <footer class="jt-statusbar">
     <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
   </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
 </div>
 <script src="nav.js"></script>
 </body>

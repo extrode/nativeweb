@@ -16,6 +16,10 @@
     if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
     var s = parseFloat(localStorage.getItem('dg-fs'));
     if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+    var w = parseInt(localStorage.getItem('dg-nav-w'), 10);
+    if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+    if (localStorage.getItem('dg-toc') === 'hidden') d.setAttribute('data-toc', 'hidden');
+    if (localStorage.getItem('dg-nav') === 'hidden') d.setAttribute('data-nav', 'hidden');
   } catch (e) { /* private mode, file:// with storage denied -- defaults are fine */ }
 })();
 </script>
@@ -28,7 +32,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">nativeweb</span>
-      <span class="brand-crumb">Tutorial — build your first feature</span>
+      <span class="brand-crumb">Quick start &#8250; Tutorial — build your first feature</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -38,6 +42,9 @@
           <li aria-current="page"><span>unversioned</span></li>
         </ul>
       </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
       <div class="fs-group" role="group" aria-label="Text size">
         <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
         <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
@@ -64,40 +71,41 @@
         <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">Overview</span>
+    <span class="nav-group-label">General</span>
   </div>
-  <div class="nav-group-items">  <a href="constitution.html">Constitution</a>  <a href="conventions.html">Conventions</a>  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
 </div>
 <div class="nav-group" data-group data-open="true">
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">quick-start</span>
+    <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">README</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting in an existing app</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html" class="active" aria-current="page">Tutorial first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html" class="active" aria-current="page">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">architecture</span>
+    <span class="nav-group-label">Architecture</span>
   </div>
-  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Native web architecture</a>  <a href="01-architecture-progressive-enhancement.html">Progressive enhancement</a>  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
     <span class="nav-chev">›</span>
-    <span class="nav-group-label">reference</span>
+    <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment</a>  <a href="02-reference-migration-lock-review.html">Migration lock review</a>  <a href="02-reference-performance.html">Performance</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">Template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
 </div>
 
       </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
     </nav>
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><div class="toc-title">On this page</div><a class="toc-l2" href="#why-this-feature-is-hand-written-at-all">Why this feature is hand-written at all</a><a class="toc-l2" href="#1-the-read-model-and-its-seam">1. The read model and its seam</a><a class="toc-l2" href="#2-the-query">2. The query</a><a class="toc-l2" href="#3-the-renderer">3. The renderer</a><a class="toc-l2" href="#4-the-endpoint">4. The endpoint</a><a class="toc-l2" href="#5-the-wiring">5. The wiring</a><a class="toc-l2" href="#6-the-unit-tier">6. The unit tier</a><a class="toc-l2" href="#7-the-integration-tier">7. The integration tier</a><a class="toc-l2" href="#8-the-end-to-end-tier">8. The end-to-end tier</a><a class="toc-l2" href="#9-perturb-every-green-test">9. Perturb every green test</a><a class="toc-l2" href="#run-it-all">Run it all</a><a class="toc-l2" href="#what-to-take-to-your-own-feature">What to take to your own feature</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#why-this-feature-is-hand-written-at-all">Why this feature is hand-written at all</a><a class="toc-l2" href="#1-the-read-model-and-its-seam">1. The read model and its seam</a><a class="toc-l2" href="#2-the-query">2. The query</a><a class="toc-l2" href="#3-the-renderer">3. The renderer</a><a class="toc-l2" href="#4-the-endpoint">4. The endpoint</a><a class="toc-l2" href="#5-the-wiring">5. The wiring</a><a class="toc-l2" href="#6-the-unit-tier">6. The unit tier</a><a class="toc-l2" href="#7-the-integration-tier">7. The integration tier</a><a class="toc-l2" href="#8-the-end-to-end-tier">8. The end-to-end tier</a><a class="toc-l2" href="#9-perturb-every-green-test">9. Perturb every green test</a><a class="toc-l2" href="#run-it-all">Run it all</a><a class="toc-l2" href="#what-to-take-to-your-own-feature">What to take to your own feature</a></nav>
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">Tutorial — build your first feature</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Quick start &#8250; Tutorial — build your first feature</nav>
         <article>
 <h1 id="tutorial--build-your-first-feature">Tutorial — build your first feature</h1>
 <p>One feature, through every layer it touches: a read model, a JauntyQ query, a renderer, an
@@ -106,9 +114,18 @@ layers only make sense against each other.</p>
 <p><strong>The finished feature is already in this repository.</strong> It is <code>GET /articles</code> in <code>apps/sample</code> — a
 public, read-only page listing published articles, newest first. Run it now, before reading
 further:</p>
-<pre><code>dotnet run --project apps/sample
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet run --project apps/sample
 </code></pre>
-<p>then open <code>http://localhost:5399/articles</code>. You are looking at the result of every step below.</p>
+</div>
+<p>then open <code>http://localhost:5399/articles</code>. You are looking at the result of every step below.
+The home page at <code>/</code>, the article page at <code>/articles/{slug}</code> and the tag pages under <code>/tags</code> are
+the same pattern applied three more times — a reader interface, a template, a route — and are
+worth reading in <code>apps/sample/PublicSite.cs</code> once this walk-through makes sense.</p>
 <p><strong>Follow along in your own product, not here.</strong> If you came through
 <a href="00-quick-start-getting-started.html">Path A of the getting-started guide</a>, you have a stamped product with its own
 table; build the equivalent page against that, and read this repository's files as the worked
@@ -174,13 +191,13 @@ is there so the CRUD costs you nothing, not so the product does.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">public</span> <span class="tok-kw">readonly</span> <span class="tok-kw">record</span> <span class="tok-kw">struct</span> PublishedArticle(string Id, string Title, string? Author, DateTime CreatedAt);
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">public</span> <span class="tok-kw">readonly</span> <span class="tok-kw">record</span> <span class="tok-kw">struct</span> <span class="tok-fn">PublishedArticle</span>(<span class="tok-kw">string</span> <span class="tok-type">Id</span>, <span class="tok-kw">string</span> <span class="tok-type">Title</span>, <span class="tok-kw">string</span>? <span class="tok-type">Author</span>, <span class="tok-type">DateTime</span> <span class="tok-type">CreatedAt</span>);
 
-<span class="tok-kw">public</span> <span class="tok-kw">interface</span> IPublishedArticles
+<span class="tok-kw">public</span> <span class="tok-kw">interface</span> <span class="tok-type">IPublishedArticles</span>
 {
-    ValueTask&lt;IReadOnlyList&lt;PublishedArticle&gt;&gt; RecentAsync(int take, CancellationToken ct);
+    <span class="tok-type">ValueTask</span>&lt;<span class="tok-type">IReadOnlyList</span>&lt;<span class="tok-type">PublishedArticle</span>&gt;&gt; <span class="tok-fn">RecentAsync</span>(<span class="tok-kw">int</span> take, <span class="tok-type">CancellationToken</span> ct);
 }
 </code></pre>
 </div>
@@ -197,15 +214,15 @@ express either:</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">return</span> all
-    .Where(a =&gt; a.Published)
-    .OrderByDescending(a =&gt; a.CreatedAt)
-    .ThenBy(a =&gt; a.Id, StringComparer.Ordinal)
-    .Take(take)
-    .Select(a =&gt; <span class="tok-kw">new</span> PublishedArticle(a.Id, a.Title, a.Author, a.CreatedAt))
-    .ToList();
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-ctl">return</span> all
+    .<span class="tok-fn">Where</span>(a =&gt; a.<span class="tok-var">Published</span>)
+    .<span class="tok-fn">OrderByDescending</span>(a =&gt; a.<span class="tok-var">CreatedAt</span>)
+    .<span class="tok-fn">ThenBy</span>(a =&gt; a.<span class="tok-var">Id</span>, <span class="tok-type">StringComparer</span>.<span class="tok-var">Ordinal</span>)
+    .<span class="tok-fn">Take</span>(take)
+    .<span class="tok-fn">Select</span>(a =&gt; <span class="tok-kw">new</span> <span class="tok-type">PublishedArticle</span>(a.<span class="tok-var">Id</span>, a.<span class="tok-var">Title</span>, a.<span class="tok-var">Author</span>, a.<span class="tok-var">CreatedAt</span>))
+    .<span class="tok-fn">ToList</span>();
 </code></pre>
 </div>
 <p><strong>Over PostgreSQL</strong>, the same class does nothing but map rows, because the filter and the ordering
@@ -213,9 +230,9 @@ moved into SQL:</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp">List&lt;Row&gt; rows = <span class="tok-kw">await</span> db.Articles.ListPublishedAsync(take, ct).ConfigureAwait(<span class="tok-kw">false</span>);
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-type">List</span>&lt;<span class="tok-type">Row</span>&gt; rows = <span class="tok-ctl">await</span> db.<span class="tok-var">Articles</span>.<span class="tok-fn">ListPublishedAsync</span>(take, ct).<span class="tok-fn">ConfigureAwait</span>(<span class="tok-kw">false</span>);
 </code></pre>
 </div>
 <p>Both are registered as singletons. Neither holds per-request state, and the JauntyQ one takes a
@@ -235,15 +252,15 @@ through a data library of its own, are in <code>db/sample/README.md</code> and
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">SQL</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="sql"><code class="language-sql">-- @params take:int
--- @allow-sort demo table, three seeded rows; an index would cost more to explain than the sort costs to run
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-com">-- @params take:int</span>
+<span class="tok-com">-- @allow-sort demo table, three seeded rows; an index would cost more to explain than the sort costs to run</span>
 <span class="tok-kw">SELECT</span> id, title, author, body, published, view_count, created_at
 <span class="tok-kw">FROM</span> articles
 <span class="tok-kw">WHERE</span> published
-<span class="tok-kw">ORDER</span> <span class="tok-kw">BY</span> created_at DESC, id
-<span class="tok-kw">LIMIT</span> @take;
+<span class="tok-kw">ORDER</span> <span class="tok-kw">BY</span> created_at <span class="tok-kw">DESC</span>, id
+<span class="tok-kw">LIMIT</span> <span class="tok-var">@take</span>;
 </code></pre>
 </div>
 <p>Four things in six lines, and the second is the one worth the walk.</p>
@@ -296,11 +313,11 @@ in production.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">internal</span> <span class="tok-kw">static</span> <span class="tok-kw">class</span> ArticlesPage
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">internal</span> <span class="tok-kw">static</span> <span class="tok-kw">class</span> <span class="tok-type">ArticlesPage</span>
 {
-    <span class="tok-kw">public</span> <span class="tok-kw">static</span> string Render(IReadOnlyList&lt;PublishedArticle&gt; articles) { ... }
+    <span class="tok-kw">public</span> <span class="tok-kw">static</span> <span class="tok-kw">string</span> <span class="tok-fn">Render</span>(<span class="tok-type">IReadOnlyList</span>&lt;<span class="tok-type">PublishedArticle</span>&gt; articles) { ... }
 }
 </code></pre>
 </div>
@@ -314,10 +331,10 @@ does not compile is a page that cannot be half-written.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp">HtmlEncoder encoder = HtmlEncoder.Default;
-string title = encoder.Encode(article.Title);
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-type">HtmlEncoder</span> encoder = <span class="tok-type">HtmlEncoder</span>.<span class="tok-var">Default</span>;
+<span class="tok-kw">string</span> title = encoder.<span class="tok-fn">Encode</span>(article.<span class="tok-var">Title</span>);
 </code></pre>
 </div>
 <p>Not because a template engine's automatic encoding would be worse, but because there isn't one, and
@@ -329,11 +346,11 @@ standard this is held to is <a href="02-reference-security-baseline.html"><code>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">if</span> (articles.Count == <span class="tok-num">0</span>)
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-ctl">if</span> (articles.<span class="tok-var">Count</span> == <span class="tok-num">0</span>)
 {
-    items.Append(&quot;&lt;p <span class="tok-kw">class</span>=\&quot;articles__empty\&quot;&gt;No published articles yet.&lt;/p&gt;&quot;);
+    items.<span class="tok-fn">Append</span>(<span class="tok-str">&quot;&lt;p class=\&quot;articles__empty\&quot;&gt;No published articles yet.&lt;/p&gt;&quot;</span>);
 }
 </code></pre>
 </div>
@@ -348,21 +365,21 @@ requires the page work without JavaScript first — which this one does by const
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">internal</span> <span class="tok-kw">static</span> <span class="tok-kw">class</span> PublicArticleEndpoints
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">internal</span> <span class="tok-kw">static</span> <span class="tok-kw">class</span> <span class="tok-type">PublicArticleEndpoints</span>
 {
-    <span class="tok-kw">private</span> <span class="tok-kw">const</span> int PageSize = <span class="tok-num">20</span>;
+    <span class="tok-kw">private</span> <span class="tok-kw">const</span> <span class="tok-kw">int</span> <span class="tok-type">PageSize</span> = <span class="tok-num">20</span>;
 
-    <span class="tok-kw">public</span> <span class="tok-kw">static</span> IEndpointRouteBuilder MapPublicArticles(<span class="tok-kw">this</span> IEndpointRouteBuilder endpoints)
+    <span class="tok-kw">public</span> <span class="tok-kw">static</span> <span class="tok-type">IEndpointRouteBuilder</span> <span class="tok-fn">MapPublicArticles</span>(<span class="tok-kw">this</span> <span class="tok-type">IEndpointRouteBuilder</span> endpoints)
     {
-        endpoints.MapGet(&quot;/articles&quot;, <span class="tok-kw">async</span> (IPublishedArticles articles, CancellationToken ct) =&gt;
+        endpoints.<span class="tok-fn">MapGet</span>(<span class="tok-str">&quot;/articles&quot;</span>, <span class="tok-kw">async</span> (<span class="tok-type">IPublishedArticles</span> articles, <span class="tok-type">CancellationToken</span> ct) =&gt;
         {
-            IReadOnlyList&lt;PublishedArticle&gt; recent = <span class="tok-kw">await</span> articles.RecentAsync(PageSize, ct).ConfigureAwait(<span class="tok-kw">false</span>);
-            <span class="tok-kw">return</span> Results.Content(ArticlesPage.Render(recent), &quot;text/html&quot;);
+            <span class="tok-type">IReadOnlyList</span>&lt;<span class="tok-type">PublishedArticle</span>&gt; recent = <span class="tok-ctl">await</span> articles.<span class="tok-fn">RecentAsync</span>(<span class="tok-type">PageSize</span>, ct).<span class="tok-fn">ConfigureAwait</span>(<span class="tok-kw">false</span>);
+            <span class="tok-ctl">return</span> <span class="tok-type">Results</span>.<span class="tok-fn">Content</span>(<span class="tok-type">ArticlesPage</span>.<span class="tok-fn">Render</span>(recent), <span class="tok-str">&quot;text/html&quot;</span>);
         });
 
-        <span class="tok-kw">return</span> endpoints;
+        <span class="tok-ctl">return</span> endpoints;
     }
 }
 </code></pre>
@@ -384,10 +401,10 @@ invisible in a diff.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp">app.MapScaffolding();
-app.MapPublicArticles();
+  <pre data-lang="csharp"><code class="language-csharp">app.<span class="tok-fn">MapScaffolding</span>();
+app.<span class="tok-fn">MapPublicArticles</span>();
 </code></pre>
 </div>
 <p>and one registration per branch of the store choice, which is where the whole feature's persistence
@@ -395,13 +412,13 @@ decision lives:</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
   <pre data-lang="csharp"><code class="language-csharp"><span class="tok-com">// no connection string</span>
-builder.Services.AddSingleton&lt;IPublishedArticles&gt;(<span class="tok-kw">new</span> MemoryPublishedArticles(articles));
+builder.<span class="tok-var">Services</span>.<span class="tok-fn">AddSingleton</span>&lt;<span class="tok-type">IPublishedArticles</span>&gt;(<span class="tok-kw">new</span> <span class="tok-type">MemoryPublishedArticles</span>(articles));
 
 <span class="tok-com">// with one</span>
-builder.Services.AddSingleton&lt;IPublishedArticles&gt;(<span class="tok-kw">new</span> JauntyPublishedArticles(dataSource));
+builder.<span class="tok-var">Services</span>.<span class="tok-fn">AddSingleton</span>&lt;<span class="tok-type">IPublishedArticles</span>&gt;(<span class="tok-kw">new</span> <span class="tok-type">JauntyPublishedArticles</span>(dataSource));
 </code></pre>
 </div>
 <p>The choice is made in the application, not in a library, and it is made from
@@ -474,10 +491,10 @@ somewhere on it:</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">await</span> SampleTestDatabase.InsertAsync($&quot;{prefix}-p&quot;, $&quot;{prefix}-published&quot;, &quot;xunit&quot;, &quot;body&quot;, published: <span class="tok-kw">true</span>,  createdAt: future);
-<span class="tok-kw">await</span> SampleTestDatabase.InsertAsync($&quot;{prefix}-d&quot;, $&quot;{prefix}-draft&quot;,     &quot;xunit&quot;, &quot;body&quot;, published: <span class="tok-kw">false</span>, createdAt: future.AddMinutes(<span class="tok-num">1</span>));
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-ctl">await</span> <span class="tok-type">SampleTestDatabase</span>.<span class="tok-fn">InsertAsync</span>(<span class="tok-str">$&quot;<span class="tok-punc">{</span>prefix<span class="tok-punc">}</span>-p&quot;</span>, <span class="tok-str">$&quot;<span class="tok-punc">{</span>prefix<span class="tok-punc">}</span>-published&quot;</span>, <span class="tok-str">&quot;xunit&quot;</span>, <span class="tok-str">&quot;body&quot;</span>, published: <span class="tok-kw">true</span>,  createdAt: <span class="tok-type">future</span>);
+<span class="tok-ctl">await</span> <span class="tok-type">SampleTestDatabase</span>.<span class="tok-fn">InsertAsync</span>(<span class="tok-str">$&quot;<span class="tok-punc">{</span>prefix<span class="tok-punc">}</span>-d&quot;</span>, <span class="tok-str">$&quot;<span class="tok-punc">{</span>prefix<span class="tok-punc">}</span>-draft&quot;</span>,     <span class="tok-str">&quot;xunit&quot;</span>, <span class="tok-str">&quot;body&quot;</span>, published: <span class="tok-kw">false</span>, createdAt: <span class="tok-type">future</span>.<span class="tok-fn">AddMinutes</span>(<span class="tok-num">1</span>));
 </code></pre>
 </div>
 <p><strong>Date rows into the future, and remove them afterwards.</strong> The page shows the newest twenty and
@@ -489,11 +506,11 @@ runs. Hence a <code>finally</code> that deletes exactly the ids this test minted
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-kw">finally</span>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-ctl">finally</span>
 {
-    <span class="tok-kw">await</span> SampleTestDatabase.DeleteByIdPrefixAsync(prefix);
+    <span class="tok-ctl">await</span> <span class="tok-type">SampleTestDatabase</span>.<span class="tok-fn">DeleteByIdPrefixAsync</span>(prefix);
 }
 </code></pre>
 </div>
@@ -519,10 +536,10 @@ be wrong about it:</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">C#</span>
-    <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="csharp"><code class="language-csharp">Assert.Equal(<span class="tok-num">0</span>, <span class="tok-kw">await</span> page.Locator(&quot;li.articles__item script&quot;).CountAsync());
-Assert.False(<span class="tok-kw">await</span> page.EvaluateAsync&lt;bool&gt;(&quot;() =&gt; window.__pwned === <span class="tok-kw">true</span>&quot;));
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-type">Assert</span>.<span class="tok-fn">Equal</span>(<span class="tok-num">0</span>, <span class="tok-ctl">await</span> page.<span class="tok-fn">Locator</span>(<span class="tok-str">&quot;li.articles__item script&quot;</span>).<span class="tok-fn">CountAsync</span>());
+<span class="tok-type">Assert</span>.<span class="tok-fn">False</span>(<span class="tok-ctl">await</span> page.<span class="tok-fn">EvaluateAsync</span>&lt;<span class="tok-kw">bool</span>&gt;(<span class="tok-str">&quot;() =&gt; window.__pwned === true&quot;</span>));
 </code></pre>
 </div>
 <p>An injected <code>script</code> element would be in the DOM, and every string assertion below would have passed
@@ -543,10 +560,16 @@ test. Re-run singly, each failed alone.</p>
 followed <code>/articles</code> → <code>/signin</code> → <code>/admin</code>. A red test for the wrong reason is the same as a green
 test for the wrong reason.</p>
 <h2 id="run-it-all">Run it all</h2>
-<pre><code>dotnet test tests/nativeweb.sample.tests.unit
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet test tests/nativeweb.sample.tests.unit
 dotnet test tests/nativeweb.scaffold.tests.integration
 dotnet test tests/nativeweb.scaffold.tests.e2e
 </code></pre>
+</div>
 <p>The integration and e2e tiers need <code>nativeweb_sample_test</code> — <code>db/sample/README.md</code>
 has the two lines that create it, and the Playwright browser install is in
 <a href="00-quick-start-getting-started.html">getting-started § 4</a>.</p>
@@ -579,7 +602,7 @@ written: <code>tests/nativeweb.sample.tests.unit</code> 16 facts,
   <span class="pn-title">Getting started</span>
 </a><a class="pn-next" href="01-architecture-native-web-architecture.html">
   <span class="pn-label">next &#8594;</span>
-  <span class="pn-title">Native web architecture</span>
+  <span class="pn-title">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</span>
 </a></div>
         </div>
       </div>
@@ -589,7 +612,36 @@ written: <code>tests/nativeweb.sample.tests.unit</code> 16 facts,
   <!-- ===== status bar ===== -->
   <footer class="jt-statusbar">
     <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
   </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
 </div>
 <script src="nav.js"></script>
 </body>

@@ -13,6 +13,9 @@ dotnet run --project apps/sample
 ```
 
 then open `http://localhost:5399/articles`. You are looking at the result of every step below.
+The home page at `/`, the article page at `/articles/{slug}` and the tag pages under `/tags` are
+the same pattern applied three more times — a reader interface, a template, a route — and are
+worth reading in `apps/sample/PublicSite.cs` once this walk-through makes sense.
 
 **Follow along in your own product, not here.** If you came through
 [Path A of the getting-started guide](getting-started.md), you have a stamped product with its own
