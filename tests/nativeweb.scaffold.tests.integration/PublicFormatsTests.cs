@@ -77,6 +77,7 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
 
         Assert.Equal("text/html", page.Content.Headers.ContentType?.MediaType);
         Assert.True(page.Headers.Contains("Set-Cookie"));
+        Assert.Equal("no-store", page.Headers.CacheControl?.ToString());
         Assert.Equal("application/json", json.Content.Headers.ContentType?.MediaType);
         Assert.False(json.Headers.Contains("Set-Cookie"));
         Assert.Contains("Accept", json.Headers.Vary);
