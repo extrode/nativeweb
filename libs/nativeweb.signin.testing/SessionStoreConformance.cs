@@ -152,7 +152,7 @@ public abstract class SessionStoreConformance
             Enumerable.Range(0, 50).Select(i => Task.Run(() => store.ReplaceIfMatchAsync(
                 "hash-1",
                 "refresh-1",
-                Live(clock) with { RefreshTokenHash = $"refresh-{i}" },
+                Live(clock) with { RefreshTokenHash = $"refresh-rotated-{i}" },
                 default))));
 
         Assert.Single(outcomes, o => o == SessionReplace.Replaced);
