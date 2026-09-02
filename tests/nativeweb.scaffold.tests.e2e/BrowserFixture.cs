@@ -52,6 +52,7 @@ public sealed class BrowserFixture : IAsyncLifetime
 public sealed class ScaffoldE2eFixture
     : ICollectionFixture<InMemorySampleFixture>,
       ICollectionFixture<JauntySampleFixture>,
+      ICollectionFixture<PassphraseSampleFixture>,
       ICollectionFixture<BrowserFixture>
 {
     /// <summary>The collection name.</summary>

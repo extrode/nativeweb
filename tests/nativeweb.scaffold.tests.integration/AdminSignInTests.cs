@@ -77,6 +77,22 @@ public sealed class AdminSignInTests
         Assert.Contains("href=\"/admin/tags\"", signedIn, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task TheChallengeRedirectCarriesItsReturnUrlIntoTheForm()
+    {
+        using var factory = new PassphraseSampleFactory(PassphraseSampleFactory.Secret);
+        using HttpClient client = factory.CreateFollowingNothing();
+
+        using HttpResponseMessage challenge = await client.GetAsync(new Uri("/admin/articles", UriKind.Relative));
+        Uri location = challenge.Headers.Location!;
+        using HttpResponseMessage form = await client.GetAsync(new Uri(location.PathAndQuery, UriKind.Relative));
+        string html = await form.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Found, challenge.StatusCode);
+        Assert.StartsWith("/signin?", location.PathAndQuery, StringComparison.Ordinal);
+        Assert.Contains("name=\"return\" value=\"/admin/articles\"", html, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("/admin/articles", "/admin/articles")]
     [InlineData("//evil.example/", "/admin")]

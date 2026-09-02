@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 
 using Xunit;
 
@@ -96,6 +98,12 @@ public abstract class SampleProcessFixture : IAsyncLifetime
 
     private readonly string? _connectionString;
 
+    private readonly string _environment;
+
+    private readonly IReadOnlyDictionary<string, string> _extraEnvironment;
+
+    private readonly bool _https;
+
     /// <param name="port">
     /// One port per store, because both run for the whole tier: the same published
     /// binary launched twice, differing only in configuration.
@@ -103,10 +111,33 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     /// <param name="connectionString">
     /// Null selects the in-memory store, exactly as an unset key does in production.
     /// </param>
-    protected SampleProcessFixture(int port, string? connectionString)
+    /// <param name="environment">
+    /// <c>ASPNETCORE_ENVIRONMENT</c>. Development by default, because that is where the
+    /// one-click <c>/signin</c> lives and the admin suites go in through it.
+    /// </param>
+    /// <param name="extraEnvironment">
+    /// Any further variables the process needs, such as the passphrase a Production
+    /// instance refuses to start without (spec 020).
+    /// </param>
+    /// <param name="https">
+    /// Bind https with a certificate minted for the run. Outside Development the
+    /// antiforgery and session cookies are <c>Secure</c>, the antiforgery system refuses
+    /// to mint a token for a request it does not consider TLS, and the cookie
+    /// challenge redirects to an absolute URL on the request's scheme -- so a
+    /// Production instance has to be reached the way Caddy reaches it, over TLS.
+    /// </param>
+    protected SampleProcessFixture(
+        int port,
+        string? connectionString,
+        string environment = "Development",
+        IReadOnlyDictionary<string, string>? extraEnvironment = null,
+        bool https = false)
     {
-        BaseUrl = $"http://localhost:{port}";
+        BaseUrl = https ? $"https://localhost:{port}" : $"http://localhost:{port}";
         _connectionString = connectionString;
+        _environment = environment;
+        _extraEnvironment = extraEnvironment ?? new Dictionary<string, string>();
+        _https = https;
     }
 
     /// <summary>Where this instance of the sample is listening.</summary>
@@ -133,7 +164,19 @@ public abstract class SampleProcessFixture : IAsyncLifetime
         // /signin grants the admin role for the asking and is gated to Development,
         // and it is the only way into /admin. Without this the whole tier gets 302s
         // to a login page that does not exist outside Development.
-        startInfo.EnvironmentVariables["ASPNETCORE_ENVIRONMENT"] = "Development";
+        startInfo.EnvironmentVariables["ASPNETCORE_ENVIRONMENT"] = _environment;
+
+        foreach ((string name, string value) in _extraEnvironment)
+        {
+            startInfo.EnvironmentVariables[name] = value;
+        }
+
+        if (_https)
+        {
+            (string path, string password) = Certificate();
+            startInfo.EnvironmentVariables["ASPNETCORE_Kestrel__Certificates__Default__Path"] = path;
+            startInfo.EnvironmentVariables["ASPNETCORE_Kestrel__Certificates__Default__Password"] = password;
+        }
 
         // An environment variable rather than a command-line argument: this is the
         // mechanism a deployment uses, and the published binary reads it through the
@@ -175,7 +218,11 @@ public abstract class SampleProcessFixture : IAsyncLifetime
             // no-render floor to measure. It is outside the IsDevelopment() block and returns
             // 200 with no body. Readiness is still "it answered at all" rather than the status
             // code: this only needs to know the listener is up.
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            using var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+            };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(5) };
             DateTime deadline = DateTime.UtcNow.AddSeconds(60);
             while (DateTime.UtcNow < deadline)
             {
@@ -333,6 +380,43 @@ public abstract class SampleProcessFixture : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// Mints a self-signed certificate for <c>localhost</c> and writes it where Kestrel can
+    /// read it, returning the path and the password guarding the private key.
+    /// </summary>
+    /// <remarks>
+    /// The same shape as the sign-in tier's: under the repository's own <c>tmp/</c>, never in
+    /// a trust store, and the browser is told to ignore it rather than the machine being told
+    /// to believe it.
+    /// </remarks>
+    private static (string Path, string Password) Certificate()
+    {
+        string directory = Path.Combine(FindRepoRoot(), "tmp", "scaffold-e2e");
+        Directory.CreateDirectory(directory);
+
+        string path = Path.Combine(directory, "kestrel.pfx");
+        string password = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+
+        using var key = RSA.Create(2048);
+        var request = new CertificateRequest(
+            "CN=localhost", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+
+        var names = new SubjectAlternativeNameBuilder();
+        names.AddDnsName("localhost");
+        request.CertificateExtensions.Add(names.Build());
+        request.CertificateExtensions.Add(
+            new X509BasicConstraintsExtension(false, false, 0, true));
+        request.CertificateExtensions.Add(
+            new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.1")], true));
+
+        using X509Certificate2 certificate = request.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+
+        File.WriteAllBytes(path, certificate.Export(X509ContentType.Pfx, password));
+
+        return (path, password);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -360,6 +444,26 @@ public sealed class InMemorySampleFixture() : SampleProcessFixture(5347, null);
 /// fail for the first time in production.
 /// </remarks>
 public sealed class JauntySampleFixture() : SampleProcessFixture(5348, SampleE2eDatabase.ConnectionString);
+
+/// <summary>
+/// The same binary as Production sees it: no one-click sign-in, the passphrase form
+/// instead, and a secret it would refuse to start without (spec 020).
+/// </summary>
+/// <remarks>
+/// Over https, for the reason the base constructor gives. Port 5351: the sign-in tier
+/// runs its own instance of the sample on 5349 and 5350, and <c>dotnet test</c> runs
+/// the two tiers' assemblies at the same time.
+/// </remarks>
+public sealed class PassphraseSampleFixture() : SampleProcessFixture(
+    5351,
+    null,
+    "Production",
+    new Dictionary<string, string> { ["Sample__Admin__Passphrase"] = Secret },
+    https: true)
+{
+    /// <summary>What the fixture hands the process, and what the tests type.</summary>
+    public const string Secret = "correct horse battery staple";
+}
 
 /// <summary>
 /// A bounded ring of log lines. Bounded because the alternative is holding a
