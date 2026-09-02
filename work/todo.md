@@ -1579,7 +1579,18 @@ another project's deployment and runbook, not to this repo.
   fix. Unexercised today: nothing installs these from a feed (see the publishing-model question
   above).
 
-- **`ForwardedHeadersOptions.ForwardLimit` is left at 1 while `KnownProxies` takes a list.** Two
+- ~~**`ForwardedHeadersOptions.ForwardLimit` is left at 1 while `KnownProxies` takes a list.**~~ —
+  **done 2026-09-02**. The decision went to the user, who took three independent opinions (fable,
+  glm-5.3, qwen3.8-max) first; all three picked binding it over deleting the seeded line, and all
+  three agreed the trust check gates *which* hops unwind while the limit caps *how many*, so
+  raising it is not "one more spoofable hop" — the walk still stops at the first address that is
+  not a known proxy. `Caddyfile.edge` was checked as well: it trusts the edge and appends, so the
+  two-hop chain the comment describes is the one that arrives. `NativeWebOptions.ForwardLimit`
+  binds the key and fails startup on anything but a positive whole number,
+  `AddNativeWebForwardedHeaders` applies it, `configuration.md` carries a real row where the "Not
+  read, despite appearances" section was, and `DocumentedAsUnread` is empty. Original entry:
+
+  Two
   trusted hops (CDN in front of a reverse proxy) means only the last XFF entry is consumed and every
   client shares one rate-limit partition. Raising it trades that for one more spoofable hop, so it
   is a decision, not a fix. Found in the 015 review, 2026-08-31.

@@ -61,6 +61,35 @@ worth seeing here rather than hiding, but it is the exception.
   Spec 018's fourth acceptance criterion claimed a test fails whenever a named type or path moves;
   that absolute is not met and now states its limits in place.
 
+- **`ForwardedHeaders:ForwardLimit` is bound again. Done on
+  `fix/forwarded-headers-forward-limit` (2026-09-02).** A regression, not a gap: `apps/web`
+  bound the key and took the binding with it on 2026-08-31, while `provision.sh` kept seeding
+  `2` into every `--edge` host. `AddNativeWebForwardedHeaders` therefore ran at ASP.NET Core's
+  default of 1, stopped the `X-Forwarded-For` walk on the edge proxy, and gave every client in
+  the world one rate-limit partition and one wrong entry in the request log, with nothing
+  failing.
+
+  **The decision was the user's and it went out to three models first** — `think` (fable),
+  `glm-think` (glm-5.3) and `qwen-review` (qwen3.8-max), each scoped to the same four files and
+  told nothing about the others. All three picked binding the key over deleting the seeded line,
+  and all three gave the same mechanism: the trust check gates which hops may be unwound, the
+  limit caps how many are, and they are independent. That retires the "one more spoofable hop"
+  reasoning the backlog entry carried since the 015 review — the walk stops at the first address
+  that is not a known proxy however high the limit goes, which is now its own test. qwen added
+  that `seed_config` never overwrites, so deleting the line would have left it on every
+  provisioned host and needed a cleanup script; fable named `README.md:123` as a second place
+  documenting the dead key. The one fact none of them could check, `Caddyfile.edge`'s
+  `X-Forwarded-For` handling, was checked here before starting: it trusts the edge and appends,
+  so the two-hop chain is the one that arrives.
+
+  Bound with a named startup error rather than a silent fallback, since an operator who writes a
+  value would otherwise never learn it was ignored. `configuration.md` carries a real row where
+  its "Not read, despite appearances" section was, and `DocsClaimsTests.DocumentedAsUnread` is
+  now empty — that test is what turned red on the change, which is the guard working. Measured:
+  web-unit 102 passed (95 before), repo-facts 145, sample builds with 0 warnings. Mutation:
+  dropping `forwarded.ForwardLimit = options.ForwardLimit` fails the two-hop tests and nothing
+  else.
+
 - **`ScaffoldCursor.Encode` no longer substitutes for a lone surrogate. Done on
   `fix/cursor-encode-strict-utf8` (2026-09-02).** The other half of the U+FFFD defect spec 018's
   property tests found on the decode side: `Encoding.UTF8.GetBytes` replaced a lone surrogate in
