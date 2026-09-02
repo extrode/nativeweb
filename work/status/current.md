@@ -61,6 +61,17 @@ worth seeing here rather than hiding, but it is the exception.
   Spec 018's fourth acceptance criterion claimed a test fails whenever a named type or path moves;
   that absolute is not met and now states its limits in place.
 
+- **`ScaffoldCursor.Encode` no longer substitutes for a lone surrogate. Done on
+  `fix/cursor-encode-strict-utf8` (2026-09-02).** The other half of the U+FFFD defect spec 018's
+  property tests found on the decode side: `Encoding.UTF8.GetBytes` replaced a lone surrogate in
+  `Property`, `SortValue` or `Key`, so the token decoded to a different cursor and the reader
+  landed on the wrong window with nothing reporting it. `Write` became `TryWrite` over
+  `Utf8.FromUtf16` with `replaceInvalidSequences: false`; `Encode` returns the empty string, the
+  refusal an over-long part already took. The surrogate cases are a `Fact` rather than a `Theory`
+  on purpose — xUnit's argument serialization replaces a lone surrogate before the test sees it,
+  so as `InlineData` all three arrive well-formed and assert nothing. Mutation: allowing
+  replacement again goes red.
+
 - **The departed `NativeWeb:` prefix, out of the libraries. Done on `fix/stale-nativeweb-prefix`
   (2026-09-02).** The backlog note above became work: `SmtpOptions.Validate` threw
   `NativeWeb:Smtp:FromAddress` at an operator whose configuration says `Sample:Smtp:*`, and four

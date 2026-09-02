@@ -88,6 +88,14 @@ Merged into `dev`, not yet tagged.
   that would put a directory listing under the product's hostname. Live on `nw-dev.example.com`.
 
 ### Fixed
+- **`ScaffoldCursor.Encode` substituted for an unpaired surrogate where `TryDecode` refuses one.**
+  `Encoding.UTF8.GetBytes` replaces a lone surrogate with U+FFFD, so a row whose `Property`,
+  `SortValue` or `Key` carried one produced a token that decoded to a *different* cursor: the
+  reader landed on the wrong window with nothing reporting it. `Encode` now writes through
+  `Utf8.FromUtf16` with `replaceInvalidSequences: false` and returns the empty string when a part
+  will not encode — the same refusal an over-long part already took, so the page renders without
+  that Previous/Next link rather than with a wrong one. A paired surrogate is unaffected and still
+  round-trips. Found by the spec 018 mutation triage, recorded then rather than chased.
 - **Two libraries named a configuration prefix that no longer exists.** `SmtpOptions.Validate`
   threw `NativeWeb:Smtp:FromAddress` and `NativeWeb:Smtp:SecurityMode=None` at an operator whose
   configuration says `Sample:Smtp:*`, and four `ContactProtector` comments named

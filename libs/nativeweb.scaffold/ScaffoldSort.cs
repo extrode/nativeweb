@@ -103,10 +103,11 @@ public readonly record struct ScaffoldCursor(
 
     /// <summary>The opaque form, for a link.</summary>
     /// <remarks>
-    /// Returns the empty string when any part is too long to encode. A caller getting
-    /// one back emits no link, which costs the reader one Previous/Next button on a
-    /// row whose sort value is half a kilobyte -- against the alternative of throwing
-    /// while rendering a page that is otherwise fine.
+    /// Returns the empty string when any part is too long to encode, or is not
+    /// well-formed UTF-16. A caller getting one back emits no link, which costs the
+    /// reader one Previous/Next button on a row whose sort value is half a kilobyte --
+    /// against the alternative of throwing while rendering a page that is otherwise
+    /// fine, or of a token that decodes to a cursor this cursor is not.
     /// </remarks>
     /// <returns>A base64url token, or the empty string.</returns>
     public string Encode()
@@ -126,9 +127,12 @@ public readonly record struct ScaffoldCursor(
             | (this.Backward ? FlagBackward : 0));
 
         int at = 2;
-        Write(payload, ref at, this.Property, propertyBytes);
-        Write(payload, ref at, this.SortValue, valueBytes);
-        Write(payload, ref at, this.Key, keyBytes);
+        if (!TryWrite(payload, ref at, this.Property, propertyBytes)
+            || !TryWrite(payload, ref at, this.SortValue, valueBytes)
+            || !TryWrite(payload, ref at, this.Key, keyBytes))
+        {
+            return string.Empty;
+        }
 
         return Base64Url.EncodeToString(payload[..at]);
     }
@@ -211,16 +215,32 @@ public readonly record struct ScaffoldCursor(
         this.Direction == sort.Direction
         && string.Equals(this.Property, sort.Property, StringComparison.Ordinal);
 
-    private static void Write(Span<byte> destination, ref int at, string? text, int byteCount)
+    // Strict, for the reason TryRead is: Encoding.UTF8.GetBytes substitutes U+FFFD for a
+    // lone surrogate rather than refusing it, and the substitution is lossy. A row whose
+    // Property, SortValue or Key held one produced a token that decoded to a *different*
+    // cursor, so the reader landed on the wrong window and nothing reported it. Refusing
+    // reaches the empty-string path Encode already has for an over-long part: no link is
+    // a cost a reader can see, a wrong window is not.
+    private static bool TryWrite(Span<byte> destination, ref int at, string? text, int byteCount)
     {
         BinaryPrimitives.WriteUInt16BigEndian(destination[at..], text is null ? NullMarker : (ushort)byteCount);
         at += 2;
 
-        if (text is not null)
+        if (text is null)
         {
-            Encoding.UTF8.GetBytes(text, destination.Slice(at, byteCount));
-            at += byteCount;
+            return true;
         }
+
+        // byteCount came from GetByteCount, which counts the replacement it would have
+        // written, so a short write is the same defect as a failed one.
+        if (Utf8.FromUtf16(text, destination.Slice(at, byteCount), out _, out int written, false) != OperationStatus.Done
+            || written != byteCount)
+        {
+            return false;
+        }
+
+        at += byteCount;
+        return true;
     }
 
     private static bool TryRead(ReadOnlySpan<byte> body, ref int at, int cap, out string? text)

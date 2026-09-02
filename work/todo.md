@@ -1811,7 +1811,11 @@ an answer different from the one the audit assumed.
   scope for a test branch.
 - **`DemoSignIn.cs` scores 17.2% and `Models.cs` 0.0%.** Neither was in this branch's scope. The
   triage figures are in `tools/mutation-baseline.json` if either becomes worth closing.
-- **`Encode` substitutes for an unpaired surrogate; `TryDecode` no longer does.** After the strict
+- ~~**`Encode` substitutes for an unpaired surrogate; `TryDecode` no longer does.**~~ — **done
+  2026-09-02**, `aa15806`. `Write` became `TryWrite` over `Utf8.FromUtf16` with
+  `replaceInvalidSequences: false`, and `Encode` returns the empty string when it fails, which is
+  the refusal path an over-long part already took. A paired surrogate still round-trips. Original
+  entry: After the strict
   UTF-8 read, a token `TryDecode` accepts re-encodes to itself — but `Encode` still calls
   `Encoding.UTF8.GetBytes`, which replaces a lone surrogate in `Property`, `SortValue` or `Key`
   with U+FFFD. A row whose sorted column holds one therefore yields a cursor that decodes to a
