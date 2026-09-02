@@ -299,6 +299,34 @@ internal sealed class ArticleStore : MemoryStore<Article>
     };
 }
 
+/// <summary>
+/// The article-tag relation on the no-database path (spec 022 R4): article id to
+/// the slugs of its tags, held beside <see cref="ArticleStore"/> and
+/// <see cref="TagStore"/> rather than inside either, since both public read seams
+/// need it and neither store owns the other's rows.
+/// </summary>
+/// <remarks>
+/// Nothing cascades. A deleted article leaves its links here and a deleted tag
+/// stays in every article's list; the readers filter against the two stores
+/// instead, which is the in-memory answer to what PostgreSQL's
+/// <c>ON DELETE CASCADE</c> does for the real one.
+/// </remarks>
+internal sealed class MemoryRelation
+{
+    private readonly ConcurrentDictionary<string, string[]> _tagsByArticle = new(StringComparer.Ordinal);
+
+    /// <summary>Links one article to one tag; linking twice is one link.</summary>
+    internal void Link(string articleId, string tagSlug) =>
+        this._tagsByArticle.AddOrUpdate(
+            articleId,
+            _ => [tagSlug],
+            (_, existing) => existing.Contains(tagSlug, StringComparer.Ordinal) ? existing : [.. existing, tagSlug]);
+
+    /// <summary>The slugs of this article's tags, in link order; empty for an article with none.</summary>
+    internal IReadOnlyList<string> TagsOf(string articleId) =>
+        this._tagsByArticle.TryGetValue(articleId, out string[]? slugs) ? slugs : [];
+}
+
 internal sealed class TagStore : MemoryStore<Tag>
 {
     protected override string KeyOf(Tag item) => item.Slug;

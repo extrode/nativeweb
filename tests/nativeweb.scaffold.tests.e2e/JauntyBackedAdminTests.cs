@@ -212,7 +212,7 @@ public sealed class JauntyBackedAdminTests(JauntySampleFixture app, BrowserFixtu
         await page.ClickAsync("form.nws-search button[type=submit]");
 
         Assert.Contains("q=", page.Url, StringComparison.Ordinal);
-        await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByText(title).First).ToBeVisibleAsync();
         await Assertions.Expect(page.GetByText(other)).ToHaveCountAsync(0);
     }
 }

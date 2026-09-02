@@ -49,6 +49,12 @@ public sealed class PublicArticlesTests
 
     private static DateTime Utc(int day) => new(2026, 1, day, 0, 0, 0, DateTimeKind.Utc);
 
+    private static MemoryPublishedArticles Reader(ArticleStore store) =>
+        new(store, new TagStore(), new MemoryRelation());
+
+    private static PublishedArticle Listed(string id, string title, string? author, DateTime created) =>
+        new(id, id, title, author, created, []);
+
     [Fact]
     public async Task RecentAsync_OmitsUnpublishedArticles()
     {
@@ -58,7 +64,7 @@ public sealed class PublicArticlesTests
             ArticleAt("a2", Utc(2), published: false));
 
         IReadOnlyList<PublishedArticle> recent =
-            await new MemoryPublishedArticles(store).RecentAsync(10, CancellationToken.None);
+            await Reader(store).RecentAsync(10, CancellationToken.None);
 
         Assert.Equal(["a1"], recent.Select(a => a.Id));
     }
@@ -73,7 +79,7 @@ public sealed class PublicArticlesTests
             ArticleAt("a3", Utc(1)));
 
         IReadOnlyList<PublishedArticle> recent =
-            await new MemoryPublishedArticles(store).RecentAsync(10, CancellationToken.None);
+            await Reader(store).RecentAsync(10, CancellationToken.None);
 
         Assert.Equal(["a2", "a1", "a3"], recent.Select(a => a.Id));
     }
@@ -99,7 +105,7 @@ public sealed class PublicArticlesTests
             ArticleAt("b", same));
 
         IReadOnlyList<PublishedArticle> recent =
-            await new MemoryPublishedArticles(store).RecentAsync(10, CancellationToken.None);
+            await Reader(store).RecentAsync(10, CancellationToken.None);
 
         Assert.Equal(["a", "b", "c"], recent.Select(a => a.Id));
     }
@@ -113,7 +119,7 @@ public sealed class PublicArticlesTests
             ArticleAt("a3", Utc(3)));
 
         IReadOnlyList<PublishedArticle> recent =
-            await new MemoryPublishedArticles(store).RecentAsync(2, CancellationToken.None);
+            await Reader(store).RecentAsync(2, CancellationToken.None);
 
         // Truncation happens after the sort, not before: asking for two must give
         // the two newest, not two arbitrary rows.
@@ -148,7 +154,7 @@ public sealed class PublicArticlesTests
     {
         string html = Templates.Articles.Results.ToHtmlString(
             locale: Locales.En,
-            Articles: [new PublishedArticle("a1", "Lean Native Web", "Sy", Utc(4))]);
+            Articles: [Listed("a1", "Lean Native Web", "Sy", Utc(4))]);
 
         Assert.Contains("Lean Native Web", html, StringComparison.Ordinal);
         Assert.Contains("Sy", html, StringComparison.Ordinal);
@@ -162,7 +168,7 @@ public sealed class PublicArticlesTests
         // a stray gap depending on the stylesheet.
         string html = Templates.Articles.Results.ToHtmlString(
             locale: Locales.En,
-            Articles: [new PublishedArticle("a1", "Draft-less", null, Utc(4))]);
+            Articles: [Listed("a1", "Draft-less", null, Utc(4))]);
 
         Assert.DoesNotContain("articles__author", html, StringComparison.Ordinal);
     }
@@ -180,7 +186,7 @@ public sealed class PublicArticlesTests
     {
         string html = Templates.Articles.Results.ToHtmlString(
             locale: Locales.En,
-            Articles: [new PublishedArticle("a1", "<script>alert(1)</script>", "\"><img src=x>", Utc(4))]);
+            Articles: [Listed("a1", "<script>alert(1)</script>", "\"><img src=x>", Utc(4))]);
 
         Assert.DoesNotContain("<script>", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<img", html, StringComparison.Ordinal);
@@ -278,8 +284,8 @@ public sealed class PublicArticlesTests
     {
         PublishedArticle[] all =
         [
-            new("a1", "Lean Native Web", "Sy", Utc(1)),
-            new("a2", "Something else", "Ada", Utc(2)),
+            Listed("a1", "Lean Native Web", "Sy", Utc(1)),
+            Listed("a2", "Something else", "Ada", Utc(2)),
         ];
 
         Assert.Equal(["a2"], PublicArticleEndpoints.Matching(all, "ada").Select(a => a.Id));
@@ -290,7 +296,7 @@ public sealed class PublicArticlesTests
     [Fact]
     public void Matching_WithANullAuthor_DoesNotThrowAndDoesNotMatch()
     {
-        PublishedArticle[] all = [new("a1", "Untitled", null, Utc(1))];
+        PublishedArticle[] all = [Listed("a1", "Untitled", null, Utc(1))];
 
         Assert.Empty(PublicArticleEndpoints.Matching(all, "anything"));
         Assert.Single(PublicArticleEndpoints.Matching(all, "untitled"));
@@ -302,8 +308,8 @@ public sealed class PublicArticlesTests
     {
         PublishedArticle[] all =
         [
-            new("a1", "One", "Sy", Utc(1)),
-            new("a2", "Two", null, Utc(2)),
+            Listed("a1", "One", "Sy", Utc(1)),
+            Listed("a2", "Two", null, Utc(2)),
         ];
 
         Assert.Equal(2, PublicArticleEndpoints.Matching(all, "   ").Count);

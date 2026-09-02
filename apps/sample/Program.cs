@@ -143,13 +143,15 @@ public sealed class Program
         {
             var articles = new ArticleStore();
             var tags = new TagStore();
+            var relation = new MemoryRelation();
             builder.Services.AddSingleton<IScaffoldStore<Article>>(articles);
             builder.Services.AddSingleton<IScaffoldStore<Tag>>(tags);
-            Seed.Fill(articles, tags);
+            Seed.Fill(articles, tags, relation);
 
-            // The public feed reads through the same seam. In-memory it has to
-            // filter and sort itself; see MemoryPublishedArticles.
-            builder.Services.AddSingleton<IPublishedArticles>(new MemoryPublishedArticles(articles));
+            // The public pages read through the same seams. In-memory they have to
+            // filter, sort and count themselves; see MemoryPublishedArticles.
+            builder.Services.AddSingleton<IPublishedArticles>(new MemoryPublishedArticles(articles, tags, relation));
+            builder.Services.AddSingleton<IPublicTags>(new MemoryPublicTags(tags, articles, relation));
         }
         else
         {
@@ -171,6 +173,8 @@ public sealed class Program
             // pair the tutorial in docs/00-quick-start/tutorial-first-feature.md compares.
             builder.Services.AddSingleton<IPublishedArticles>(
                 sp => new JauntyPublishedArticles(sp.GetRequiredService<NpgsqlDataSource>()));
+            builder.Services.AddSingleton<IPublicTags>(
+                sp => new JauntyPublicTags(sp.GetRequiredService<NpgsqlDataSource>()));
         }
 
         WebApplication app = builder.Build();
@@ -252,10 +256,18 @@ public sealed class Program
 
 internal static class Seed
 {
-    internal static void Fill(ArticleStore articles, TagStore tags)
+    // The same three tags migration 0003 seeds on the database path. The links
+    // are what spec 022 R4 asks the demo to show: one article with two tags, one
+    // with none, and one tag (postgres) whose only article is a draft, so the tag
+    // listing has a zero to show and the tag page an empty state.
+    internal static void Fill(ArticleStore articles, TagStore tags, MemoryRelation relation)
     {
         tags.Seed(new Tag { Slug = "aot", Name = "NativeAOT", Color = "#5bbd83" });
         tags.Seed(new Tag { Slug = "htmx", Name = "HTMX", Color = "#7aa2f7" });
+        tags.Seed(new Tag { Slug = "postgres", Name = "PostgreSQL", Color = "#336791" });
+        relation.Link("a1", "aot");
+        relation.Link("a1", "htmx");
+        relation.Link("a3", "postgres");
         articles.Seed(new Article
         {
             Id = "a1",
