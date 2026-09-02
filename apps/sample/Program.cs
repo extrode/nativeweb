@@ -258,6 +258,7 @@ internal static class Seed
         {
             Id = "a1",
             Title = "Lean Native Web",
+            Slug = "lean-native-web",
             Author = "Sy",
             Body = "Server-rendered HTML, one native binary, no client build step.",
             Published = true,
@@ -269,6 +270,7 @@ internal static class Seed
         {
             Id = "a2",
             Title = "Binding forms under NativeAOT",
+            Slug = "binding-forms-under-nativeaot",
             Author = "Sy",
             Body = "Complex-type [FromForm] does not compile. IBindableFromHttpContext does.",
             Published = true,
@@ -280,6 +282,7 @@ internal static class Seed
         {
             Id = "a3",
             Title = "Scaffolding without reflection",
+            Slug = "scaffolding-without-reflection",
             Author = null,
             Body = "Draft.",
             Published = false,

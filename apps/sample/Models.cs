@@ -19,6 +19,13 @@ public sealed class Article
     [ScaffoldSort]
     public string Title { get; set; } = "";
 
+    // The public address (spec 022). Nullable so the generated form does not
+    // require it: blank on create derives from the title, blank on edit keeps
+    // what the row has. The store owns both rules and refuses a duplicate or an
+    // invalid one through ScaffoldRefusedException; see Slugs.cs.
+    [ScaffoldList]
+    public string? Slug { get; set; }
+
     // The nullable one, and sortable on purpose: a nullable sorted column is where
     // keyset paging goes wrong quietly, so the reference app has to demonstrate it
     // rather than avoid it.
