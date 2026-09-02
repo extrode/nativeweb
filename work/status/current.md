@@ -11,11 +11,19 @@ worth seeing here rather than hiding, but it is the exception.
   saw Tags alone: `Article` is `[Auth(Role = "admin")]`, the only sign-in was Development-only,
   and nw-dev runs Production. `apps/sample/AdminSignIn.cs` mounts a passphrase form outside
   Development, read from `Sample:Admin:Passphrase`; Production exits 78 without it. Unit 105
-  green (3 red with the comparison broken), integration 93 green in the scaffold tier and 8 in the
+  green (3 red with the comparison broken), integration green in the scaffold tier and 8 in the
   sample tier (3 red with the 401 and the rate limit removed), the Production child process exits
   78 naming the key, e2e runs the NativeAOT binary as Production over https on port 5351 through a third
   collection fixture. The passphrase is the sample's, not the framework's: the skeleton signs in
   through the OAuth relying party and `deploy.sh` gates the key on the `Sample` prefix only.
+  Two-lens review found 18 candidates, 15 acted on (the refusal page for a visitor who already
+  holds a session, control characters in the return path, a quoted-blank passphrase passing the
+  deploy preflight, the provisioner seeding every prefix, the doc row invisible to the parity
+  test, the acceptance criterion naming a `--check` flag that does not exist), 3 noted in
+  `work/todo.md`, 0 refuted. Final counts: unit 109, repo 146, scaffold integration 96, sample
+  integration 8, e2e 21. **nw-dev still needs the operator to add `Sample__Admin__Passphrase` to
+  `/etc/nativeweb/secrets.env` by hand before its next deploy**; the provisioner only seeds a
+  file it creates.
 - **Spec 019 — mutation residue and baseline. Done on
   `chore/019-mutation-residue-and-baseline`, 2026-09-02.** `tools/stryker-config.json` with
   `ignore-methods: ["ConfigureAwait"]` and `additional-timeout: 30000`, passed by the triage tool
