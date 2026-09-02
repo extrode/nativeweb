@@ -6,6 +6,12 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Spec 021 — response formats and content negotiation. In progress on
+  `feat/021-response-formats-and-negotiation`, started 2026-09-02.** Framework helpers for text,
+  Markdown, JSON, XML, Atom, RSS, CSV and sitemap in `libs/nativeweb.render`, `MapNegotiated` in
+  `libs/nativeweb.web`, every format published by `apps/sample`. Plan and tasks under
+  `docs/specs/021-response-formats-and-negotiation/`.
+
 - **Spec 020 — a deployed sample whose admin can be reached. Done on
   `feat/020-deployed-sample-signin`, 2026-09-02.** Found when the user opened nw-dev's admin and
   saw Tags alone: `Article` is `[Auth(Role = "admin")]`, the only sign-in was Development-only,
