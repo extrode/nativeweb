@@ -67,12 +67,33 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
     {
     }
 
+    /// <summary>
+    /// After a row is removed, under the save lock, so a cascade into another
+    /// store or the relation cannot interleave with a save that reads either.
+    /// </summary>
+    protected virtual void OnDelete(string key)
+    {
+    }
+
+    /// <summary>
+    /// Fills what the row holds outside its own dictionary entry, on the way out
+    /// of <see cref="GetAsync"/>: a relation's keys live in <see cref="MemoryRelation"/>,
+    /// and the form that edits them reads them from here.
+    /// </summary>
+    protected virtual void Load(T item)
+    {
+    }
+
     /// <summary>Every row, for a rule in <see cref="BeforeSave"/> that must look across them.</summary>
     protected IEnumerable<T> Items => this._items.Values;
 
     private readonly Lock _saves = new();
 
-    protected virtual string NewKey() => Guid.NewGuid().ToString("n")[..8];
+    /// <summary>The key a new row gets; a store whose caller may supply one overrides this.</summary>
+    protected virtual string KeyFor(T item) => Guid.NewGuid().ToString("n")[..8];
+
+    /// <summary>Whether a row with this key is held, for another store's choice check.</summary>
+    internal bool Has(string key) => this._items.ContainsKey(key);
 
     public ValueTask<IReadOnlyList<T>> ListAsync(
         string? search,
@@ -162,12 +183,20 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
     public ValueTask<int> CountAsync(string? search, IReadOnlyList<string> searchFields, CancellationToken ct) =>
         ValueTask.FromResult(Filter(search, searchFields).Count());
 
-    public ValueTask<T?> GetAsync(string id, CancellationToken ct) =>
-        ValueTask.FromResult(this._items.TryGetValue(id, out T? found) ? found : null);
+    public ValueTask<T?> GetAsync(string id, CancellationToken ct)
+    {
+        if (!this._items.TryGetValue(id, out T? found))
+        {
+            return ValueTask.FromResult<T?>(null);
+        }
+
+        Load(found);
+        return ValueTask.FromResult<T?>(found);
+    }
 
     public ValueTask<string> CreateAsync(T item, CancellationToken ct)
     {
-        string key = NewKey();
+        string key = KeyFor(item);
         AssignKey(item, key);
         OnCreate(item);
         lock (this._saves)
@@ -217,8 +246,19 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
         return ValueTask.FromResult(false);
     }
 
-    public ValueTask<bool> DeleteAsync(string id, CancellationToken ct) =>
-        ValueTask.FromResult(this._items.TryRemove(id, out _));
+    public ValueTask<bool> DeleteAsync(string id, CancellationToken ct)
+    {
+        lock (this._saves)
+        {
+            if (!this._items.TryRemove(id, out _))
+            {
+                return ValueTask.FromResult(false);
+            }
+
+            OnDelete(id);
+            return ValueTask.FromResult(true);
+        }
+    }
 
     /// <summary>Seeds a row directly, bypassing key generation.</summary>
     internal void Seed(T item) => this._items[KeyOf(item)] = item;
@@ -243,8 +283,41 @@ internal abstract class MemoryStore<T> : IScaffoldStore<T>
     }
 }
 
-internal sealed class ArticleStore : MemoryStore<Article>
+/// <summary>
+/// The three memory stores and the relation between two of them, wired once. A
+/// store checks a posted key against its peer through a delegate rather than a
+/// reference, because articles point at tags and tags point back at articles,
+/// and two constructors cannot each take the other's result.
+/// </summary>
+internal sealed record MemoryStores(
+    ArticleStore Articles,
+    TagStore Tags,
+    CategoryStore Categories,
+    MemoryRelation Relation)
 {
+    internal static MemoryStores Create()
+    {
+        var relation = new MemoryRelation();
+        ArticleStore articles = null!;
+        var tags = new TagStore(relation, id => articles.Has(id));
+        var categories = new CategoryStore(key => articles.ClearCategory(key));
+        articles = new ArticleStore(relation, tags.Has, categories.Has);
+
+        return new MemoryStores(articles, tags, categories, relation);
+    }
+}
+
+internal sealed class ArticleStore(
+    MemoryRelation relation,
+    Func<string, bool>? tagExists,
+    Func<string, bool>? categoryExists) : MemoryStore<Article>
+{
+    /// <summary>A store on its own: no tag or category exists, so every posted key is refused.</summary>
+    public ArticleStore()
+        : this(new MemoryRelation(), null, null)
+    {
+    }
+
     protected override string KeyOf(Article item) => item.Id;
 
     protected override void AssignKey(Article item, string key) => item.Id = key;
@@ -259,10 +332,13 @@ internal sealed class ArticleStore : MemoryStore<Article>
     // two concurrent creates of one title cannot both see the derived slug as free.
     protected override void BeforeSave(Article item, Article? existing)
     {
+        Choices(item);
+
         string? typed = string.IsNullOrWhiteSpace(item.Slug) ? null : item.Slug.Trim();
         if (typed is null)
         {
             item.Slug = existing?.Slug ?? Slugs.Unique(Slugs.Derive(item.Title), Taken(item.Id));
+            Link(item);
             return;
         }
 
@@ -277,6 +353,50 @@ internal sealed class ArticleStore : MemoryStore<Article>
         }
 
         item.Slug = typed;
+        Link(item);
+    }
+
+    // The store is the authority on whether a posted key names a row (R7): the
+    // form only offers what existed when it was rendered. Every check runs
+    // before anything is written, so a refusal leaves the relation and the row
+    // as they were. A blank category is "none", which the form posts as the
+    // empty option.
+    private void Choices(Article item)
+    {
+        if (string.IsNullOrWhiteSpace(item.CategoryKey))
+        {
+            item.CategoryKey = null;
+        }
+        else if (categoryExists?.Invoke(item.CategoryKey) != true)
+        {
+            throw new ScaffoldRefusedException(Refusals.MissingChoice("Category"));
+        }
+
+        if (item.Tags.Any(slug => tagExists?.Invoke(slug) != true))
+        {
+            throw new ScaffoldRefusedException(Refusals.MissingChoice("Tags"));
+        }
+    }
+
+    // After every rule has passed: the row is about to be written, so its side
+    // of the relation is too.
+    private void Link(Article item)
+    {
+        relation.ReplaceTagsOf(item.Id, item.Tags);
+        item.Tags = relation.TagsOf(item.Id);
+    }
+
+    protected override void Load(Article item) => item.Tags = relation.TagsOf(item.Id);
+
+    protected override void OnDelete(string key) => relation.RemoveArticle(key);
+
+    /// <summary>What a category's delete does to the rows that pointed at it: nothing points any more.</summary>
+    internal void ClearCategory(string key)
+    {
+        foreach (Article article in Items.Where(a => string.Equals(a.CategoryKey, key, StringComparison.Ordinal)))
+        {
+            article.CategoryKey = null;
+        }
     }
 
     private Func<string, bool> Taken(string ownId) =>
@@ -301,41 +421,193 @@ internal sealed class ArticleStore : MemoryStore<Article>
 
 /// <summary>
 /// The article-tag relation on the no-database path (spec 022 R4): article id to
-/// the slugs of its tags, held beside <see cref="ArticleStore"/> and
-/// <see cref="TagStore"/> rather than inside either, since both public read seams
-/// need it and neither store owns the other's rows.
+/// the slugs of its tags and the reverse, held beside <see cref="ArticleStore"/>
+/// and <see cref="TagStore"/> rather than inside either, since both public read
+/// seams need it and neither store owns the other's rows.
 /// </summary>
 /// <remarks>
-/// Nothing cascades. A deleted article leaves its links here and a deleted tag
-/// stays in every article's list; the readers filter against the two stores
-/// instead, which is the in-memory answer to what PostgreSQL's
-/// <c>ON DELETE CASCADE</c> does for the real one.
+/// Both sides are held, as two indexes over one set of links, so either form can
+/// replace its own side (spec 023 R1, R2) and the other side sees it. Two admins
+/// saving the article and one of its tags at once is last-write-wins across the
+/// two, the same as two UPDATEs of one join table. The stores cascade: deleting
+/// an article or a tag removes its links here, which is the in-memory answer to
+/// the <c>ON DELETE CASCADE</c> the real join table carries (R9).
 /// </remarks>
 internal sealed class MemoryRelation
 {
-    private readonly ConcurrentDictionary<string, string[]> _tagsByArticle = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string[]> _tagsByArticle = new(StringComparer.Ordinal);
+
+    private readonly Dictionary<string, string[]> _articlesByTag = new(StringComparer.Ordinal);
+
+    private readonly Lock _links = new();
 
     /// <summary>Links one article to one tag; linking twice is one link.</summary>
-    internal void Link(string articleId, string tagSlug) =>
-        this._tagsByArticle.AddOrUpdate(
-            articleId,
-            _ => [tagSlug],
-            (_, existing) => existing.Contains(tagSlug, StringComparer.Ordinal) ? existing : [.. existing, tagSlug]);
+    internal void Link(string articleId, string tagSlug)
+    {
+        lock (this._links)
+        {
+            Add(this._tagsByArticle, articleId, tagSlug);
+            Add(this._articlesByTag, tagSlug, articleId);
+        }
+    }
 
     /// <summary>The slugs of this article's tags, in link order; empty for an article with none.</summary>
-    internal IReadOnlyList<string> TagsOf(string articleId) =>
-        this._tagsByArticle.TryGetValue(articleId, out string[]? slugs) ? slugs : [];
+    internal IReadOnlyList<string> TagsOf(string articleId)
+    {
+        lock (this._links)
+        {
+            return this._tagsByArticle.TryGetValue(articleId, out string[]? slugs) ? slugs : [];
+        }
+    }
+
+    /// <summary>The ids of this tag's articles, in link order; empty for a tag with none.</summary>
+    internal IReadOnlyList<string> ArticlesOf(string tagSlug)
+    {
+        lock (this._links)
+        {
+            return this._articlesByTag.TryGetValue(tagSlug, out string[]? ids) ? ids : [];
+        }
+    }
+
+    /// <summary>Makes these the article's tags, no more and no fewer.</summary>
+    internal void ReplaceTagsOf(string articleId, IReadOnlyList<string> tagSlugs)
+    {
+        lock (this._links)
+        {
+            Replace(this._tagsByArticle, this._articlesByTag, articleId, tagSlugs);
+        }
+    }
+
+    /// <summary>Makes these the tag's articles, no more and no fewer.</summary>
+    internal void ReplaceArticlesOf(string tagSlug, IReadOnlyList<string> articleIds)
+    {
+        lock (this._links)
+        {
+            Replace(this._articlesByTag, this._tagsByArticle, tagSlug, articleIds);
+        }
+    }
+
+    /// <summary>Drops every link the article had, on both sides.</summary>
+    internal void RemoveArticle(string articleId) => ReplaceTagsOf(articleId, []);
+
+    /// <summary>Drops every link the tag had, on both sides.</summary>
+    internal void RemoveTag(string tagSlug) => ReplaceArticlesOf(tagSlug, []);
+
+    private static void Add(Dictionary<string, string[]> index, string key, string value) =>
+        index[key] = index.TryGetValue(key, out string[]? existing)
+            ? existing.Contains(value, StringComparer.Ordinal) ? existing : [.. existing, value]
+            : [value];
+
+    private static void Remove(Dictionary<string, string[]> index, string key, string value)
+    {
+        if (index.TryGetValue(key, out string[]? existing))
+        {
+            string[] rest = existing.Where(v => !string.Equals(v, value, StringComparison.Ordinal)).ToArray();
+            if (rest.Length == 0)
+            {
+                index.Remove(key);
+            }
+            else
+            {
+                index[key] = rest;
+            }
+        }
+    }
+
+    // Forward index gets the new list as posted, deduplicated; the reverse index
+    // loses this key under every old value and gains it under every new one.
+    private static void Replace(
+        Dictionary<string, string[]> forward,
+        Dictionary<string, string[]> reverse,
+        string key,
+        IReadOnlyList<string> values)
+    {
+        string[] next = values.Distinct(StringComparer.Ordinal).ToArray();
+        string[] previous = forward.TryGetValue(key, out string[]? had) ? had : [];
+
+        foreach (string gone in previous.Except(next, StringComparer.Ordinal))
+        {
+            Remove(reverse, gone, key);
+        }
+
+        foreach (string added in next.Except(previous, StringComparer.Ordinal))
+        {
+            Add(reverse, added, key);
+        }
+
+        if (next.Length == 0)
+        {
+            forward.Remove(key);
+        }
+        else
+        {
+            forward[key] = next;
+        }
+    }
 }
 
-internal sealed class TagStore : MemoryStore<Tag>
+internal sealed class TagStore(MemoryRelation relation, Func<string, bool>? articleExists) : MemoryStore<Tag>
 {
+    /// <summary>A store on its own: no article exists, so every posted id is refused.</summary>
+    public TagStore()
+        : this(new MemoryRelation(), null)
+    {
+    }
+
     protected override string KeyOf(Tag item) => item.Slug;
 
     protected override void AssignKey(Tag item, string key) => item.Slug = key;
+
+    // A slug the caller supplied is the key (R9); a blank one is generated. The
+    // form never carries the key, so a typed slug reaches here from code.
+    protected override string KeyFor(Tag item) =>
+        string.IsNullOrWhiteSpace(item.Slug) ? base.KeyFor(item) : item.Slug.Trim();
+
+    protected override void BeforeSave(Tag item, Tag? existing)
+    {
+        if (existing is null && Has(item.Slug))
+        {
+            throw new ScaffoldRefusedException(Slugs.TakenMessage(item.Slug));
+        }
+
+        if (item.Articles.Any(id => articleExists?.Invoke(id) != true))
+        {
+            throw new ScaffoldRefusedException(Refusals.MissingChoice("Articles"));
+        }
+
+        relation.ReplaceArticlesOf(item.Slug, item.Articles);
+        item.Articles = relation.ArticlesOf(item.Slug);
+    }
+
+    protected override void Load(Tag item) => item.Articles = relation.ArticlesOf(item.Slug);
+
+    protected override void OnDelete(string key) => relation.RemoveTag(key);
 
     protected override string? Field(Tag item, string name) =>
         name == nameof(Tag.Name) ? item.Name : null;
 
     protected override IComparable? SortValue(Tag item, string name) =>
         name == nameof(Tag.Name) ? item.Name : item.Slug;
+}
+
+internal sealed class CategoryStore(Action<string>? onDelete) : MemoryStore<Category>
+{
+    public CategoryStore()
+        : this(null)
+    {
+    }
+
+    protected override string KeyOf(Category item) => item.Key;
+
+    protected override void AssignKey(Category item, string key) => item.Key = key;
+
+    // The articles that pointed at the deleted category now point at nothing
+    // (R5), which is what ON DELETE SET NULL does on the database path.
+    protected override void OnDelete(string key) => onDelete?.Invoke(key);
+
+    protected override string? Field(Category item, string name) =>
+        name == nameof(Category.Name) ? item.Name : null;
+
+    protected override IComparable? SortValue(Category item, string name) =>
+        name == nameof(Category.Name) ? item.Name : item.Key;
 }

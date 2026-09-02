@@ -29,7 +29,7 @@ public sealed class PublishedArticlesTests
             Title = $"title-{id}",
             Author = "Sy",
             Body = "one\n\ntwo",
-            Published = published,
+            Status = published ? ArticleStatus.Published : ArticleStatus.Draft,
             CreatedAt = Utc(day),
         };
         this._articles.Seed(article);

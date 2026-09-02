@@ -173,7 +173,7 @@ internal sealed class MemoryPublishedArticles(
         IReadOnlyList<Article> all = await store.ListAsync(null, [], null, [], null, ScanLimit, ct).ConfigureAwait(false);
 
         return all
-            .Where(a => a.Published)
+            .Where(a => a.Status == ArticleStatus.Published)
             .OrderByDescending(a => a.CreatedAt)
             .ThenByDescending(a => a.Id, StringComparer.Ordinal)
             .ToList();
@@ -183,7 +183,7 @@ internal sealed class MemoryPublishedArticles(
     {
         IReadOnlyList<Article> all = await store.ListAsync(null, [], null, [], null, ScanLimit, ct).ConfigureAwait(false);
 
-        return all.FirstOrDefault(a => a.Published && string.Equals(a.Slug, slug, StringComparison.Ordinal));
+        return all.FirstOrDefault(a => a.Status == ArticleStatus.Published && string.Equals(a.Slug, slug, StringComparison.Ordinal));
     }
 
     // Tag slugs the relation holds resolve against the tag store, by name order,

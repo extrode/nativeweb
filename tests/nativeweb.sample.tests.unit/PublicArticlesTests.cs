@@ -43,7 +43,7 @@ public sealed class PublicArticlesTests
             Title = $"title-{id}",
             Author = author,
             Body = "body",
-            Published = published,
+            Status = published ? ArticleStatus.Published : ArticleStatus.Draft,
             CreatedAt = created,
         };
 

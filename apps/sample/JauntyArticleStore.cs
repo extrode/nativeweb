@@ -165,7 +165,7 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
                 Slug = row.Slug,
                 Author = row.Author,
                 Body = row.Body,
-                Published = row.Published,
+                Status = row.Published ? ArticleStatus.Published : ArticleStatus.Draft,
                 ViewCount = row.ViewCount,
                 CreatedAt = row.CreatedAt,
             });
@@ -209,7 +209,7 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
                 Slug = row.Slug,
                 Author = row.Author,
                 Body = row.Body,
-                Published = row.Published,
+                Status = row.Published ? ArticleStatus.Published : ArticleStatus.Draft,
                 ViewCount = row.ViewCount,
                 CreatedAt = row.CreatedAt,
             };
@@ -243,7 +243,7 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
             try
             {
                 await db.Articles.InsertAsync(
-                    key, slug, item.Title, item.Author, item.Body, item.Published, item.ViewCount, item.CreatedAt, ct)
+                    key, slug, item.Title, item.Author, item.Body, item.Status == ArticleStatus.Published, item.ViewCount, item.CreatedAt, ct)
                     .ConfigureAwait(false);
                 item.Slug = slug;
                 return key;
@@ -274,7 +274,7 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         try
         {
             int affected = await db.Articles.UpdateAsync(
-                item.Title, item.Author, item.Body, item.Published, item.ViewCount, typed, id, ct)
+                item.Title, item.Author, item.Body, item.Status == ArticleStatus.Published, item.ViewCount, typed, id, ct)
                 .ConfigureAwait(false);
 
             return affected > 0;
