@@ -13,6 +13,15 @@
 -- it has. Deliberately NOT an upsert: an operator who edits the demo copy on
 -- nw-dev should not have the edit reverted by the next deploy.
 --
+-- No conflict target on either statement, and that is the whole point rather
+-- than brevity. articles has a second unique index -- articles_slug_key, from
+-- 0003 -- and ON CONFLICT (id) suppresses conflicts on the primary key alone,
+-- so a row already holding one of these eight slugs under a different id would
+-- raise unique_violation. All eight rows are one statement, so that single
+-- collision would lose all eight and fail the migration, which on this
+-- repository's deploy path means failing the deploy before the colour switch.
+-- A bare DO NOTHING covers every unique index the table has now or later.
+--
 -- The ids are the memory store's own (a1..a8) rather than generated keys. A
 -- demo row is allowed to have a legible id, and the public pages link by slug
 -- regardless; PublicSiteTests names a1 and a3 directly.
@@ -85,7 +94,7 @@ VALUES
     ('a8', 'A note written last week and published today', 'Sy',
      'Backdated on purpose. The public order is the publication date, and this row sits where that date puts it rather than where its creation time would.',
      41, '2026-09-02 07:10:00+00', 'a-note-written-last-week-and-published-today', 'published', '2026-08-24', 'notes')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 INSERT INTO article_tags (article_id, tag_slug)
 VALUES

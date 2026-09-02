@@ -27,7 +27,12 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </para>
 /// <para>
 /// Field-by-field rather than by row count: a count agrees while a publication date
-/// differs, and the publication date is the field the public order depends on.
+/// differs, and the publication date is the field the public order depends on. Every
+/// column the two files both declare is compared, body and creation timestamp
+/// included -- a4 and a7 carry multi-paragraph bodies spelled as C# escapes on one
+/// side and chr(10) concatenation on the other, and a8 exists to hold a publication
+/// date earlier than its creation timestamp, which is only a fact about the row if
+/// both halves of it are read.
 /// </para>
 /// </remarks>
 public sealed class SeedParityTests
@@ -40,7 +45,9 @@ public sealed class SeedParityTests
         string Status,
         string? PublishedAt,
         string? CategoryKey,
-        int ViewCount);
+        int ViewCount,
+        string Body,
+        string CreatedAt);
 
     [Fact]
     public void TheMigrationAndTheMemorySeedDeclareTheSameArticles()
@@ -56,7 +63,10 @@ public sealed class SeedParityTests
     [Fact]
     public void TheMigrationAndTheMemorySeedDeclareTheSameTagLinks()
     {
-        Assert.Equal(TagLinksFromMigration(), TagLinksFromProgram());
+        List<string> sql = TagLinksFromMigration();
+
+        Assert.NotEmpty(sql);
+        Assert.Equal(sql, TagLinksFromProgram());
     }
 
     // Every article in the migration's single INSERT, read as the tuple the memory
@@ -66,12 +76,12 @@ public sealed class SeedParityTests
     private static List<SeedArticle> FromMigration()
     {
         string sql = ReadRepoFile("db/sample/migrations/0005_seed_demo_content.sql");
-        string articles = Between(sql, "INSERT INTO articles", "ON CONFLICT (id) DO NOTHING;");
+        string articles = Between(sql, "INSERT INTO articles", "ON CONFLICT DO NOTHING;");
 
         var rows = new List<SeedArticle>();
         foreach (Match row in Regex.Matches(
             articles,
-            @"\('(?<id>a\d+)',\s*'(?<title>(?:[^']|'')*)',\s*(?<author>NULL|'(?:[^']|'')*'),\s*(?<body>.*?),\s*(?<views>\d+),\s*'[^']*',\s*'(?<slug>[^']*)',\s*'(?<status>[^']*)',\s*(?<published>NULL|'[^']*'),\s*(?<category>NULL|'[^']*')\)",
+            @"\('(?<id>a\d+)',\s*'(?<title>(?:[^']|'')*)',\s*(?<author>NULL|'(?:[^']|'')*'),\s*(?<body>.*?),\s*(?<views>\d+),\s*'(?<created>[^']*)',\s*'(?<slug>[^']*)',\s*'(?<status>[^']*)',\s*(?<published>NULL|'[^']*'),\s*(?<category>NULL|'[^']*')\)",
             RegexOptions.Singleline))
         {
             rows.Add(new SeedArticle(
@@ -82,7 +92,9 @@ public sealed class SeedParityTests
                 row.Groups["status"].Value,
                 Unquote(row.Groups["published"].Value),
                 Unquote(row.Groups["category"].Value),
-                int.Parse(row.Groups["views"].Value, System.Globalization.CultureInfo.InvariantCulture)));
+                int.Parse(row.Groups["views"].Value, System.Globalization.CultureInfo.InvariantCulture),
+                SqlBody(row.Groups["body"].Value),
+                row.Groups["created"].Value.Replace("+00", "", StringComparison.Ordinal).Trim()));
         }
 
         return rows;
@@ -110,7 +122,9 @@ public sealed class SeedParityTests
                 (Raw(body, "Status") ?? "ArticleStatus.Draft").Replace("ArticleStatus.", "", StringComparison.Ordinal).ToLowerInvariant(),
                 DateOf(Raw(body, "PublishedAt")),
                 Field(body, "CategoryKey"),
-                int.Parse(Raw(body, "ViewCount") ?? "0", System.Globalization.CultureInfo.InvariantCulture)));
+                int.Parse(Raw(body, "ViewCount") ?? "0", System.Globalization.CultureInfo.InvariantCulture),
+                CSharpBody(body),
+                StampOf(Raw(body, "CreatedAt"))));
         }
 
         return rows;
@@ -136,6 +150,80 @@ public sealed class SeedParityTests
             .Select(m => $"{m.Groups["article"].Value}:{m.Groups["tag"].Value}")
             .Order(StringComparer.Ordinal)
             .ToList();
+    }
+
+    // The body is one C# string literal, or a string.Join whose first argument is the
+    // separator -- a7 is written the second way because eight paragraphs on one line is
+    // unreadable. Both reduce to the text the SQL side declares.
+    private static string CSharpBody(string block)
+    {
+        Match match = Regex.Match(block, "\\bBody\\s*=\\s*(?<expr>.*?),\\s*\\r?\\n\\s*Status\\s*=", RegexOptions.Singleline);
+        Assert.True(match.Success, "A seeded article declares no Body before its Status.");
+
+        string expression = match.Groups["expr"].Value;
+        var parts = Regex.Matches(expression, "\"(?:[^\"\\\\]|\\\\.)*\"")
+            .Select(literal => Unescape(literal.Value))
+            .ToList();
+        Assert.NotEmpty(parts);
+
+        return expression.TrimStart().StartsWith("string.Join", StringComparison.Ordinal)
+            ? string.Join(parts[0], parts.Skip(1))
+            : parts[0];
+    }
+
+    // The migration spells a paragraph break as || chr(10) || chr(10) ||, because a
+    // literal newline inside a quoted SQL string would put the file's own indentation
+    // into the article.
+    private static string SqlBody(string expression)
+    {
+        var text = new System.Text.StringBuilder();
+        foreach (Match token in Regex.Matches(expression, "'(?:[^']|'')*'|chr\\(10\\)"))
+        {
+            text.Append(token.Value is "chr(10)" ? "\n" : Unquote(token.Value) ?? "");
+        }
+
+        Assert.NotEqual("", text.ToString());
+
+        return text.ToString();
+    }
+
+    private static string Unescape(string literal)
+    {
+        string inner = literal[1..^1];
+        var text = new System.Text.StringBuilder(inner.Length);
+        for (int i = 0; i < inner.Length; i++)
+        {
+            if (inner[i] != '\\')
+            {
+                text.Append(inner[i]);
+                continue;
+            }
+
+            i++;
+            text.Append(inner[i] switch
+            {
+                'n' => '\n',
+                'r' => '\r',
+                't' => '\t',
+                char other => other,
+            });
+        }
+
+        return text.ToString();
+    }
+
+    private static string StampOf(string? expression)
+    {
+        Match match = Regex.Match(expression ?? "", "new DateTime\\((?<parts>[^)]*)\\)");
+        Assert.True(match.Success, $"A seeded article's CreatedAt is not a DateTime literal: {expression}");
+
+        int[] parts = Regex.Matches(match.Groups["parts"].Value, "\\d+")
+            .Select(number => int.Parse(number.Value, System.Globalization.CultureInfo.InvariantCulture))
+            .ToArray();
+        Assert.True(parts.Length >= 6, $"A seeded article's CreatedAt has no time of day: {expression}");
+
+        return new DateTime(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], DateTimeKind.Utc)
+            .ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static string? Field(string body, string name)

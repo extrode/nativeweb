@@ -118,6 +118,24 @@ public sealed class PublicSiteTests
     }
 
     [Fact]
+    public void Show_DatesABackdatedArticleByItsPublicationDateNotItsCreationDate()
+    {
+        var detail = new ArticleDetail(
+            "lean", "Lean Native Web", "Sy", Utc(4), "", [], new DateOnly(2025, 12, 20));
+
+        string page = Templates.Articles.Show.ToHtmlString(
+            locale: Locales.En,
+            Title: detail.Title,
+            AntiforgeryToken: "",
+            Article: detail,
+            Paragraphs: ["first"]);
+
+        Assert.Contains("datetime=\"2025-12-20\"", page, StringComparison.Ordinal);
+        Assert.Contains("20 Dec 2025", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("2026-01-04", page, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Show_EncodesTheBodyAndOmitsAMissingAuthor()
     {
         var detail = new ArticleDetail("x", "t", null, Utc(4), "", []);

@@ -21,7 +21,7 @@
 
 const CSS = new URL("../apps/sample/wwwroot/css/sample.css", import.meta.url);
 
-type Pair = { fg: string; bg: string; min: number; what: string };
+type Pair = { fg: string; bg: string; min: number; what: string; over?: string };
 
 // Each entry names a place the chrome puts the first colour on the second, and
 // the threshold that place is held to. A pair nobody renders is not listed --
@@ -38,8 +38,34 @@ const PAIRS: Pair[] = [
   { fg: "--ac", bg: "--s1", min: 4.5, what: "link on a card" },
   { fg: "--bd2", bg: "--s1", min: 3.0, what: "input border on a card (1.4.11)" },
   { fg: "--t1", bg: "--s2", min: 4.5, what: "text on the raised surface" },
+  { fg: "--t2", bg: "--s2", min: 4.5, what: "tag pill label on the raised surface" },
   { fg: "--t2", bg: "--s3", min: 4.5, what: "text on the sunken surface" },
+  { fg: "--ac-h", bg: "--bg", min: 4.5, what: "hovered link on the page" },
+  { fg: "--ac-h", bg: "--s1", min: 4.5, what: "hovered link on a card" },
+  { fg: "--bd2", bg: "--bg", min: 3.0, what: "the empty-state box's dashed rule on the page (1.4.11)" },
+  { fg: "--ok-fg", bg: "--ok-dim", over: "--bg", min: 4.5, what: "success banner text, banner on the page" },
+  { fg: "--ok-fg", bg: "--ok-dim", over: "--s1", min: 4.5, what: "success banner text, banner on a card" },
+  { fg: "--err-fg", bg: "--err-dim", over: "--bg", min: 4.5, what: "error banner text, banner on the page" },
+  { fg: "--err-fg", bg: "--err-dim", over: "--s1", min: 4.5, what: "error banner text, banner on a card" },
 ];
+
+// A colour token the sample declares and no pair above measures. Each entry says
+// why the token never carries text and never bounds a control, because that is the
+// only reason a declared colour is allowed to go unmeasured -- and the check below
+// is two-way, so an entry naming a token the stylesheet no longer declares fails
+// as loudly as a token nobody has accounted for.
+const NOT_RENDERED: Record<string, string> = {
+  "--bd": "a hairline between two surfaces; decorative, and never a control's boundary -- inputs use --bd2, which is measured",
+  "--ac-dim": "the hero's radial wash and the focus ring's outer glow; the ring itself is --ac, which is measured",
+  "--ac-bd": "a card's border under the pointer, alongside a left rule that also changes; no text sits on it",
+  "--ok": "kept at its prototype value for direct use on a surface; the banner uses --ok-fg, and nothing in this app renders --ok",
+  "--err": "as --ok",
+  "--warn": "the sample has no warning banner",
+  "--warn-dim": "as --warn",
+  "--info": "the sample has no informational banner",
+  "--info-dim": "as --info",
+  "--brand": "the drawn brand mark's fill -- a shape, not text",
+};
 
 // Two themes, two blocks. The selectors are what theme.js sets on <html>.
 const THEMES: Record<string, string[]> = {
@@ -51,6 +77,13 @@ const THEMES: Record<string, string[]> = {
 // rather than matched with a regex: a selector like [data-theme="dark"] is most
 // of a character class already, and escaping it into one is how this stops
 // finding a block it should have found.
+// Comments go before any of this runs: a /* */ containing a ; or a { would be
+// read as a declaration or as the start of a block, and the scanner would then
+// silently skip the rule that follows it.
+function uncommented(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
 function blocks(css: string, selector: string): string[] {
   const found: string[] = [];
   let from = 0;
@@ -119,7 +152,7 @@ function ratio(fg: [number, number, number], bg: [number, number, number]): numb
   return (a + 0.05) / (b + 0.05);
 }
 
-const css = await Deno.readTextFile(CSS);
+const css = uncommented(await Deno.readTextFile(CSS));
 const failures: string[] = [];
 let checked = 0;
 
@@ -133,7 +166,13 @@ for (const [theme, selectors] of Object.entries(THEMES)) {
       continue;
     }
 
-    const bg = rgb(bgValue, null);
+    const baseValue = pair.over ? values.get(pair.over) : undefined;
+    if (pair.over && !baseValue) {
+      failures.push(`${theme}: ${pair.over} is not declared, so ${pair.bg} has nothing to composite over`);
+      continue;
+    }
+
+    const bg = rgb(bgValue, baseValue ? rgb(baseValue, null) : null);
     const measured = ratio(rgb(fgValue, bg), bg);
     checked++;
     if (measured < pair.min) {
@@ -141,6 +180,29 @@ for (const [theme, selectors] of Object.entries(THEMES)) {
         `${theme}: ${pair.fg} on ${pair.bg} is ${measured.toFixed(2)}:1, below ${pair.min}:1 — ${pair.what}`,
       );
     }
+  }
+}
+
+// Every colour the sample declares is either measured above or accounted for by
+// name. Without this a token added to the palette and to no pair is a silent gap:
+// the run still says "all pairs clear AA" and means less than it did before.
+const named = new Set(PAIRS.flatMap((pair) => [pair.fg, pair.bg, pair.over ?? ""]));
+const declared = new Set<string>();
+for (const selectors of Object.values(THEMES)) {
+  for (const [token, value] of tokens(css, selectors)) {
+    if (/^(#|rgba?\()/i.test(value)) declared.add(token);
+  }
+}
+
+for (const token of declared) {
+  if (!named.has(token) && !(token in NOT_RENDERED)) {
+    failures.push(`${token} is declared in the sample's palette and neither measured nor listed as unrendered`);
+  }
+}
+
+for (const token of Object.keys(NOT_RENDERED)) {
+  if (!declared.has(token)) {
+    failures.push(`${token} is listed as unrendered but the sample no longer declares it`);
   }
 }
 
