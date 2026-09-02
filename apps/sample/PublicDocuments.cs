@@ -175,7 +175,7 @@ internal static class PublicDocuments
                 Id: new Uri(baseUrl, link).AbsoluteUri,
                 Title: article.Title,
                 Link: link,
-                Updated: new DateTimeOffset(DateTime.SpecifyKind(article.CreatedAt, DateTimeKind.Utc)),
+                Updated: new DateTimeOffset(DateTime.SpecifyKind(article.PublishedOn(), DateTimeKind.Utc)),
                 Author: article.Author));
         }
 

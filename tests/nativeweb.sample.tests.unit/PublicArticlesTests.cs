@@ -70,6 +70,49 @@ public sealed class PublicArticlesTests
     }
 
     [Fact]
+    public async Task RecentAsync_OmitsArchivedArticles()
+    {
+        Article archived = ArticleAt("a2", Utc(2));
+        archived.Status = ArticleStatus.Archived;
+        ArticleStore store = StoreWith(ArticleAt("a1", Utc(1)), archived);
+
+        IReadOnlyList<PublishedArticle> recent =
+            await Reader(store).RecentAsync(10, CancellationToken.None);
+
+        Assert.Equal(["a1"], recent.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task RecentAsync_OrdersByPublicationDate_BeforeCreationTime()
+    {
+        Article older = ArticleAt("a1", Utc(1));
+        older.PublishedAt = new DateOnly(2026, 3, 1);
+        Article newer = ArticleAt("a2", Utc(9));
+        newer.PublishedAt = new DateOnly(2026, 2, 1);
+        ArticleStore store = StoreWith(older, newer);
+
+        IReadOnlyList<PublishedArticle> recent =
+            await Reader(store).RecentAsync(10, CancellationToken.None);
+
+        Assert.Equal(["a1", "a2"], recent.Select(a => a.Id));
+        Assert.Equal(new DateOnly(2026, 3, 1), recent[0].PublishedAt);
+    }
+
+    [Fact]
+    public async Task RecentAsync_DatesARowWithoutAPublicationDateByItsCreationDay()
+    {
+        Article dated = ArticleAt("a1", Utc(1));
+        dated.PublishedAt = new DateOnly(2026, 1, 5);
+        Article undated = ArticleAt("a2", Utc(5));
+        ArticleStore store = StoreWith(dated, undated, ArticleAt("a3", Utc(3)));
+
+        IReadOnlyList<PublishedArticle> recent =
+            await Reader(store).RecentAsync(10, CancellationToken.None);
+
+        Assert.Equal(["a2", "a1", "a3"], recent.Select(a => a.Id));
+    }
+
+    [Fact]
     public async Task RecentAsync_OrdersNewestFirst()
     {
         // Seeded out of order, so passing cannot be an accident of insertion order.

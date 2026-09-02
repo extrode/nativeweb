@@ -27,7 +27,18 @@ public readonly record struct PublishedArticle(
     string Title,
     string? Author,
     DateTime CreatedAt,
-    IReadOnlyList<TagRef> Tags);
+    IReadOnlyList<TagRef> Tags,
+    DateOnly? PublishedAt = null)
+{
+    /// <summary>
+    /// The instant the public site dates this article by (spec 023 R4): the
+    /// publication date at midnight UTC, or the creation time for a row that has
+    /// none. A method, not a property, so the JSON document does not grow a
+    /// second date that is only ever derived from the two it has.
+    /// </summary>
+    public DateTime PublishedOn() =>
+        PublishedAt is DateOnly date ? date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) : CreatedAt;
+}
 
 /// <summary>
 /// One published article as its own page shows it (spec 022 R3): the list's
@@ -166,15 +177,18 @@ internal sealed class MemoryPublishedArticles(
     // default key order from the beginning. The empty lists are what the seam
     // takes when the caller is filtering and ordering nothing -- this one sorts
     // here, in memory, because that is what reading a public feed through a
-    // paging admin seam costs. Newest first, the key breaking ties, as
-    // ListPublished.sql orders.
+    // paging admin seam costs. Newest publication date first, a row without one
+    // dated by its creation day (spec 023 R4), then creation time, then the key
+    // breaking ties, as ListPublished.sql orders. Only Published is public: a
+    // Draft and an Archived row are equally absent here (R3).
     private async ValueTask<IReadOnlyList<Article>> PublishedAsync(CancellationToken ct)
     {
         IReadOnlyList<Article> all = await store.ListAsync(null, [], null, [], null, ScanLimit, ct).ConfigureAwait(false);
 
         return all
             .Where(a => a.Status == ArticleStatus.Published)
-            .OrderByDescending(a => a.CreatedAt)
+            .OrderByDescending(a => a.PublishedAt ?? DateOnly.FromDateTime(a.CreatedAt))
+            .ThenByDescending(a => a.CreatedAt)
             .ThenByDescending(a => a.Id, StringComparer.Ordinal)
             .ToList();
     }
@@ -204,7 +218,7 @@ internal sealed class MemoryPublishedArticles(
     }
 
     private static PublishedArticle Listed(Article a, Func<string, IReadOnlyList<TagRef>> tagsOf) =>
-        new(a.Id, a.Slug ?? "", a.Title, a.Author, a.CreatedAt, tagsOf(a.Id));
+        new(a.Id, a.Slug ?? "", a.Title, a.Author, a.CreatedAt, tagsOf(a.Id), a.PublishedAt);
 }
 
 /// <summary>

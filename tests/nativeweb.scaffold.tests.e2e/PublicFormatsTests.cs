@@ -76,7 +76,7 @@ public sealed class PublicFormatsTests(InMemorySampleFixture app, BrowserFixture
         Assert.Equal(200, response.Status);
         Assert.StartsWith("text/csv", response.Headers["content-type"], StringComparison.Ordinal);
         Assert.Contains("Accept", response.Headers["vary"], StringComparison.Ordinal);
-        Assert.StartsWith("id,slug,title,author,created,tags\r\n", await response.TextAsync(), StringComparison.Ordinal);
+        Assert.StartsWith("id,slug,title,author,created,published,tags\r\n", await response.TextAsync(), StringComparison.Ordinal);
     }
 
     [Fact]

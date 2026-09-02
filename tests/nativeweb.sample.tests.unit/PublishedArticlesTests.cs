@@ -63,6 +63,16 @@ public sealed class PublishedArticlesTests
     }
 
     [Fact]
+    public async Task BySlugAsync_AnswersNullForAnArchivedSlug()
+    {
+        Article archived = Seed("a1", 1);
+        archived.Status = ArticleStatus.Archived;
+
+        Assert.Null(await Reader.BySlugAsync("slug-a1", CancellationToken.None));
+        Assert.False(await Reader.CountViewAsync("slug-a1", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task BySlugAsync_AnswersNullForAnUnpublishedSlugAndForAMissingOne()
     {
         Seed("a1", 1, published: false);

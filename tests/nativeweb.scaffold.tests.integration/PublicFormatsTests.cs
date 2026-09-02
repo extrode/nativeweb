@@ -134,9 +134,9 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         (_, string body) = await GetAsync(client, "/articles.csv");
 
         Assert.Equal(
-            "id,slug,title,author,created,tags\r\n" +
-            "a2,binding-forms-under-nativeaot,Binding forms under NativeAOT,Sy,2026-06-18T14:05:00Z,\r\n" +
-            "a1,lean-native-web,Lean Native Web,Sy,2026-03-04T09:30:00Z,htmx aot\r\n",
+            "id,slug,title,author,created,published,tags\r\n" +
+            "a2,binding-forms-under-nativeaot,Binding forms under NativeAOT,Sy,2026-06-18T14:05:00Z,2026-06-20,\r\n" +
+            "a1,lean-native-web,Lean Native Web,Sy,2026-03-04T09:30:00Z,2026-03-05,htmx aot\r\n",
             body);
     }
 
