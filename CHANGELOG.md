@@ -21,8 +21,9 @@ Merged into `dev`, not yet tagged.
   time over a digest of each side, ten attempts per client address per minute, one fixed 401 page
   for every refusal, and a sign-out form on the same page. Production exits 78 naming the key when
   it is unset; any other non-Development environment serves the form and refuses everything.
-  `provision.sh` seeds the key blank and `deploy.sh` refuses to promote the reference app without
-  it. Proved in all three tiers, including a Playwright run against the NativeAOT binary as
+  `provision.sh` seeds the key blank on a fresh host and `deploy.sh` refuses to promote the
+  reference app without it; a host provisioned earlier, nw-dev included, needs the line added
+  to its `secrets.env` by hand before its next deploy. Proved in all three tiers, including a Playwright run against the NativeAOT binary as
   Production. The Development one-click route and every suite that uses it are unchanged; the
   startup-refusal tests, which ran the sample as Production by default, now supply a passphrase.
 - **Documentation a consumer can adopt from, and a test that keeps it true.** Six library READMEs

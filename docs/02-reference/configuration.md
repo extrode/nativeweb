@@ -78,7 +78,9 @@ in through its OAuth provider instead.
 | `Sample:Admin:Passphrase` | none | **Production fails startup** with the key named, exit 78. Any other environment but Development serves the form at `/signin` and refuses every attempt. Development ignores it: there `/signin` signs the visitor in without a form |
 
 On a deployed host it lives in `/etc/nativeweb/secrets.env` as `Sample__Admin__Passphrase`,
-which `provision.sh` seeds blank and `deploy.sh` refuses to promote without. The comparison
+which `provision.sh` seeds blank and `deploy.sh` refuses to promote without, a quoted empty
+value included. The provisioner writes only a `secrets.env` that does not exist yet, so a
+host provisioned before the key existed gets the line added by hand. The comparison
 is constant-time over a digest of each side, the POST is rate-limited to 10 attempts per
 client address per minute, and a refusal is one fixed page whatever was typed.
 

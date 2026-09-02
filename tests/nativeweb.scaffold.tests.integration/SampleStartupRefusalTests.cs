@@ -35,7 +35,7 @@ namespace NativeWeb.Scaffold.Tests.Integration;
 /// </remarks>
 public sealed class SampleStartupRefusalTests
 {
-    private static string RepoRoot()
+    internal static string RepoRoot()
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "NativeWeb.slnx")))
@@ -76,8 +76,9 @@ public sealed class SampleStartupRefusalTests
         start.Environment["ASPNETCORE_URLS"] = "http://127.0.0.1:0";
 
         // No ASPNETCORE_ENVIRONMENT means Production, and Production refuses to start
-        // without the admin passphrase (spec 020) -- before it reaches the value under
-        // test. AdminSignInTests covers that refusal; here it has to be out of the way.
+        // without the admin passphrase (spec 020). The framework guards run first, so
+        // today it would fire after the value under test; a reordering would flip that,
+        // and AdminSignInTests covers the refusal itself. Here it has to be out of the way.
         start.Environment["Sample__Admin__Passphrase"] = "a value that binds";
         start.Environment[variable] = value;
 

@@ -212,6 +212,38 @@ public sealed class AdminSignInTests
     }
 
     [Fact]
+    public async Task ARefusalToASignedInVisitorIsStillTheRefusalPage()
+    {
+        using var factory = new PassphraseSampleFactory(PassphraseSampleFactory.Secret);
+        using HttpClient client = factory.CreateFollowingNothing();
+
+        using HttpResponseMessage signIn = await PostAsync(client, PassphraseSampleFactory.Secret);
+        using HttpResponseMessage refused = await PostAsync(client, "not it");
+        string body = await refused.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Found, signIn.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        Assert.Contains("Not accepted", body, StringComparison.Ordinal);
+        Assert.Contains("name=\"passphrase\"", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Signed in as", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SigningInWithoutATokenIsRefused()
+    {
+        using var factory = new PassphraseSampleFactory(PassphraseSampleFactory.Secret);
+        using HttpClient client = factory.CreateFollowingNothing();
+
+        using HttpResponseMessage signIn = await client.PostAsync(
+            new Uri("/signin", UriKind.Relative),
+            new FormUrlEncodedContent([new KeyValuePair<string, string>("passphrase", PassphraseSampleFactory.Secret)]));
+        using HttpResponseMessage afterwards = await client.GetAsync(new Uri("/admin/articles", UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.BadRequest, signIn.StatusCode);
+        Assert.Equal(HttpStatusCode.Found, afterwards.StatusCode);
+    }
+
+    [Fact]
     public async Task ProductionWithoutTheSecretExitsNamingTheKey()
     {
         string dll = Path.Combine(AppContext.BaseDirectory, "nativeweb.sample.dll");
@@ -222,7 +254,12 @@ public sealed class AdminSignInTests
             RedirectStandardError = true,
             RedirectStandardOutput = true,
             UseShellExecute = false,
-            WorkingDirectory = AppContext.BaseDirectory,
+
+            // The project directory, for the same reason SampleStartupRefusalTests gives:
+            // without wwwroot beside it the host dies on the static error shell, and this
+            // test would then pass only while the passphrase guard runs before the
+            // pipeline is built.
+            WorkingDirectory = Path.Combine(SampleStartupRefusalTests.RepoRoot(), "apps", "sample"),
         };
         startInfo.EnvironmentVariables["ASPNETCORE_ENVIRONMENT"] = "Production";
         startInfo.EnvironmentVariables["ASPNETCORE_URLS"] = "http://127.0.0.1:0";

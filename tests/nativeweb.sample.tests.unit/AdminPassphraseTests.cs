@@ -1,3 +1,5 @@
+using NativeWeb.Web;
+
 using Xunit;
 
 namespace NativeWeb.Sample.Tests.Unit;
@@ -30,6 +32,7 @@ public sealed class AdminPassphraseTests
     [Theory]
     [InlineData(null)]
     [InlineData("")]
+    [InlineData("   ")]
     public void AnUnsetSecretRefusesEverythingIncludingEmpty(string? secret)
     {
         var passphrase = new AdminPassphrase(secret);
@@ -49,8 +52,24 @@ public sealed class AdminPassphraseTests
     [InlineData("/\\evil.example/x", "/admin")]
     [InlineData("https://evil.example/x", "/admin")]
     [InlineData("admin", "/admin")]
+    [InlineData("/\t/evil.example/x", "/admin")]
+    [InlineData("/admin\r\nLocation: https://evil.example", "/admin")]
     public void OnlyALocalPathIsReturnedTo(string? candidate, string expected)
     {
         Assert.Equal(expected, AdminSignIn.LocalPath(candidate));
+    }
+
+    [Fact]
+    public void TheSignInLimitIsStricterThanTheGeneralPolicy()
+    {
+        var general = new NativeWebOptions
+        {
+            ApplicationName = "sample",
+            ConfigurationSection = "Sample",
+            TelemetryServiceName = "sample",
+            DataProtectionKeyDirectory = "unused",
+        };
+
+        Assert.True(AdminSignIn.PermitLimit < general.GeneralPermitLimit);
     }
 }

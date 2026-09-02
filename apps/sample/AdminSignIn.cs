@@ -54,7 +54,7 @@ public sealed class AdminPassphrase
     /// <param name="secret">The configured value, or null.</param>
     public AdminPassphrase(string? secret)
     {
-        _digest = string.IsNullOrEmpty(secret) ? null : SHA256.HashData(Encoding.UTF8.GetBytes(secret));
+        _digest = string.IsNullOrWhiteSpace(secret) ? null : SHA256.HashData(Encoding.UTF8.GetBytes(secret));
     }
 
     /// <summary>Whether a secret is configured at all.</summary>
@@ -98,7 +98,8 @@ public sealed class AdminPassphrase
             StartupConfigGuards.FailStartup(
                 $"{key} is not set. Outside Development the admin is reached only through the passphrase "
                 + "form at /signin, and Production refuses to start without one; on a deployed host it "
-                + "lives in /etc/nativeweb/secrets.env.");
+                + "lives in /etc/nativeweb/secrets.env. provision.sh seeds the line only into a file it "
+                + "creates, so a host provisioned before the key existed needs it added by hand.");
         }
 
         return new AdminPassphrase(value);
@@ -180,14 +181,23 @@ public static class AdminSignIn
     }
 
     // A path on this host, or /admin. Anything with a scheme or a protocol-relative
-    // prefix is an open redirect and is dropped, not escaped.
+    // prefix is an open redirect and is dropped, not escaped. So is anything holding a
+    // control character: a browser strips a tab or a newline before it parses the
+    // Location, which turns "/<tab>/evil" into a protocol-relative URL after the
+    // check above has passed it.
     internal static string LocalPath(string? candidate) =>
-        candidate is { Length: > 1 } && candidate[0] == '/' && candidate[1] != '/' && candidate[1] != '\\'
+        candidate is { Length: > 1 }
+        && candidate[0] == '/'
+        && candidate[1] != '/'
+        && candidate[1] != '\\'
+        && !candidate.Any(char.IsControl)
             ? candidate
             : DefaultReturn;
 
     // One page for every state. A refusal is the same page with the message shown and a
-    // 401, and it is rendered the same way whatever was typed (spec 020 R3).
+    // 401, and it is rendered the same way whatever was typed (spec 020 R3) -- including
+    // by a visitor who already holds a session, who otherwise saw the signed-in branch
+    // with no message and no form.
     private static IResult Page(HttpContext http, bool refused, string returnUrl)
     {
         IAntiforgery antiforgery = http.RequestServices.GetRequiredService<IAntiforgery>();
@@ -199,7 +209,7 @@ public static class AdminSignIn
             Title: locale["signin.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
             AntiforgeryFieldName: tokens.FormFieldName,
-            SignedInAs: http.User.Identity?.IsAuthenticated == true ? http.User.Identity.Name ?? "" : "",
+            SignedInAs: !refused && http.User.Identity?.IsAuthenticated == true ? http.User.Identity.Name ?? "" : "",
             Refused: refused,
             ReturnUrl: returnUrl);
 

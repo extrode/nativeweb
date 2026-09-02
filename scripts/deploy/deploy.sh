@@ -309,11 +309,18 @@ preflight_config() {
 	# Only for the reference app, whose prefix is Sample: a stamped product signs in
 	# through its OAuth provider and reads no such key, and a gate on a value nothing
 	# reads is the failure the comment above this function describes.
+	# A quoted empty value counts as blank: systemd strips the quotes before the app
+	# sees it, so Sample__Admin__Passphrase="" is the empty string at startup and the
+	# grep for a non-space character would have passed it.
 	if [[ "$CONFIG_PREFIX" == "Sample" ]] &&
-		! grep -qE "^\s*${CONFIG_PREFIX}__Admin__Passphrase\s*=\s*\S" <<<"$combined"; then
+		! grep -E "^\s*${CONFIG_PREFIX}__Admin__Passphrase\s*=" <<<"$combined" |
+		sed -E 's/^[^=]*=\s*//; s/^"(.*)"\s*$/\1/; s/^'"'"'(.*)'"'"'\s*$/\1/' |
+		grep -qE '\S'; then
 		die "${CONFIG_PREFIX}__Admin__Passphrase is not set in /etc/nativeweb/secrets.env.
        Outside Development the admin at /admin is reached only through the passphrase
-       form at /signin, and a Production binary exits 78 at startup without one."
+       form at /signin, and a Production binary exits 78 at startup without one.
+       provision.sh seeds the line only into a secrets.env it creates; on a host
+       provisioned before the key existed, add it by hand."
 	fi
 
 	# The path half is what makes this pass only when the app can do the thing.

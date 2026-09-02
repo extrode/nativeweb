@@ -84,7 +84,8 @@ the Development route.
 - **R7** — Given a signed-in session, When the visitor posts the sign-out form, Then the cookie
   is cleared and `/admin/articles` answers 302 to `/signin`.
 - **R8** — Given a fresh provision run, Then `secrets.env` contains the key blank under a
-  REQUIRED comment; given a blank value, `deploy.sh --check` names it and exits non-zero.
+  REQUIRED comment; given a blank or quoted-empty value, `deploy.sh` names it and exits
+  non-zero before promoting.
 
 ## Open questions
 

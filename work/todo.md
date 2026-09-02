@@ -1844,3 +1844,15 @@ an answer different from the one the audit assumed.
   not reachable from `apps/sample`, and the property tests do not generate surrogates. Closing it
   means a strict `Utf8.FromUtf16` in `Encode` returning the empty string on failure, which is the
   refusal path that already exists for an over-long part.
+
+- **`ClientIpKey` folds every request without a remote address into one `unknown` partition.**
+  Pre-existing in the general policy; spec 020's sign-in limit of 10 a minute now shares it, so ten
+  such requests lock the only route into a deployed admin for all of them at once. Live only if the
+  `KnownProxies` preflight fails to hold. Found in the 020 review, 2026-09-02.
+- **The e2e https fixtures leave `tmp/scaffold-e2e/kestrel.pfx` on disk at a fixed path.**
+  Gitignored, but a second https fixture would race on it and nothing removes it. Pre-existing in
+  the sign-in tier; copied by the 020 fixture. Found in the 020 review, 2026-09-02.
+- **`ProductionWithoutTheSecretExitsNamingTheKey` pins no framework key.** If a framework
+  Production guard ever fires before the passphrase guard on a runner (a data-protection home that
+  does not exist, say), the exit is still 78 but names another key. Found in the 020 review,
+  2026-09-02.
