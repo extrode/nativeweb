@@ -98,7 +98,8 @@ public static class PublicPageCache
     /// responses carry. Attaching the policy and the CSP together keeps a route
     /// from being cached without the matching headers, or vice versa.
     /// </summary>
-    public static RouteHandlerBuilder AsPublicPage(this RouteHandlerBuilder builder, string csp)
+    public static TBuilder AsPublicPage<TBuilder>(this TBuilder builder, string csp)
+        where TBuilder : IEndpointConventionBuilder
     {
         ArgumentNullException.ThrowIfNull(builder);
 
