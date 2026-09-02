@@ -6,13 +6,22 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing in flight.** Spec 023 merged into `dev` on 2026-09-03 (see `previous.md`). One
-  piece of it waits on a yes: migration `0004_status_dates_categories.sql` is applied to the
-  rehearsal copies only; `nativeweb_sample_dev` and `nativeweb_sample_test` still need it, and
-  until then every SQL-backed run needs `ConnectionStrings__Sample` pointed at
-  `nativeweb_sample_023rehearsal_test`. Next in the agreed chain of sample examples: (c) forms —
-  contact, upload, two-step; then (d) ops — two roles, an audit trail, custom 404/500,
-  `security.txt` on nw-dev.
+- **Nothing in flight.** Spec 023 merged into `dev` on 2026-09-03 (see `previous.md`) and
+  pushed. Next in the agreed chain of sample examples: (c) forms — contact, upload, two-step;
+  then (d) ops — two roles, an audit trail, custom 404/500, `security.txt` on nw-dev.
+- **nw-dev runs `8f5f625`, deployed 2026-09-03 by the operator.** Promoted to blue from
+  `4591470`, which was 113 commits behind, so specs 021, 022 and 023 all reached the host in one
+  release: `/version` `0.1.0+8f5f625126bd78c2850c4521da4707e0773cb342`, `/readyz` 200 `ready`,
+  `/healthz` and `/` 200. Migrations 0002, 0003 and 0004 applied there (0001 was already in
+  place), so the server carries the status enum, `published_at` and `categories`. Transport was
+  `incus file push` from `incus-host` into `nativeweb-dev` rather than the `--host` ssh
+  path. `../justsmtp.com` deployed NativeWeb as part of its own deployment, which makes it the
+  second host running framework code from this branch.
+- **The local sample databases are still on the pre-0004 schema.**
+  `nativeweb_sample_dev` and `nativeweb_sample_test` have not had
+  `0004_status_dates_categories.sql`, so every SQL-backed run here needs
+  `ConnectionStrings__Sample` pointed at `nativeweb_sample_023rehearsal_test` until they do.
+  Applying it needs a yes.
 - **Every build depends on a JauntyQ pin.** `../jauntyq`'s current branch no longer carries
   `src/`, so `JauntyQRoot=C:/home/code/extrode.com/jauntyq/.worktrees/nativeweb-build-2a005cb`
   (a detached worktree at 2a005cb) has to be set for any `dotnet` command; the core now lives in
