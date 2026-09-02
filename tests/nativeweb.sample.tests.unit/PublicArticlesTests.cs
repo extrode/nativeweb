@@ -107,7 +107,7 @@ public sealed class PublicArticlesTests
         IReadOnlyList<PublishedArticle> recent =
             await Reader(store).RecentAsync(10, CancellationToken.None);
 
-        Assert.Equal(["a", "b", "c"], recent.Select(a => a.Id));
+        Assert.Equal(["c", "b", "a"], recent.Select(a => a.Id));
     }
 
     [Fact]

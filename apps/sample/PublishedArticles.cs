@@ -88,9 +88,11 @@ public interface IPublishedArticles
 /// <remarks>
 /// The view count is an increment under a lock on the <see cref="Article"/>
 /// instance the store holds, so two visits arriving together both count. One
-/// gap, said here and in <c>work/todo.md</c>: an admin edit replaces the
-/// instance, so a view counted between the edit form's GET and its POST is
-/// overwritten by the count the form carried. The SQL path has no such window.
+/// gap, said here and in <c>work/todo.md</c>: the admin form posts the count
+/// back as a value, so a view counted between the edit form's GET and its POST
+/// is overwritten by the count the form carried. The SQL path has the same
+/// window, since <c>Update.sql</c> writes the posted value too; closing it
+/// means taking the field out of the form, which is the next spec's admin work.
 /// </remarks>
 internal sealed class MemoryPublishedArticles(
     IScaffoldStore<Article> store,
@@ -173,7 +175,7 @@ internal sealed class MemoryPublishedArticles(
         return all
             .Where(a => a.Published)
             .OrderByDescending(a => a.CreatedAt)
-            .ThenBy(a => a.Id, StringComparer.Ordinal)
+            .ThenByDescending(a => a.Id, StringComparer.Ordinal)
             .ToList();
     }
 

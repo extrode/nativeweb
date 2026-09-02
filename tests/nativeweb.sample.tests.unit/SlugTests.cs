@@ -25,8 +25,8 @@ public sealed class SlugTests
 
         string slug = Slugs.Derive(title);
 
-        Assert.True(slug.Length <= Slugs.MaxDerivedLength);
-        Assert.False(slug.EndsWith('-'));
+        Assert.Equal(string.Join('-', Enumerable.Repeat("abcdefghij", 7)) + "-abc", slug);
+        Assert.Equal(Slugs.MaxDerivedLength, slug.Length);
         Assert.True(Slugs.IsValid(slug));
     }
 

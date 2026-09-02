@@ -159,17 +159,27 @@ public sealed class JauntySlugAndTagTests
     [Fact]
     public async Task List_ShowsTheSlugColumn()
     {
-        string id = Key();
+        // Created through the form rather than inserted, so the slug differs
+        // from the id the store mints and the id column cannot satisfy this.
+        string slug = "slug-" + Key();
         string title = Unique();
-        await SampleTestDatabase.InsertAsync(id, title, null, "b");
         using var factory = new SampleJauntyFactory();
         using HttpClient client = await factory.CreateSignedInAsync();
 
-        using HttpResponseMessage response = await client.GetAsync(new Uri($"/admin/articles?q={title}", UriKind.Relative));
-        string body = await response.Content.ReadAsStringAsync();
+        try
+        {
+            using HttpResponseMessage created = await CreateArticleAsync(client, title, slug);
+            using HttpResponseMessage response = await client.GetAsync(new Uri($"/admin/articles?q={title}", UriKind.Relative));
+            string body = await response.Content.ReadAsStringAsync();
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains($"<td>{id}</td>", body, StringComparison.Ordinal);
+            Assert.Equal(HttpStatusCode.Found, created.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Contains($"<td>{slug}</td>", body, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await SampleTestDatabase.DeleteBySlugAsync(slug);
+        }
     }
 
     [Fact]

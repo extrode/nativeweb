@@ -294,17 +294,6 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         return affected > 0;
     }
 
-    /// <summary>
-    /// Turns a search box's contents into the ILIKE pattern the queries take.
-    /// </summary>
-    /// <remarks>
-    /// The escaping is the part that matters. Without it a search for <c>%</c>
-    /// matches every row, <c>_</c> matches any single character, and a trailing
-    /// backslash makes the pattern malformed -- all three are things a user can type
-    /// into the scaffolded search box by accident. PostgreSQL's ILIKE takes
-    /// backslash as its default escape character, so each of the three is escaped
-    /// with one.
-    /// </remarks>
     // The slug rules shared with ArticleStore (spec 022 R2): blank means derive
     // on create and keep on update; typed must match the alphabet. Uniqueness is
     // the unique index's to enforce, not a query's to pre-check.
@@ -323,6 +312,17 @@ internal sealed class JauntyArticleStore(NpgsqlDataSource dataSource) : IScaffol
         e.SqlState == PostgresErrorCodes.UniqueViolation
         && string.Equals(e.ConstraintName, "articles_slug_key", StringComparison.Ordinal);
 
+    /// <summary>
+    /// Turns a search box's contents into the ILIKE pattern the queries take.
+    /// </summary>
+    /// <remarks>
+    /// The escaping is the part that matters. Without it a search for <c>%</c>
+    /// matches every row, <c>_</c> matches any single character, and a trailing
+    /// backslash makes the pattern malformed -- all three are things a user can type
+    /// into the scaffolded search box by accident. PostgreSQL's ILIKE takes
+    /// backslash as its default escape character, so each of the three is escaped
+    /// with one.
+    /// </remarks>
     internal static string PatternFor(string? search) =>
         string.IsNullOrWhiteSpace(search)
             ? "%"

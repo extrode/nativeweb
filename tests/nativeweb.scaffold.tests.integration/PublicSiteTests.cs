@@ -51,6 +51,10 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
         Array.ForEach(responses, r => r.Dispose());
     }
 
+    private static string TagRow(string slug, string name, int published) =>
+        $"<a class=\"tag\" href=\"/tags/{slug}\">{name}</a> "
+        + $"<span class=\"tags__count\" title=\"Published articles\">{published}</span>";
+
     private static string[] HeaderNames(HttpResponseMessage response) =>
         [.. response.Headers.Concat(response.Content.Headers).Select(h => h.Key).Where(k => k != "Date").Order()];
 
@@ -192,8 +196,9 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
         (HttpResponseMessage missing, _) = await GetAsync(client, "/tags/no-such-tag");
 
         Assert.Equal(HttpStatusCode.OK, index.StatusCode);
-        Assert.Contains("href=\"/tags/aot\"", indexHtml, StringComparison.Ordinal);
-        Assert.Contains("href=\"/tags/postgres\"", indexHtml, StringComparison.Ordinal);
+        Assert.Contains(TagRow("aot", "NativeAOT", 1), indexHtml, StringComparison.Ordinal);
+        Assert.Contains(TagRow("htmx", "HTMX", 1), indexHtml, StringComparison.Ordinal);
+        Assert.Contains(TagRow("postgres", "PostgreSQL", 0), indexHtml, StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.OK, aot.StatusCode);
         Assert.Contains("<h1 class=\"page__title\">NativeAOT</h1>", aotHtml, StringComparison.Ordinal);
         Assert.Contains("href=\"/articles/lean-native-web\"", aotHtml, StringComparison.Ordinal);

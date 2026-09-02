@@ -32,7 +32,10 @@ internal static class Slugs
     /// <summary>What a title with nothing usable in it derives to.</summary>
     public const string Fallback = "article";
 
-    /// <summary>The longest slug derivation produces. A typed slug may be longer.</summary>
+    /// <summary>
+    /// The longest slug <see cref="Derive"/> produces. A typed slug may be longer,
+    /// and so may a derived one once <see cref="Unique"/> adds its suffix.
+    /// </summary>
     public const int MaxDerivedLength = 80;
 
     public const string InvalidMessage = "Slug may contain only lowercase letters, digits and single hyphens.";

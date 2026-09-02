@@ -17,10 +17,14 @@
 -- The backfill derives the way Slugs.Derive does: lowercase, every run of
 -- characters outside [a-z0-9] collapsed to one hyphen, the ends trimmed, capped at
 -- 80 characters, and `article` when nothing usable is left. Where two rows derive
--- the same base, every row but the earliest (by created_at, then id) has `-<id>`
--- appended. The id is unique, so the result is unique by construction -- with one
--- theoretical exception, a title that already reads like another row's suffixed
--- slug, which the unique index makes loud rather than silent.
+-- the same base, every row but the earliest (by created_at, then id) has the first
+-- eight hex digits of md5(id) appended. Not the id itself: ids are free text (0001
+-- constrains nothing), and an id such as `A1` or `demo_1` would have produced a
+-- slug the CHECK below refuses, failing the whole file on the one database with a
+-- hand-typed id. Hex is always inside the alphabet, and the id is unique, so the
+-- result is unique by construction -- with one theoretical exception, a title that
+-- already reads like another row's suffixed slug, which the unique index makes
+-- loud rather than silent.
 --
 -- The CHECK constraint is what keeps the column honest against a hand-written
 -- INSERT; the stores refuse the same values before they get here, with a message
@@ -51,7 +55,7 @@ numbered AS (
     FROM derived
 )
 UPDATE articles a
-SET slug = CASE WHEN n.rn = 1 THEN n.base ELSE n.base || '-' || a.id END
+SET slug = CASE WHEN n.rn = 1 THEN n.base ELSE n.base || '-' || left(md5(a.id), 8) END
 FROM numbered n
 WHERE n.id = a.id;
 
