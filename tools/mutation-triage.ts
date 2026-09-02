@@ -22,17 +22,25 @@
 // runs: 17 timeouts and 39. Timeouts score as killed, so the figure drifts up under load.
 // Read a change in that target as a signal to look, not as a fact on its own.
 //
-// That target also LEAVES ROWS BEHIND, and they are not inert. Stryker kills a test host it
-// judges hung, so the killed process never reaches the `finally` that removes its fixture rows,
-// and the feed tests date theirs five years into the future on purpose. Measured 2026-09-01: a
-// run ending 15:57 left five future-dated published rows in nativeweb_sample_test, and an e2e
-// feed test that asserted an absolute DOM position failed on them an hour later. The e2e
-// assertion was the defect and is fixed; the rows are still a residue this tool produces.
-// After running this target, check and hand the removal to the operator:
+// That target also LEAVES ROWS BEHIND. Stryker kills a test host it judges hung, so the killed
+// process never reaches the `finally` that removes its fixture rows, and the feed tests date
+// theirs five years into the future on purpose. Measured 2026-09-01: a run ending 15:57 left
+// five future-dated published rows in nativeweb_sample_test, and an e2e feed test failed on
+// them an hour later. Since spec 019 the residue is self-clearing: both tiers' feed tests sweep
+// feed-prefixed, future-dated rows minted more than thirty minutes earlier before they insert
+// (SampleTestDatabase.SweepLeakedFeedRowsAsync and its e2e twin), so the next run of either
+// suite removes what this one left. scripts/cleanup/018-paging-property-tests.ps1 remains the
+// operator's fallback for looking without running a suite:
 //
-//   psql -d nativeweb_sample_test -U nativeweb_app \
-//     -c "SELECT id, created_at FROM articles WHERE created_at > now();"
+//   psql -d nativeweb_sample_test -U nativeweb_app //     -c "SELECT id, created_at FROM articles WHERE created_at > now();"
 //   pwsh scripts/cleanup/018-paging-property-tests.ps1        # dry run; -e to act
+//
+// Every target runs under tools/stryker-config.json, passed with --config-file: ConfigureAwait
+// mutants are ignored there because flipping the flag is behaviour-identical under a test host
+// (about fifteen of the SQL store's survivors were that, on 2026-09-01), and the per-mutant
+// additional timeout is 30 s rather than Stryker's 5 s so a host slow under load is not killed
+// for it. The baseline was re-recorded under that config on 2026-09-02; a figure from before it
+// is not comparable.
 //
 // Requires the global tool: dotnet tool install -g dotnet-stryker
 
