@@ -27,6 +27,7 @@
     <Content Include="$(NativeWebAssetsDirectory)**\*"
              Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)"
              TargetPath="wwwroot\%(RecursiveDir)%(Filename)%(Extension)"
+             ContentRoot="$(NativeWebAssetsDirectory)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest"
              Visible="false" />
