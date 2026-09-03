@@ -29,6 +29,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\libs\nativeweb.signin\nativeweb.signin.csproj" />
+    <!-- Spec 024 T19. The permission layer joins the sign-in library here rather
+         than getting a second AOT tier of its own: a NativeAOT publish is minutes,
+         and one host referencing both is one publish instead of two. The generator
+         is referenced as an analyzer, so PermissionCatalog and the model's own
+         constants are emitted and the analysers walk them with the runtime
+         library. -->
+    <ProjectReference Include="..\..\..\libs\nativeweb.permissions\nativeweb.permissions.csproj" />
+    <ProjectReference Include="..\..\..\libs\nativeweb.permissions.generator\nativeweb.permissions.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

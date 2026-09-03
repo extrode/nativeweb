@@ -92,6 +92,39 @@ public sealed class AccessAdminFlowTests(PermissionSampleFixture sample, Permiss
         Assert.True(await DeleteControlIsDrawnAsync(page), sample.LogTail);
     }
 
+    /// <summary>
+    /// R8 through the published NativeAOT binary: the same subject, the same route,
+    /// admitted and then refused with the status the filter promises.
+    /// </summary>
+    /// <remarks>
+    /// A GET, because the refusal has to be observable after the grant is gone and
+    /// the only POST the admin offers is inside a form the revocation removes. The
+    /// create route carries the same filter as the delete one.
+    /// </remarks>
+    [Fact]
+    public async Task TheCreateRoute_Serves200WithAddAndRefuses403Without()
+    {
+        await using IBrowserContext context = await browser.Browser.NewContextAsync();
+        IPage page = await context.NewPageAsync();
+
+        await page.GotoAsync($"{sample.BaseUrl}/signin");
+
+        IResponse? admitted = await page.GotoAsync($"{sample.BaseUrl}/admin/articles/new");
+        Assert.Equal(200, admitted?.Status);
+
+        await page.GotoAsync($"{sample.BaseUrl}{SubjectPath}");
+        await page.Locator(
+            "form[action$='/grants/revoke']:has(input[value='sample:article.add']) button").ClickAsync();
+
+        IResponse? refused = await page.GotoAsync($"{sample.BaseUrl}/admin/articles/new");
+        Assert.Equal(403, refused?.Status);
+
+        await page.GotoAsync($"{sample.BaseUrl}{SubjectPath}");
+        await page.Locator("form[action$='/grants'] select[name='permission']")
+            .SelectOptionAsync("sample:article.add");
+        await page.Locator("form[action$='/grants'] button").ClickAsync();
+    }
+
     [Fact]
     public async Task TheAccessAdmin_IsUnreachableWithoutSigningIn()
     {

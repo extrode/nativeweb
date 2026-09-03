@@ -2018,3 +2018,7 @@ an answer different from the one the audit assumed.
   bind and all 31 scaffold e2e facts failed at fixture init. Nothing to do with the suite: the
   tier picks fixed ports (5347, 5348, 5351) and has no fallback. A port that is already listening
   should fail with the name of the process holding it rather than a 60-second readiness timeout.
+- **`tests/nativeweb.signin.tests.aot` now gates two libraries, and its name says one.** Spec 024
+  T19 added the permission layer to `probe-host` rather than standing up a second AOT tier,
+  because a NativeAOT publish is ~21 s of link per tier and one host covers both. The tier wants
+  renaming to `nativeweb.tests.aot`, which is a rename to ask about, not cleanup to do.
