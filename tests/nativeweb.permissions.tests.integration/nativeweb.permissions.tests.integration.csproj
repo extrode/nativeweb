@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.Permissions.Tests.Integration</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- Method_Scenario_Expectation is the xUnit convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707;CA1711</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!-- public-read-host is a project of its own, referenced rather than compiled into
+       this one. Without these removes the SDK's default globs would sweep its
+       Program.cs in and every type would be defined twice. -->
+  <ItemGroup>
+    <Compile Remove="public-read-host\**" />
+    <None Remove="public-read-host\**" />
+    <EmbeddedResource Remove="public-read-host\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- TestServer, so the filter is exercised as middleware rather than called. -->
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <!-- Side-channel reads of the nw_ tables, for asserting on what was written. -->
+    <PackageReference Include="Npgsql" />
+    <!-- WebApplicationFactory, which hosts public-read-host in process. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- apps/sample carries JauntyPermissionStore, the only IPermissionStore over
+         PostgreSQL in the repository. This suite hosts it in a tiny application of
+         its own rather than driving the sample's pages: it needs to choose the
+         subject per request, and the sample has two sign-ins and no third. -->
+    <ProjectReference Include="..\..\apps\sample\nativeweb.sample.csproj" />
+
+    <!-- The PublicRead host beside this project. R9 is a compile-time decision and
+         no apps/sample model declares it, so proving it needs a model that does. -->
+    <ProjectReference Include="public-read-host\public-read-host.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -2003,3 +2003,36 @@ an answer different from the one the audit assumed.
   journey covers home, an article and a tag page; the htmx filter is proved at the integration
   tier only. It was already so before plan 009 -- noted because the list is now long enough for
   a filter to matter.
+- **JauntyQ local-checkout mode is broken repo-wide, and not by anything here.** The sibling
+  `../jauntyq` `dev` no longer has `src/JauntyQ.Generator` or `src/JauntyQ.Runtime` -- every
+  project is now `Extrode.JauntyQ.*` -- so `EnsureJauntyQRoot` fails on every project and
+  `NativeWeb.slnx`'s two direct references point at paths that do not exist. Every local build
+  needs `-p:JauntyQUsePackages=true` until the probe, the sentinel filename and the two solution
+  entries are updated to the new names. Found on the 024 branch, out of its scope.
+- **The e2e tiers need `JauntyQUsePackages` in the ENVIRONMENT, not as `-p:`.** `SampleProcessFixture`
+  shells out to a bare `dotnet publish`, and `-p:` on the `dotnet test` command line does not reach
+  that child. `JauntyQUsePackages=true dotnet test <e2e project>` works, because MSBuild reads
+  environment variables as properties. Worth a line in the fixture or the quick-start; found on the
+  024 branch, out of its scope.
+- **Port 5348 was held by `justsmtp.web.exe` on 2026-09-03**, so `JauntySampleFixture` could not
+  bind and all 31 scaffold e2e facts failed at fixture init. Nothing to do with the suite: the
+  tier picks fixed ports (5347, 5348, 5351) and has no fallback. A port that is already listening
+  should fail with the name of the process holding it rather than a 60-second readiness timeout.
+- **`tests/nativeweb.signin.tests.aot` now gates two libraries, and its name says one.** Spec 024
+  T19 added the permission layer to `probe-host` rather than standing up a second AOT tier,
+  because a NativeAOT publish is ~21 s of link per tier and one host covers both. The tier wants
+  renaming to `nativeweb.tests.aot`, which is a rename to ask about, not cleanup to do.
+- **`nw_subject` grows without bound and the access index pages nothing.** Every first sight of a
+  subject writes a row, the index lists them all, and neither has a bound. Fine at demo scale and
+  not at a real one. Found by the 024 branch review; the fix is a paged subject list plus a
+  retention decision nobody has made, so it is a spec of its own, not a line in this one.
+- **`AccessAdmin` resolves one group by scanning `GroupsAsync()`.** Every group screen reads every
+  group to find one. `IPermissionStore` has no `GroupAsync(long)` and adding one changes the seam,
+  which is why the 024 review left it: a fourteenth method on a shipped interface is a decision.
+- **`FormValueAsync` joins repeated form fields with a comma.** Posting `permission` twice yields
+  `a,b`, which fails catalog validation rather than being rejected as malformed. Harmless today
+  because the catalog check catches it; a wrong message for the wrong reason.
+- **`PermissionModel` has no value equality**, so the generator's `Collect()` compares by
+  reference and the incremental cache never hits across edits. A correctness non-issue and a
+  build-time cost only.
+

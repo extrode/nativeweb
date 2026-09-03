@@ -27,6 +27,24 @@ Merged into `dev`, not yet tagged.
   next asset added is covered without editing the test.
 
 ### Added
+- **Per-model permissions with groups (spec 024).** `libs/nativeweb.permissions` and its
+  generator: `[Permissions]` on a model produces `{scope}:{model}.{view,add,change,delete}` as
+  compile-time constants, and the scaffolded admin gates every generated route with the matching
+  one and draws only the controls the subject may use. `[Auth]` still decides roles, and a model
+  carrying both has the role decided first, by the authorization middleware, which runs ahead of
+  any endpoint filter. `IPermissions.AllowsAsync` and `PermissionEndpointFilter` gate a
+  hand-written endpoint; `IPermissionContext` resolves the held set once per request so a list
+  page with six gated controls costs one store call. Grants live behind `IPermissionStore`,
+  implemented for PostgreSQL in `apps/sample/JauntyPermissionStore.cs` over five `nw_` tables
+  (`db/sample/migrations/0006_permissions.sql`); `MapAccessAdmin` is the operator's screen for
+  groups, members and grants. A permission that stops being declared fails to compile at every
+  use site, and any grant row naming it is inert and shown as `undeclared` with a revoke control.
+  An application declaring no permissions emits byte-identical output.
+  `libs/nativeweb.permissions/README.md` has the whole API and the bootstrap obligation, and
+  the host must call `UseAntiforgery()`: each of the access screens' seven posts carries
+  `IAntiforgeryMetadata`, so routing refuses one that arrives without the middleware rather
+  than letting an unvalidated post through.
+
 - **The sample has content and a look of its own (plan 009).** The demo dataset grew from three
   articles to eight and is now seeded on both store paths -- `db/sample/migrations/0005_seed_demo_content.sql`
   for PostgreSQL and `Seed.Fill` for the in-memory store -- so the same binary shows the same

@@ -64,6 +64,7 @@ Each library documents itself. These are reference, not tutorial.
 - [`../libs/nativeweb.render/README.md`](../libs/nativeweb.render/README.md) — source-generated templates and locale negotiation.
 - [`../libs/nativeweb.forms/README.md`](../libs/nativeweb.forms/README.md) — `[Form]` binding, `MapFormPost`, and the two guards attached by construction.
 - [`../libs/nativeweb.scaffold/README.md`](../libs/nativeweb.scaffold/README.md) — declarative CRUD scaffolding.
+- [`../libs/nativeweb.permissions/README.md`](../libs/nativeweb.permissions/README.md) — per-model, per-operation permissions with groups, and the access admin that grants them.
 - [`../libs/nativeweb.security/README.md`](../libs/nativeweb.security/README.md) — passphrases, opaque tokens, at-rest encryption, blind indexes, masking, bot traps.
 - [`../libs/nativeweb.signin/README.md`](../libs/nativeweb.signin/README.md) — the OAuth relying party.
 - [`../libs/nativeweb.signin.testing/README.md`](../libs/nativeweb.signin.testing/README.md) — the store conformance suites a consumer derives against its own implementation.

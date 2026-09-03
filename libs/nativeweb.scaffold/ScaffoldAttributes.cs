@@ -79,6 +79,24 @@ public sealed class AuthAttribute : Attribute
 
     /// <summary>Role required to delete.</summary>
     public string? Delete { get; init; }
+
+    /// <summary>
+    /// Let anyone reach the list, with no authentication, no role and no
+    /// permission.
+    /// </summary>
+    /// <remarks>
+    /// <para>A typed flag rather than a sentinel in one of the string slots above,
+    /// because those are documented to hold role names and a slot that sometimes
+    /// holds a role and sometimes the word "everyone" cannot be read without
+    /// knowing which.</para>
+    /// <para>It lifts every check off the read operation, including the permission
+    /// a model that carries <c>[Permissions]</c> would otherwise need. That is its
+    /// whole purpose: a model whose list is public and whose writes are not.</para>
+    /// <para>The write routes are unaffected, and so is the edit form at
+    /// <c>/{id}</c> -- the scaffolding has no read-only detail page, so the only
+    /// read operation is the list.</para>
+    /// </remarks>
+    public bool PublicRead { get; init; }
 }
 
 /// <summary>Show this property as a column in the list view.</summary>

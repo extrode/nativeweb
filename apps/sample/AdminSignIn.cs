@@ -160,8 +160,17 @@ public static class AdminSignIn
                 return Page(http, refused: true, LocalPath(form.ReturnUrl));
             }
 
+            // NameIdentifier is what the permission layer reads (spec 024 R17): it
+            // knows nothing about how anyone signed in, only that a request carries
+            // an opaque subject. `operator` is the subject migration 0006 seeds the
+            // first grants against, so the two have to agree or the access admin is
+            // unreachable on a fresh database.
             var identity = new ClaimsIdentity(
-                [new Claim(ClaimTypes.Name, "operator"), new Claim(ClaimTypes.Role, "admin")],
+                [
+                    new Claim(ClaimTypes.Name, "operator"),
+                    new Claim(ClaimTypes.NameIdentifier, "operator"),
+                    new Claim(ClaimTypes.Role, "admin"),
+                ],
                 CookieAuthenticationDefaults.AuthenticationScheme);
 
             await http.SignInAsync(
