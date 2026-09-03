@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.Permissions.Tests.Integration</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- Method_Scenario_Expectation is the xUnit convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707;CA1711</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- TestServer, so the filter is exercised as middleware rather than called. -->
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <!-- Side-channel reads of the nw_ tables, for asserting on what was written. -->
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- apps/sample carries JauntyPermissionStore, the only IPermissionStore over
+         PostgreSQL in the repository. This suite hosts it in a tiny application of
+         its own rather than driving the sample's pages: it needs to choose the
+         subject per request, and the sample has two sign-ins and no third. -->
+    <ProjectReference Include="..\..\apps\sample\nativeweb.sample.csproj" />
+  </ItemGroup>
+
+</Project>

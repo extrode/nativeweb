@@ -85,6 +85,10 @@
        exists for. -->
   <ItemGroup>
     <InternalsVisibleTo Include="nativeweb.sample.tests.unit" />
+    <!-- JauntyPermissionStore is the repository's only IPermissionStore over a real
+         database, so the permission layer's integration tier drives it from here
+         rather than writing a second one to test the first against. -->
+    <InternalsVisibleTo Include="nativeweb.permissions.tests.integration" />
   </ItemGroup>
 
   <ItemGroup>
