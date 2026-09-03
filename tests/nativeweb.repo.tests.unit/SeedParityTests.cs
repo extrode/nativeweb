@@ -157,8 +157,11 @@ public sealed class SeedParityTests
     // unreadable. Both reduce to the text the SQL side declares.
     private static string CSharpBody(string block)
     {
-        Match match = Regex.Match(block, "\\bBody\\s*=\\s*(?<expr>.*?),\\s*\\r?\\n\\s*Status\\s*=", RegexOptions.Singleline);
-        Assert.True(match.Success, "A seeded article declares no Body before its Status.");
+        Match match = Regex.Match(
+            block,
+            "\\bBody\\s*=\\s*(?<expr>.*?),\\s*\\r?\\n\\s*[A-Za-z_][A-Za-z0-9_]*\\s*=",
+            RegexOptions.Singleline);
+        Assert.True(match.Success, "A seeded article declares no Body, or declares it last.");
 
         string expression = match.Groups["expr"].Value;
         var parts = Regex.Matches(expression, "\"(?:[^\"\\\\]|\\\\.)*\"")
@@ -226,10 +229,14 @@ public sealed class SeedParityTests
             .ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
     }
 
+    // Unescaped the same way the body is: a title or an author holding a \\" or a
+    // \\\\ compares against SQL's own spelling of it, not against the C# source's.
     private static string? Field(string body, string name)
     {
         string? raw = Raw(body, name);
-        return raw is null or "null" ? null : raw.Trim('"');
+        return raw is null or "null" ? null
+            : raw.StartsWith('"') ? Unescape(raw)
+            : raw.Trim('"');
     }
 
     private static string? Raw(string body, string name)

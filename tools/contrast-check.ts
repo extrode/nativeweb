@@ -65,6 +65,7 @@ const NOT_RENDERED: Record<string, string> = {
   "--info": "the sample has no informational banner",
   "--info-dim": "as --info",
   "--brand": "the drawn brand mark's fill -- a shape, not text",
+  "--brand-grad": "the brand mark's gradient fill; a shape, and nothing sets text on it",
 };
 
 // Two themes, two blocks. The selectors are what theme.js sets on <html>.
@@ -116,6 +117,13 @@ function tokens(css: string, selectors: string[]): Map<string, string> {
   }
   return values;
 }
+
+// What counts as a colour for the accounting check below. Broader than what
+// rgb() can measure on purpose: a token written as hsl(), color-mix() or a
+// gradient must still be accounted for by name, and the alternative -- matching
+// only the two forms this file can read -- lets exactly the unreadable ones
+// through unnoticed.
+const COLOUR = /^(#|rgba?\(|hsla?\(|color-mix\(|oklch\(|lab\(|linear-gradient\(|radial-gradient\()/i;
 
 function channel(value: number): number {
   const c = value / 255;
@@ -190,7 +198,7 @@ const named = new Set(PAIRS.flatMap((pair) => [pair.fg, pair.bg, pair.over ?? ""
 const declared = new Set<string>();
 for (const selectors of Object.values(THEMES)) {
   for (const [token, value] of tokens(css, selectors)) {
-    if (/^(#|rgba?\()/i.test(value)) declared.add(token);
+    if (COLOUR.test(value)) declared.add(token);
   }
 }
 

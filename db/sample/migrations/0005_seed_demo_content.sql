@@ -22,6 +22,20 @@
 -- repository's deploy path means failing the deploy before the colour switch.
 -- A bare DO NOTHING covers every unique index the table has now or later.
 --
+-- DO NOTHING covers unique violations and nothing else, so the tag links are
+-- inserted through a SELECT that keeps only the pairs whose article and whose
+-- tag both exist. article_tags carries two foreign keys (0003) and articles a
+-- third to categories (0004), and each of the three has a reachable trigger on
+-- a host an admin has typed into: a tag deleted through the admin, a category
+-- deleted the same way, or a hand-made row already holding one of these slugs,
+-- which DO NOTHING then skips -- leaving its tag links pointing at an id that
+-- is not there. Any of the three raises foreign_key_violation, which
+-- ON CONFLICT does not catch; db/migrate.sh runs the file with
+-- --single-transaction and ON_ERROR_STOP, so the whole migration rolls back,
+-- 0005 never records as applied, and the deploy fails at the same point on
+-- every retry until someone edits the database by hand. The guarded form skips
+-- the row instead.
+--
 -- The ids are the memory store's own (a1..a8) rather than generated keys. A
 -- demo row is allowed to have a legible id, and the public pages link by slug
 -- regardless; PublicSiteTests names a1 and a3 directly.
@@ -97,7 +111,9 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 INSERT INTO article_tags (article_id, tag_slug)
-VALUES
+SELECT link.article_id, link.tag_slug
+FROM (
+    VALUES
     ('a1', 'aot'),
     ('a1', 'htmx'),
     ('a3', 'postgres'),
@@ -106,4 +122,7 @@ VALUES
     ('a7', 'aot'),
     ('a8', 'aot'),
     ('a8', 'htmx')
+) AS link (article_id, tag_slug)
+WHERE EXISTS (SELECT 1 FROM articles WHERE articles.id = link.article_id)
+  AND EXISTS (SELECT 1 FROM tags WHERE tags.slug = link.tag_slug)
 ON CONFLICT DO NOTHING;

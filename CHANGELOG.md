@@ -23,8 +23,11 @@ Merged into `dev`, not yet tagged.
   The public site also has its own palette: `apps/sample/wwwroot/css/sample.css` overrides the
   framework's design tokens rather than editing them, which is the supported way for a product
   to look like itself -- no framework asset changes and `AssetParityTests` stays green. Every
-  foreground/background pair is measured against WCAG 2.1 AA by
-  `deno run --allow-read tools/contrast-check.ts`. The home page gains a hero, the list gains
+  foreground/background pair the chrome renders is measured against WCAG 2.1 AA by
+  `deno run --allow-read tools/contrast-check.ts` -- 40 pairs across the two themes, plus a
+  two-way check that no declared colour goes unaccounted for. Run by hand, not by CI: adding a
+  Deno step would mean a second `uses:` action, which decision
+  `docs/decisions/2026-08-20-001-node-runtime-in-ci.md` closed the door on. The home page gains a hero, the list gains
   cards, and both the list and the article page now date a row by its publication date rather
   than by when it was created, which is what `PublishedArticle.PublishedOn()` was added for in
   spec 023 and what no page had called.

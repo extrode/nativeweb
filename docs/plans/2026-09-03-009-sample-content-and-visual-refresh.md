@@ -53,6 +53,8 @@ would be the easiest mistake here.
   `articles/results.html`, `articles/show.html`, `tags/index.html`, `tags/show.html`.
 - `apps/sample/locales/en.json` — the new chrome and empty-state strings.
 - `tools/contrast-check.ts` — a Deno script that parses the overrides and asserts the ratios.
+  Run by hand; nothing in CI invokes it, and `work/todo.md` carries the note about porting it
+  into the repository test tier so it runs with every `dotnet test`.
 
 ## Risks
 

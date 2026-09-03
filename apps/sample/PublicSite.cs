@@ -67,7 +67,7 @@ internal static class PublicSite
 
         return Templates.Site.Home.Result(
             locale: locale,
-            Title: locale["home.title"],
+            Title: locale["hero.title"],
             AntiforgeryToken: "",
             Articles: recent);
     }

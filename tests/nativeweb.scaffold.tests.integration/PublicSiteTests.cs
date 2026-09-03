@@ -105,6 +105,25 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
             html.IndexOf("binding-forms-under-nativeaot", StringComparison.Ordinal)
                 < html.IndexOf("lean-native-web", StringComparison.Ordinal),
             "The newer article must come first.");
+        Assert.Contains("<title>Server-rendered HTML, one native binary</title>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<title>Latest</title>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Detail_DatesABackdatedArticleTheWayTheListingDoesAndNotByItsRow()
+    {
+        using var factory = new SampleFactory();
+        using HttpClient client = factory.CreateFollowingNothing();
+
+        (_, string listing) = await GetAsync(client, "/");
+        (HttpResponseMessage response, string html) = await GetAsync(
+            client,
+            "/articles/a-note-written-last-week-and-published-today");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("datetime=\"2026-08-24\"", listing, StringComparison.Ordinal);
+        Assert.Contains("datetime=\"2026-08-24\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("datetime=\"2026-09-02\"", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -322,6 +341,34 @@ public sealed class PublicSiteTests : IClassFixture<LeakedFeedRowsSweep>
 
             Assert.Equal(51, await AdminViewCountAsync(admin, $"{prefix}-p", prefix));
             Assert.Equal(0, await AdminViewCountAsync(admin, $"{prefix}-d", prefix));
+        }
+        finally
+        {
+            await SampleTestDatabase.DeleteByIdPrefixAsync(prefix);
+        }
+    }
+
+    [Fact]
+    public async Task OverPostgres_TheArticlePageDatesARowByItsPublicationDate()
+    {
+        string prefix = $"back-{Guid.NewGuid():N}"[..16];
+        DateTime created = new(2031, 2, 9, 6, 15, 0, DateTimeKind.Utc);
+
+        try
+        {
+            await SampleTestDatabase.InsertBackdatedAsync(
+                $"{prefix}-p", $"{prefix} backdated", "body", created, new DateOnly(2031, 1, 30));
+
+            using var factory = new SampleJauntyFactory();
+            using HttpClient client = factory.CreateFollowingNothing();
+
+            (HttpResponseMessage detail, string detailHtml) = await GetAsync(client, $"/articles/{prefix}-p");
+            (_, string tagsHtml) = await GetAsync(client, "/articles");
+
+            Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+            Assert.Contains("datetime=\"2031-01-30\"", detailHtml, StringComparison.Ordinal);
+            Assert.DoesNotContain("datetime=\"2031-02-09\"", detailHtml, StringComparison.Ordinal);
+            Assert.Contains("datetime=\"2031-01-30\"", tagsHtml, StringComparison.Ordinal);
         }
         finally
         {

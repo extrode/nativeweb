@@ -19,10 +19,17 @@ Candidates, each checked at run time rather than asserted here:
 
                            Needs -DropTestRows as well as -Execute, because a DELETE against a
                            table another agent may be paging through is not something to do by
-                           default. The predicate spares the eight demo rows a1..a8 that
-                           migration 0005 seeds, and spares anything created in the last thirty
-                           minutes, so a suite running right now keeps its fixtures -- the same
-                           age gate spec 019's feed sweep uses, and for the same reason.
+                           default. The spared ids are read out of
+                           db/sample/migrations/0005_seed_demo_content.sql rather than copied
+                           here, so a ninth demo row is spared the day it is added.
+
+                           The age gate is weaker than it looks and is documented as such:
+                           created_at is a value the fixtures choose, not an insertion clock,
+                           and the leftover rows are dated across 2026. A suite that seeds a
+                           backdated row is NOT protected by it -- it only spares rows a fixture
+                           happened to date within the last half hour. Run this when no suite is
+                           running; the gate is a courtesy, not a lock, and -DropTestRows exists
+                           because there is no lock to be had.
 
   feat/024-sample-content-and-visual-refresh
                            the branch, once merged into dev. `git branch -d` is the merged
@@ -64,8 +71,25 @@ function Step([string]$label, [scriptblock]$act) {
 }
 
 # 1. The leftover test rows
+$seedFile = Join-Path $repo 'db/sample/migrations/0005_seed_demo_content.sql'
+if (-not (Test-Path $seedFile)) {
+    Write-Host "refuse: $seedFile is missing, so the demo ids to spare cannot be read. Nothing changed."
+    exit 1
+}
+
+$demoIds = [regex]::Matches(
+    (Get-Content -Raw $seedFile),
+    "\('(?<id>a\d+)',\s*'") | ForEach-Object { $_.Groups['id'].Value } | Sort-Object -Unique
+if ($demoIds.Count -eq 0) {
+    Write-Host 'refuse: no demo article ids found in migration 0005. Nothing changed.'
+    exit 1
+}
+
+Write-Host ("spare: $($demoIds.Count) demo ids read from migration 0005 -- " + ($demoIds -join ', '))
+$spared = ($demoIds | ForEach-Object { "'$_'" }) -join ','
+
 $predicate = @"
-id NOT IN ('a1','a2','a3','a4','a5','a6','a7','a8')
+id NOT IN ($spared)
 AND created_at < now() - interval '30 minutes'
 "@
 

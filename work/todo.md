@@ -1975,6 +1975,23 @@ an answer different from the one the audit assumed.
   the store and the seed sets three distinct values, and the public `TagRef` carries only slug
   and name -- so the dot repeats the text colour. Same read-model widening as the category note
   above, and worth doing in the same pass.
+- **`tools/contrast-check.ts` is a manual gate.** Nothing runs it -- not CI, not a test, not a
+  hook -- so the palette's WCAG guarantee holds only as long as someone remembers the command
+  after editing `sample.css`. A CI step needs `denoland/setup-deno`, a second `uses:` action that
+  decision `2026-08-20-001` argued against; porting the ratios into
+  `tests/nativeweb.repo.tests.unit` would run them with every `dotnet test` and needs no new
+  runtime. Worth doing; out of plan 009's scope.
+- **The sticky topbar is measured against a background it does not have.** `.topbar` is
+  `color-mix(in srgb, var(--s1) 82%, transparent)` over `backdrop-filter`, so the nav text sits
+  on 82% of `--s1` over whatever scrolls beneath it -- a card, or the hero's `--ac-dim` wash.
+  `contrast-check.ts` measures that text against opaque `--s1`, which is the best case rather
+  than the rendered one. Compositing it properly means the script has to understand
+  `color-mix()` and to know what can scroll under the bar.
+- **`db/migrate.sh`'s `strip_sql_comments` cannot see a `--` inside a SQL string literal.** It
+  strips from `--` to end of line, and `0005_seed_demo_content.sql` is the first migration whose
+  prose bodies contain one (a4 and a7 both do). psql always receives the original file, so this
+  can only cause a missed `@no-transaction` classification, never a wrong statement -- but the
+  safety net is blind past the first `--` in any future seed migration's prose.
 - **Nothing renders `articles/index.html`'s filter over the seeded set in a browser.** The e2e
   journey covers home, an article and a tag page; the htmx filter is proved at the integration
   tier only. It was already so before plan 009 -- noted because the list is now long enough for
