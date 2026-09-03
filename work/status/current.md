@@ -6,7 +6,17 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing in flight.** `fix/025-framework-assets-in-development` merged into `dev` on
+- **Spec 024 - model permissions and groups. Done on `feat/024-model-permissions`, 2026-09-03.**
+  `libs/nativeweb.permissions` plus its generator: `[Permissions]` on a model yields four
+  compile-time constants, the scaffolded admin gates each route and draws only the controls the
+  subject holds, `MapAccessAdmin` is the operator screen, and grants live behind
+  `IPermissionStore` with a PostgreSQL implementation in `apps/sample/JauntyPermissionStore.cs`
+  over migration `0006_permissions.sql`. Measured green: 84 permissions unit, 28 permissions
+  integration, 3 permissions e2e, 268 scaffold unit, 185 scaffold integration, 155 repo unit,
+  219 sample unit, 8 sample integration, 2 AOT. Every local command needs
+  `-p:JauntyQUsePackages=true`, and the e2e tiers need `JauntyQUsePackages=true` in the
+  environment because the process fixture shells out to a bare `dotnet publish`.
+- **Nothing else in flight.** `fix/025-framework-assets-in-development` merged into `dev` on
   2026-09-03, unpushed: the three framework stylesheets and `boot.js` 500'd under `dotnet run`
   from 2026-08-24 until then, which is why the local site looked unstyled while nw-dev did not.
   Plan 009 merged into `dev` the same day (see `previous.md`), pushed as `710a38c`.

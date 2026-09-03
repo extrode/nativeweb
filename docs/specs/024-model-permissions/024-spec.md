@@ -1,5 +1,5 @@
 # 024 — Model permissions and groups
-Status: draft
+Status: done
 Created: 2026-09-03
 
 ## Problem
