@@ -183,6 +183,18 @@ public sealed class PermissionsGenerator : IIncrementalGenerator
         ImmutableArray<string>.Builder built = ImmutableArray.CreateBuilder<string>();
         built.AddRange(PermissionNaming.CoreActions);
 
+        // Two actions can differ as strings and still emit one identifier, because
+        // ConstantName drops underscores: publish_draft and publish__draft are both
+        // PublishDraft. So is view_ against the core view, and all against the All
+        // list the class always emits. The string checks below cannot see any of
+        // them, and the result is CS0102 inside a .g.cs the author cannot edit.
+        var taken = new Dictionary<string, string>(StringComparer.Ordinal) { ["All"] = "the list of every permission this model declares" };
+
+        foreach (string core in PermissionNaming.CoreActions)
+        {
+            taken[PermissionNaming.ConstantName(core)] = "the core permission '" + core + "'";
+        }
+
         bool usable = true;
 
         foreach (string extra in model.Extras)
@@ -211,6 +223,22 @@ public sealed class PermissionsGenerator : IIncrementalGenerator
                 continue;
             }
 
+            string identifier = PermissionNaming.ConstantName(extra);
+
+            if (taken.TryGetValue(identifier, out string owner))
+            {
+                spc.ReportDiagnostic(Diagnostic.Create(
+                    PermissionsDiagnostics.ExtraCollidesWithIdentifier,
+                    Location.None,
+                    model.FullName,
+                    extra,
+                    identifier,
+                    owner));
+                usable = false;
+                continue;
+            }
+
+            taken.Add(identifier, "the extra permission '" + extra + "'");
             built.Add(extra);
         }
 

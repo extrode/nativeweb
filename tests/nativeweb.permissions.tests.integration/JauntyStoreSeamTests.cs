@@ -49,6 +49,41 @@ public sealed class JauntyStoreSeamTests(PermissionHostFixture fixture)
                 .GrantToGroupAsync(NoSuchGroup, PermissionHost.View.Name, default));
     }
 
+    [Fact]
+    public async Task GrantingToASubjectTheStoreHasNotSeen_IsAConflictInBothStores()
+    {
+        string subject = PermissionHost.NewSubject();
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await Postgres.GrantToSubjectAsync(subject, PermissionHost.View.Name, default));
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await new InMemoryPermissionStore()
+                .GrantToSubjectAsync(subject, PermissionHost.View.Name, default));
+    }
+
+    [Fact]
+    public async Task AddingAMemberTheStoreHasNotSeen_IsAConflictInBothStores()
+    {
+        var memory = new InMemoryPermissionStore();
+        long group = await memory.CreateGroupAsync("editors", default);
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await memory.AddMemberAsync(PermissionHost.NewSubject(), group, default));
+    }
+
+    [Theory]
+    [InlineData("")]
+    public async Task AnEmptySubject_IsRejectedByBothStores(string subject)
+    {
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await Postgres.GrantToSubjectAsync(subject, PermissionHost.View.Name, default));
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await new InMemoryPermissionStore()
+                .GrantToSubjectAsync(subject, PermissionHost.View.Name, default));
+    }
+
     private async Task<long> GroupAsync() =>
         await Postgres.CreateGroupAsync("seam-" + Guid.NewGuid().ToString("N")[..12], default);
 }

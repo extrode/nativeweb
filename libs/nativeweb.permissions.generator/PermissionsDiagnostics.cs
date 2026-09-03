@@ -48,6 +48,14 @@ internal static class PermissionsDiagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
+    internal static readonly DiagnosticDescriptor ExtraCollidesWithIdentifier = new(
+        id: "NWP007",
+        title: "Extra permission name emits an identifier that is already taken",
+        messageFormat: "'{0}' declares the extra permission '{1}', whose constant would be named '{2}', and that name is already taken by {3}. Rename it.",
+        category: "NativeWeb.Permissions",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
     internal static readonly DiagnosticDescriptor ModelNameCollides = new(
         id: "NWP006",
         title: "Two models produce the same permission names",

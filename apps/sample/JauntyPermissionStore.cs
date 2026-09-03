@@ -116,6 +116,8 @@ internal sealed class JauntyPermissionStore(NpgsqlDataSource dataSource) : IPerm
 
     public async ValueTask AddMemberAsync(string subject, long groupId, CancellationToken ct)
     {
+        ArgumentException.ThrowIfNullOrEmpty(subject);
+
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);
 
@@ -161,10 +163,20 @@ internal sealed class JauntyPermissionStore(NpgsqlDataSource dataSource) : IPerm
 
     public async ValueTask GrantToSubjectAsync(string subject, string permission, CancellationToken ct)
     {
+        ArgumentException.ThrowIfNullOrEmpty(subject);
+        ArgumentException.ThrowIfNullOrEmpty(permission);
+
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);
 
-        await db.Permissions.GrantToSubjectAsync(subject, permission, ct).ConfigureAwait(false);
+        try
+        {
+            await db.Permissions.GrantToSubjectAsync(subject, permission, ct).ConfigureAwait(false);
+        }
+        catch (PostgresException missing) when (IsMissingReference(missing))
+        {
+            throw new PermissionConflictException($"No subject {subject}.");
+        }
     }
 
     public async ValueTask RevokeFromSubjectAsync(string subject, string permission, CancellationToken ct)
@@ -177,6 +189,8 @@ internal sealed class JauntyPermissionStore(NpgsqlDataSource dataSource) : IPerm
 
     public async ValueTask GrantToGroupAsync(long groupId, string permission, CancellationToken ct)
     {
+        ArgumentException.ThrowIfNullOrEmpty(permission);
+
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);
 

@@ -21,6 +21,7 @@ public sealed class PermissionContextTests
     public async Task DirectGrant_IsHeld()
     {
         var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.GrantToSubjectAsync("sub-1", Change.Name, default);
         var permissions = new PermissionService(new PermissionContext(store, Registry()));
 
@@ -33,6 +34,7 @@ public sealed class PermissionContextTests
     {
         var store = new CountingPermissionStore();
         long group = await store.CreateGroupAsync("editors", default);
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.AddMemberAsync("sub-1", group, default);
         await store.GrantToGroupAsync(group, Delete.Name, default);
         var permissions = new PermissionService(new PermissionContext(store, Registry()));
@@ -44,6 +46,7 @@ public sealed class PermissionContextTests
     public async Task GrantNamingAnUndeclaredPermission_GrantsNothing()
     {
         var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.GrantToSubjectAsync("sub-1", "sample:article.publish", default);
         var context = new PermissionContext(store, Registry());
 
@@ -65,6 +68,7 @@ public sealed class PermissionContextTests
     public async Task HeldSet_IsResolvedOncePerRequest()
     {
         var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.GrantToSubjectAsync("sub-1", Change.Name, default);
         var context = new PermissionContext(store, Registry());
         ClaimsPrincipal user = Signed("sub-1");
@@ -96,6 +100,7 @@ public sealed class PermissionContextTests
     public async Task ADifferentDisplayNameOnTheSameSubject_ChangesNothing()
     {
         var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.GrantToSubjectAsync("sub-1", Change.Name, default);
         var permissions = new PermissionService(new PermissionContext(store, Registry()));
 
@@ -110,6 +115,7 @@ public sealed class PermissionContextTests
     public async Task DefaultPermission_IsNeverAllowed()
     {
         var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.GrantToSubjectAsync("sub-1", Change.Name, default);
         var permissions = new PermissionService(new PermissionContext(store, Registry()));
 
@@ -120,6 +126,7 @@ public sealed class PermissionContextTests
     public async Task ResourceId_IsAcceptedAndDoesNotChangeTheAnswer()
     {
         var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.GrantToSubjectAsync("sub-1", Change.Name, default);
         var permissions = new PermissionService(new PermissionContext(store, Registry()));
 

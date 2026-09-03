@@ -11,6 +11,19 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Permissions]` extras that emit the same C# identifier are now the NWP007 error rather than
+  CS0102 inside generated source: `all` against the emitted `All` list, `view_` against the core
+  `view`, and `publish_draft` against `publish__draft`.
+- The access admin translates `PermissionConflictException` into a 409 on every write, not only
+  on group creation. A post naming a group that has gone since the page rendered was a 500.
+- `IPermissionStore`'s two implementations agree on a subject the store has not seen: both raise
+  `PermissionConflictException` from `AddMemberAsync` and `GrantToSubjectAsync`, and both reject
+  an empty subject or permission with `ArgumentException`. `EnsureSubjectAsync` is the one call
+  that admits a subject.
+
+
 Merged into `dev`, not yet tagged.
 
 ### Fixed

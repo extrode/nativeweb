@@ -2036,3 +2036,23 @@ an answer different from the one the audit assumed.
   reference and the incremental cache never hits across edits. A correctness non-issue and a
   build-time cost only.
 
+
+## From the fable (review-deep) pass on spec 024, 2026-09-04
+
+- `IPermissionStore` has no way to delete a group or forget a subject, and the access admin
+  exposes none, so a mistyped group name is permanent on both stores. The `ON DELETE CASCADE`
+  clauses in `db/sample/migrations/0006_permissions.sql` are reachable only by hand-written SQL,
+  and `PermissionConflictException` cites "a group that has since been deleted" as a state
+  nothing can currently produce.
+- `PermissionContext.HeldAsync` reads the subject from `ClaimTypes.NameIdentifier` with no way
+  for a host to name another claim. A scheme that surfaces `sub` unmapped is silently answered
+  403 by `PermissionEndpointFilter` with nothing in a log to say why.
+- `PermissionContext.HeldAsync` memoises on the first principal and ignores the `user` argument
+  thereafter. Bounded today by the context being request-scoped, but the parameter is misleading.
+- `ScaffoldGenerator` sets `HasPermissions` on attribute presence alone, so when the permissions
+  generator declines the model (NWP001-007) or is not referenced as an analyzer, the scaffold
+  still emits `XPermissions.View` references and one real diagnostic arrives beside a CS0234
+  cascade from generated files.
+- `apps/sample/Program.cs` grants `PermissionCatalog.All` to the two seeded subjects on the
+  in-memory path while `0006_permissions.sql` seeds four literal `sample:article.*` names. The
+  moment a second model declares `[Permissions]` the two run modes seed different grant sets.

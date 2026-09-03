@@ -36,6 +36,7 @@ public sealed class EndpointFilterTests
     {
         (EndpointFilterInvocationContext context, CountingPermissionStore store) =
             await ContextAsync(anonymous: false);
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.GrantToSubjectAsync("sub-1", Change.Name, default);
 
         object? result = await new PermissionEndpointFilter(Change).InvokeAsync(context, Next);
@@ -49,6 +50,7 @@ public sealed class EndpointFilterTests
         (EndpointFilterInvocationContext context, CountingPermissionStore store) =
             await ContextAsync(anonymous: false);
         long group = await store.CreateGroupAsync("editors", default);
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.AddMemberAsync("sub-1", group, default);
         await store.GrantToGroupAsync(group, Change.Name, default);
 
@@ -63,6 +65,7 @@ public sealed class EndpointFilterTests
         (EndpointFilterInvocationContext context, CountingPermissionStore store) =
             await ContextAsync(anonymous: false);
         context.HttpContext.Request.RouteValues["id"] = "row-7";
+        await store.EnsureSubjectAsync("sub-1", default);
         await store.GrantToSubjectAsync("sub-1", Change.Name, default);
 
         object? result = await new PermissionEndpointFilter(Change, "id").InvokeAsync(context, Next);

@@ -78,6 +78,7 @@ public sealed class AccessAdminTests
     public async Task AGrantNamingAnUndeclaredPermission_IsListedAsUndeclaredAndOnlyRevocable()
     {
         await using Harness harness = await Harness.StartAsync();
+        await harness.Store.EnsureSubjectAsync("sub-1", default);
         await harness.Store.GrantToSubjectAsync("sub-1", "sample:article.publish", default);
 
         string html = await harness.GetAsync("/admin/access/subjects/sub-1");
@@ -92,6 +93,7 @@ public sealed class AccessAdminTests
     public async Task AnUndeclaredGrant_CanStillBeRevoked()
     {
         await using Harness harness = await Harness.StartAsync();
+        await harness.Store.EnsureSubjectAsync("sub-1", default);
         await harness.Store.GrantToSubjectAsync("sub-1", "sample:article.publish", default);
 
         using HttpResponseMessage response = await harness.PostAsync(
@@ -155,6 +157,7 @@ public sealed class AccessAdminTests
     {
         await using Harness harness = await Harness.StartAsync();
         long group = await harness.Store.CreateGroupAsync("editors", default);
+        await harness.Store.EnsureSubjectAsync("sub-1", default);
         await harness.Store.AddMemberAsync("sub-1", group, default);
 
         await harness.PostAsync($"/admin/access/groups/{group}/members/remove", ("subject", "sub-1"));
@@ -187,6 +190,21 @@ public sealed class AccessAdminTests
 
         return $"""<input type="hidden" name="{tokens.FormFieldName}" value="{tokens.RequestToken}">""";
     }
+
+    [Theory]
+    [InlineData("members", "subject", "sub-1")]
+    [InlineData("grants", "permission", "sample:article.change")]
+    public async Task APostNamingAGroupThatDoesNotExist_IsAConflict(string leaf, string field, string value)
+    {
+        await using Harness harness = await Harness.StartAsync();
+
+        using HttpResponseMessage response = await harness.PostAsync(
+            $"/admin/access/groups/{NoSuchGroup}/{leaf}", (field, value));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    private const long NoSuchGroup = 4_294_967_296;
 
     private sealed class Harness : IAsyncDisposable
     {
