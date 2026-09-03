@@ -2009,3 +2009,9 @@ an answer different from the one the audit assumed.
   `NativeWeb.slnx`'s two direct references point at paths that do not exist. Every local build
   needs `-p:JauntyQUsePackages=true` until the probe, the sentinel filename and the two solution
   entries are updated to the new names. Found on the 024 branch, out of its scope.
+
+- Spec 024: `db/sample/schema/sample.schema.json` had the five `nw_*` tables written into it by
+  hand rather than by `jaunty schema pull`, because the tables did not exist in any database at
+  the time and the pull needs one. The generator accepted it and `apps/sample` builds, so the
+  shape is right; re-run the pull once 0006 is applied to `nativeweb_sample_dev` and confirm the
+  file is unchanged.

@@ -26,6 +26,13 @@
     <ProjectReference Include="..\..\libs\nativeweb.scaffold.generator\nativeweb.scaffold.generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
+    <!-- Spec 024. The generator emits the permission constants and the catalog; the
+         library carries the endpoint filter, the per-request held set and the access
+         admin. Same analyzer wiring as the scaffold pair above. -->
+    <ProjectReference Include="..\..\libs\nativeweb.permissions\nativeweb.permissions.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.permissions.generator\nativeweb.permissions.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
     <!-- The compiled-template render engine, added 2026-08-31. Before it, this app
          hand-built its HTML in a StringBuilder while the render layer (the largest
          library in the framework at 3,633 lines) was exercised only by its own unit

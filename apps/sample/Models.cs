@@ -1,4 +1,11 @@
+using NativeWeb.Permissions;
 using NativeWeb.Scaffold;
+
+// Spec 024 R2. Without this the scope is the assembly name lower-cased, which here
+// would be "nativeweb.sample" and would put the whole framework's name into every
+// grant row. One word, and it is the product's, so a grant reads as
+// sample:article.change.
+[assembly: PermissionScope("sample")]
 
 namespace NativeWeb.Sample;
 
@@ -17,6 +24,7 @@ public enum ArticleStatus
 /// </summary>
 [Scaffold(Display = "Articles", Route = "articles")]
 [Auth(Role = "admin")]
+[Permissions]
 public sealed class Article
 {
     [ScaffoldKey]

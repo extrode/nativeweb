@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 using Npgsql;
 
+using NativeWeb.Permissions;
 using NativeWeb.Scaffold;
 using NativeWeb.Scaffold.Generated;
 using NativeWeb.SignIn;
@@ -49,6 +50,12 @@ public sealed class Program
 
         // Antiforgery and authorization, which every scaffolded route needs.
         builder.Services.AddScaffolding();
+
+        // Spec 024. The catalog is what this build's generator emitted from every
+        // [Permissions] model, passed in rather than discovered: a static registry
+        // would be shared by two hosts in one process. The store is registered below
+        // with the scaffold stores, because it degrades the same way they do.
+        builder.Services.AddPermissions(PermissionCatalog.All);
 
         // The OAuth relying party (spec 016 R28), pointed at the demo authorization
         // server this app mounts on itself below. Development only, because that
@@ -151,6 +158,23 @@ public sealed class Program
             // filter, sort and count themselves; see MemoryPublishedArticles.
             builder.Services.AddSingleton<IPublishedArticles>(new MemoryPublishedArticles(articles, tags, relation));
             builder.Services.AddSingleton<IPublicTags>(new MemoryPublicTags(tags, articles, relation));
+
+            // Grants live as long as the process on this path, which is what makes
+            // the Playwright tier able to grant one and watch a control appear.
+            // Both sign-ins get the whole catalog, standing in for the seed
+            // migration 0006 applies on the database path.
+            var permissions = new InMemoryPermissionStore();
+            foreach (string subject in new[] { "operator", "demo" })
+            {
+                permissions.EnsureSubjectAsync(subject, default).AsTask().GetAwaiter().GetResult();
+                foreach (Permission permission in PermissionCatalog.All)
+                {
+                    permissions.GrantToSubjectAsync(subject, permission.Name, default)
+                        .AsTask().GetAwaiter().GetResult();
+                }
+            }
+
+            builder.Services.AddSingleton<IPermissionStore>(permissions);
         }
         else
         {
@@ -176,6 +200,12 @@ public sealed class Program
                 sp => new JauntyPublishedArticles(sp.GetRequiredService<NpgsqlDataSource>()));
             builder.Services.AddSingleton<IPublicTags>(
                 sp => new JauntyPublicTags(sp.GetRequiredService<NpgsqlDataSource>()));
+
+            // The permission tables are migration 0006's, and the first operator's
+            // grant is seeded there rather than here: on a database there is nowhere
+            // for a startup grant to go that a restart would not repeat.
+            builder.Services.AddSingleton<IPermissionStore>(
+                sp => new JauntyPermissionStore(sp.GetRequiredService<NpgsqlDataSource>()));
         }
 
         WebApplication app = builder.Build();
@@ -206,6 +236,12 @@ public sealed class Program
         // one call is the whole of the admin UI's wiring.
         app.MapScaffolding();
 
+        // Groups, members and grants, on the same chrome. The two delegates are the
+        // generated ScaffoldLayout's own methods: the library cannot name that type,
+        // because the generator emits it into this assembly.
+        app.MapAccessAdmin("/admin", ScaffoldLayout.Page, ScaffoldLayout.AntiforgeryField)
+            .RequireAuthorization(policy => policy.RequireRole("admin"));
+
         // The hand-written counterpart, for contrast: one GET, written out in
         // PublicArticleEndpoints.cs rather than generated from an attribute.
         app.MapPublicArticles();
@@ -229,8 +265,14 @@ public sealed class Program
         {
             app.MapGet("/signin", async (HttpContext http) =>
             {
+                // The subject the permission layer reads, matching what migration
+                // 0006 seeds and what the in-memory path grants above.
                 var identity = new ClaimsIdentity(
-                    [new Claim(ClaimTypes.Name, "demo"), new Claim(ClaimTypes.Role, "admin")],
+                    [
+                        new Claim(ClaimTypes.Name, "demo"),
+                        new Claim(ClaimTypes.NameIdentifier, "demo"),
+                        new Claim(ClaimTypes.Role, "admin"),
+                    ],
                     CookieAuthenticationDefaults.AuthenticationScheme);
 
                 await http.SignInAsync(
