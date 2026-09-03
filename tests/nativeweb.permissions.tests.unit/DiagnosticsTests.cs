@@ -150,6 +150,45 @@ public sealed class DiagnosticsTests
         Assert.Empty(Ids(GeneratorHarness.Run("Sample", GeneratorHarness.Attributes, model)));
     }
 
+    [Theory]
+    [InlineData("all")]
+    [InlineData("view_")]
+    [InlineData("publish_draft", "publish__draft")]
+    public void ExtrasThatEmitTheSameIdentifier_ReportNwp007(params string[] extras)
+    {
+        string declared = string.Join(", ", extras.Select(extra => $"\"{extra}\""));
+
+        string model = $$"""
+            using NativeWeb.Permissions;
+
+            namespace Demo
+            {
+                [Permissions({{declared}})]
+                public sealed class Article { }
+            }
+            """;
+
+        Assert.Contains("NWP007", Ids(GeneratorHarness.Run("Sample", GeneratorHarness.Attributes, model)));
+    }
+
+    [Fact]
+    public void AnExtraThatWouldCollideWithTheAllList_EmitsNoUncompilableSource()
+    {
+        const string model = """
+            using NativeWeb.Permissions;
+
+            namespace Demo
+            {
+                [Permissions("all")]
+                public sealed class Article { }
+            }
+            """;
+
+        Compilation compiled = GeneratorHarness.Compile("Sample", GeneratorHarness.Attributes, model);
+
+        Assert.DoesNotContain(compiled.GetDiagnostics(), diagnostic => diagnostic.Id == "CS0102");
+    }
+
     private static string[] Ids((ImmutableArray<Diagnostic> Diagnostics, string Source, int FileCount) run) =>
         [.. run.Diagnostics.Select(diagnostic => diagnostic.Id)];
 }

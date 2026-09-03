@@ -72,6 +72,12 @@ public interface IPermissionStore
     ValueTask<IReadOnlyList<string>> MembersAsync(long groupId, CancellationToken ct);
 
     /// <summary>Puts a subject in a group. Idempotent.</summary>
+    /// <remarks>
+    /// A group or a subject the store does not hold is
+    /// <see cref="PermissionConflictException"/>, which the admin renders as a form
+    /// error. A subject is admitted by <see cref="EnsureSubjectAsync"/> and by
+    /// nothing else.
+    /// </remarks>
     ValueTask AddMemberAsync(string subject, long groupId, CancellationToken ct);
 
     /// <summary>Takes a subject out of a group. A subject not in it is not an error.</summary>
@@ -84,12 +90,20 @@ public interface IPermissionStore
     ValueTask<IReadOnlyList<string>> GroupGrantsAsync(long groupId, CancellationToken ct);
 
     /// <summary>Grants a permission to a subject. Idempotent.</summary>
+    /// <remarks>
+    /// A subject the store does not hold is
+    /// <see cref="PermissionConflictException"/>, as it is for
+    /// <see cref="AddMemberAsync"/>.
+    /// </remarks>
     ValueTask GrantToSubjectAsync(string subject, string permission, CancellationToken ct);
 
     /// <summary>Revokes a permission from a subject. Not holding it is not an error.</summary>
     ValueTask RevokeFromSubjectAsync(string subject, string permission, CancellationToken ct);
 
     /// <summary>Grants a permission to a group. Idempotent.</summary>
+    /// <remarks>
+    /// A group the store does not hold is <see cref="PermissionConflictException"/>.
+    /// </remarks>
     ValueTask GrantToGroupAsync(long groupId, string permission, CancellationToken ct);
 
     /// <summary>Revokes a permission from a group. Not holding it is not an error.</summary>

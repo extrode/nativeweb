@@ -283,16 +283,9 @@ public static class AccessAdmin
             return Results.BadRequest();
         }
 
-        try
-        {
-            await Store(http).CreateGroupAsync(name, http.RequestAborted).ConfigureAwait(false);
-        }
-        catch (PermissionConflictException)
-        {
-            return Results.Conflict();
-        }
-
-        return Results.Redirect(basePath + "/");
+        return await WrittenAsync(
+            async () => await Store(http).CreateGroupAsync(name, http.RequestAborted).ConfigureAwait(false),
+            Results.Redirect(basePath + "/")).ConfigureAwait(false);
     }
 
     private static async Task<IResult> AddMemberAsync(HttpContext http, string basePath)
@@ -306,10 +299,14 @@ public static class AccessAdmin
         }
 
         IPermissionStore store = Store(http);
-        await store.EnsureSubjectAsync(subject, http.RequestAborted).ConfigureAwait(false);
-        await store.AddMemberAsync(subject, id.Value, http.RequestAborted).ConfigureAwait(false);
 
-        return Results.Redirect(GroupPath(basePath, id.Value));
+        return await WrittenAsync(
+            async () =>
+            {
+                await store.EnsureSubjectAsync(subject, http.RequestAborted).ConfigureAwait(false);
+                await store.AddMemberAsync(subject, id.Value, http.RequestAborted).ConfigureAwait(false);
+            },
+            Results.Redirect(GroupPath(basePath, id.Value))).ConfigureAwait(false);
     }
 
     private static async Task<IResult> RemoveMemberAsync(HttpContext http, string basePath)
@@ -337,9 +334,9 @@ public static class AccessAdmin
             return Results.BadRequest();
         }
 
-        await Store(http).GrantToGroupAsync(id.Value, permission, http.RequestAborted).ConfigureAwait(false);
-
-        return Results.Redirect(GroupPath(basePath, id.Value));
+        return await WrittenAsync(
+            () => Store(http).GrantToGroupAsync(id.Value, permission, http.RequestAborted),
+            Results.Redirect(GroupPath(basePath, id.Value))).ConfigureAwait(false);
     }
 
     // Revoking is not validated against the catalog: an undeclared grant is exactly
@@ -371,10 +368,14 @@ public static class AccessAdmin
         }
 
         IPermissionStore store = Store(http);
-        await store.EnsureSubjectAsync(subject, http.RequestAborted).ConfigureAwait(false);
-        await store.GrantToSubjectAsync(subject, permission, http.RequestAborted).ConfigureAwait(false);
 
-        return Results.Redirect(SubjectPath(basePath, subject));
+        return await WrittenAsync(
+            async () =>
+            {
+                await store.EnsureSubjectAsync(subject, http.RequestAborted).ConfigureAwait(false);
+                await store.GrantToSubjectAsync(subject, permission, http.RequestAborted).ConfigureAwait(false);
+            },
+            Results.Redirect(SubjectPath(basePath, subject))).ConfigureAwait(false);
     }
 
     private static async Task<IResult> RevokeFromSubjectAsync(HttpContext http, string basePath)
@@ -390,6 +391,25 @@ public static class AccessAdmin
         await Store(http).RevokeFromSubjectAsync(subject, permission, http.RequestAborted).ConfigureAwait(false);
 
         return Results.Redirect(SubjectPath(basePath, subject));
+    }
+
+    // Every one of these posts names a group or a subject the rendered page saw and
+    // the store may no longer have. Both shipped stores raise
+    // PermissionConflictException for that, and IPermissionStore documents it as the
+    // admin's to render rather than to propagate: unhandled it is a 500 on a form
+    // whose only fault is being stale.
+    private static async Task<IResult> WrittenAsync(Func<ValueTask> write, IResult onWritten)
+    {
+        try
+        {
+            await write().ConfigureAwait(false);
+        }
+        catch (PermissionConflictException)
+        {
+            return Results.Conflict();
+        }
+
+        return onWritten;
     }
 
     private static async Task<string?> DeclaredPermissionAsync(HttpContext http)

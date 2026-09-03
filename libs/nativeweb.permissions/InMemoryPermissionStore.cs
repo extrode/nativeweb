@@ -146,6 +146,7 @@ public sealed class InMemoryPermissionStore : IPermissionStore
             throw new PermissionConflictException($"No group with id {groupId}.");
         }
 
+        RequireSubject(subject);
         _members.TryAdd(MemberKey(subject, groupId), 0);
         return ValueTask.CompletedTask;
     }
@@ -195,6 +196,7 @@ public sealed class InMemoryPermissionStore : IPermissionStore
         ArgumentException.ThrowIfNullOrEmpty(subject);
         ArgumentException.ThrowIfNullOrEmpty(permission);
         ct.ThrowIfCancellationRequested();
+        RequireSubject(subject);
         _subjectGrants.TryAdd(SubjectKey(subject, permission), 0);
         return ValueTask.CompletedTask;
     }
@@ -262,6 +264,19 @@ public sealed class InMemoryPermissionStore : IPermissionStore
     // separator would otherwise be chosen.
     private static string SubjectKey(string subject, string permission) =>
         $"{subject.Length}:{subject}{permission}";
+
+    // On PostgreSQL both of these rows carry a foreign key to nw_subject, so an
+    // unseen subject is rejected there whatever this store does. Rejecting it here
+    // too is what makes the two substitutable: EnsureSubjectAsync is the one call
+    // that admits a subject, and it is idempotent, so requiring it costs a caller
+    // nothing it was not already doing.
+    private void RequireSubject(string subject)
+    {
+        if (!_subjects.ContainsKey(subject))
+        {
+            throw new PermissionConflictException($"No subject {subject}.");
+        }
+    }
 
     private static string MemberKey(string subject, long groupId) =>
         $"{subject.Length}:{subject}{groupId}";
