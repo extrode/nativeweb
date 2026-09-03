@@ -1975,6 +1975,13 @@ an answer different from the one the audit assumed.
   the store and the seed sets three distinct values, and the public `TagRef` carries only slug
   and name -- so the dot repeats the text colour. Same read-model widening as the category note
   above, and worth doing in the same pass.
+- **`apps/sample` hardcodes its asset URLs; the skeleton resolves them.**
+  `apps/sample/templates/layout/page.html` and `Render/ArticlesPage.cs` write
+  `/_nativeweb/css/tokens.css` literally, while `skeleton/apps/__product__` writes
+  `{{Assets.Resolve("/_nativeweb/css/tokens.css")}}`. The literal form works but is served off the
+  identity route, so the sample gets `Cache-Control: no-cache` where the fingerprinted route would
+  be cacheable for a year -- and `AssetUrls` exists to make that impossible to get wrong. The
+  reference app demonstrating the wrong one of the two is the part worth fixing.
 - **`tools/contrast-check.ts` is a manual gate.** Nothing runs it -- not CI, not a test, not a
   hook -- so the palette's WCAG guarantee holds only as long as someone remembers the command
   after editing `sample.css`. A CI step needs `denoland/setup-deno`, a second `uses:` action that

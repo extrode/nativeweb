@@ -6,7 +6,10 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing in flight.** Plan 009 merged into `dev` on 2026-09-03 (see `previous.md`), unpushed.
+- **Nothing in flight.** `fix/025-framework-assets-in-development` merged into `dev` on
+  2026-09-03, unpushed: the three framework stylesheets and `boot.js` 500'd under `dotnet run`
+  from 2026-08-24 until then, which is why the local site looked unstyled while nw-dev did not.
+  Plan 009 merged into `dev` the same day (see `previous.md`), pushed as `710a38c`.
   Spec 023 merged into `dev` earlier the same day (see `previous.md`) and pushed. Next in the agreed chain of sample examples: (c) forms — contact, upload, two-step;
   then (d) ops — two roles, an audit trail, custom 404/500, `security.txt` on nw-dev.
 - **nw-dev runs `8f5f625`, deployed 2026-09-03 by the operator.** Promoted to blue from
