@@ -8,11 +8,13 @@ dry run: it lists what would go and changes nothing. Pass -Execute (-e) to act.
 
 Candidates, each checked at run time rather than asserted here:
 
-  fix/025-framework-assets-in-development
-  chore/025-cleanup-script
-                           the two branches, once merged into dev. `git branch -d` is the merged
-                           check: git compares commits and refuses an unmerged branch. The second
-                           exists only because a hook blocks committing this file straight to dev.
+  every merged branch matching *025*
+                           `git branch -d` is the merged check: git compares commits and refuses
+                           an unmerged branch, so an in-progress 025 branch is safe. Matched by
+                           glob rather than listed by name because a hook blocks committing this
+                           file straight to dev -- so writing the script creates another branch
+                           for the script to name, and a hardcoded list can never catch up with
+                           itself.
 
 Not listed, and deliberately: nothing else. The fix touched two framework files and added one
 test file, all of which are the deliverable. tmp/dev-probe*.log, tmp/dev-final.log,
@@ -48,7 +50,12 @@ function Step([string]$label, [scriptblock]$act) {
     }
 }
 
-foreach ($target in @('fix/025-framework-assets-in-development', 'chore/025-cleanup-script')) {
+$targets = git -C $repo branch --list '*025*' --format '%(refname:short)' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+if ($targets.Count -eq 0) {
+    Write-Host 'skip:  no 025 branches remain'
+}
+
+foreach ($target in $targets) {
     if (-not (git -C $repo rev-parse --verify --quiet "refs/heads/$target")) {
         Write-Host "skip:  branch $target no longer exists"
         continue
