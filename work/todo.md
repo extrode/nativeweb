@@ -2022,3 +2022,17 @@ an answer different from the one the audit assumed.
   T19 added the permission layer to `probe-host` rather than standing up a second AOT tier,
   because a NativeAOT publish is ~21 s of link per tier and one host covers both. The tier wants
   renaming to `nativeweb.tests.aot`, which is a rename to ask about, not cleanup to do.
+- **`nw_subject` grows without bound and the access index pages nothing.** Every first sight of a
+  subject writes a row, the index lists them all, and neither has a bound. Fine at demo scale and
+  not at a real one. Found by the 024 branch review; the fix is a paged subject list plus a
+  retention decision nobody has made, so it is a spec of its own, not a line in this one.
+- **`AccessAdmin` resolves one group by scanning `GroupsAsync()`.** Every group screen reads every
+  group to find one. `IPermissionStore` has no `GroupAsync(long)` and adding one changes the seam,
+  which is why the 024 review left it: a fourteenth method on a shipped interface is a decision.
+- **`FormValueAsync` joins repeated form fields with a comma.** Posting `permission` twice yields
+  `a,b`, which fails catalog validation rather than being rejected as malformed. Harmless today
+  because the catalog check catches it; a wrong message for the wrong reason.
+- **`PermissionModel` has no value equality**, so the generator's `Collect()` compares by
+  reference and the incremental cache never hits across edits. A correctness non-issue and a
+  build-time cost only.
+

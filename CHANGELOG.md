@@ -40,7 +40,10 @@ Merged into `dev`, not yet tagged.
   groups, members and grants. A permission that stops being declared fails to compile at every
   use site, and any grant row naming it is inert and shown as `undeclared` with a revoke control.
   An application declaring no permissions emits byte-identical output.
-  `libs/nativeweb.permissions/README.md` has the whole API and the bootstrap obligation.
+  `libs/nativeweb.permissions/README.md` has the whole API and the bootstrap obligation, and
+  the host must call `UseAntiforgery()`: each of the access screens' seven posts carries
+  `IAntiforgeryMetadata`, so routing refuses one that arrives without the middleware rather
+  than letting an unvalidated post through.
 
 - **The sample has content and a look of its own (plan 009).** The demo dataset grew from three
   articles to eight and is now seeded on both store paths -- `db/sample/migrations/0005_seed_demo_content.sql`
