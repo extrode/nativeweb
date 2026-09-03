@@ -30,6 +30,15 @@
           Visible="false" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The permission naming rule, compiled in rather than referenced. This
+         generator has to name the same constant the permissions generator emits,
+         and a generator cannot see another generator's output in the same
+         compilation, so both derive it. Linking the one file is what stops that
+         being two rules that agree today. See spec 024. -->
+    <Compile Include="..\nativeweb.permissions.generator\PermissionNaming.cs"
+             Link="PermissionNaming.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
   </ItemGroup>

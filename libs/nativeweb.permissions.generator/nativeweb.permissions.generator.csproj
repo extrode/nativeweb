@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Build-time half of the model-permissions feature (spec 024): an incremental
+       source generator that turns a [Permissions]-decorated model into a static
+       class of Permission constants, and the assembly into one catalog of
+       everything it declares. Same wiring pattern as nativeweb.scaffold.generator:
+       netstandard2.0, referenced with OutputItemType="Analyzer"
+       ReferenceOutputAssembly="false".
+
+       PermissionNaming.cs in this project is also compiled into
+       nativeweb.scaffold.generator by <Compile Include> link. The scaffold
+       generator has to derive the same constant identifier this one emits, and one
+       rule written twice is two rules. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>NativeWeb.Permissions.Generator</RootNamespace>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Permissions.Generator</PackageId>
+    <Version>0.1.0</Version>
+    <Description>NativeWeb framework: build-time permission constant and catalog source generator.</Description>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
