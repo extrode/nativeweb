@@ -2009,3 +2009,12 @@ an answer different from the one the audit assumed.
   `NativeWeb.slnx`'s two direct references point at paths that do not exist. Every local build
   needs `-p:JauntyQUsePackages=true` until the probe, the sentinel filename and the two solution
   entries are updated to the new names. Found on the 024 branch, out of its scope.
+- **The e2e tiers need `JauntyQUsePackages` in the ENVIRONMENT, not as `-p:`.** `SampleProcessFixture`
+  shells out to a bare `dotnet publish`, and `-p:` on the `dotnet test` command line does not reach
+  that child. `JauntyQUsePackages=true dotnet test <e2e project>` works, because MSBuild reads
+  environment variables as properties. Worth a line in the fixture or the quick-start; found on the
+  024 branch, out of its scope.
+- **Port 5348 was held by `justsmtp.web.exe` on 2026-09-03**, so `JauntySampleFixture` could not
+  bind and all 31 scaffold e2e facts failed at fixture init. Nothing to do with the suite: the
+  tier picks fixed ports (5347, 5348, 5351) and has no fallback. A port that is already listening
+  should fail with the name of the process holding it rather than a 60-second readiness timeout.
