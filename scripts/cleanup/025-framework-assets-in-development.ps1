@@ -9,8 +9,10 @@ dry run: it lists what would go and changes nothing. Pass -Execute (-e) to act.
 Candidates, each checked at run time rather than asserted here:
 
   fix/025-framework-assets-in-development
-                           the branch, once merged into dev. `git branch -d` is the merged
-                           check: git compares commits and refuses an unmerged branch.
+  chore/025-cleanup-script
+                           the two branches, once merged into dev. `git branch -d` is the merged
+                           check: git compares commits and refuses an unmerged branch. The second
+                           exists only because a hook blocks committing this file straight to dev.
 
 Not listed, and deliberately: nothing else. The fix touched two framework files and added one
 test file, all of which are the deliverable. tmp/dev-probe*.log, tmp/dev-final.log,
@@ -46,11 +48,12 @@ function Step([string]$label, [scriptblock]$act) {
     }
 }
 
-$target = 'fix/025-framework-assets-in-development'
-if (-not (git -C $repo rev-parse --verify --quiet "refs/heads/$target")) {
-    Write-Host "skip:  branch $target no longer exists"
-}
-else {
+foreach ($target in @('fix/025-framework-assets-in-development', 'chore/025-cleanup-script')) {
+    if (-not (git -C $repo rev-parse --verify --quiet "refs/heads/$target")) {
+        Write-Host "skip:  branch $target no longer exists"
+        continue
+    }
+
     Step "git branch -d $target" {
         git -C $repo branch -d $target
         if ($LASTEXITCODE -ne 0) {
@@ -61,8 +64,8 @@ else {
 }
 
 Write-Host ''
-Write-Host 'Remaining fix/025 branches:'
-git -C $repo branch --list 'fix/025*' | ForEach-Object { Write-Host "  $($_.Trim())" }
+Write-Host 'Remaining 025 branches:'
+git -C $repo branch --list '*025*' | ForEach-Object { Write-Host "  $($_.Trim())" }
 
 if (-not $Execute) {
     Write-Host ''
