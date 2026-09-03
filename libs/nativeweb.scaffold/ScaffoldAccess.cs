@@ -45,10 +45,36 @@ public static class ScaffoldAccess
     /// True when the model carries <c>[Auth]</c> at all. Distinguishes "open" from
     /// "any authenticated user", which are both a null policy and a null role.
     /// </param>
+    /// <param name="viewPermission">
+    /// The name of the permission the model's read operation requires, if it
+    /// declares permissions. Passed as a string rather than as a
+    /// <c>NativeWeb.Permissions.Permission</c> because this library does not
+    /// reference that one -- the dependency runs the other way -- and the index only
+    /// ever needs to ask whether a name is in a set.
+    /// </param>
+    /// <param name="held">
+    /// The permissions this request's subject holds, resolved once by the caller
+    /// from <c>IPermissionContext</c>. Null is the empty set, so a missing held set
+    /// hides a permission-gated link rather than showing it.
+    /// </param>
     public static async ValueTask<bool> CanReadAsync(
-        HttpContext http, string? policy, string? role, bool requiresAuthentication)
+        HttpContext http,
+        string? policy,
+        string? role,
+        bool requiresAuthentication,
+        string? viewPermission = null,
+        IReadOnlySet<string>? held = null)
     {
         ArgumentNullException.ThrowIfNull(http);
+
+        // The permission is the floor and the [Auth] gate stacks on top, which is the
+        // same AND the routes get from middleware ordering. Checked before the
+        // requiresAuthentication shortcut because a model can declare permissions and
+        // no [Auth] at all, and that model's link is still gated.
+        if (!string.IsNullOrEmpty(viewPermission) && held?.Contains(viewPermission) != true)
+        {
+            return false;
+        }
 
         if (!requiresAuthentication)
         {

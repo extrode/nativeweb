@@ -23,6 +23,11 @@ internal sealed class ScaffoldModel
 
     public AuthModel? Auth { get; set; }
 
+    // Whether the model also carries [Permissions]. Read by metadata name, so a
+    // consumer that scaffolds without the permissions library sets this false and
+    // gets byte-identical output to before spec 024.
+    public bool HasPermissions { get; set; }
+
     public List<PropertyModel> Properties { get; set; } = [];
 
     public string FullyQualifiedName =>
@@ -37,6 +42,7 @@ internal sealed class ScaffoldModel
         && Route == other.Route
         && KeyProperty == other.KeyProperty
         && Equals(Auth, other.Auth)
+        && HasPermissions == other.HasPermissions
         && Properties.SequenceEqual(other.Properties);
 
     public override int GetHashCode()
@@ -69,6 +75,9 @@ internal sealed class AuthModel
 
     public string? Delete { get; set; }
 
+    // Lifts every check off the read operation, permission included.
+    public bool PublicRead { get; set; }
+
     // Read/Write/Delete fall back to Role, then to "any authenticated user".
     public string? RoleFor(ScaffoldOperation operation)
     {
@@ -89,9 +98,10 @@ internal sealed class AuthModel
         && Policy == other.Policy
         && Read == other.Read
         && Write == other.Write
-        && Delete == other.Delete;
+        && Delete == other.Delete
+        && PublicRead == other.PublicRead;
 
-    public override int GetHashCode() => (Role, Policy, Read, Write, Delete).GetHashCode();
+    public override int GetHashCode() => (Role, Policy, Read, Write, Delete, PublicRead).GetHashCode();
 }
 
 internal enum ScaffoldOperation

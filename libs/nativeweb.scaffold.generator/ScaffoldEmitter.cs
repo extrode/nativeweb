@@ -168,24 +168,24 @@ internal static class ScaffoldEmitter
         sb.AppendLine("        RouteGroupBuilder group = endpoints.MapGroup(BasePath);");
         sb.AppendLine();
         sb.AppendLine("        group.MapGet(\"/\", ScaffoldEndpoints.Handle(http => ListAsync(http, http.RequestAborted)))");
-        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Read)};");
+        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Read)}{PermissionFilter(model, "view")};");
         sb.AppendLine();
         sb.AppendLine("        group.MapGet(\"/new\", ScaffoldEndpoints.Handle(http => NewAsync(http, http.RequestAborted)))");
-        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)};");
+        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)}{PermissionFilter(model, "add")};");
         sb.AppendLine();
         sb.AppendLine("        group.MapPost(\"/\", ScaffoldEndpoints.Handle(http => CreateAsync(http, http.RequestAborted)))");
-        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)}");
+        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)}{PermissionFilter(model, "add")}");
         sb.AppendLine("            .WithMetadata(RequiresAntiforgery.Instance);");
         sb.AppendLine();
         sb.AppendLine("        group.MapGet(\"/{id}\", ScaffoldEndpoints.Handle(http => EditAsync(ScaffoldEndpoints.RouteValue(http, \"id\"), http, http.RequestAborted)))");
-        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)};");
+        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)}{PermissionFilter(model, "change", "id")};");
         sb.AppendLine();
         sb.AppendLine("        group.MapPost(\"/{id}\", ScaffoldEndpoints.Handle(http => UpdateAsync(ScaffoldEndpoints.RouteValue(http, \"id\"), http, http.RequestAborted)))");
-        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)}");
+        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Write)}{PermissionFilter(model, "change", "id")}");
         sb.AppendLine("            .WithMetadata(RequiresAntiforgery.Instance);");
         sb.AppendLine();
         sb.AppendLine("        group.MapPost(\"/{id}/delete\", ScaffoldEndpoints.Handle(http => DeleteAsync(ScaffoldEndpoints.RouteValue(http, \"id\"), http, http.RequestAborted)))");
-        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Delete)}");
+        sb.AppendLine($"            {Authorization(model, ScaffoldOperation.Delete)}{PermissionFilter(model, "delete", "id")}");
         sb.AppendLine("            .WithMetadata(RequiresAntiforgery.Instance);");
         sb.AppendLine();
         sb.AppendLine("        return endpoints;");
@@ -205,6 +205,16 @@ internal static class ScaffoldEmitter
             return ".WithMetadata()";
         }
 
+        // [Auth(PublicRead = true)] means the list is reachable by anyone, so the
+        // read route gets what a model with no [Auth] at all gets. The permission
+        // filter is skipped for it too, in PermissionFilter below -- "exempt from
+        // any check" is the whole point of the flag, and half an exemption would
+        // be a list that refuses everyone who is not signed in.
+        if (operation == ScaffoldOperation.Read && model.Auth.PublicRead)
+        {
+            return ".WithMetadata()";
+        }
+
         if (!string.IsNullOrEmpty(model.Auth.Policy))
         {
             return $".RequireAuthorization(\"{Escape(model.Auth.Policy!)}\")";
@@ -214,6 +224,40 @@ internal static class ScaffoldEmitter
         return string.IsNullOrEmpty(role)
             ? ".RequireAuthorization()"
             : $".RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute {{ Roles = \"{Escape(role!)}\" }})";
+    }
+
+    // The permission gate, appended after the authorization suffix so it runs
+    // second. Authorization middleware decides 401/403 before any endpoint filter,
+    // so [Auth] and [Permissions] compose with AND by ordering rather than by code.
+    //
+    // The emitted argument is a REFERENCE to the generated constant, never the
+    // permission string. Two generators derive that identifier from one linked
+    // rule (PermissionNaming), and emitting the reference is what turns a
+    // divergence between them into CS0117 at build time instead of a route quietly
+    // gated on a name nobody can be granted.
+    private static string PermissionFilter(ScaffoldModel model, string action, string? resourceRouteValue = null)
+    {
+        if (!model.HasPermissions)
+        {
+            return "";
+        }
+
+        if (action == "view" && model.Auth?.PublicRead == true)
+        {
+            return "";
+        }
+
+        string resource = resourceRouteValue is null ? "" : $", \"{resourceRouteValue}\"";
+        return $"\n            .AddEndpointFilter(new global::NativeWeb.Permissions.PermissionEndpointFilter({PermissionConstant(model, action)}{resource}))";
+    }
+
+    // global::Demo.ArticlePermissions.Change. Derived by the same rule the
+    // permissions generator uses to emit it.
+    private static string PermissionConstant(ScaffoldModel model, string action)
+    {
+        string cls = NativeWeb.Permissions.Generator.PermissionNaming.ConstantsClassName(model.TypeName);
+        string qualified = string.IsNullOrEmpty(model.Namespace) ? cls : model.Namespace + "." + cls;
+        return "global::" + qualified + "." + NativeWeb.Permissions.Generator.PermissionNaming.ConstantName(action);
     }
 
     private static void EmitList(
@@ -290,9 +334,38 @@ internal static class ScaffoldEmitter
             sb.AppendLine();
         }
 
+        // R12. The held set is resolved ONCE, here, before a line of HTML is built,
+        // because the builder below is synchronous and any store-backed decision is
+        // not. Resolving it per control would be a store call per row. The
+        // per-request context memoises it, so the route's own gate and this share
+        // one call; with no subject it is the empty set and no store is touched.
+        if (model.HasPermissions)
+        {
+            sb.AppendLine("        IReadOnlySet<string> held = await http.RequestServices");
+            sb.AppendLine("            .GetRequiredService<global::NativeWeb.Permissions.IPermissionContext>()");
+            sb.AppendLine("            .HeldAsync(http.User, ct).ConfigureAwait(false);");
+            sb.AppendLine($"        bool canAdd = held.Contains({PermissionConstant(model, "add")}.Name);");
+            sb.AppendLine($"        bool canChange = held.Contains({PermissionConstant(model, "change")}.Name);");
+            sb.AppendLine($"        bool canDelete = held.Contains({PermissionConstant(model, "delete")}.Name);");
+            sb.AppendLine();
+        }
+
         sb.AppendLine("        StringBuilder sb = new(4096);");
         sb.AppendLine("        sb.Append(\"<div class=\\\"nws-head\\\"><h1>\").Append(Enc(Display)).Append(\"</h1>\");");
-        sb.AppendLine("        sb.Append(\"<a class=\\\"nws-btn nws-btn--primary\\\" href=\\\"\").Append(BasePath).Append(\"/new\\\">New</a></div>\");");
+        if (model.HasPermissions)
+        {
+            sb.AppendLine("        if (canAdd)");
+            sb.AppendLine("        {");
+        }
+
+        sb.AppendLine("        sb.Append(\"<a class=\\\"nws-btn nws-btn--primary\\\" href=\\\"\").Append(BasePath).Append(\"/new\\\">New</a>\");");
+
+        if (model.HasPermissions)
+        {
+            sb.AppendLine("        }");
+        }
+
+        sb.AppendLine("        sb.Append(\"</div>\");");
         if (searchable.Count > 0)
         {
             sb.AppendLine("        sb.Append(\"<form class=\\\"nws-search\\\" method=\\\"get\\\" action=\\\"\").Append(BasePath).Append(\"\\\">\");");
@@ -332,7 +405,21 @@ internal static class ScaffoldEmitter
         }
 
         sb.AppendLine("            sb.Append(\"<td class=\\\"nws-actions\\\">\");");
+        if (model.HasPermissions)
+        {
+            sb.AppendLine("            if (canChange)");
+            sb.AppendLine("            {");
+        }
+
         sb.AppendLine("            sb.Append(\"<a class=\\\"nws-btn nws-btn--sm\\\" href=\\\"\").Append(BasePath).Append('/').Append(Uri.EscapeDataString(id)).Append(\"\\\">Edit</a>\");");
+
+        if (model.HasPermissions)
+        {
+            sb.AppendLine("            }");
+            sb.AppendLine();
+            sb.AppendLine("            if (canDelete)");
+            sb.AppendLine("            {");
+        }
         // data-nws-confirm, not onsubmit="return confirm(...)". An inline event
         // handler needs 'unsafe-hashes' in the CSP to run at all, and the
         // framework's own security headers do not grant it -- measured on
@@ -343,6 +430,12 @@ internal static class ScaffoldEmitter
         sb.AppendLine("            sb.Append(\"<form method=\\\"post\\\" action=\\\"\").Append(BasePath).Append('/').Append(Uri.EscapeDataString(id)).Append(\"/delete\\\" data-nws-confirm=\\\"Delete this record?\\\">\");");
         sb.AppendLine("            sb.Append(ScaffoldLayout.AntiforgeryField(http));");
         sb.AppendLine("            sb.Append(\"<button type=\\\"submit\\\" class=\\\"nws-btn nws-btn--sm nws-btn--danger\\\">Delete</button></form>\");");
+
+        if (model.HasPermissions)
+        {
+            sb.AppendLine("            }");
+        }
+
         sb.AppendLine("            sb.Append(\"</td></tr>\");");
         sb.AppendLine("        }");
         sb.AppendLine();
@@ -941,12 +1034,18 @@ internal static class ScaffoldEmitter
         // A root of "" means the site root, where the index is "/" rather than "".
         string indexPath = root.Length == 0 ? "/" : root;
 
+        // PublicRead lifts every check off the read operation, so a model carrying it
+        // is neither auth-gated nor permission-gated as far as the index is concerned.
+        static bool NeedsAuth(ScaffoldModel m) => m.Auth is not null && !m.Auth.PublicRead;
+        static bool NeedsViewPermission(ScaffoldModel m) => m.HasPermissions && m.Auth?.PublicRead != true;
+
         var sb = new StringBuilder(8192);
         sb.AppendLine("// <auto-generated/>");
         sb.AppendLine("// Generated by NativeWeb.Scaffold.Generator. Do not edit.");
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
         sb.AppendLine("using System;");
+        sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using System.Text;");
         sb.AppendLine("using System.Text.Encodings.Web;");
         sb.AppendLine("using System.Threading.Tasks;");
@@ -984,25 +1083,53 @@ internal static class ScaffoldEmitter
         // link is unconditional, and the index stays anonymous while any such model
         // exists. Whether that default should invert is D2 in
         // docs/plans/2026-08-31-007-framework-readiness.md and is not settled here.
-        bool anyGuarded = models.Any(m => m.Auth is not null);
-        bool allGuarded = models.Count > 0 && models.All(m => m.Auth is not null);
+        //
+        // A permission gate is the same disclosure problem with a second source: a
+        // model that declares [Permissions] refuses the click, so its link is
+        // emitted only when the caller holds the view permission. PublicRead lifts
+        // both, because R9 exempts the read operation from any check at all.
+        bool anyGuarded = models.Any(NeedsAuth) || models.Any(NeedsViewPermission);
+        bool allGuarded = models.Count > 0 && models.All(NeedsAuth);
+        bool anyPermission = models.Any(NeedsViewPermission);
 
         sb.AppendLine($"        endpoints.MapGet(\"{indexPath}\", ScaffoldEndpoints.Handle({(anyGuarded ? "async " : "")}http =>");
         sb.AppendLine("        {");
+
+        // Once per request, not once per model: the index would otherwise make a
+        // store call for every permission-gated model it lists.
+        if (anyPermission)
+        {
+            sb.AppendLine("            IReadOnlySet<string> held = await http.RequestServices");
+            sb.AppendLine("                .GetRequiredService<global::NativeWeb.Permissions.IPermissionContext>()");
+            sb.AppendLine("                .HeldAsync(http.User, http.RequestAborted).ConfigureAwait(false);");
+            sb.AppendLine();
+        }
+
         sb.AppendLine("            StringBuilder sb = new(1024);");
         sb.AppendLine("            sb.Append(\"<div class=\\\"nws-head\\\"><h1>Admin</h1></div><ul class=\\\"nws-index\\\">\");");
         foreach (ScaffoldModel m in models)
         {
             string entry = $"            sb.Append(\"<li><a href=\\\"{root}/{m.Route}\\\">{Escape(m.Display)}</a></li>\");";
-            if (m.Auth is null)
+            bool needsAuth = NeedsAuth(m);
+            bool needsPermission = NeedsViewPermission(m);
+
+            if (!needsAuth && !needsPermission)
             {
                 sb.AppendLine(entry);
                 continue;
             }
 
-            string policy = Literal(m.Auth.Policy);
-            string role = Literal(m.Auth.RoleFor(ScaffoldOperation.Read));
-            sb.AppendLine($"            if (await ScaffoldAccess.CanReadAsync(http, {policy}, {role}, true).ConfigureAwait(false))");
+            string policy = Literal(needsAuth ? m.Auth!.Policy : null);
+            string role = Literal(needsAuth ? m.Auth!.RoleFor(ScaffoldOperation.Read) : null);
+
+            // The four-argument call is emitted verbatim where no permission is in
+            // play, so a model that declares none produces the same index it did
+            // before this existed.
+            string arguments = needsPermission
+                ? $"http, {policy}, {role}, {(needsAuth ? "true" : "false")}, {PermissionConstant(m, "view")}.Name, held"
+                : $"http, {policy}, {role}, true";
+
+            sb.AppendLine($"            if (await ScaffoldAccess.CanReadAsync({arguments}).ConfigureAwait(false))");
             sb.AppendLine("            {");
             sb.AppendLine("    " + entry);
             sb.AppendLine("            }");

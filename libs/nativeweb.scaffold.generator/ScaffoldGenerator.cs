@@ -23,6 +23,7 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
 {
     private const string ScaffoldAttribute = "NativeWeb.Scaffold.ScaffoldAttribute";
     private const string ScaffoldRootAttribute = "NativeWeb.Scaffold.ScaffoldRootAttribute";
+    private const string PermissionsAttribute = "NativeWeb.Permissions.PermissionsAttribute";
     internal const string DefaultRoot = "/admin";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -117,7 +118,18 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                     Read = NamedArg(attribute, "Read"),
                     Write = NamedArg(attribute, "Write"),
                     Delete = NamedArg(attribute, "Delete"),
+                    PublicRead = NamedFlag(attribute, "PublicRead"),
                 };
+            }
+
+            // By metadata name, with no reference to the permissions library. A
+            // consumer that scaffolds and declares no permissions has no such type
+            // in its compilation, so this is never true and the emitted output is
+            // what it was before spec 024 -- which is R15, held by construction
+            // rather than by a comparison somebody has to remember to run.
+            if (attribute.AttributeClass?.ToDisplayString() == PermissionsAttribute)
+            {
+                model.HasPermissions = true;
             }
         }
 
@@ -248,6 +260,19 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
         }
 
         return null;
+    }
+
+    private static bool NamedFlag(AttributeData attribute, string name)
+    {
+        foreach (KeyValuePair<string, TypedConstant> arg in attribute.NamedArguments)
+        {
+            if (arg.Key == name && arg.Value.Value is bool flag)
+            {
+                return flag;
+            }
+        }
+
+        return false;
     }
 
     private static string SpaceCamelCase(string name)
