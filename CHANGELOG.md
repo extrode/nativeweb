@@ -13,6 +13,19 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 Merged into `dev`, not yet tagged.
 
+### Fixed
+- **The framework's browser assets are served when a host runs from source.** `/_nativeweb/css/tokens.css`,
+  `base.css`, `components.css` and `boot.js` all answered 500 under `dotnet run`, so every page
+  rendered with the product's own sheet and nothing else. `WebApplication.CreateSlimBuilder` does
+  not load the static web assets manifest and `CreateBuilder` does; without it a host running
+  from source has no mapping from `/_nativeweb/` to `libs/nativeweb.web/wwwroot/`, while a
+  published app serves the files out of its own `wwwroot` and was never affected -- so
+  nw-dev was styled and localhost was not. `AddNativeWebWeb` now calls `UseStaticWebAssets` in
+  Development, and `NativeWeb.Web.targets` gives the assets the `ContentRoot` of the library that
+  owns them so the manifest points at the right tree. Every stamped product gets both.
+  `FrameworkAssetTests` walks the home page's own markup and fetches everything it links, so the
+  next asset added is covered without editing the test.
+
 ### Added
 - **The sample has content and a look of its own (plan 009).** The demo dataset grew from three
   articles to eight and is now seeded on both store paths -- `db/sample/migrations/0005_seed_demo_content.sql`

@@ -76,6 +76,7 @@ public static class NativeWebPipeline
 
         builder.Services.AddSingleton(options);
 
+        builder.AddNativeWebStaticWebAssets();
         builder.AddNativeWebKestrel(options);
         builder.Services.AddNativeWebRequestTimeouts(options);
         builder.Services.AddNativeWebDataSource(options);
@@ -87,6 +88,41 @@ public static class NativeWebPipeline
         builder.Services.AddNativeWebBotTraps(options);
         builder.Services.AddNativeWebRateLimiting(options);
         builder.Services.AddNativeWebOutputCache();
+
+        return builder;
+    }
+
+    /// <summary>
+    /// The static web assets manifest, in Development only.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>CreateSlimBuilder</c> does not call this and <c>CreateBuilder</c> does,
+    /// which is the whole of the bug it fixes. The framework's own browser assets
+    /// live in <c>libs/nativeweb.web/wwwroot/_nativeweb/</c> and reach a product
+    /// through <c>NativeWeb.Web.targets</c>; running from source, the product's
+    /// <c>WebRootFileProvider</c> is its own <c>wwwroot</c> directory and nothing
+    /// maps <c>/_nativeweb/</c> anywhere, so every framework stylesheet answered
+    /// 500 under <c>dotnet run</c> while the published app served them from its
+    /// own <c>wwwroot</c> and looked fine. An unstyled page in Development and a
+    /// styled one in production is the worst shape a defect can take: the
+    /// environment that is looked at least often is the one that is correct.
+    /// </para>
+    /// <para>
+    /// Development only, and not because the call is expensive. The manifest is a
+    /// build artefact beside the assembly, and a published app that found a stale
+    /// one would serve files from whatever source tree built it.
+    /// </para>
+    /// </remarks>
+    /// <param name="builder">The host being configured.</param>
+    public static WebApplicationBuilder AddNativeWebStaticWebAssets(this WebApplicationBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        if (builder.Environment.IsDevelopment())
+        {
+            builder.WebHost.UseStaticWebAssets();
+        }
 
         return builder;
     }
