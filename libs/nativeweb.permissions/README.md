@@ -59,6 +59,12 @@ permissions depend on what happened to be loaded.
 group ungated. It cannot name `ScaffoldLayout`, which is generated into *your* assembly, and it
 does not choose its own gate because the gate is the host's decision.
 
+**Your pipeline must call `app.UseAntiforgery()`.** Each of the seven posts carries
+`IAntiforgeryMetadata`, so the middleware validates the token the field delegate renders, and
+routing refuses the request outright if that middleware is absent, rather than letting an
+unvalidated post through. `UseNativeWebPipeline` already does this; a host wiring its
+own pipeline calls it after `UseAuthentication` and `UseAuthorization`.
+
 ## A hand-written endpoint
 
 A model needs no generated admin for any of this to work. Given

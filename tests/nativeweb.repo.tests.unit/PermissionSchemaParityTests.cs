@@ -75,7 +75,11 @@ public sealed class PermissionSchemaParityTests
                     '\n',
                     statement.Split('\n').Select(line => line.TrimEnd()).Where(line => line.Length > 0)))
                 .Where(statement => statement.Length > 0)
-                .Where(statement => !statement.StartsWith("INSERT ", StringComparison.Ordinal)),
+                // DDL only. The applied file's bootstrap is a CTE around an INSERT
+                // rather than a bare INSERT, so excluding the seed by its leading
+                // keyword stopped excluding it; excluding everything that is not a
+                // CREATE says what the comparison is actually about.
+                .Where(statement => statement.StartsWith("CREATE ", StringComparison.Ordinal)),
         ];
     }
 

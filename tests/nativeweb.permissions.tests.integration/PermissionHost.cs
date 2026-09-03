@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.RegularExpressions;
 
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -40,6 +42,11 @@ internal sealed class PermissionHost : IAsyncDisposable
     internal const string SubjectHeader = "X-Test-Subject";
     internal const string RoleHeader = "X-Test-Role";
 
+    private static readonly Regex TokenPattern = new(
+        """<input type="hidden" name="(__[^"]+)" value="([^"]*)">""",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(1));
+
     private WebApplication _app = null!;
 
     internal static string ConnectionString { get; } =
@@ -72,10 +79,16 @@ internal sealed class PermissionHost : IAsyncDisposable
         builder.Services.AddAuthentication(HeaderScheme.Name)
             .AddScheme<AuthenticationSchemeOptions, HeaderScheme>(HeaderScheme.Name, null);
         builder.Services.AddAuthorization();
+        builder.Services.AddAntiforgery();
 
         host._app = builder.Build();
         host._app.UseAuthentication();
         host._app.UseAuthorization();
+
+        // After authentication and authorization, which is where the middleware
+        // requires it. Mapping the access admin without it is a startup-time
+        // failure now that its posts carry IAntiforgeryMetadata.
+        host._app.UseAntiforgery();
 
         host._app.MapGet("/open", () => Results.Ok("open"));
 
@@ -97,7 +110,7 @@ internal sealed class PermissionHost : IAsyncDisposable
         host._app.MapAccessAdmin(
             "/admin",
             (http, title, body) => Results.Content($"<h1>{title}</h1>{body}", "text/html"),
-            _ => string.Empty);
+            Token);
 
         await host._app.StartAsync();
 
@@ -131,9 +144,11 @@ internal sealed class PermissionHost : IAsyncDisposable
     internal async Task<HttpResponseMessage> PostAsync(
         string path, string? subject, IEnumerable<KeyValuePair<string, string>> form)
     {
+        (KeyValuePair<string, string> field, string cookie) = await TokenPairAsync(subject);
+
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(path, UriKind.Relative))
         {
-            Content = new FormUrlEncodedContent(form),
+            Content = new FormUrlEncodedContent([field, .. form]),
         };
 
         if (subject is not null)
@@ -141,7 +156,40 @@ internal sealed class PermissionHost : IAsyncDisposable
             request.Headers.Add(SubjectHeader, subject);
         }
 
+        request.Headers.Add("Cookie", cookie);
+
         return await Client.SendAsync(request);
+    }
+
+    /// <summary>The chrome's antiforgery field, rendered the way a host renders it.</summary>
+    private static string Token(HttpContext http)
+    {
+        IAntiforgery antiforgery = http.RequestServices.GetRequiredService<IAntiforgery>();
+        AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
+
+        return $"""<input type="hidden" name="{tokens.FormFieldName}" value="{tokens.RequestToken}">""";
+    }
+
+    // The pair, taken from a rendered page the way a browser takes it. The cookie
+    // half is carried by hand because the TestServer client keeps no cookie jar, and
+    // antiforgery refuses a request that brings only the field.
+    private async Task<(KeyValuePair<string, string> Field, string Cookie)> TokenPairAsync(string? subject)
+    {
+        using HttpResponseMessage page = await GetAsync("/admin/access/", subject);
+        page.EnsureSuccessStatusCode();
+
+        Match match = TokenPattern.Match(await page.Content.ReadAsStringAsync());
+
+        if (!match.Success)
+        {
+            throw new InvalidOperationException("The access index rendered no antiforgery field.");
+        }
+
+        string cookie = string.Join(
+            "; ",
+            page.Headers.GetValues("Set-Cookie").Select(value => value.Split(';')[0]));
+
+        return (new KeyValuePair<string, string>(match.Groups[1].Value, match.Groups[2].Value), cookie);
     }
 
     /// <summary>The subject's first_seen stamp, read outside the store under test.</summary>

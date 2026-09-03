@@ -54,8 +54,13 @@ public sealed class Program
 
         builder.Services.AddPermissions(PermissionCatalog.All);
         builder.Services.AddInMemoryPermissionStore();
+        builder.Services.AddAntiforgery();
 
         WebApplication app = builder.Build();
+
+        // The access screens' posts carry IAntiforgeryMetadata, so mapping them
+        // without the middleware fails the request rather than skipping the check.
+        app.UseAntiforgery();
 
         app.MapSignIn();
         app.MapAccessAdmin(

@@ -1,5 +1,7 @@
 using System.Net;
+using System.Text.RegularExpressions;
 
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -172,6 +174,20 @@ public sealed class AccessAdminTests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    private static readonly Regex TokenPattern = new(
+        """<input type="hidden" name="(__[^"]+)" value="([^"]*)">""",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(1));
+
+    /// <summary>The chrome's antiforgery field, rendered the way a host renders it.</summary>
+    private static string Token(HttpContext http)
+    {
+        IAntiforgery antiforgery = http.RequestServices.GetRequiredService<IAntiforgery>();
+        AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
+
+        return $"""<input type="hidden" name="{tokens.FormFieldName}" value="{tokens.RequestToken}">""";
+    }
+
     private sealed class Harness : IAsyncDisposable
     {
         private WebApplication _app = null!;
@@ -189,16 +205,20 @@ public sealed class AccessAdminTests
             builder.Logging.ClearProviders();
             builder.Services.AddSingleton<IPermissionStore>(harness.Store);
             builder.Services.AddPermissions([View, Change]);
+            builder.Services.AddAntiforgery();
 
             harness._app = builder.Build();
+            harness._app.UseAntiforgery();
 
             // The chrome the host would pass from its generated ScaffoldLayout. A
             // pair of delegates here rather than the real thing, because the real
             // thing is generated into an application assembly and this tier has none.
+            // The token is real, not a placeholder: the screens' posts carry
+            // IAntiforgeryMetadata, so a stub value is refused before it arrives.
             harness._app.MapAccessAdmin(
                 "/admin",
                 (http, title, body) => Results.Content($"<h1>{title}</h1>{body}", "text/html"),
-                _ => "<input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"t\">");
+                Token);
 
             await harness._app.StartAsync();
 
@@ -218,10 +238,42 @@ public sealed class AccessAdminTests
 
         internal async Task<HttpResponseMessage> PostAsync(string path, params (string Key, string Value)[] fields)
         {
-            using var body = new FormUrlEncodedContent(
-                fields.Select(f => new KeyValuePair<string, string>(f.Key, f.Value)));
+            (KeyValuePair<string, string> field, string cookie) = await TokenPairAsync();
 
-            return await Client.PostAsync(new Uri(path, UriKind.Relative), body);
+            using var body = new FormUrlEncodedContent(
+                [field, .. fields.Select(f => new KeyValuePair<string, string>(f.Key, f.Value))]);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(path, UriKind.Relative))
+            {
+                Content = body,
+            };
+
+            request.Headers.Add("Cookie", cookie);
+
+            return await Client.SendAsync(request);
+        }
+
+        // The pair, taken from a rendered page the way a browser takes it. The cookie
+        // half is carried by hand because the TestServer client keeps no cookie jar,
+        // and antiforgery refuses a request that brings only the field.
+        private async Task<(KeyValuePair<string, string> Field, string Cookie)> TokenPairAsync()
+        {
+            using HttpResponseMessage page =
+                await Client.GetAsync(new Uri("/admin/access/", UriKind.Relative));
+            page.EnsureSuccessStatusCode();
+
+            Match match = TokenPattern.Match(await page.Content.ReadAsStringAsync());
+
+            if (!match.Success)
+            {
+                throw new InvalidOperationException("The access index rendered no antiforgery field.");
+            }
+
+            string cookie = string.Join(
+                "; ",
+                page.Headers.GetValues("Set-Cookie").Select(value => value.Split(';')[0]));
+
+            return (new KeyValuePair<string, string>(match.Groups[1].Value, match.Groups[2].Value), cookie);
         }
 
         public async ValueTask DisposeAsync()

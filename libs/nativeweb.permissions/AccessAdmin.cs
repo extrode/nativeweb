@@ -81,15 +81,33 @@ public static class AccessAdmin
             "/subjects/{subject}",
             ScaffoldEndpoints.Handle(http => SubjectAsync(http, basePath, page, antiforgeryField)));
 
-        group.MapPost("/groups", ScaffoldEndpoints.Handle(http => CreateGroupAsync(http, basePath)));
-        group.MapPost("/groups/{id}/members", ScaffoldEndpoints.Handle(http => AddMemberAsync(http, basePath)));
-        group.MapPost("/groups/{id}/members/remove", ScaffoldEndpoints.Handle(http => RemoveMemberAsync(http, basePath)));
-        group.MapPost("/groups/{id}/grants", ScaffoldEndpoints.Handle(http => GrantToGroupAsync(http, basePath)));
-        group.MapPost("/groups/{id}/grants/revoke", ScaffoldEndpoints.Handle(http => RevokeFromGroupAsync(http, basePath)));
-        group.MapPost("/subjects/{subject}/grants", ScaffoldEndpoints.Handle(http => GrantToSubjectAsync(http, basePath)));
+        // RequiresAntiforgery on every one of them. UseAntiforgery validates a
+        // request only where the endpoint carries IAntiforgeryMetadata, so without
+        // it the token these forms render is decoration and a POST arriving with no
+        // token at all is answered 200. Every generated scaffold POST attaches the
+        // same metadata, for the same reason.
+        group.MapPost("/groups", ScaffoldEndpoints.Handle(http => CreateGroupAsync(http, basePath)))
+            .WithMetadata(RequiresAntiforgery.Instance);
+        group.MapPost("/groups/{id}/members", ScaffoldEndpoints.Handle(http => AddMemberAsync(http, basePath)))
+            .WithMetadata(RequiresAntiforgery.Instance);
         group.MapPost(
-            "/subjects/{subject}/grants/revoke",
-            ScaffoldEndpoints.Handle(http => RevokeFromSubjectAsync(http, basePath)));
+                "/groups/{id}/members/remove",
+                ScaffoldEndpoints.Handle(http => RemoveMemberAsync(http, basePath)))
+            .WithMetadata(RequiresAntiforgery.Instance);
+        group.MapPost("/groups/{id}/grants", ScaffoldEndpoints.Handle(http => GrantToGroupAsync(http, basePath)))
+            .WithMetadata(RequiresAntiforgery.Instance);
+        group.MapPost(
+                "/groups/{id}/grants/revoke",
+                ScaffoldEndpoints.Handle(http => RevokeFromGroupAsync(http, basePath)))
+            .WithMetadata(RequiresAntiforgery.Instance);
+        group.MapPost(
+                "/subjects/{subject}/grants",
+                ScaffoldEndpoints.Handle(http => GrantToSubjectAsync(http, basePath)))
+            .WithMetadata(RequiresAntiforgery.Instance);
+        group.MapPost(
+                "/subjects/{subject}/grants/revoke",
+                ScaffoldEndpoints.Handle(http => RevokeFromSubjectAsync(http, basePath)))
+            .WithMetadata(RequiresAntiforgery.Instance);
 
         return group;
     }

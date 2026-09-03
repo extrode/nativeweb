@@ -83,7 +83,9 @@ internal sealed class JauntyPermissionStore(NpgsqlDataSource dataSource) : IPerm
             List<PermissionQueries.Result.CreateGroup> created =
                 await db.Permissions.CreateGroupAsync(name, ct).ConfigureAwait(false);
 
-            return created[0].Id;
+            return created.Count > 0
+                ? created[0].Id
+                : throw new PermissionConflictException($"Creating the group {name} returned no row.");
         }
         catch (PostgresException taken) when (IsNameTaken(taken))
         {
@@ -117,7 +119,14 @@ internal sealed class JauntyPermissionStore(NpgsqlDataSource dataSource) : IPerm
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);
 
-        await db.Permissions.AddMemberAsync(subject, groupId, ct).ConfigureAwait(false);
+        try
+        {
+            await db.Permissions.AddMemberAsync(subject, groupId, ct).ConfigureAwait(false);
+        }
+        catch (PostgresException missing) when (IsMissingReference(missing))
+        {
+            throw new PermissionConflictException(MissingReference(missing, subject, groupId));
+        }
     }
 
     public async ValueTask RemoveMemberAsync(string subject, long groupId, CancellationToken ct)
@@ -171,7 +180,14 @@ internal sealed class JauntyPermissionStore(NpgsqlDataSource dataSource) : IPerm
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         var db = new JauntyDb(connection);
 
-        await db.Permissions.GrantToGroupAsync(groupId, permission, ct).ConfigureAwait(false);
+        try
+        {
+            await db.Permissions.GrantToGroupAsync(groupId, permission, ct).ConfigureAwait(false);
+        }
+        catch (PostgresException missing) when (IsMissingReference(missing))
+        {
+            throw new PermissionConflictException($"No group with id {groupId}.");
+        }
     }
 
     public async ValueTask RevokeFromGroupAsync(long groupId, string permission, CancellationToken ct)
@@ -185,6 +201,18 @@ internal sealed class JauntyPermissionStore(NpgsqlDataSource dataSource) : IPerm
     // The constraint is named, not merely the SQL state: nw_group has one unique
     // constraint today, and a second one arriving later must not be reported as a
     // duplicate name.
+    // A row naming a group or a subject that does not exist is the same input the
+    // in-memory store rejects with PermissionConflictException, and one seam must not
+    // hand the caller two different exception types for it: without this the caller
+    // sees a raw Npgsql exception on PostgreSQL and a conflict in the unit tier.
+    internal static bool IsMissingReference(PostgresException e) =>
+        e.SqlState == PostgresErrorCodes.ForeignKeyViolation;
+
+    private static string MissingReference(PostgresException e, string subject, long groupId) =>
+        e.ConstraintName?.EndsWith("_subject_fkey", StringComparison.Ordinal) == true
+            ? $"No subject {subject}."
+            : $"No group with id {groupId}.";
+
     internal static bool IsNameTaken(PostgresException e) =>
         e.SqlState == PostgresErrorCodes.UniqueViolation
         && string.Equals(e.ConstraintName, "nw_group_name_key", StringComparison.Ordinal);

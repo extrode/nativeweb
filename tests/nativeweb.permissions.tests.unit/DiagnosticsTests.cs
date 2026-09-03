@@ -107,6 +107,34 @@ public sealed class DiagnosticsTests
     }
 
     [Fact]
+    public void TwoModelsWhoseNamesDifferOnlyInCase_ReportNwp006()
+    {
+        const string first = """
+            using NativeWeb.Permissions;
+
+            namespace Blog
+            {
+                [Permissions]
+                public sealed class Article { }
+            }
+            """;
+
+        const string second = """
+            using NativeWeb.Permissions;
+
+            namespace Shop
+            {
+                [Permissions]
+                public sealed class ARTICLE { }
+            }
+            """;
+
+        Assert.Contains(
+            "NWP006",
+            Ids(GeneratorHarness.Run("Sample", GeneratorHarness.Attributes, first, second)));
+    }
+
+    [Fact]
     public void AValidDeclaration_ReportsNothing()
     {
         const string model = """

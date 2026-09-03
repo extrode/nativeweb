@@ -68,13 +68,20 @@ CREATE INDEX IF NOT EXISTS nw_group_member_group_id_idx
 -- Both are seeded here because both exist in the sample, and neither name means
 -- anything outside it -- a real application seeds the subject its own provider
 -- issues, which is a value it has to look up, not a name it can guess.
-INSERT INTO nw_subject (subject)
-VALUES ('operator'), ('demo')
-ON CONFLICT (subject) DO NOTHING;
-
+-- One statement, and the CTE is the point of it. db/migrate.sh re-runs this file,
+-- so a grant seed keyed on the two names alone would reinstate a grant an operator
+-- had revoked: revoke delete from demo, deploy, and demo can delete again. RETURNING
+-- yields only the subjects this run created, so the grants are seeded on first sight
+-- of a database and never again.
+WITH seeded AS (
+    INSERT INTO nw_subject (subject)
+    VALUES ('operator'), ('demo')
+    ON CONFLICT (subject) DO NOTHING
+    RETURNING subject
+)
 INSERT INTO nw_subject_grant (subject, permission)
 SELECT s.subject, p.permission
-FROM (VALUES ('operator'), ('demo')) AS s (subject)
+FROM seeded s
 CROSS JOIN (VALUES
     ('sample:article.view'),
     ('sample:article.add'),

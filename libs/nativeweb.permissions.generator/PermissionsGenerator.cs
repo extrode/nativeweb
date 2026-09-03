@@ -128,19 +128,25 @@ public sealed class PermissionsGenerator : IIncrementalGenerator
             }
         }
 
-        var seenTypeNames = new Dictionary<string, string>();
+        // Keyed on the emitted segment, not on the type name. The segment is
+        // lower-cased, so Article and ARTICLE differ as type names and collide as
+        // permission names; keying on the type name let both through, each emitting
+        // sample:article.*, and one grant then gated two models.
+        var seenTypeNames = new Dictionary<string, string>(StringComparer.Ordinal);
         var catalog = new List<string>();
 
         foreach (PermissionModel model in models.Where(model => model is not null).Select(model => model!))
         {
-            if (seenTypeNames.TryGetValue(model.TypeName, out string? other))
+            string segment = PermissionNaming.ModelSegment(model.TypeName);
+
+            if (seenTypeNames.TryGetValue(segment, out string? other))
             {
                 spc.ReportDiagnostic(Diagnostic.Create(
                     PermissionsDiagnostics.ModelNameCollides, Location.None, other, model.FullName));
                 continue;
             }
 
-            seenTypeNames.Add(model.TypeName, model.FullName);
+            seenTypeNames.Add(segment, model.FullName);
 
             if (!TryActions(spc, model, out ImmutableArray<string> actions))
             {

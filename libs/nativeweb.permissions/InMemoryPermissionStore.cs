@@ -23,6 +23,7 @@ public sealed class InMemoryPermissionStore : IPermissionStore
     private readonly ConcurrentDictionary<string, byte> _subjectGrants = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _groupGrants = new(StringComparer.Ordinal);
     private readonly TimeProvider _time;
+    private readonly Lock _createGroupGate = new();
     private long _nextGroupId;
 
     /// <summary>Creates an empty store.</summary>
@@ -90,14 +91,21 @@ public sealed class InMemoryPermissionStore : IPermissionStore
         ArgumentException.ThrowIfNullOrEmpty(name);
         ct.ThrowIfCancellationRequested();
 
-        if (_groups.Values.Contains(name, StringComparer.Ordinal))
+        // Under a lock, because the scan and the write are one decision. Without it
+        // two concurrent creates of the same name both pass the scan and the store
+        // ends with two groups an operator cannot tell apart, where the PostgreSQL
+        // store raises PermissionConflictException on the second.
+        lock (_createGroupGate)
         {
-            throw new PermissionConflictException($"A group named {name} already exists.");
-        }
+            if (_groups.Values.Contains(name, StringComparer.Ordinal))
+            {
+                throw new PermissionConflictException($"A group named {name} already exists.");
+            }
 
-        long id = Interlocked.Increment(ref _nextGroupId);
-        _groups[id] = name;
-        return ValueTask.FromResult(id);
+            long id = Interlocked.Increment(ref _nextGroupId);
+            _groups[id] = name;
+            return ValueTask.FromResult(id);
+        }
     }
 
     /// <inheritdoc/>

@@ -194,6 +194,48 @@ public sealed class PermissionGatingTests
         Assert.Contains("/admin/tags/new\">New</a>", html, StringComparison.Ordinal);
     }
 
+    // The access screens are hand-written rather than generated, so they do not
+    // inherit the generated pipeline's antiforgery metadata and did not carry it.
+    // Through apps/sample's real pipeline a tokenless post is a 400; without the
+    // metadata UseAntiforgery skips the endpoint and the post is honoured.
+    [Theory]
+    [InlineData("/admin/access/groups")]
+    [InlineData("/admin/access/groups/1/members")]
+    [InlineData("/admin/access/groups/1/members/remove")]
+    [InlineData("/admin/access/groups/1/grants")]
+    [InlineData("/admin/access/groups/1/grants/revoke")]
+    [InlineData("/admin/access/subjects/demo/grants")]
+    [InlineData("/admin/access/subjects/demo/grants/revoke")]
+    public async Task ATokenlessPostToTheAccessAdmin_IsRefused(string path)
+    {
+        using var factory = new GrantedSampleFactory(View);
+        using HttpClient client = await factory.CreateSignedInAsync();
+
+        using var content = new FormUrlEncodedContent(
+            [new KeyValuePair<string, string>("name", "intruders"),
+             new KeyValuePair<string, string>("subject", "demo"),
+             new KeyValuePair<string, string>("permission", Delete)]);
+
+        using HttpResponseMessage response = await client.PostAsync(new Uri(path, UriKind.Relative), content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task APostToTheAccessAdminCarryingAToken_IsHonoured()
+    {
+        using var factory = new GrantedSampleFactory(View);
+        using HttpClient client = await factory.CreateSignedInAsync();
+
+        using HttpResponseMessage response = await Forms.PostAsync(
+            client,
+            "/admin/access/",
+            "/admin/access/groups",
+            new KeyValuePair<string, string>("name", "editors"));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+    }
+
     private static async Task<string> ListAsync(params string[] granted)
     {
         using var factory = new GrantedSampleFactory(granted);
