@@ -12,6 +12,8 @@
     <Project Path="libs/nativeweb.forms.generator/nativeweb.forms.generator.csproj" />
     <Project Path="libs/nativeweb.scaffold/nativeweb.scaffold.csproj" />
     <Project Path="libs/nativeweb.scaffold.generator/nativeweb.scaffold.generator.csproj" />
+    <Project Path="libs/nativeweb.permissions/nativeweb.permissions.csproj" />
+    <Project Path="libs/nativeweb.permissions.generator/nativeweb.permissions.generator.csproj" />
     <Project Path="libs/nativeweb.signin/nativeweb.signin.csproj" />
     <Project Path="libs/nativeweb.signin.testing/nativeweb.signin.testing.csproj" />
   </Folder>

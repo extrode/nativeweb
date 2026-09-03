@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runtime half of the model-permissions feature (spec 024): the attributes a
+       consumer decorates a model with, the permission value the generated
+       constants are, the store contract the host implements, and the filter the
+       scaffolding appends to a generated route. The build-time half is
+       libs/nativeweb.permissions.generator.
+
+       The reference to nativeweb.scaffold is one-way and exists for the access
+       admin, which reuses the scaffolding's own layout rather than forking it.
+       The scaffold library gains nothing in return: the scaffold GENERATOR knows
+       the [Permissions] attribute by metadata name only, so an application that
+       scaffolds without permissions references neither. -->
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.Permissions</RootNamespace>
+    <!-- CA1711 reserves the "Permission" suffix for types deriving from
+         CodeAccessPermission, which is the Code Access Security lineage .NET
+         removed. Nothing can derive from it any more, so the reservation protects
+         a namespace nobody occupies, while Permission IS the domain word here and
+         every API in this library takes one. Scoped to this project. -->
+    <NoWarn>$(NoWarn);CA1711</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Permissions</PackageId>
+    <Version>0.1.0</Version>
+    <Description>NativeWeb framework: model permissions, groups, and the store contract the permission decisions read.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\nativeweb.scaffold\nativeweb.scaffold.csproj" />
+  </ItemGroup>
+</Project>

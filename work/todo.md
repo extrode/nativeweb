@@ -2003,3 +2003,9 @@ an answer different from the one the audit assumed.
   journey covers home, an article and a tag page; the htmx filter is proved at the integration
   tier only. It was already so before plan 009 -- noted because the list is now long enough for
   a filter to matter.
+- **JauntyQ local-checkout mode is broken repo-wide, and not by anything here.** The sibling
+  `../jauntyq` `dev` no longer has `src/JauntyQ.Generator` or `src/JauntyQ.Runtime` -- every
+  project is now `Extrode.JauntyQ.*` -- so `EnsureJauntyQRoot` fails on every project and
+  `NativeWeb.slnx`'s two direct references point at paths that do not exist. Every local build
+  needs `-p:JauntyQUsePackages=true` until the probe, the sentinel filename and the two solution
+  entries are updated to the new names. Found on the 024 branch, out of its scope.
