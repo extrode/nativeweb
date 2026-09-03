@@ -14,6 +14,23 @@ sections that apply; drop the empty ones rather than leaving them blank.
 Merged into `dev`, not yet tagged.
 
 ### Added
+- **The sample has content and a look of its own (plan 009).** The demo dataset grew from three
+  articles to eight and is now seeded on both store paths -- `db/sample/migrations/0005_seed_demo_content.sql`
+  for PostgreSQL and `Seed.Fill` for the in-memory store -- so the same binary shows the same
+  site whether or not a connection string is set. Before this the database path had no articles
+  at all and `/articles` was empty on a deployed host. `SeedParityTests` in the repository tier
+  compares the two files field by field, so the two cannot drift.
+  The public site also has its own palette: `apps/sample/wwwroot/css/sample.css` overrides the
+  framework's design tokens rather than editing them, which is the supported way for a product
+  to look like itself -- no framework asset changes and `AssetParityTests` stays green. Every
+  foreground/background pair the chrome renders is measured against WCAG 2.1 AA by
+  `deno run --allow-read tools/contrast-check.ts` -- 40 pairs across the two themes, plus a
+  two-way check that no declared colour goes unaccounted for. Run by hand, not by CI: adding a
+  Deno step would mean a second `uses:` action, which decision
+  `docs/decisions/2026-08-20-001-node-runtime-in-ci.md` closed the door on. The home page gains a hero, the list gains
+  cards, and both the list and the article page now date a row by its publication date rather
+  than by when it was created, which is what `PublishedArticle.PublishedOn()` was added for in
+  spec 023 and what no page had called.
 - **Admin relations and field kinds (spec 023).** The scaffold generator derives four more
   controls from the model: an enum property renders a `<select>` of its members, a `DateOnly`
   property a date input, a `[ScaffoldReference(typeof(T))]` string a dropdown of T's rows with

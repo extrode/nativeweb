@@ -1,26 +1,122 @@
 /* apps/sample's own layer. tokens.css, base.css and components.css are the
    framework's shared design system, vendored byte-identical from
-   libs/nativeweb.assets/css/ and guarded by AssetParityTests -- edit those there,
-   not here. This file is the equivalent of the skeleton's __product__.css: the
-   chrome and the page-level classes that belong to one application.
+   libs/nativeweb.web/wwwroot/_nativeweb/css/ and guarded by AssetParityTests --
+   edit those there, not here. This file is the equivalent of the skeleton's
+   __product__.css: the chrome and the page-level classes that belong to one
+   application.
 
    Seeded from skeleton/apps/__product__/wwwroot/css/__product__.css so the
    reference app and a stamped product start from the same chrome, then extended
-   with the article-list classes this app's own pages use. */
+   with the article-list classes this app's own pages use.
+
+   Plan 009 added the block below it: the sample now overrides the framework's
+   design tokens rather than inheriting them. That is the supported way for a
+   product to have its own look -- redeclaring the custom properties after
+   tokens.css loads re-points every framework component at once, and no
+   framework file changes, so AssetParityTests keeps passing and a framework
+   upgrade does not collide with a product's palette. The framework's own green
+   remains what the skeleton stamps and what a product sees before it chooses
+   otherwise.
+
+   Every pair here is measured, not judged: `deno run --allow-read
+   tools/contrast-check.ts` reads these values out of this file and asserts each
+   foreground on each background against WCAG 2.1 AA. tokens.css's header records
+   two contrast divergences won in an a11y pass, and a palette that quietly gave
+   them back would look fine to whoever changed it. */
+
+/* --- Palette ------------------------------------------------------------ */
+
+:root,
+[data-theme="light"] {
+  --bg: #f4f5fa;
+  --s1: #ffffff;
+  --s2: #fafbff;
+  --s3: #eceef7;
+  --bd: #e0e3f0;
+  --bd2: #848cad;
+  --t1: #161826;
+  --t2: #4b5268;
+  --t3: #5a6178;
+  --ac: #4b45c6;
+  --ac-h: #3a35a8;
+  --on-ac: #ffffff;
+  --ac-dim: rgba(75, 69, 198, 0.1);
+  --ac-bd: rgba(75, 69, 198, 0.32);
+  --ok: #1f7a4d;
+  --ok-dim: rgba(31, 122, 77, 0.12);
+  --ok-fg: #196340;
+  --warn: #97650a;
+  --warn-dim: rgba(151, 101, 10, 0.13);
+  --err: #c33b3b;
+  --err-dim: rgba(195, 59, 59, 0.1);
+  --err-fg: #ad2f2f;
+  --info: #2a5fc0;
+  --info-dim: rgba(42, 95, 192, 0.1);
+  --sh1: 0 1px 2px rgba(22, 24, 38, 0.07);
+  --sh2: 0 14px 40px rgba(18, 20, 34, 0.18);
+}
+
+[data-theme="dark"] {
+  --bg: #0c0e16;
+  --s1: #141722;
+  --s2: #191d2b;
+  --s3: #212636;
+  --bd: rgba(168, 180, 220, 0.11);
+  --bd2: rgba(178, 190, 230, 0.46);
+  --t1: #e8eaf4;
+  --t2: #a3aac2;
+  --t3: #9aa1ba;
+  --ac: #9d9bfb;
+  --ac-h: #b0aefc;
+  --on-ac: #0c0e16;
+  --ac-dim: rgba(157, 155, 251, 0.15);
+  --ac-bd: rgba(157, 155, 251, 0.4);
+  --ok: #5cc98d;
+  --ok-dim: rgba(92, 201, 141, 0.15);
+  --ok-fg: #5cc98d;
+  --warn: #e2ab4c;
+  --warn-dim: rgba(226, 171, 76, 0.14);
+  --err: #ef8080;
+  --err-dim: rgba(239, 128, 128, 0.13);
+  --err-fg: #f09090;
+  --info: #7fb0f0;
+  --info-dim: rgba(127, 176, 240, 0.13);
+  --sh1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --sh2: 0 14px 40px rgba(0, 0, 0, 0.55);
+}
+
+:root {
+  --brand: #4b45c6;
+  --brand-grad: linear-gradient(135deg, #6a63e8, #3a35a8);
+}
 
 /* --- Top bar ------------------------------------------------------------ */
 
+/* Sticky because the article page is now long enough to lose the nav, and
+   backdrop-filter rather than an opaque fill so a card scrolling under it stays
+   legible as a shape. The fallback is the flat --s1 above it. */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 28px;
-  padding: 12px 24px;
+  padding: 14px 24px;
   background: var(--s1);
   border-bottom: 1px solid var(--bd);
 }
 
-/* --t1, not the bare-link accent: the accent green fails WCAG AA (4.5:1)
-   against the page background, which axe flags in the e2e gate. */
+@supports (backdrop-filter: blur(1px)) {
+  .topbar {
+    background: color-mix(in srgb, var(--s1) 82%, transparent);
+    backdrop-filter: blur(12px);
+  }
+}
+
+/* --t1, not the bare-link accent: an accent light enough to sit on the bar
+   fails WCAG AA against it, and the brand is a wordmark rather than a link to
+   be scanned for. */
 .topbar__brand {
   display: inline-flex;
   align-items: center;
@@ -30,39 +126,132 @@
   font-size: 1.15rem;
   color: var(--t1);
   text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+/* The mark is drawn, not fetched: one more request for eighteen pixels of
+   gradient is a request the page does not need, and an <img> here would be the
+   only image on the site. */
+.topbar__brand::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border-radius: var(--rs);
+  background: var(--brand-grad);
 }
 
 .topbar__nav {
   display: flex;
-  gap: 18px;
+  gap: 20px;
   font-size: 0.95rem;
 }
 
 .topbar__nav a {
+  position: relative;
   color: var(--t2);
   text-decoration: none;
+  padding: 4px 0;
 }
 
 .topbar__nav a:hover {
   color: var(--t1);
-  text-decoration: underline;
+}
+
+/* An underline that grows from the centre, so hover reads as a state rather
+   than as the text shifting. transform, not width: it does not reflow. */
+.topbar__nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ac);
+  transform: scaleX(0);
+  transition: transform 0.16s ease;
+}
+
+.topbar__nav a:hover::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar__nav a::after {
+    transition: none;
+  }
 }
 
 /* --- Page --------------------------------------------------------------- */
 
 .page {
-  max-width: 860px;
+  max-width: 880px;
   margin: 0 auto;
-  padding: 32px 24px 64px;
+  padding: 40px 24px 72px;
 }
 
 .page__title {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  font-family: var(--font-head);
+  letter-spacing: -0.025em;
 }
 
 .page__lede {
   color: var(--t2);
-  margin: 0 0 28px;
+  margin: 0 0 32px;
+  font-size: 1.05rem;
+}
+
+/* --- Home hero ---------------------------------------------------------- */
+
+/* Only the home page has this. The articles index keeps the plain title and
+   lede, because a hero on every page is a hero on none. */
+.hero {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 40px;
+  padding: 44px 36px;
+  border: 1px solid var(--bd);
+  border-radius: var(--rl);
+  background: var(--s1);
+  box-shadow: var(--sh1);
+}
+
+/* A wash of the brand behind the text, faded out before it reaches the body
+   copy so nothing is read through a gradient. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -40% -10% auto auto;
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, var(--ac-dim), transparent 62%);
+  pointer-events: none;
+}
+
+.hero__title {
+  position: relative;
+  margin: 0 0 10px;
+  font-family: var(--font-head);
+  font-size: clamp(1.9rem, 4.5vw, 2.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.hero__lede {
+  position: relative;
+  margin: 0 0 24px;
+  max-width: 46ch;
+  color: var(--t2);
+  font-size: 1.08rem;
+  line-height: 1.55;
+}
+
+.hero__actions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 /* --- Article list ------------------------------------------------------- */
@@ -75,7 +264,7 @@
   grid-template-columns: 1fr 110px auto;
   gap: 10px;
   align-items: end;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 /* The submit button is the one child with no .field wrapper, so it has no label
@@ -97,19 +286,79 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 12px;
 }
 
+/* Cards rather than the old two-pixel-gapped rows. The left edge is a rule that
+   colours in on hover: it costs no layout, and it gives a pointer a target
+   larger than the title link. */
 .articles__item {
+  position: relative;
   background: var(--s1);
   border: 1px solid var(--bd);
-  border-radius: var(--rm);
-  padding: 16px 20px;
+  border-radius: var(--rl);
+  padding: 20px 24px;
+  box-shadow: var(--sh1);
+  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.articles__item::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 16px;
+  bottom: 16px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--ac);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.articles__item:hover {
+  border-color: var(--ac-bd);
+  transform: translateY(-1px);
+  box-shadow: var(--sh2);
+}
+
+.articles__item:hover::before {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .articles__item,
+  .articles__item::before {
+    transition: none;
+  }
+
+  .articles__item:hover {
+    transform: none;
+  }
 }
 
 .articles__title {
-  font-size: 1.05rem;
-  margin: 0 0 6px;
+  font-size: 1.15rem;
+  font-family: var(--font-head);
+  letter-spacing: -0.015em;
+  margin: 0 0 8px;
+}
+
+.articles__title a {
+  color: var(--t1);
+  text-decoration: none;
+}
+
+.articles__title a:hover {
+  color: var(--ac);
+}
+
+/* The meta line is one row that wraps: author, then date, then the tags. */
+.articles__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
 }
 
 .articles__author,
@@ -118,15 +367,19 @@
   font-size: 0.85rem;
 }
 
+/* The separator is on the author because the date is the one field every row
+   has -- a row with no author would otherwise open with a stray dot. */
 .articles__author::after {
   content: "·";
-  margin: 0 6px;
+  margin-left: 8px;
 }
 
 .articles__empty {
   color: var(--t3);
   text-align: center;
-  padding: 40px 0;
+  padding: 56px 24px;
+  border: 1px dashed var(--bd2);
+  border-radius: var(--rl);
 }
 
 /* The htmx swap target. Reserving the min-height stops the page from jumping
@@ -136,11 +389,11 @@
   min-height: 120px;
 }
 
-/* --- Tags and the article page ---------------------------------------- */
+/* --- Tags --------------------------------------------------------------- */
 
 .tags {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
@@ -149,7 +402,7 @@
 
 .tags--index {
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
   margin: 0;
 }
 
@@ -157,44 +410,90 @@
   background: var(--s1);
   border: 1px solid var(--bd);
   border-radius: var(--rm);
-  padding: 12px 20px;
+  padding: 14px 20px;
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  transition: border-color 0.16s ease;
+}
+
+.tags--index .tags__item:hover {
+  border-color: var(--ac-bd);
 }
 
 .tag {
-  display: inline-block;
-  padding: 2px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 11px;
   border: 1px solid var(--bd);
   border-radius: 999px;
+  background: var(--s2);
   color: var(--t2);
   font-size: 0.8rem;
   text-decoration: none;
+  transition: border-color 0.16s ease, color 0.16s ease;
 }
 
 .tag:hover {
   color: var(--t1);
-  border-color: var(--t3);
+  border-color: var(--bd2);
+}
+
+/* The dot carries the tag's own colour, which the store holds and the framework
+   knows nothing about. It is decoration: the name beside it is what identifies
+   the tag, so colour is never the only channel. */
+.tag::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
 }
 
 .tags__count {
   color: var(--t3);
   font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- The article page --------------------------------------------------- */
+
+.article {
+  max-width: 68ch;
 }
 
 .article__meta {
-  margin: 0 0 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
 }
 
+/* A reading measure and a reading rhythm: 68ch above, and paragraphs spaced by
+   their own line height rather than by a fixed margin, so changing the font
+   size moves the spacing with it. */
 .article__body {
-  margin-top: 24px;
-  line-height: 1.6;
+  margin-top: 28px;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--t1);
+}
+
+.article__body p {
+  margin: 0 0 1.2em;
+}
+
+.article__body p:first-of-type::first-line {
+  font-weight: 500;
 }
 
 /* --- Footer ------------------------------------------------------------- */
 
 .foot {
-  padding: 18px 24px;
+  padding: 24px;
   border-top: 1px solid var(--bd);
   color: var(--t3);
   font-size: 0.85rem;

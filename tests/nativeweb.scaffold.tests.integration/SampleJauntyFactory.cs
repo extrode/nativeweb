@@ -158,6 +158,32 @@ internal static class SampleTestDatabase
     }
 
     /// <summary>
+    /// Inserts a published row whose publication date is not the date it was
+    /// created, which is the one arrangement that tells the two dates apart on a
+    /// rendered page.
+    /// </summary>
+    internal static async Task InsertBackdatedAsync(
+        string id, string title, string body, DateTime createdAt, DateOnly publishedAt)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO articles (id, slug, title, author, body, status, view_count, created_at, published_at)
+            VALUES (@id, @id, @title, 'xunit', @body, 'published', 0, @created_at, @published_at)
+            """,
+            connection);
+        command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("title", title);
+        command.Parameters.AddWithValue("body", body);
+        command.Parameters.AddWithValue("created_at", createdAt);
+        command.Parameters.AddWithValue("published_at", publishedAt);
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>
     /// Inserts a row with <c>published</c> and <c>created_at</c> chosen by the
     /// caller, for arranging a feed the public page then has to order and filter.
     /// </summary>

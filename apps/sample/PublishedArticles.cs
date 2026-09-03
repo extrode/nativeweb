@@ -50,7 +50,18 @@ public readonly record struct ArticleDetail(
     string? Author,
     DateTime CreatedAt,
     string Body,
-    IReadOnlyList<TagRef> Tags);
+    IReadOnlyList<TagRef> Tags,
+    DateOnly? PublishedAt = null)
+{
+    /// <summary>
+    /// The instant the article's own page dates it by, on the same rule
+    /// <see cref="PublishedArticle.PublishedOn"/> gives the list: an article
+    /// backdated by the admin must not read as one date in the listing and
+    /// another on its page.
+    /// </summary>
+    public DateTime PublishedOn() =>
+        PublishedAt is DateOnly date ? date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc) : CreatedAt;
+}
 
 /// <summary>One published article as the sitemap lists it (spec 022 R8).</summary>
 public readonly record struct SitemapArticle(string Slug, DateTime CreatedAt);
@@ -134,7 +145,13 @@ internal sealed class MemoryPublishedArticles(
 
         Func<string, IReadOnlyList<TagRef>> tagsOf = await TagsOfAsync(ct).ConfigureAwait(false);
         return new ArticleDetail(
-            found.Slug ?? "", found.Title, found.Author, found.CreatedAt, found.Body, tagsOf(found.Id));
+            found.Slug ?? "",
+            found.Title,
+            found.Author,
+            found.CreatedAt,
+            found.Body,
+            tagsOf(found.Id),
+            found.PublishedAt);
     }
 
     public async ValueTask<bool> CountViewAsync(string slug, CancellationToken ct)
@@ -261,7 +278,8 @@ internal sealed class JauntyPublishedArticles(NpgsqlDataSource dataSource) : IPu
             row.Author,
             row.CreatedAt,
             row.Body,
-            links.Select(l => new TagRef(l.Slug, l.Name)).ToList());
+            links.Select(l => new TagRef(l.Slug, l.Name)).ToList(),
+            JauntyArticleStore.DayOf(row.PublishedAt));
     }
 
     public async ValueTask<bool> CountViewAsync(string slug, CancellationToken ct)

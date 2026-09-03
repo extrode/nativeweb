@@ -14,6 +14,29 @@ public sealed class PublicSiteTests
         new(slug, slug, $"Title {slug}", "Sy", Utc(4), tags);
 
     [Fact]
+    public void AListedRow_IsDatedByItsPublicationDateAndNotByWhenItWasCreated()
+    {
+        PublishedArticle backdated = new(
+            "b", "b", "Title b", "Sy", new DateTime(2026, 9, 2, 7, 10, 0, DateTimeKind.Utc), [],
+            new DateOnly(2026, 8, 24));
+
+        string page = Templates.Articles.Results.ToHtmlString(locale: Locales.En, Articles: [backdated]);
+
+        Assert.Contains("datetime=\"2026-08-24\"", page, StringComparison.Ordinal);
+        Assert.Contains(">24 Aug 2026<", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("2026-09-02", page, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AListedRowWithNoPublicationDate_FallsBackToItsCreationDay()
+    {
+        string page = Templates.Articles.Results.ToHtmlString(locale: Locales.En, Articles: [Listed("one")]);
+
+        Assert.Contains("datetime=\"2026-01-04\"", page, StringComparison.Ordinal);
+        Assert.Contains(">4 Jan 2026<", page, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Paragraphs_SplitsOnBlankLinesAndTrimsEachOne()
     {
         IReadOnlyList<string> paragraphs = PublicSite.Paragraphs("first\r\n\r\n  second line\r\nstill second \n\n\nthird");
@@ -55,7 +78,8 @@ public sealed class PublicSiteTests
             Articles: [Listed("one")]);
 
         Assert.Contains("<!DOCTYPE html>", page, StringComparison.Ordinal);
-        Assert.Contains("<h1 class=\"page__title\">Latest articles</h1>", page, StringComparison.Ordinal);
+        Assert.Contains("<h1 class=\"hero__title\">Server-rendered HTML, one native binary</h1>", page, StringComparison.Ordinal);
+        Assert.Contains("<h2 class=\"page__title\">Latest</h2>", page, StringComparison.Ordinal);
         Assert.Contains("/articles/one", page, StringComparison.Ordinal);
         Assert.DoesNotContain("<form", page, StringComparison.Ordinal);
         Assert.DoesNotContain("request-verification-token", page, StringComparison.Ordinal);
@@ -91,6 +115,24 @@ public sealed class PublicSiteTests
         Assert.Contains("<p>first</p>", page, StringComparison.Ordinal);
         Assert.Contains("<p>second</p>", page, StringComparison.Ordinal);
         Assert.DoesNotContain("ignored here", page, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Show_DatesABackdatedArticleByItsPublicationDateNotItsCreationDate()
+    {
+        var detail = new ArticleDetail(
+            "lean", "Lean Native Web", "Sy", Utc(4), "", [], new DateOnly(2025, 12, 20));
+
+        string page = Templates.Articles.Show.ToHtmlString(
+            locale: Locales.En,
+            Title: detail.Title,
+            AntiforgeryToken: "",
+            Article: detail,
+            Paragraphs: ["first"]);
+
+        Assert.Contains("datetime=\"2025-12-20\"", page, StringComparison.Ordinal);
+        Assert.Contains("20 Dec 2025", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("2026-01-04", page, StringComparison.Ordinal);
     }
 
     [Fact]

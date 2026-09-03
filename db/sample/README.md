@@ -4,7 +4,8 @@ The scaffolding demo's schema, kept apart from the identity schema next door.
 
 ```
 migrations/  0001 the table, 0002 the sort indexes, 0003 slugs and tags,
-             0004 status, dates and categories -- applied in order
+             0004 status, dates and categories, 0005 the demo articles
+             -- applied in order
 queries/     inline .sql the JauntyQ generator turns into typed C#
 schema/      sample.schema.json -- the committed snapshot, from `jaunty schema pull`
 ```

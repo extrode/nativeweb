@@ -2,6 +2,34 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **Plan 009 — sample content and a public-site visual refresh** —
+  `feat/024-sample-content-and-visual-refresh`, 2026-09-03, Standard tier. The demo dataset grew
+  from three articles to eight and is written twice -- `db/sample/migrations/0005_seed_demo_content.sql`
+  for PostgreSQL, `Seed.Fill` for the in-memory store -- because until now nothing seeded the
+  database at all, so a deployed host served an empty `/articles` while the same binary with no
+  connection string served three. `SeedParityTests` in the repository tier parses both files and
+  compares every column they share, body and creation timestamp included. The public site got its
+  own palette in `apps/sample/wwwroot/css/sample.css`, overriding the framework's design tokens
+  rather than editing them (`AssetParityTests` stays green), plus a hero, article cards and a tag
+  pill; `tools/contrast-check.ts` measures 40 foreground/background pairs against WCAG 2.1 AA
+  across both themes and holds every declared colour to being either measured or named as
+  unrendered. Both the listing and the article page now date a row by its publication date, which
+  is what `PublishedArticle.PublishedOn()` was added for in spec 023 and what no page had called.
+  Green: repo 148, sample unit 219, render 219, web 164, scaffold unit 246, integration 170,
+  e2e 31, contrast 40 pairs, structure audit 0 errors.
+  - **Review: two lenses, 18 findings, 1 refuted by reading tokens.css (the --rs/--rl/--font-head
+    tokens the consequence lens could not see do exist).** Ten fixed in the branch, including two
+    that would have failed a deploy: `ON CONFLICT (id)` covered the primary key while
+    `articles_slug_key` is a second unique index, and `DO NOTHING` covers no foreign key at all,
+    so a tag deleted through the admin on nw-dev would have rolled back the whole migration on
+    every retry. Also fixed: the article page dated by `created_at` while the listing dated by
+    `published_at`, the tags partial's `<ul>` inside a `<p>`, the home page's `<title>` reduced to
+    the word "Latest", and four holes in the two new test harnesses. Four noted in `work/todo.md`
+    rather than fixed: nothing runs the contrast script, the translucent topbar is measured
+    against a background it does not have, `db/migrate.sh` cannot see a `--` inside a SQL string
+    literal, and no public page names an article's category.
+    Report: `tmp/review-feat-024-sample-content-and-visual-refresh.html` (gitignored).
+
 - **Spec 023 — admin relations and field kinds** — `feat/023-admin-relations-and-field-kinds`,
   2026-09-03. Eleven tasks ticked, spec `Status: done`. The scaffold generator derives four more
   controls from the model alone: an enum property is a `<select>` of its members, a `DateOnly`

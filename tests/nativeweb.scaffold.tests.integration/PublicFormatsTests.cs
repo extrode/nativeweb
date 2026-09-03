@@ -114,15 +114,16 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         string[] ids = document.RootElement.EnumerateArray().Select(e => e.GetProperty("id").GetString()!).ToArray();
         JsonElement first = document.RootElement[0];
 
-        Assert.Equal(["a2", "a1"], ids);
-        Assert.Equal("Binding forms under NativeAOT", first.GetProperty("title").GetString());
-        Assert.Equal("binding-forms-under-nativeaot", first.GetProperty("slug").GetString());
+        Assert.Equal(["a8", "a7", "a6", "a5", "a2", "a1"], ids);
+        Assert.Equal("A note written last week and published today", first.GetProperty("title").GetString());
+        Assert.Equal("a-note-written-last-week-and-published-today", first.GetProperty("slug").GetString());
         Assert.Equal("Sy", first.GetProperty("author").GetString());
-        Assert.Equal("2026-06-18T14:05:00Z", first.GetProperty("createdAt").GetString());
-        Assert.Equal(0, first.GetProperty("tags").GetArrayLength());
+        Assert.Equal("2026-09-02T07:10:00Z", first.GetProperty("createdAt").GetString());
+        Assert.Equal("2026-08-24", first.GetProperty("publishedAt").GetString());
         Assert.Equal(
             ["htmx", "aot"],
-            document.RootElement[1].GetProperty("tags").EnumerateArray().Select(t => t.GetProperty("slug").GetString()));
+            first.GetProperty("tags").EnumerateArray().Select(t => t.GetProperty("slug").GetString()));
+        Assert.Equal(0, document.RootElement[2].GetProperty("tags").GetArrayLength());
     }
 
     [Fact]
@@ -135,6 +136,10 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
 
         Assert.Equal(
             "id,slug,title,author,created,published,tags\r\n" +
+            "a8,a-note-written-last-week-and-published-today,A note written last week and published today,Sy,2026-09-02T07:10:00Z,2026-08-24,htmx aot\r\n" +
+            "a7,what-a-source-generator-owes-you,What a source generator owes you,Sy,2026-08-05T13:00:00Z,2026-08-06,aot\r\n" +
+            "a6,notes-from-a-week-without-a-bundler,Notes from a week without a bundler,Dana Whitfield,2026-07-28T10:15:00Z,2026-07-29,\r\n" +
+            "a5,reading-an-explain-before-adding-an-index,Reading an EXPLAIN before adding an index,Dana Whitfield,2026-07-02T16:45:00Z,2026-07-03,aot\r\n" +
             "a2,binding-forms-under-nativeaot,Binding forms under NativeAOT,Sy,2026-06-18T14:05:00Z,2026-06-20,\r\n" +
             "a1,lean-native-web,Lean Native Web,Sy,2026-03-04T09:30:00Z,2026-03-05,htmx aot\r\n",
             body);
@@ -168,13 +173,13 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
         Assert.Equal(Atom + "feed", root.Name);
         Assert.Equal("http://localhost/feed", root.Element(Atom + "id")?.Value);
         Assert.Equal("http://localhost/articles", root.Element(Atom + "link")?.Attribute("href")?.Value);
-        Assert.Equal(2, entries.Length);
-        Assert.Equal("Binding forms under NativeAOT", entries[0].Element(Atom + "title")?.Value);
+        Assert.Equal(6, entries.Length);
+        Assert.Equal("A note written last week and published today", entries[0].Element(Atom + "title")?.Value);
         Assert.Equal(
-            "http://localhost/articles/binding-forms-under-nativeaot",
+            "http://localhost/articles/a-note-written-last-week-and-published-today",
             entries[0].Element(Atom + "link")?.Attribute("href")?.Value);
-        Assert.Equal("2026-06-20T00:00:00Z", entries[0].Element(Atom + "updated")?.Value);
-        Assert.Equal("2026-06-20T00:00:00Z", root.Element(Atom + "updated")?.Value);
+        Assert.Equal("2026-08-24T00:00:00Z", entries[0].Element(Atom + "updated")?.Value);
+        Assert.Equal("2026-08-24T00:00:00Z", root.Element(Atom + "updated")?.Value);
         Assert.StartsWith("public, max-age=", response.Headers.CacheControl?.ToString(), StringComparison.Ordinal);
     }
 
@@ -192,10 +197,10 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
 
         Assert.Equal("2.0", rss.Root.Attribute("version")?.Value);
         Assert.Equal("http://localhost/articles", channel.Element("link")?.Value);
-        Assert.Equal(2, items.Length);
-        Assert.Equal("Lean Native Web", items[1].Element("title")?.Value);
-        Assert.Equal("http://localhost/articles/lean-native-web", items[1].Element("link")?.Value);
-        Assert.Equal("Thu, 05 Mar 2026 00:00:00 GMT", items[1].Element("pubDate")?.Value);
+        Assert.Equal(6, items.Length);
+        Assert.Equal("Lean Native Web", items[^1].Element("title")?.Value);
+        Assert.Equal("http://localhost/articles/lean-native-web", items[^1].Element("link")?.Value);
+        Assert.Equal("Thu, 05 Mar 2026 00:00:00 GMT", items[^1].Element("pubDate")?.Value);
     }
 
     [Fact]
@@ -220,6 +225,10 @@ public sealed class PublicFormatsTests : IClassFixture<LeakedFeedRowsSweep>
                 "http://localhost/tags/htmx",
                 "http://localhost/tags/aot",
                 "http://localhost/tags/postgres",
+                "http://localhost/articles/a-note-written-last-week-and-published-today",
+                "http://localhost/articles/what-a-source-generator-owes-you",
+                "http://localhost/articles/notes-from-a-week-without-a-bundler",
+                "http://localhost/articles/reading-an-explain-before-adding-an-index",
                 "http://localhost/articles/binding-forms-under-nativeaot",
                 "http://localhost/articles/lean-native-web",
             ],

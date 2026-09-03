@@ -9,9 +9,11 @@
 {{for article in Articles}}
 <li class="articles__item">
 <h2 class="articles__title"><a href="/articles/{{article.Slug}}">{{article.Title}}</a></h2>
+<div class="articles__meta">
 {{if article.Author != null}}<span class="articles__author">{{article.Author}}</span>{{/if}}
-<time class="articles__date" datetime="{{article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}">{{article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}</time>
+<time class="articles__date" datetime="{{article.PublishedOn().ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}">{{article.PublishedOn().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}}</time>
 {{> shared/tags Tags=article.Tags}}
+</div>
 </li>
 {{/for}}
 </ul>

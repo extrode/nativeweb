@@ -10,7 +10,7 @@
     "admin": "Admin"
   },
   "home": {
-    "title": "Latest articles",
+    "title": "Latest",
     "lede": "The newest published articles. Each one links to its page and to its tags."
   },
   "tags": {
@@ -32,7 +32,7 @@
     "max": "Max",
     "placeholder": "Title or author",
     "submit": "Filter",
-    "empty": "No published articles yet."
+    "empty": "No published articles yet. Sign in to the admin and create one -- a Draft or an Archived article will not appear here."
   },
   "signin": {
     "title": "Sign in",
@@ -42,5 +42,11 @@
     "refused": "Not accepted.",
     "signedin": "Signed in as",
     "signout": "Sign out"
+  },
+  "hero": {
+    "title": "Server-rendered HTML, one native binary",
+    "lede": "This is the NativeWeb reference application: Minimal APIs, compiled templates, HTMX for the parts that move, and a single self-contained AOT executable. Everything below is rendered on the server.",
+    "browse": "Read the articles",
+    "tags": "Browse by tag"
   }
 }

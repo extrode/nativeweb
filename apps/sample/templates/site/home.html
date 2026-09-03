@@ -2,6 +2,14 @@
   @layout layout/page
   @param System.Collections.Generic.IReadOnlyList<NativeWeb.Sample.PublishedArticle> Articles
 -->
-<h1 class="page__title">{{t:home.title}}</h1>
+<section class="hero">
+<h1 class="hero__title">{{t:hero.title}}</h1>
+<p class="hero__lede">{{t:hero.lede}}</p>
+<div class="hero__actions">
+<a class="btn btn--primary" href="/articles">{{t:hero.browse}}</a>
+<a class="btn" href="/tags">{{t:hero.tags}}</a>
+</div>
+</section>
+<h2 class="page__title">{{t:home.title}}</h2>
 <p class="page__lede">{{t:home.lede}}</p>
 {{> articles/results Articles=Articles}}

@@ -64,7 +64,7 @@ public sealed class AdminSignInTests(PassphraseSampleFixture app, BrowserFixture
         // Sign-out lands on the front door, which since spec 022 is the home
         // page rather than a redirect into the admin.
         await Assertions.Expect(page).ToHaveURLAsync(new Regex("/$"));
-        await Assertions.Expect(page.Locator("h1.page__title")).ToHaveTextAsync("Latest articles");
+        await Assertions.Expect(page.Locator("h1.hero__title")).ToHaveTextAsync("Server-rendered HTML, one native binary");
         await Assertions.Expect(page.Locator("a[href='/admin/articles']")).ToHaveCountAsync(0);
 
         await page.GotoAsync("/admin/articles");

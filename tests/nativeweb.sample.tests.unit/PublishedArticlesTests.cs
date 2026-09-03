@@ -63,6 +63,30 @@ public sealed class PublishedArticlesTests
     }
 
     [Fact]
+    public async Task BySlugAsync_CarriesThePublicationDateOfABackdatedArticle()
+    {
+        Article article = Seed("a1", 2);
+        article.PublishedAt = new DateOnly(2025, 12, 20);
+
+        ArticleDetail? detail = await Reader.BySlugAsync("slug-a1", CancellationToken.None);
+
+        Assert.Equal(new DateOnly(2025, 12, 20), detail!.Value.PublishedAt);
+        Assert.Equal(new DateTime(2025, 12, 20, 0, 0, 0, DateTimeKind.Utc), detail.Value.PublishedOn());
+        Assert.Equal(Utc(2), detail.Value.CreatedAt);
+    }
+
+    [Fact]
+    public async Task BySlugAsync_FallsBackToTheCreationDateWhenNoPublicationDateIsSet()
+    {
+        Seed("a1", 2);
+
+        ArticleDetail? detail = await Reader.BySlugAsync("slug-a1", CancellationToken.None);
+
+        Assert.Null(detail!.Value.PublishedAt);
+        Assert.Equal(Utc(2), detail.Value.PublishedOn());
+    }
+
+    [Fact]
     public async Task BySlugAsync_AnswersNullForAnArchivedSlug()
     {
         Article archived = Seed("a1", 1);

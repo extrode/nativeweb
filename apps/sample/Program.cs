@@ -259,10 +259,15 @@ public sealed class Program
 
 internal static class Seed
 {
-    // The same three tags migration 0003 seeds on the database path. The links
-    // are what spec 022 R4 asks the demo to show: one article with two tags, one
-    // with none, and one tag (postgres) whose only article is a draft, so the tag
-    // listing has a zero to show and the tag page an empty state.
+    // The same three tags migration 0003 seeds on the database path, and the same
+    // eight articles migration 0005 seeds there -- one dataset written twice, so
+    // a run picks a store and not a different site. A row changed here is changed
+    // there; 0005's header says what each of the eight is for.
+    //
+    // a1..a3 keep spec 022 R4's shape exactly: one article with two tags, one
+    // with none, and one tag (postgres) whose only published article arrived in
+    // a5, so the tag listing still has the zero-then-one case and /tags/postgres
+    // still proves a draft is invisible.
     internal static void Fill(ArticleStore articles, TagStore tags, CategoryStore categories, MemoryRelation relation)
     {
         categories.Seed(new Category { Key = "guides", Name = "Guides" });
@@ -273,6 +278,11 @@ internal static class Seed
         relation.Link("a1", "aot");
         relation.Link("a1", "htmx");
         relation.Link("a3", "postgres");
+        relation.Link("a4", "htmx");
+        relation.Link("a5", "aot");
+        relation.Link("a7", "aot");
+        relation.Link("a8", "aot");
+        relation.Link("a8", "htmx");
         articles.Seed(new Article
         {
             Id = "a1",
@@ -311,6 +321,85 @@ internal static class Seed
             Status = ArticleStatus.Draft,
             ViewCount = 0,
             CreatedAt = new DateTime(2026, 8, 19, 8, 0, 0, DateTimeKind.Utc),
+        });
+
+        articles.Seed(new Article
+        {
+            Id = "a4",
+            Title = "The template language we removed",
+            Slug = "the-template-language-we-removed",
+            Author = "Sy",
+            Body = "An earlier cut of the renderer had loops, filters and partial inheritance. It was archived when the third nested conditional turned out to be a C# method wearing a costume.\n\nWhat survives is smaller: parameters, a slot, a partial, and an if. Anything that wants more logic than that has a compiler available to it.",
+            Status = ArticleStatus.Archived,
+            PublishedAt = new DateOnly(2026, 4, 12),
+            CategoryKey = "notes",
+            ViewCount = 97,
+            CreatedAt = new DateTime(2026, 4, 11, 11, 20, 0, DateTimeKind.Utc),
+        });
+
+        articles.Seed(new Article
+        {
+            Id = "a5",
+            Title = "Reading an EXPLAIN before adding an index",
+            Slug = "reading-an-explain-before-adding-an-index",
+            Author = "Dana Whitfield",
+            Body = "A keyset page over a nullable column lands in Filter rather than Index Cond, because a disjunction over IS NULL is not a rangeable start point.\n\nThe fix is not a bigger index. It is knowing which columns are worth paging by, and saying so where the model is declared.",
+            Status = ArticleStatus.Published,
+            PublishedAt = new DateOnly(2026, 7, 3),
+            CategoryKey = "guides",
+            ViewCount = 512,
+            CreatedAt = new DateTime(2026, 7, 2, 16, 45, 0, DateTimeKind.Utc),
+        });
+
+        articles.Seed(new Article
+        {
+            Id = "a6",
+            Title = "Notes from a week without a bundler",
+            Slug = "notes-from-a-week-without-a-bundler",
+            Author = "Dana Whitfield",
+            Body = "No package.json, no lockfile, no node_modules, and a page that loads in one round trip. The vendored libraries are two files and a version comment.",
+            Status = ArticleStatus.Published,
+            PublishedAt = new DateOnly(2026, 7, 29),
+            CategoryKey = null,
+            ViewCount = 264,
+            CreatedAt = new DateTime(2026, 7, 28, 10, 15, 0, DateTimeKind.Utc),
+        });
+
+        articles.Seed(new Article
+        {
+            Id = "a7",
+            Title = "What a source generator owes you",
+            Slug = "what-a-source-generator-owes-you",
+            Author = "Sy",
+            Body = string.Join(
+                "\n\n",
+                "Reflection is convenient at the cost of a startup you cannot see and a trim warning you cannot fix. A generator moves both into the build, where they are yours to read.",
+                "The first thing it owes you is legible output. Generated code that no one opens is a second compiler nobody asked for, and when it is wrong the error arrives in a file the author has never seen.",
+                "The second is a diagnostic instead of a cascade. A model the generator refuses should say why, once, at the declaration -- not produce eleven CS0103s about a class it declined to write.",
+                "The third is determinism. The same sources produce the same output, in the same order, or the build stops being a fact and becomes a mood.",
+                "The fourth is a way out. Every generated member should be reachable by hand-written code, and nothing should be reachable only by generated code.",
+                "None of that is free. The cost is that the generator is now a compiler you maintain, with its own tests, its own diagnostics and its own backwards-compatibility problem.",
+                "The trade is worth making where the alternative is reflection over types the trimmer is trying to remove. It is not worth making to save typing.",
+                "Which is the whole argument: a generator earns its place by removing a runtime cost, not by removing a keystroke."),
+            Status = ArticleStatus.Published,
+            PublishedAt = new DateOnly(2026, 8, 6),
+            CategoryKey = "guides",
+            ViewCount = 1183,
+            CreatedAt = new DateTime(2026, 8, 5, 13, 0, 0, DateTimeKind.Utc),
+        });
+
+        articles.Seed(new Article
+        {
+            Id = "a8",
+            Title = "A note written last week and published today",
+            Slug = "a-note-written-last-week-and-published-today",
+            Author = "Sy",
+            Body = "Backdated on purpose. The public order is the publication date, and this row sits where that date puts it rather than where its creation time would.",
+            Status = ArticleStatus.Published,
+            PublishedAt = new DateOnly(2026, 8, 24),
+            CategoryKey = "notes",
+            ViewCount = 41,
+            CreatedAt = new DateTime(2026, 9, 2, 7, 10, 0, DateTimeKind.Utc),
         });
 
     }

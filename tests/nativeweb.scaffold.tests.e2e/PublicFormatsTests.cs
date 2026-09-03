@@ -43,7 +43,7 @@ public sealed class PublicFormatsTests(InMemorySampleFixture app, BrowserFixture
         using var document = JsonDocument.Parse(await response.TextAsync());
         string[] ids = document.RootElement.EnumerateArray().Select(e => e.GetProperty("id").GetString()!).ToArray();
 
-        Assert.Equal(["a2", "a1"], ids);
+        Assert.Equal(["a8", "a7", "a6", "a5", "a2", "a1"], ids);
     }
 
     [Fact]

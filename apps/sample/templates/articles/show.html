@@ -5,11 +5,11 @@
 -->
 <article class="article">
 <h1 class="page__title">{{Article.Title}}</h1>
-<p class="article__meta">
+<div class="article__meta">
 {{if Article.Author != null}}<span class="articles__author">{{Article.Author}}</span>{{/if}}
-<time class="articles__date" datetime="{{Article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}">{{Article.CreatedAt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}</time>
-</p>
+<time class="articles__date" datetime="{{Article.PublishedOn().ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}}">{{Article.PublishedOn().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}}</time>
 {{> shared/tags Tags=Article.Tags}}
+</div>
 <div class="article__body">
 {{for paragraph in Paragraphs}}
 <p>{{paragraph}}</p>
