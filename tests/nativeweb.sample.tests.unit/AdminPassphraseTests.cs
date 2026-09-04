@@ -68,6 +68,7 @@ public sealed class AdminPassphraseTests
             ConfigurationSection = "Sample",
             TelemetryServiceName = "sample",
             DataProtectionKeyDirectory = "unused",
+            UploadDirectory = "unused",
         };
 
         Assert.True(AdminSignIn.PermitLimit < general.GeneralPermitLimit);

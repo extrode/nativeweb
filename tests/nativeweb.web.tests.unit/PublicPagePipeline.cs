@@ -95,6 +95,7 @@ internal sealed class PublicPagePipeline : IAsyncDisposable
             // Under bin/, because a key ring in the user profile would make one
             // test run visible to the next.
             DataProtectionKeyDirectory = Path.Combine(AppContext.BaseDirectory, "dp-keys"),
+            UploadDirectory = Path.Combine(AppContext.BaseDirectory, "uploads"),
             // A limiter no test can reach unless a test asks for one it can. The
             // limiter is in the pipeline regardless, because its position
             // relative to the cache is itself an invariant (spec 006 R8).

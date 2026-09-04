@@ -48,6 +48,7 @@ public sealed class NegotiatedCacheTests : IAsyncLifetime
             ConfigurationSection = "Demo",
             TelemetryServiceName = "Demo",
             DataProtectionKeyDirectory = Path.Combine(AppContext.BaseDirectory, "dp-keys"),
+            UploadDirectory = Path.Combine(AppContext.BaseDirectory, "uploads"),
             GeneralPermitLimit = 1_000_000,
         });
 

@@ -7,7 +7,10 @@
   "nav": {
     "articles": "Articles",
     "tags": "Tags",
-    "admin": "Admin"
+    "admin": "Admin",
+    "contact": "Contact",
+    "upload": "Upload",
+    "survey": "Survey"
   },
   "home": {
     "title": "Latest",
@@ -48,5 +51,52 @@
     "lede": "This is the NativeWeb reference application: Minimal APIs, compiled templates, HTMX for the parts that move, and a single self-contained AOT executable. Everything below is rendered on the server.",
     "browse": "Read the articles",
     "tags": "Browse by tag"
+  },
+  "contact": {
+    "title": "Contact",
+    "lede": "A plain form that sends one email through the framework mail seam. Bot traps and an antiforgery token guard it; neither is written here by hand.",
+    "name": "Your name",
+    "email": "Your email address",
+    "message": "Message",
+    "submit": "Send",
+    "sent": "Thank you. Your message was sent. We will reply to",
+    "unsent": "Your message could not be sent just now. Nothing was lost -- please try again later.",
+    "incomplete": "Every field is required, and the email address has to look like one."
+  },
+  "upload": {
+    "title": "Upload a picture",
+    "lede": "One file, bound by the same declarative binder as a text field. The size ceiling and the accepted types are declared beside the field, not checked by hand in the handler.",
+    "caption": "Caption",
+    "picture": "Picture",
+    "submit": "Upload",
+    "limits": "Up to 1 MB, as PNG, JPEG, GIF or WebP.",
+    "stored": "Stored as",
+    "original": "You called it",
+    "failed": "That picture could not be stored. Nothing was written.",
+    "full": "This sample holds a limited number of pictures and is full. Nothing was written."
+  },
+  "survey": {
+    "title": "A two-step survey",
+    "lede": "The first step’s answer is carried into the second in one signed hidden field. Nothing is kept on the server between the two.",
+    "role": "What do you build?",
+    "next": "Next",
+    "comment": "Anything else?",
+    "submit": "Finish",
+    "step2": {
+      "title": "A two-step survey: step two",
+      "lede": "Step one’s answer came back with this page and goes out with your next submit.",
+      "answered": "You answered:",
+      "hint": "Submitting this twice records two responses. It is not idempotent and does not pretend to be."
+    },
+    "done": {
+      "title": "Thank you",
+      "lede": "Both steps arrived together, which is the whole of what the carried field buys.",
+      "count": "Responses recorded since this process started:",
+      "again": "Start again"
+    },
+    "absent": "That form arrived without its first step. Please start again.",
+    "altered": "That form could not be read back. Please start again.",
+    "expired": "That form sat too long and its carried answer has expired. Please start again.",
+    "incomplete": "Both steps need an answer."
   }
 }

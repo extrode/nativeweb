@@ -8,7 +8,11 @@ namespace NativeWeb.Mail;
 /// <summary>
 /// Sends a single email over SMTP using MailKit, opening a fresh connection per send.
 /// </summary>
-public sealed class SmtpTransport
+/// <remarks>
+/// The framework's one <see cref="IEmailTransport"/>. A host that has no mail server
+/// substitutes that interface rather than subclassing this.
+/// </remarks>
+public sealed class SmtpTransport : IEmailTransport
 {
     private readonly SmtpOptions _options;
 

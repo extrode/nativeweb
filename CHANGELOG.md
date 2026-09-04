@@ -13,6 +13,21 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Added
 
+- **Spec 027: forms take files and carry state between steps.** `libs/nativeweb.forms` gains a
+  file field -- declare an `UploadedFile` member, decorate it `[FormFile(MaxBytes = ..., Accept =
+  [...])]`, and the generated binder refuses a urlencoded post with 415, installs the declared
+  ceiling on the request before the read so an oversize body is aborted mid-stream with 413,
+  measures the bound part against it, and answers 415 for a content type outside the set. A
+  declaration the binder cannot honour is the new NWF006 build error. `CarriedAnswers` carries a
+  half-finished form from one request to the next in one signed, expiring hidden field over Data
+  Protection, distinguishing an altered value from an expired one; `AddNativeWebForms()` registers
+  it. `libs/nativeweb.mail` gains `IEmailTransport`, the seam `SmtpTransport` already satisfied, so
+  a host can send mail without a mail server. `Uploads:Directory` joins the `NativeWebOptions` keys,
+  defaulting beside the data-protection key ring, created when absent and refused when unwritable.
+  `apps/sample` gains three public forms proving all of it -- contact, upload and a two-step survey
+  -- with new `forms` integration and e2e tiers behind them. Before this, a file field was
+  impossible: every bound member had to be `string?`.
+
 - **Spec 026: groups and subjects can be removed.** `IPermissionStore` gains `DeleteGroupAsync`
   and `ForgetSubjectAsync`, and the access admin gains a confirmed, antiforgery-checked control
   for each on the matching detail page, naming the memberships and grants it is about to remove.
@@ -30,6 +45,39 @@ sections that apply; drop the empty ones rather than leaving them blank.
   `MapInboundClaims` off answered 403 from every gated route with nothing recorded to say why.
 
 ### Fixed
+
+- **A declared `[FormFile(MaxBytes = ...)]` ceiling is reachable.** It was not: the framework's own
+  128 KiB `MaxRequestBodyBytes` refused the request long before the binder could raise the limit,
+  and by the time the binder runs the feature is read-only. Measured 2026-09-04 -- a 300 KB upload
+  to a field declaring 1 MiB was refused, so the declaration meant nothing in the configuration a
+  deployment runs. A form model now publishes `MaxBodyBytes` and `MapForm` attaches it as routing's
+  `IRequestSizeLimitMetadata`, applied right after the endpoint is matched. The ceiling is also the
+  sum of a model's file fields rather than the largest of them, so a post within every field's own
+  limit is no longer answered 413.
+
+- A `[FormField]` name carrying a quote no longer emits source that does not compile.
+  `SymbolDisplay.FormatLiteral(value, quote: false)` escapes the backslash and the newline and
+  leaves the quote alone. An abstract form model is now the NWF005 build error rather than CS0144
+  inside generated source.
+
+- **The sample's contact form is no longer an open relay.** It mailed the address on the form, so an
+  unauthenticated stranger chose both the recipient and the text of mail sent from the application's
+  own domain. The destination is `Sample:Contact:ToAddress` and the sender's address rides in the
+  body.
+
+- Six defects in the sample's upload and survey forms: a media type carrying a parameter missed the
+  extension table and answered 500 on a valid upload; a copy that failed left the file
+  `FileMode.CreateNew` had already made; a configured upload directory written with a trailing
+  separator 404'd everything it stored; uploads grew without bound; an unwritable directory was a
+  500 rather than the upload-failed page; and a blank second survey answer discarded a carried value
+  the server had just verified, while an absent one accused the visitor of altering it.
+
+- A form endpoint whose antiforgery token arrives as a hidden field no longer answers 500. The
+  antiforgery middleware reads the form to find the token, so the endpoint's own form limits were
+  being installed over a stream that had already been consumed; they are now installed only when
+  nothing has read the form, and the declared ceiling is enforced on the bound part either way.
+  Found by the sample's own contact and upload forms, which is the first thing in this repo to post
+  a token the way a browser does.
 
 - `[Permissions]` extras that emit the same C# identifier are now the NWP007 error rather than
   CS0102 inside generated source: `all` against the emitted `All` list, `view_` against the core

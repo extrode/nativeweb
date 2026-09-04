@@ -1,0 +1,19 @@
+<!--#template
+  @layout layout/page
+  @param string AntiforgeryFieldName
+  @param string BotCanary
+  @param string Error
+  @param string Role
+-->
+<h1 class="page__title">{{t:survey.title}}</h1>
+<p class="page__lede">{{t:survey.lede}}</p>
+{{if Error.Length != 0}}<p class="notice notice--error">{{Error}}</p>{{/if}}
+<form class="form" method="post" action="/survey/step-2">
+{{> shared/antiforgery FieldName=AntiforgeryFieldName Token=AntiforgeryToken}}
+{{> shared/bot-traps Canary=BotCanary}}
+<div class="field">
+<label class="field__label" for="role">{{t:survey.role}}</label>
+<input class="input" id="role" name="role" type="text" value="{{Role}}" required>
+</div>
+<button class="btn btn--primary" type="submit">{{t:survey.next}}</button>
+</form>

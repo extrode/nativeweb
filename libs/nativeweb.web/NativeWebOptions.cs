@@ -101,6 +101,22 @@ public sealed record NativeWebOptions
     public required string DataProtectionKeyDirectory { get; init; }
 
     /// <summary>
+    /// Where an uploaded file is stored. Defaults to an <c>uploads</c> directory
+    /// beside the data-protection key ring, so a host that configures neither gets
+    /// both under the same product directory and a host that configures the key
+    /// ring gets uploads next to it without saying so twice.
+    /// </summary>
+    /// <remarks>
+    /// Resolving the path is all the binder does. Creating it, and refusing to start
+    /// when it cannot be written, is
+    /// <see cref="TryPrepareUploadDirectory(string, out string?)"/>, which a host
+    /// serving uploads calls once at startup -- for the reason
+    /// <see cref="TryResolveKeyDirectory"/> gives for never probing a configured
+    /// directory: binding configuration must not create directories as a side effect.
+    /// </remarks>
+    public required string UploadDirectory { get; init; }
+
+    /// <summary>
     /// How fast a form submission may arrive before the bot trap treats it as
     /// machine-driven, or null for the default. The test tiers set 0: their
     /// submits are machine-fast by construction.
@@ -237,6 +253,62 @@ public sealed record NativeWebOptions
         {
             return false;
         }
+    }
+
+    // Beside the key ring rather than inside it: the key ring's own files are the
+    // only things that belong in that directory, and a host pointing
+    // DataProtection:KeyDirectory at a mount it backs up would otherwise back up
+    // every upload with it.
+    internal static string ResolveUploadDirectory(string? configured, string keyDirectory)
+    {
+        if (configured is { Length: > 0 })
+        {
+            return configured;
+        }
+
+        string? parent = Path.GetDirectoryName(keyDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+        return parent is { Length: > 0 }
+            ? Path.Combine(parent, "uploads")
+            : Path.Combine(keyDirectory, "uploads");
+    }
+
+    /// <summary>
+    /// Creates the upload directory when it is absent and proves it can be written.
+    /// </summary>
+    /// <remarks>
+    /// Called once at startup by a host that serves uploads, so an unwritable
+    /// directory is a refusal to start rather than a 500 on the first upload of the
+    /// release. Absent is created because an upload directory holds nothing that
+    /// outlives a deploy the way a key ring does, so there is no state to lose by
+    /// making it; unwritable is fatal because nothing later can recover from it.
+    /// </remarks>
+    /// <param name="directory">The directory, from <see cref="UploadDirectory"/>.</param>
+    /// <param name="error">What is wrong, when this returns false.</param>
+    /// <returns>Whether the directory exists and can be written.</returns>
+    public static bool TryPrepareUploadDirectory(string directory, [NotNullWhen(false)] out string? error)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+
+        try
+        {
+            Directory.CreateDirectory(directory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+        {
+            error = $"Uploads:Directory '{directory}' could not be created: {ex.Message}";
+            return false;
+        }
+
+        if (!CanPersistKeys(directory))
+        {
+            error = $"Uploads:Directory '{directory}' exists but this process cannot write to it. "
+                + "Every upload would fail after the deploy that made it read-only, with nothing reporting it.";
+            return false;
+        }
+
+        error = null;
+        return true;
     }
 
     public static bool TryFromConfiguration(
@@ -406,6 +478,7 @@ public sealed record NativeWebOptions
             // Length check, not ??: appsettings documents the key with an empty
             // value, and DirectoryInfo("") throws at startup.
             DataProtectionKeyDirectory = keyDirectory,
+            UploadDirectory = ResolveUploadDirectory(configuration[Key("Uploads:Directory")], keyDirectory),
             BotTrapMinAge = botTrapMinAge,
             GeneralPermitLimit = PermitLimit(configuration, Key("RateLimit:General:PermitLimit"), 120),
             CspReportPermitLimit = PermitLimit(configuration, Key("RateLimit:CspReport:PermitLimit"), 10),

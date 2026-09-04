@@ -28,6 +28,7 @@ public sealed class ForwardedHeadersTests
         ConfigurationSection = "Demo",
         TelemetryServiceName = "Demo",
         DataProtectionKeyDirectory = Path.Combine(AppContext.BaseDirectory, "dp-keys"),
+        UploadDirectory = Path.Combine(AppContext.BaseDirectory, "uploads"),
         KnownProxies = [IPAddress.Loopback, IPAddress.Parse(Edge)],
         ForwardLimit = forwardLimit,
     };

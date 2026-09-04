@@ -21,6 +21,14 @@ namespace NativeWeb.Forms.Generator;
 //    nothing to infer.
 internal static class FormEmitter
 {
+    // Added to the sum of the file fields' MaxBytes to get the body ceiling. It covers
+    // the multipart boundaries and per-part headers, the antiforgery token, the bot-trap
+    // fields, and every text field on the model -- none of which a per-file limit counts
+    // and all of which arrive in the same body. Generous rather than computed: the number
+    // that matters is the per-field one, checked exactly by FormBinding.File, and this is
+    // only there to stop the envelope refusing a request whose files are each in range.
+    private const long MultipartEnvelopeBytes = 64 * 1024;
+
     public static string Emit(FormModel model)
     {
         var sb = new StringBuilder(2048);
@@ -41,6 +49,35 @@ internal static class FormEmitter
         sb.AppendLine("partial " + model.TypeKeyword + " " + typeName
             + " : global::NativeWeb.Forms.IFormModel<" + typeName + ">");
         sb.AppendLine("{");
+        bool hasFile = false;
+        long maxBytes = 0;
+
+        foreach (FormFieldModel candidate in model.Fields)
+        {
+            if (candidate.Kind != FormFieldKind.Text)
+            {
+                hasFile = true;
+
+                // The SUM, not the largest. One body carries every part at once, so a
+                // model with two 1 MB file fields has to accept 2 MB or a post that is
+                // within every declared field ceiling is answered 413.
+                maxBytes += candidate.MaxBytes;
+            }
+        }
+
+        // Headroom for what the file parts do not account for: the multipart boundaries
+        // and per-part headers, and every text field on the same model. A body ceiling
+        // set to the sum of the file limits alone would refuse a request whose files are
+        // each within their limit, since the envelope is not free.
+        if (hasFile)
+        {
+            maxBytes += MultipartEnvelopeBytes;
+        }
+
+        sb.AppendLine("    /// <summary>The largest request body this form accepts. Read by MapForm.</summary>");
+        sb.AppendLine("    public static long MaxBodyBytes => "
+            + maxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L;");
+        sb.AppendLine();
         sb.AppendLine("    /// <summary>Binds this form from the request. Called by MapFormPost, not by hand.</summary>");
         sb.AppendLine("    public static async global::System.Threading.Tasks.ValueTask<" + typeName + "> BindFormAsync(");
         sb.AppendLine("        global::Microsoft.AspNetCore.Http.HttpContext context)");
@@ -48,9 +85,33 @@ internal static class FormEmitter
         sb.AppendLine("        // FIRST, and it has to be: argument binding runs upstream of the whole");
         sb.AppendLine("        // endpoint-filter pipeline, so a filter cannot protect this read.");
         sb.AppendLine("        global::NativeWeb.Forms.FormBinding.RequireFormContentType(context);");
+
+        if (hasFile)
+        {
+            sb.AppendLine();
+            sb.AppendLine("        // A urlencoded body cannot carry a file, so binding one would report every");
+            sb.AppendLine("        // file member missing and blame the client for a field they could not send.");
+            sb.AppendLine("        global::NativeWeb.Forms.FormBinding.RequireMultipart(context);");
+            sb.AppendLine();
+            sb.AppendLine("        // Before the read, so the read enforces it: an oversize body is aborted");
+            sb.AppendLine("        // partway through rather than buffered whole and then measured. The same");
+            sb.AppendLine("        // ceiling MapForm published to routing, which is what raised the host-wide");
+            sb.AppendLine("        // limit far enough upstream for this body to have arrived at all.");
+            sb.AppendLine("        global::NativeWeb.Forms.FormBinding.LimitBody(context, MaxBodyBytes);");
+        }
+
         sb.AppendLine();
         sb.AppendLine("        global::Microsoft.AspNetCore.Http.IFormCollection form =");
-        sb.AppendLine("            await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);");
+
+        if (hasFile)
+        {
+            sb.AppendLine("            await global::NativeWeb.Forms.FormBinding.ReadLimitedFormAsync(context).ConfigureAwait(false);");
+        }
+        else
+        {
+            sb.AppendLine("            await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);");
+        }
+
         sb.AppendLine();
 
         if (model.Fields.Count == 0)
@@ -66,8 +127,7 @@ internal static class FormEmitter
             {
                 FormFieldModel field = model.Fields[i];
                 sb.AppendLine("            "
-                    + Identifier(field.ParameterName) + ": global::NativeWeb.Forms.FormBinding.Field(form, \""
-                    + Escape(field.WireName) + "\")"
+                    + Identifier(field.ParameterName) + ": " + Read(field)
                     + (i < model.Fields.Count - 1 ? "," : ");"));
             }
         }
@@ -87,11 +147,52 @@ internal static class FormEmitter
     // A [FormField] name is an arbitrary string constant, so escaping only the
     // backslash and the quote is not enough: a name carrying a newline or any other
     // control character would be emitted verbatim into a "..." literal and the
-    // generated file would not compile -- which is the R8 failure the model
-    // validation exists to prevent, arriving through the emitter instead.
-    // Roslyn already knows how; FormatLiteral is the compiler's own routine.
-    private static string Escape(string value) =>
-        Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(value, quote: false);
+    // generated file would not compile. Roslyn already knows how; FormatLiteral is
+    // the compiler's own routine.
+    //
+    // It returns the SURROUNDING QUOTES TOO, and that is why, not a convenience.
+    // Measured 2026-09-04: quote:false escapes the backslash and the newline but
+    // leaves the quote character alone, so [FormField("a\"b")] emitted
+    // Field(form, "a"b") and the generated file did not compile -- the exact failure
+    // this helper exists to prevent. quote:true is the overload that escapes it, and
+    // it cannot be asked for the escaping without the delimiters.
+    private static string Literal(string value) =>
+        Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(value, quote: true);
+
+    // Which helper fills this member. A text field is the pre-027 call; a file field
+    // carries its declared Accept set to the binder, which is where the 415 for a
+    // refused content type is raised.
+    private static string Read(FormFieldModel field)
+    {
+        string form = "form, " + Literal(field.WireName) + ", " + Accept(field.Accept)
+            + ", " + field.MaxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L";
+
+        return field.Kind switch
+        {
+            FormFieldKind.RequiredFile => "global::NativeWeb.Forms.FormBinding.RequiredFile(" + form + ")",
+            FormFieldKind.OptionalFile => "global::NativeWeb.Forms.FormBinding.File(" + form + ")",
+            _ => "global::NativeWeb.Forms.FormBinding.Field(form, " + Literal(field.WireName) + ")",
+        };
+    }
+
+    // null rather than an empty array, so the binder's "accepts anything" branch is
+    // taken by reference check rather than by allocating an array to find it empty.
+    private static string Accept(System.Collections.Immutable.ImmutableArray<string> accept)
+    {
+        if (accept.IsDefaultOrEmpty)
+        {
+            return "null";
+        }
+
+        var sb = new StringBuilder("new string[] { ");
+        for (int i = 0; i < accept.Length; i++)
+        {
+            sb.Append(Literal(accept[i]));
+            sb.Append(i < accept.Length - 1 ? ", " : " }");
+        }
+
+        return sb.ToString();
+    }
 
     // A symbol's Name drops the verbatim prefix, so a type or parameter written
     // `@class` or `@event` comes back as a bare keyword and emits code that does not

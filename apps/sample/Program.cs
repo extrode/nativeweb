@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 using Npgsql;
 
+using NativeWeb.Forms;
+using NativeWeb.Mail;
 using NativeWeb.Permissions;
 using NativeWeb.Scaffold;
 using NativeWeb.Scaffold.Generated;
@@ -50,6 +52,55 @@ public sealed class Program
 
         // Antiforgery and authorization, which every scaffolded route needs.
         builder.Services.AddScaffolding();
+
+        // Spec 027. CarriedAnswers rides the key ring AddNativeWebWeb already
+        // registered, so this comes after it and refuses to register if it did not.
+        // The upload directory is prepared here rather than at first upload: an
+        // unwritable one is a refusal to start, not a 500 for the release's first
+        // visitor.
+        builder.Services.AddNativeWebForms();
+
+        if (!NativeWebOptions.TryPrepareUploadDirectory(options.UploadDirectory, out string? uploadError))
+        {
+            StartupConfigGuards.FailStartup(uploadError);
+        }
+
+        builder.Services.AddSingleton(new UploadStore(options.UploadDirectory));
+        builder.Services.AddSingleton<SurveyResponses>();
+
+        // The mail seam. SmtpOptions.IsEnabled is Host being set, so an app with no
+        // SMTP configuration -- every local run, and nw-dev -- gets a transport that
+        // refuses. The contact form catches that and says the message could not be
+        // sent (R9); registering nothing at all would be a 500 instead.
+        // Read key by key rather than by Configuration.Bind, which is reflection-based
+        // and carries RequiresUnreferencedCode -- a build error in this app, not a
+        // warning. NativeWebOptions binds its own eleven keys the same way.
+        SmtpOptions smtp = new()
+        {
+            Host = builder.Configuration["Sample:Smtp:Host"],
+            Username = builder.Configuration["Sample:Smtp:Username"],
+            Secret = builder.Configuration["Sample:Smtp:Secret"],
+            FromAddress = builder.Configuration["Sample:Smtp:FromAddress"],
+            FromName = builder.Configuration["Sample:Smtp:FromName"],
+        };
+
+        if (int.TryParse(builder.Configuration["Sample:Smtp:Port"], out int smtpPort) && smtpPort > 0)
+        {
+            smtp.Port = smtpPort;
+        }
+        builder.Services.AddSingleton<IEmailTransport>(
+            smtp.IsEnabled ? new SmtpTransport(smtp) : new UnconfiguredEmailTransport());
+
+        // Where a contact submission goes, and it is NOT the address the visitor typed.
+        // Mailing the sender their own message turns a public unauthenticated form into
+        // a relay that sends attacker-authored text to an attacker-chosen recipient
+        // from this application's own domain and reputation. The visitor's address is
+        // carried in the body, where a person replying can read it, and never in an
+        // envelope this application builds.
+        builder.Services.AddSingleton(new ContactDestination(
+            builder.Configuration["Sample:Contact:ToAddress"]
+            ?? smtp.FromAddress
+            ?? "contact@localhost"));
 
         // Spec 024. The catalog is what this build's generator emitted from every
         // [Permissions] model, passed in rather than discovered: a static registry
@@ -240,6 +291,9 @@ public sealed class Program
         // The site itself (spec 022): home, one page per article, the tags. Until
         // then / redirected to /admin, which made the editor the front door.
         app.MapPublicSite();
+
+        // The three public forms (spec 027): contact, upload and a two-step survey.
+        app.MapPublicForms();
 
         // /healthz, /version, /readyz, /csp-report and /.well-known/security.txt.
         // /healthz used to be a MapGet on this line; it is the framework's now, and

@@ -1,0 +1,14 @@
+<!--#template
+  @layout layout/page
+  @param string Role
+  @param string Comment
+  @param int Responses
+-->
+<h1 class="page__title">{{t:survey.done.title}}</h1>
+<p class="page__lede">{{t:survey.done.lede}}</p>
+<dl class="survey__answers">
+<dt>{{t:survey.role}}</dt><dd>{{Role}}</dd>
+<dt>{{t:survey.comment}}</dt><dd>{{Comment}}</dd>
+</dl>
+<p class="survey__count">{{t:survey.done.count}} {{Responses}}</p>
+<p><a class="btn" href="/survey">{{t:survey.done.again}}</a></p>

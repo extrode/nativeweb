@@ -353,4 +353,120 @@ public sealed class NativeWebOptionsTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public void NoConfiguredUploadDirectory_SitsBesideTheKeyRing()
+    {
+        // Built with Path.Combine rather than written as a literal: GetDirectoryName
+        // normalises separators, so a slash-written path comes back backslashed on
+        // Windows and the fact would be about separators instead of about siblings.
+        string product = Path.Combine("var", "lib", "nativeweb");
+
+        NativeWebOptions options = Bind(
+            ("Demo:DataProtection:KeyDirectory", Path.Combine(product, "keys")));
+
+        Assert.Equal(Path.Combine(product, "uploads"), options.UploadDirectory);
+    }
+
+    [Fact]
+    public void AConfiguredUploadDirectory_IsUsedVerbatim()
+    {
+        NativeWebOptions options = Bind(
+            ("Demo:DataProtection:KeyDirectory", "/var/lib/nativeweb/keys"),
+            ("Demo:Uploads:Directory", "/srv/uploads"));
+
+        Assert.Equal("/srv/uploads", options.UploadDirectory);
+    }
+
+    // A trailing separator is what an operator writing a directory in a unit file
+    // produces about half the time. Without trimming it the sibling resolves to the
+    // key directory itself, and uploads land among the key ring's files.
+    [Fact]
+    public void AKeyDirectoryWithATrailingSeparator_StillYieldsASibling()
+    {
+        string product = Path.Combine("var", "lib", "nativeweb");
+
+        string resolved = NativeWebOptions.ResolveUploadDirectory(
+            null, Path.Combine(product, "keys") + Path.DirectorySeparatorChar);
+
+        Assert.Equal(Path.Combine(product, "uploads"), resolved);
+    }
+
+    // A key directory with no parent to be beside. The fallback goes underneath it
+    // rather than returning a bare relative "uploads", which would resolve under
+    // WorkingDirectory -- read-only under ProtectSystem=strict, the same trap the
+    // empty-home case above exists for.
+    [Fact]
+    public void AKeyDirectoryWithNoParent_PutsUploadsUnderneathIt()
+    {
+        string resolved = NativeWebOptions.ResolveUploadDirectory(null, "keys");
+
+        Assert.Equal(Path.Combine("keys", "uploads"), resolved);
+    }
+
+    [Fact]
+    public void AnAbsentUploadDirectory_IsCreated()
+    {
+        string root = Directory.CreateTempSubdirectory("nativeweb-uploads").FullName;
+        string uploads = Path.Combine(root, "uploads");
+
+        try
+        {
+            Assert.True(NativeWebOptions.TryPrepareUploadDirectory(uploads, out string? error));
+            Assert.Null(error);
+            Assert.True(Directory.Exists(uploads));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AnExistingWritableUploadDirectory_IsAcceptedAndLeftEmpty()
+    {
+        string uploads = Directory.CreateTempSubdirectory("nativeweb-uploads").FullName;
+
+        try
+        {
+            Assert.True(NativeWebOptions.TryPrepareUploadDirectory(uploads, out _));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(uploads));
+        }
+        finally
+        {
+            Directory.Delete(uploads, recursive: true);
+        }
+    }
+
+    // A directory under a regular file, which is the one unwritable case that
+    // behaves the same on every platform this builds for. The permission-denied
+    // case takes the same branch and cannot be produced portably: chmod is a no-op
+    // for the tests running as Administrator on Windows.
+    [Fact]
+    public void AnUploadDirectoryThatCannotBeCreated_IsRefusedAndSaysWhere()
+    {
+        string root = Directory.CreateTempSubdirectory("nativeweb-uploads").FullName;
+        string blocker = Path.Combine(root, "in-the-way");
+        File.WriteAllBytes(blocker, []);
+        string uploads = Path.Combine(blocker, "uploads");
+
+        try
+        {
+            Assert.False(NativeWebOptions.TryPrepareUploadDirectory(uploads, out string? error));
+            Assert.Contains(uploads, error, StringComparison.Ordinal);
+            Assert.Contains("Uploads:Directory", error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void AnEmptyUploadDirectory_IsRefusedRatherThanResolvedRelative(string directory)
+    {
+        Assert.Throws<ArgumentException>(() => NativeWebOptions.TryPrepareUploadDirectory(directory, out _));
+    }
 }

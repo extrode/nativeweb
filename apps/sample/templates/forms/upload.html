@@ -1,0 +1,33 @@
+<!--#template
+  @layout layout/page
+  @param string AntiforgeryFieldName
+  @param string BotCanary
+  @param string Error
+  @param string StoredId
+  @param string StoredName
+  @param string Caption
+-->
+<h1 class="page__title">{{t:upload.title}}</h1>
+<p class="page__lede">{{t:upload.lede}}</p>
+{{if Error.Length != 0}}<p class="notice notice--error">{{Error}}</p>{{/if}}
+{{if StoredId.Length != 0}}
+<div class="notice">
+<p>{{t:upload.stored}} <a href="/uploads/{{StoredId}}">{{StoredId}}</a></p>
+<p class="upload__original">{{t:upload.original}} {{StoredName}}</p>
+{{if Caption.Length != 0}}<p class="upload__caption">{{Caption}}</p>{{/if}}
+</div>
+{{/if}}
+<form class="form" method="post" action="/upload" enctype="multipart/form-data">
+{{> shared/antiforgery FieldName=AntiforgeryFieldName Token=AntiforgeryToken}}
+{{> shared/bot-traps Canary=BotCanary}}
+<div class="field">
+<label class="field__label" for="caption">{{t:upload.caption}}</label>
+<input class="input" id="caption" name="caption" type="text" value="{{Caption}}">
+</div>
+<div class="field">
+<label class="field__label" for="picture">{{t:upload.picture}}</label>
+<input class="input" id="picture" name="picture" type="file" accept="image/png,image/jpeg,image/gif,image/webp" required>
+</div>
+<p class="field__hint">{{t:upload.limits}}</p>
+<button class="btn btn--primary" type="submit">{{t:upload.submit}}</button>
+</form>
