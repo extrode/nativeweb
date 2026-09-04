@@ -55,8 +55,15 @@ public enum CarriedAnswersFailure
 /// </remarks>
 public sealed class CarriedAnswers
 {
-    // Any string would do; this one is namespaced so a value made for one purpose in
-    // a host cannot be replayed into another.
+    // The data-protection purpose, which isolates every CarriedAnswers value from
+    // every other consumer of the host's key ring -- antiforgery's tokens, the
+    // scaffold's protected columns -- so none of them can be presented here.
+    //
+    // It does NOT separate one flow from another: two forms in the same host share
+    // this purpose, so a value protected by one unprotects in the other. Nothing here
+    // can fix that, because nothing here knows which flow is asking. The answer is the
+    // KEYS: a caller reads back the key it wrote, and a value from another flow simply
+    // does not carry it. apps/sample does exactly that with its SurveyPurpose key.
     private const string Purpose = "NativeWeb.Forms.CarriedAnswers.v1";
 
     private readonly IDataProtector _protector;

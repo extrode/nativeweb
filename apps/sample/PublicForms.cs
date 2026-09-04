@@ -124,15 +124,22 @@ internal static partial class PublicForms
                 message: form.Message ?? "");
         }
 
+        string destination = http.RequestServices.GetRequiredService<ContactDestination>().Address;
+
         try
         {
+            // The sender's address is in the BODY, not the envelope. It is the one
+            // piece of this submission an attacker chooses freely, and a public form
+            // that puts it in the "to" field is an open relay wearing this domain's
+            // reputation. Where it is, a person reading the message can still reply.
             await http.RequestServices.GetRequiredService<IEmailTransport>()
                 .SendAsync(
-                    form.Email!,
+                    destination,
                     new EmailContent(
                         $"Contact from {form.Name}",
-                        form.Message!,
-                        $"<p>{System.Net.WebUtility.HtmlEncode(form.Message)}</p>"),
+                        $"From: {form.Email}\n\n{form.Message}",
+                        $"<p>From: {System.Net.WebUtility.HtmlEncode(form.Email)}</p>"
+                            + $"<p>{System.Net.WebUtility.HtmlEncode(form.Message)}</p>"),
                     http.RequestAborted)
                 .ConfigureAwait(false);
         }
@@ -172,20 +179,37 @@ internal static partial class PublicForms
         }
 
         UploadStore store = http.RequestServices.GetRequiredService<UploadStore>();
-        string stored;
+        string? stored;
 
         try
         {
             stored = await store.StoreAsync(form.Picture, http.RequestAborted).ConfigureAwait(false);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            // Both, because they are the same event to a visitor and only one of them
+            // is an IOException: a directory that became read-only between startup's
+            // probe and this write raises UnauthorizedAccessException, which used to
+            // escape as a 500 for what is an operator's problem, not the client's.
             LogStoreFailed(logger, ex);
 
             return Upload(
                 http,
                 Antiforgery(http),
                 error: Locales.Get(http.GetLocale())["upload.failed"],
+                storedId: "",
+                storedName: "",
+                caption: form.Caption ?? "");
+        }
+
+        if (stored is null)
+        {
+            LogStoreFull(logger, UploadStore.MaxStoredFiles);
+
+            return Upload(
+                http,
+                Antiforgery(http),
+                error: Locales.Get(http.GetLocale())["upload.full"],
                 storedId: "",
                 storedName: "",
                 caption: form.Caption ?? "");
@@ -231,21 +255,41 @@ internal static partial class PublicForms
             return Task.FromResult(SurveyStart(http, Antiforgery(http), error: locale["survey.incomplete"], role: ""));
         }
 
+        return Task.FromResult(StepTwo(http, locale, form.Role, error: ""));
+    }
+
+    // Step two, rendered with a freshly protected carried value. Freshly on both
+    // paths: the lifetime restarts from this render, so a visitor who is answering
+    // rather than idling never meets the expiry.
+    private static IResult StepTwo(HttpContext http, LocaleCatalog locale, string role, string error)
+    {
         CarriedAnswers carried = http.RequestServices.GetRequiredService<CarriedAnswers>();
         AntiforgeryTokenSet tokens = Antiforgery(http).GetAndStoreTokens(http);
 
-        return Task.FromResult(Templates.Forms.SurveyStepTwo.Result(
+        return Templates.Forms.SurveyStepTwo.Result(
             locale: locale,
             Title: locale["survey.step2.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
             AntiforgeryFieldName: tokens.FormFieldName,
             BotCanary: BotTraps.IssueCanary(http),
-            Error: "",
-            Role: form.Role,
+            Error: error,
+            Role: role,
             Carried: carried.Protect(
-                new Dictionary<string, string> { [SurveyPurpose] = form.Role }, CarriedLifetime),
-            Comment: ""));
+                new Dictionary<string, string> { [SurveyPurpose] = role }, CarriedLifetime),
+            Comment: "");
     }
+
+    // Three failures, three things to tell a person. Absent used to be folded into
+    // "altered", which told a visitor whose form carried no hidden field at all -- a
+    // bookmarked step-two URL, a bare re-post -- that their data had been tampered
+    // with.
+    private static string CarriedMessage(CarriedAnswersFailure failure) =>
+        failure switch
+        {
+            CarriedAnswersFailure.Expired => "survey.expired",
+            CarriedAnswersFailure.Absent => "survey.absent",
+            _ => "survey.altered",
+        };
 
     private static Task<IResult> SurveyFinishAsync(SurveyStepTwo form, HttpContext http)
     {
@@ -268,13 +312,21 @@ internal static partial class PublicForms
             return Task.FromResult(SurveyStart(
                 http,
                 Antiforgery(http),
-                error: locale[failure == CarriedAnswersFailure.Expired ? "survey.expired" : "survey.altered"],
+                error: locale[CarriedMessage(failure)],
                 role: ""));
         }
 
-        if (string.IsNullOrWhiteSpace(form.Comment) || !answers.TryGetValue(SurveyPurpose, out string? role))
+        if (!answers.TryGetValue(SurveyPurpose, out string? role))
         {
             return Task.FromResult(SurveyStart(http, Antiforgery(http), error: locale["survey.incomplete"], role: ""));
+        }
+
+        if (string.IsNullOrWhiteSpace(form.Comment))
+        {
+            // Step TWO again, not step one. The carried value was read back and is
+            // still good; throwing the visitor back to the start over a blank second
+            // answer would make them retype an answer the server just verified.
+            return Task.FromResult(StepTwo(http, locale, role, error: locale["survey.incomplete"]));
         }
 
         int responses = http.RequestServices.GetRequiredService<SurveyResponses>().Record();
@@ -289,9 +341,9 @@ internal static partial class PublicForms
     }
 
     // The address is named, because a confirmation that says only "sent" tells a
-    // person nothing they can check. It is the address they typed, which is also
-    // where this form sends: the sample mails the sender a copy of their own
-    // message, since a reference application has no inbox of its own to deliver to.
+    // person nothing they can check. It is the address they typed and the one a reply
+    // would go to -- NOT where the message went, which is configuration and is not the
+    // visitor's business to be told.
     private static IResult Sent(HttpContext http, string toAddress)
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
@@ -396,6 +448,12 @@ internal static partial class PublicForms
         Level = LogLevel.Warning,
         Message = "Upload could not be stored.")]
     private static partial void LogStoreFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(
+        EventId = 2703,
+        Level = LogLevel.Warning,
+        Message = "Upload refused: the store already holds its ceiling of {Ceiling} pictures.")]
+    private static partial void LogStoreFull(ILogger logger, int ceiling);
 }
 
 /// <summary>

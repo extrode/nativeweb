@@ -66,14 +66,20 @@ public sealed class PublicFormsTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains(
-            "was sent to ada@example.test",
+            "reply to ada@example.test",
             await response.Content.ReadAsStringAsync(),
             StringComparison.Ordinal);
 
         (string to, NativeWeb.Mail.EmailContent content) = Assert.Single(factory.Mail.Sent);
-        Assert.Equal("ada@example.test", to);
+        Assert.Equal(SampleFormsFactory.ContactDestination, to);
         Assert.Contains("Ada", content.Subject, StringComparison.Ordinal);
         Assert.Contains("Hello from the reference application.", content.TextBody, StringComparison.Ordinal);
+
+        // The address the visitor typed reaches the message, and only the message. In
+        // the envelope it would make this form a relay: an unauthenticated stranger
+        // choosing both the recipient and the text of mail sent from this domain.
+        Assert.Contains("ada@example.test", content.TextBody, StringComparison.Ordinal);
+        Assert.Contains("ada@example.test", content.HtmlBody, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -316,6 +322,55 @@ public sealed class PublicFormsTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("could not be read back", html, StringComparison.Ordinal);
         Assert.DoesNotContain("It went well.", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A blank second answer is a blank second answer. The carried value was read back
+    /// and is still good, so the visitor stays on step two rather than being sent back
+    /// to retype an answer the server had just verified.
+    /// </summary>
+    [Fact]
+    public async Task A_blank_second_answer_keeps_the_first_one()
+    {
+        using var factory = new SampleFormsFactory();
+        using HttpClient client = factory.CreateBrowser();
+
+        string second = await StepTwoAsync(client, "a compiler");
+
+        using HttpResponseMessage response = await Pages.PostAsync(
+            client, Pages.Carried(second), "/survey", ("comment", "   "));
+
+        string html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Both steps need an answer", html, StringComparison.Ordinal);
+        Assert.Contains("a compiler", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"carried\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("started:", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A step-two post carrying no hidden field at all -- a bookmarked URL, a bare
+    /// re-post -- used to be told its data had been altered, which is an accusation
+    /// rather than an instruction.
+    /// </summary>
+    [Fact]
+    public async Task A_step_two_post_with_no_carried_field_is_told_to_start_again_not_that_it_was_altered()
+    {
+        using var factory = new SampleFormsFactory();
+        using HttpClient client = factory.CreateBrowser();
+
+        string second = await StepTwoAsync(client, "a compiler");
+        Dictionary<string, string> carried = Pages.Carried(second);
+        carried["carried"] = "";
+
+        using HttpResponseMessage response = await Pages.PostAsync(
+            client, carried, "/survey", ("comment", "It went well."));
+
+        string html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("without its first step", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("could not be read back", html, StringComparison.Ordinal);
     }
 
     private static async Task<string> StepTwoAsync(HttpClient client, string role)

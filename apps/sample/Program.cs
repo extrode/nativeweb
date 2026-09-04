@@ -91,6 +91,17 @@ public sealed class Program
         builder.Services.AddSingleton<IEmailTransport>(
             smtp.IsEnabled ? new SmtpTransport(smtp) : new UnconfiguredEmailTransport());
 
+        // Where a contact submission goes, and it is NOT the address the visitor typed.
+        // Mailing the sender their own message turns a public unauthenticated form into
+        // a relay that sends attacker-authored text to an attacker-chosen recipient
+        // from this application's own domain and reputation. The visitor's address is
+        // carried in the body, where a person replying can read it, and never in an
+        // envelope this application builds.
+        builder.Services.AddSingleton(new ContactDestination(
+            builder.Configuration["Sample:Contact:ToAddress"]
+            ?? smtp.FromAddress
+            ?? "contact@localhost"));
+
         // Spec 024. The catalog is what this build's generator emitted from every
         // [Permissions] model, passed in rather than discovered: a static registry
         // would be shared by two hosts in one process. The store is registered below

@@ -43,12 +43,20 @@ internal sealed class SampleFormsFactory : WebApplicationFactory<NativeWeb.Sampl
         // have typed it, and every submission here is machine-fast by construction.
         builder.UseSetting("Sample:BotTraps:MinAgeSeconds", "0");
 
+        // Set rather than left to its default, so a fact can tell the configured
+        // destination apart from the address on the form. Those being the same string
+        // is the open relay this key exists to close.
+        builder.UseSetting("Sample:Contact:ToAddress", ContactDestination);
+
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IEmailTransport>();
             services.AddSingleton<IEmailTransport>(Mail);
         });
     }
+
+    /// <summary>Where this host's contact form delivers.</summary>
+    internal const string ContactDestination = "forms@sample.test";
 
     internal HttpClient CreateBrowser() =>
         CreateClient(new WebApplicationFactoryClientOptions

@@ -25,6 +25,19 @@ namespace NativeWeb.Sample;
 /// </remarks>
 internal sealed class UploadStore(string directory)
 {
+    /// <summary>
+    /// How many pictures this store will hold before it refuses new ones.
+    /// </summary>
+    /// <remarks>
+    /// A public form that writes a file per submission and never stops is a permanent
+    /// anonymous file host on this origin, and the disk it fills is the one the
+    /// application runs from. A reference sample has no retention policy to offer, so
+    /// it has a ceiling instead: refusing the 201st upload is a stated outcome, and
+    /// filling the volume is not. Nothing reaps -- what is stored stays until an
+    /// operator removes it, which is the same posture <c>scripts/cleanup</c> takes.
+    /// </remarks>
+    internal const int MaxStoredFiles = 200;
+
     // The declared accepted set, and the extension each type is stored under. The
     // binder refuses anything outside the keys before a byte is written, so a lookup
     // miss here is unreachable rather than a fallback -- and it throws rather than
@@ -47,25 +60,73 @@ internal sealed class UploadStore(string directory)
     /// <summary>Writes <paramref name="file"/> under a name this method chooses.</summary>
     /// <param name="file">The bound file.</param>
     /// <param name="cancellationToken">Cancellation token for the write.</param>
-    /// <returns>The stored name, which is what the serve route takes.</returns>
-    internal async Task<string> StoreAsync(UploadedFile file, CancellationToken cancellationToken)
+    /// <returns>The stored name, which is what the serve route takes, or
+    /// <see langword="null"/> when the store already holds
+    /// <see cref="MaxStoredFiles"/> pictures.</returns>
+    internal async Task<string?> StoreAsync(UploadedFile file, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(file);
 
-        if (!Extensions.TryGetValue(file.ContentType, out string? extension))
+        if (!Extensions.TryGetValue(MediaType(file.ContentType), out string? extension))
         {
             throw new InvalidOperationException(
                 $"The binder admitted content type '{file.ContentType}', which this store has no extension for.");
         }
 
-        string stored = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant() + extension;
+        if (Directory.EnumerateFiles(directory).Take(MaxStoredFiles).Count() >= MaxStoredFiles)
+        {
+            return null;
+        }
 
-        await using FileStream target = File.Open(
-            Path.Combine(directory, stored), FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        await using Stream source = file.OpenReadStream();
-        await source.CopyToAsync(target, cancellationToken).ConfigureAwait(false);
+        string stored = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant() + extension;
+        string path = Path.Combine(directory, stored);
+
+        try
+        {
+            await using FileStream target = File.Open(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            await using Stream source = file.OpenReadStream();
+            await source.CopyToAsync(target, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // FileMode.CreateNew has already created the file by the time the copy can
+            // fail, and a client that hangs up mid-upload is the ordinary way it fails.
+            // Without this, every aborted upload leaves a truncated picture that the
+            // serve route will happily hand out and nothing will ever remove.
+            Delete(path);
+            throw;
+        }
 
         return stored;
+    }
+
+    // Best effort, and deliberately swallowing: this runs while another exception is
+    // on its way out, and replacing the cause of the failure with a failure to tidy up
+    // after it would lose the only report of what went wrong.
+    private static void Delete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    // A part's declared content type may carry parameters -- "image/png; charset=binary"
+    // is a well-formed thing for a client to send. FormBinding.RequireAccepted strips
+    // them before comparing, so a part like that reaches here having been admitted; the
+    // raw string then misses the extension table and the "unreachable" throw below
+    // becomes a 500 on a valid upload. Same normalisation, same result.
+    private static string MediaType(string contentType)
+    {
+        int parameter = contentType.IndexOf(';', StringComparison.Ordinal);
+
+        return (parameter < 0 ? contentType : contentType[..parameter]).Trim();
     }
 
     /// <summary>
@@ -89,13 +150,21 @@ internal sealed class UploadStore(string directory)
         // Belt to the pattern's braces. Path.GetFullPath is what would resolve a
         // traversal segment, so the answer is compared against the directory after
         // that resolution rather than before it.
-        if (!string.Equals(Path.GetDirectoryName(path), Path.GetFullPath(directory), StringComparison.Ordinal))
+        //
+        // Both sides are trimmed of a trailing separator before comparing.
+        // GetDirectoryName never returns one and GetFullPath keeps the one a
+        // configured "C:\uploads\" was written with, so without this every stored
+        // picture 404s on a host whose configuration happens to end in a slash.
+        string parent = Path.TrimEndingDirectorySeparator(Path.GetDirectoryName(path) ?? string.Empty);
+        string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+
+        if (!string.Equals(parent, root, StringComparison.Ordinal) || !File.Exists(path))
         {
             return null;
         }
 
         contentType = ContentTypes[Path.GetExtension(path)];
-        return File.Exists(path) ? path : null;
+        return path;
     }
 
     // Thirty-two lowercase hex characters and one extension from the table. Written
