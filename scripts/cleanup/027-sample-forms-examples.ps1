@@ -14,6 +14,9 @@ Candidates, each checked at run time rather than asserted here:
                            rather than listed by name because a hook blocks committing this file
                            straight to dev -- so writing the script creates another branch for the
                            script to name, and a hardcoded list can never catch up with itself.
+                           fix/cleanup-script-scalar-count is named outright because it is the
+                           branch that fixed this script, so it exists before the run and the
+                           self-reference the glob avoids does not arise.
 
   upload directories the sample wrote
                            This spec gave apps/sample somewhere to put a file, and running it puts
@@ -57,7 +60,9 @@ function Step([string]$label, [scriptblock]$act) {
     }
 }
 
-$targets = git -C $repo branch --list '*027*' --format '%(refname:short)' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+# @() is required, not defensive habit: Set-StrictMode -Version Latest makes .Count on a
+# bare string throw rather than answer 1, so one matching branch failed the whole script.
+$targets = @(git -C $repo branch --list '*027*' 'fix/cleanup-script-scalar-count' --format '%(refname:short)' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 if ($targets.Count -eq 0) {
     Write-Host 'skip:  no 027 branches remain'
 }
@@ -79,15 +84,15 @@ foreach ($target in $targets) {
 
 Write-Host ''
 
-$uploadRoots = @(
+$uploadRoots = @(@(
     (Join-Path $repo 'apps/sample/bin'),
     (Join-Path $repo 'tests/nativeweb.sample.tests.integration/bin')
-) | Where-Object { Test-Path $_ }
+) | Where-Object { Test-Path $_ })
 
 $uploads = @()
 foreach ($root in $uploadRoots) {
-    $uploads += Get-ChildItem -Path $root -Directory -Recurse -Filter 'uploads*' -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -eq 'uploads' -or $_.Name -like 'uploads-*' }
+    $uploads += @(Get-ChildItem -Path $root -Directory -Recurse -Filter 'uploads*' -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq 'uploads' -or $_.Name -like 'uploads-*' })
 }
 
 if ($uploads.Count -eq 0) {

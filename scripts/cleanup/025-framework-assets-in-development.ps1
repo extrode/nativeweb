@@ -50,7 +50,9 @@ function Step([string]$label, [scriptblock]$act) {
     }
 }
 
-$targets = git -C $repo branch --list '*025*' --format '%(refname:short)' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+# @() is required, not defensive habit: Set-StrictMode -Version Latest makes .Count on a
+# bare string throw rather than answer 1, so one matching branch failed the whole script.
+$targets = @(git -C $repo branch --list '*025*' --format '%(refname:short)' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 if ($targets.Count -eq 0) {
     Write-Host 'skip:  no 025 branches remain'
 }
