@@ -21,6 +21,22 @@ worth seeing here rather than hiding, but it is the exception.
   integration, 155 repo unit, 219 sample unit, 8 sample integration, 2 AOT. Every local command needs
   `-p:JauntyQUsePackages=true`, and the e2e tiers need `JauntyQUsePackages=true` in the
   environment because the process fixture shells out to a bare `dotnet publish`.
+- **Spec 024 follow-up, `fix/024-permission-followups`, 2026-09-04.** A `review-deep` (fable)
+  pass over 024 at the user's request found three defects the branch's two-lens review missed,
+  all fixed on `fix/024-fable-review-followup` and merged at `04da36a`: NWP007 for extras that
+  emit an identifier already taken, a 409 rather than a 500 on every admin write naming a group
+  that has gone, and one seam contract for an unseen subject across both `IPermissionStore`
+  implementations. Of the five it deferred, two became specs 025 and 026 and three were fixed
+  here: `HeldAsync` is held per principal rather than per instance, a model declined by
+  NWP001-007 still emits its constants class so one diagnostic does not arrive under a CS0234
+  cascade, and `apps/sample` seeds `ArticlePermissions.All` on both run modes against the four
+  names `0006_permissions.sql` seeds. One narrower case stays open in `work/todo.md`: a consumer
+  referencing `nativeweb.permissions` without its generator as an analyzer gets the same cascade,
+  and no generator can see another's output to detect it.
+- **The permissions e2e tier is not blocked.** It binds 5352, not the 5348 `justsmtp.web` holds;
+  the earlier "blocked" reading was a 10-minute command timeout against a NativeAOT publish the
+  fixture allows 30 minutes for. Run to completion 2026-09-04: 3/3 in 625 ms after a ~31-minute
+  publish.
 - **Nothing else in flight.** `fix/025-framework-assets-in-development` merged into `dev` on
   2026-09-03, unpushed: the three framework stylesheets and `boot.js` 500'd under `dotnet run`
   from 2026-08-24 until then, which is why the local site looked unstyled while nw-dev did not.

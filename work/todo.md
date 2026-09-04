@@ -2050,12 +2050,17 @@ an answer different from the one the audit assumed.
   requirements. A JWT bearer scheme with `MapInboundClaims = false` reaches it from stock
   configuration: every gated route answers 403 with nothing recorded to say the subject was never
   found.
-- `PermissionContext.HeldAsync` memoises on the first principal and ignores the `user` argument
-  thereafter. Bounded today by the context being request-scoped, but the parameter is misleading.
-- `ScaffoldGenerator` sets `HasPermissions` on attribute presence alone, so when the permissions
-  generator declines the model (NWP001-007) or is not referenced as an analyzer, the scaffold
-  still emits `XPermissions.View` references and one real diagnostic arrives beside a CS0234
-  cascade from generated files.
-- `apps/sample/Program.cs` grants `PermissionCatalog.All` to the two seeded subjects on the
-  in-memory path while `0006_permissions.sql` seeds four literal `sample:article.*` names. The
-  moment a second model declares `[Permissions]` the two run modes seed different grant sets.
+- ~~`PermissionContext.HeldAsync` memoises on the first principal and ignores the `user`
+  argument thereafter.~~ **Fixed 2026-09-04** on `fix/024-permission-followups`: held per
+  principal, with a fact for a second principal and one holding the single store read.
+- ~~`ScaffoldGenerator` sets `HasPermissions` on attribute presence alone, so a model declined by
+  NWP001-007 lost its constants class and one real diagnostic arrived beside a CS0234 cascade.~~
+  **Fixed 2026-09-04** on `fix/024-permission-followups` from the other end: the permissions
+  generator emits the constants class for a declined model too, keeping it out of
+  `PermissionCatalog`. **Still open, and narrower than the original finding:** a consumer that
+  references `nativeweb.permissions` but not `nativeweb.permissions.generator` as an analyzer
+  gets the same cascade, and no generator can see another generator's output to detect it.
+- ~~`apps/sample/Program.cs` grants `PermissionCatalog.All` on the in-memory path while
+  `0006_permissions.sql` seeds four literal `sample:article.*` names.~~ **Fixed 2026-09-04** on
+  `fix/024-permission-followups`: `ArticlePermissions.All` on both, with `SeedGrantParityTests`
+  parsing the migration's `VALUES` list and comparing it to the generated constants.

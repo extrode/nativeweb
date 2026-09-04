@@ -148,14 +148,27 @@ public sealed class PermissionsGenerator : IIncrementalGenerator
 
             seenTypeNames.Add(segment, model.FullName);
 
-            if (!TryActions(spc, model, out ImmutableArray<string> actions))
-            {
-                continue;
-            }
+            bool usable = TryActions(spc, model, out ImmutableArray<string> actions);
 
+            // Emitted even when the model was declined, and this is the whole reason
+            // TryActions returns its usable actions rather than nothing. A declined
+            // model used to emit no file at all, so the scaffolding's generated
+            // routes -- which reference XPermissions.View by name and cannot see this
+            // generator's verdict -- lost the type they name. The author then got one
+            // real NWP00x error buried under a CS0234 cascade from files they cannot
+            // open, and the cascade is what they read first. The build still fails, on
+            // the diagnostic, which is the outcome the diagnostic is for.
             spc.AddSource(
                 model.TypeName + "Permissions.g.cs",
                 PermissionsEmitter.Constants(model, scope, actions));
+
+            if (!usable)
+            {
+                // Out of the catalog on purpose: a declined model's permissions are
+                // not grantable, and AddPermissions would otherwise register names
+                // the author was just told to fix.
+                continue;
+            }
 
             string constantsClass = PermissionNaming.ConstantsClassName(model.TypeName);
             string qualified = model.Namespace.Length == 0
@@ -174,9 +187,11 @@ public sealed class PermissionsGenerator : IIncrementalGenerator
         }
     }
 
-    // The four, then the declared extras, in declaration order. False when any extra
-    // is unusable, in which case a diagnostic has already been reported and the
-    // model is skipped rather than half-emitted.
+    // The four, then the declared extras that are usable, in declaration order.
+    // False when any extra was rejected, in which case a diagnostic has already been
+    // reported. The out parameter is still populated: the caller emits the constants
+    // for what survived, so a declined model costs one diagnostic rather than one
+    // diagnostic and a CS0234 for every generated reference to its constants class.
     private static bool TryActions(
         SourceProductionContext spc, PermissionModel model, out ImmutableArray<string> actions)
     {

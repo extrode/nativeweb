@@ -133,6 +133,38 @@ public sealed class PermissionContextTests
         Assert.True(await permissions.AllowsAsync(Signed("sub-1"), Change, "row-7"));
     }
 
+    [Fact]
+    public async Task ASecondPrincipal_IsAnsweredAboutItself()
+    {
+        var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.EnsureSubjectAsync("sub-2", default);
+        await store.GrantToSubjectAsync("sub-1", Change.Name, default);
+        await store.GrantToSubjectAsync("sub-2", Delete.Name, default);
+        var context = new PermissionContext(store, Registry());
+        var permissions = new PermissionService(context);
+
+        Assert.True(await permissions.AllowsAsync(Signed("sub-1"), Change));
+        Assert.False(await permissions.AllowsAsync(Signed("sub-2"), Change));
+        Assert.True(await permissions.AllowsAsync(Signed("sub-2"), Delete));
+    }
+
+    [Fact]
+    public async Task TheSamePrincipal_IsReadFromTheStoreOnce()
+    {
+        var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.GrantToSubjectAsync("sub-1", Change.Name, default);
+        var permissions = new PermissionService(new PermissionContext(store, Registry()));
+        ClaimsPrincipal user = Signed("sub-1");
+        int before = store.GrantedCalls;
+
+        await permissions.AllowsAsync(user, Change);
+        await permissions.AllowsAsync(user, Delete);
+
+        Assert.Equal(before + 1, store.GrantedCalls);
+    }
+
     private sealed class StoppedClock : TimeProvider
     {
         internal StoppedClock(DateTimeOffset now) => Now = now;

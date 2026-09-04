@@ -22,6 +22,14 @@ sections that apply; drop the empty ones rather than leaving them blank.
   `PermissionConflictException` from `AddMemberAsync` and `GrantToSubjectAsync`, and both reject
   an empty subject or permission with `ArgumentException`. `EnsureSubjectAsync` is the one call
   that admits a subject.
+- `IPermissionContext.HeldAsync` answers about the principal it was passed. It memoised on the
+  instance, so a second call carrying a different principal was answered about the first one.
+- A model declined by NWP001-007 still emits its constants class. Losing it turned one real
+  diagnostic into a CS0234 cascade from generated files the author cannot open. The declined
+  model stays out of `PermissionCatalog` and the build still fails on the diagnostic.
+- `apps/sample` seeds the same permissions on both run modes. The in-memory path granted
+  `PermissionCatalog.All` where `0006_permissions.sql` seeds four literal `sample:article.*`
+  names, which are the same set only while `Article` is the one model declaring `[Permissions]`.
 
 
 Merged into `dev`, not yet tagged.

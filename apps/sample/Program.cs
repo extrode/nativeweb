@@ -161,13 +161,18 @@ public sealed class Program
 
             // Grants live as long as the process on this path, which is what makes
             // the Playwright tier able to grant one and watch a control appear.
-            // Both sign-ins get the whole catalog, standing in for the seed
-            // migration 0006 applies on the database path.
+            //
+            // ArticlePermissions.All, not PermissionCatalog.All. The catalog is every
+            // permission the assembly declares; migration 0006 seeds four literal
+            // sample:article.* names. Those are the same set only while Article is the
+            // one model carrying [Permissions], so the catalog would have silently
+            // seeded a second model's permissions here and not on the database path.
+            // SeedGrantParityTests holds the two lists together.
             var permissions = new InMemoryPermissionStore();
             foreach (string subject in new[] { "operator", "demo" })
             {
                 permissions.EnsureSubjectAsync(subject, default).AsTask().GetAwaiter().GetResult();
-                foreach (Permission permission in PermissionCatalog.All)
+                foreach (Permission permission in ArticlePermissions.All)
                 {
                     permissions.GrantToSubjectAsync(subject, permission.Name, default)
                         .AsTask().GetAwaiter().GetResult();

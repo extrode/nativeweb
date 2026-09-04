@@ -36,7 +36,7 @@ That is the declaration. It produces four names — `sample:article.view`, `.add
 | `[Permissions]` | class | The four. `[Permissions("publish")]` adds a fifth that gates nothing by itself |
 | `Permission` | struct | One name. Every API takes this, never a string, which is what makes a removed declaration a build error |
 | `IPermissions.AllowsAsync` | injected | The one call a hand-written endpoint makes |
-| `IPermissionContext.HeldAsync` | injected | The subject's whole held set, resolved once per request |
+| `IPermissionContext.HeldAsync` | injected | The subject's whole held set, one store read per principal |
 | `PermissionEndpointFilter` | filter | What the scaffolding appends to each generated route, and what you add to gate your own |
 | `IPermissionStore` | seam | Where grants live. You implement it, or take `InMemoryPermissionStore` |
 | `MapAccessAdmin` | endpoints | Groups, members and grants, as pages |
@@ -106,6 +106,13 @@ it names is a value you look up from your provider, not a name you can guess.
 - **No identity.** The subject is the `NameIdentifier` claim, whatever issued it. No credential,
   no profile field, no user table. epass.io owns identity; this reads a string. Nothing here
   depends on `nativeweb.signin`.
+
+  **That claim is not configurable yet, and the failure is silent.** A scheme that surfaces the
+  subject under any other name — a JWT bearer scheme configured not to map inbound claims is the
+  ordinary case — yields no subject, which is the empty held set, which is a 403 from every gated
+  route with nothing recorded to say why. Spec 025 is the fix; until it lands, a host on such a
+  scheme maps the claim to NameIdentifier itself, through ASP.NET Core's claims transformation or
+  its scheme's own claim actions.
 - **No row-level decisions.** `AllowsAsync` and the filter both accept a resource identity and
   carry it to the store, and neither shipped store consults it. The decision is per model. That
   is what makes the held set one call per request instead of one per row — and the visible
