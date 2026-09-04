@@ -23,7 +23,14 @@ public sealed class InMemoryPermissionStore : IPermissionStore
     private readonly ConcurrentDictionary<string, byte> _subjectGrants = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _groupGrants = new(StringComparer.Ordinal);
     private readonly TimeProvider _time;
-    private readonly Lock _createGroupGate = new();
+    // Every check-then-write pair in this type takes this, and so does every removal
+    // that sweeps dependents. ConcurrentDictionary makes each operation atomic and
+    // nothing more: "the group exists, therefore add a member to it" is two of them,
+    // and DeleteGroupAsync running between them leaves a membership row for a group
+    // that has gone. PostgreSQL refuses that with a foreign key; this is the seam's
+    // other implementation, so it has to refuse it too. Contention is not a concern:
+    // this store holds a starting host's grants, not a served workload's.
+    private readonly Lock _writeGate = new();
     private long _nextGroupId;
 
     /// <summary>Creates an empty store.</summary>
@@ -91,11 +98,11 @@ public sealed class InMemoryPermissionStore : IPermissionStore
         ArgumentException.ThrowIfNullOrEmpty(name);
         ct.ThrowIfCancellationRequested();
 
-        // Under a lock, because the scan and the write are one decision. Without it
+        // Under the gate, because the scan and the write are one decision. Without it
         // two concurrent creates of the same name both pass the scan and the store
         // ends with two groups an operator cannot tell apart, where the PostgreSQL
         // store raises PermissionConflictException on the second.
-        lock (_createGroupGate)
+        lock (_writeGate)
         {
             if (_groups.Values.Contains(name, StringComparer.Ordinal))
             {
@@ -141,13 +148,17 @@ public sealed class InMemoryPermissionStore : IPermissionStore
         ArgumentException.ThrowIfNullOrEmpty(subject);
         ct.ThrowIfCancellationRequested();
 
-        if (!_groups.ContainsKey(groupId))
+        lock (_writeGate)
         {
-            throw new PermissionConflictException($"No group with id {groupId}.");
+            if (!_groups.ContainsKey(groupId))
+            {
+                throw new PermissionConflictException($"No group with id {groupId}.");
+            }
+
+            RequireSubject(subject);
+            _members.TryAdd(MemberKey(subject, groupId), 0);
         }
 
-        RequireSubject(subject);
-        _members.TryAdd(MemberKey(subject, groupId), 0);
         return ValueTask.CompletedTask;
     }
 
@@ -165,17 +176,22 @@ public sealed class InMemoryPermissionStore : IPermissionStore
     {
         ct.ThrowIfCancellationRequested();
 
-        if (!_groups.TryRemove(groupId, out _))
+        // The removal and the sweep are one decision, under the same gate the
+        // check-then-write pairs take: without it AddMemberAsync passes its
+        // containment check, this runs whole, and the TryAdd then lands a membership
+        // row for a group that has gone.
+        lock (_writeGate)
         {
-            throw new PermissionConflictException($"No group with id {groupId}.");
-        }
+            if (!_groups.TryRemove(groupId, out _))
+            {
+                throw new PermissionConflictException($"No group with id {groupId}.");
+            }
 
-        // The sweep PostgreSQL gets from ON DELETE CASCADE on nw_group_member and
-        // nw_group_grant. Done after the group is gone, so a concurrent AddMemberAsync
-        // has already been refused by the containment check rather than racing to
-        // re-add a member behind this loop.
-        Sweep(_members, key => SplitMemberKey(key) is (_, long id) && id == groupId);
-        Sweep(_groupGrants, key => SplitGroupKey(key) is (long id, _) && id == groupId);
+            // The sweep PostgreSQL gets from ON DELETE CASCADE on nw_group_member and
+            // nw_group_grant.
+            Sweep(_members, key => SplitMemberKey(key) is (_, long id) && id == groupId);
+            Sweep(_groupGrants, key => SplitGroupKey(key) is (long id, _) && id == groupId);
+        }
 
         return ValueTask.CompletedTask;
     }
@@ -186,15 +202,22 @@ public sealed class InMemoryPermissionStore : IPermissionStore
         ArgumentException.ThrowIfNullOrEmpty(subject);
         ct.ThrowIfCancellationRequested();
 
-        if (!_subjects.TryRemove(subject, out _))
+        // Under the gate for the reason DeleteGroupAsync is: a subject name is
+        // reusable, so an orphan grant left by a racing GrantToSubjectAsync would be
+        // held again by whoever next authenticates under that name.
+        lock (_writeGate)
         {
-            throw new PermissionConflictException($"No subject {subject}.");
-        }
+            if (!_subjects.TryRemove(subject, out _))
+            {
+                throw new PermissionConflictException($"No subject {subject}.");
+            }
 
-        // The cascades on nw_group_member and nw_subject_grant. The groups themselves
-        // are untouched: this forgets a subject, not the groups it was in.
-        Sweep(_members, key => Owns(SplitMemberKey(key)?.Subject, subject));
-        Sweep(_subjectGrants, key => Owns(SplitLengthPrefixed(key)?.Head, subject));
+            // The cascades on nw_group_member and nw_subject_grant. The groups
+            // themselves are untouched: this forgets a subject, not the groups it
+            // was in.
+            Sweep(_members, key => Owns(SplitMemberKey(key)?.Subject, subject));
+            Sweep(_subjectGrants, key => Owns(SplitLengthPrefixed(key)?.Head, subject));
+        }
 
         return ValueTask.CompletedTask;
     }
@@ -235,8 +258,12 @@ public sealed class InMemoryPermissionStore : IPermissionStore
         ArgumentException.ThrowIfNullOrEmpty(subject);
         ArgumentException.ThrowIfNullOrEmpty(permission);
         ct.ThrowIfCancellationRequested();
-        RequireSubject(subject);
-        _subjectGrants.TryAdd(SubjectKey(subject, permission), 0);
+        lock (_writeGate)
+        {
+            RequireSubject(subject);
+            _subjectGrants.TryAdd(SubjectKey(subject, permission), 0);
+        }
+
         return ValueTask.CompletedTask;
     }
 
@@ -256,12 +283,16 @@ public sealed class InMemoryPermissionStore : IPermissionStore
         ArgumentException.ThrowIfNullOrEmpty(permission);
         ct.ThrowIfCancellationRequested();
 
-        if (!_groups.ContainsKey(groupId))
+        lock (_writeGate)
         {
-            throw new PermissionConflictException($"No group with id {groupId}.");
+            if (!_groups.ContainsKey(groupId))
+            {
+                throw new PermissionConflictException($"No group with id {groupId}.");
+            }
+
+            _groupGrants.TryAdd(GroupKey(groupId, permission), 0);
         }
 
-        _groupGrants.TryAdd(GroupKey(groupId, permission), 0);
         return ValueTask.CompletedTask;
     }
 

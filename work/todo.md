@@ -9,6 +9,16 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **Forgetting a seeded sample subject re-grants it on a hand re-apply of `0006_permissions.sql`.**
+  Spec 026's `ForgetSubjectAsync` deletes the `nw_subject` row, and the migration's bootstrap CTE
+  reads a missing row as first sight, so forgetting `operator` or `demo` and then re-applying the
+  file by hand restores all four grants. `db/migrate.sh` will not do this on its own -- `is_tracked()`
+  skips applied versions -- so it needs a person re-applying deliberately. Closing it wants a
+  bootstrap marker the forget cannot remove, which is a new migration; sample-only either way.
+  Found by Fable reviewing 026, 2026-09-04.
+- **`AccessAdmin.ForgetSubjectAsync` answers 404 for an empty subject where its sibling POST
+  handlers answer 400.** Unreachable through routing. Same review.
+
 - **The three consumers were probed on 2026-09-01; seven gaps, written up in
   [`docs/architecture/004-consumer-readiness.md`](../docs/architecture/004-consumer-readiness.md).**
   Read that first — this entry is the backlog handle, not the finding. What it measured: `epass.io`

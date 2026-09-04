@@ -68,11 +68,22 @@ CREATE INDEX IF NOT EXISTS nw_group_member_group_id_idx
 -- Both are seeded here because both exist in the sample, and neither name means
 -- anything outside it -- a real application seeds the subject its own provider
 -- issues, which is a value it has to look up, not a name it can guess.
--- One statement, and the CTE is the point of it. db/migrate.sh re-runs this file,
--- so a grant seed keyed on the two names alone would reinstate a grant an operator
--- had revoked: revoke delete from demo, deploy, and demo can delete again. RETURNING
--- yields only the subjects this run created, so the grants are seeded on first sight
--- of a database and never again.
+-- One statement, and the CTE is the point of it. A grant seed keyed on the two names
+-- alone would reinstate a grant an operator had revoked -- revoke delete from demo,
+-- re-apply, and demo can delete again -- so RETURNING yields only the subjects this
+-- run created and the grants are seeded on first sight and never again.
+--
+-- db/migrate.sh does NOT re-apply this file: is_tracked() (db/migrate.sh:209) skips
+-- any version already in schema_migrations. This comment used to claim the opposite,
+-- and so did the summary on MigrationRerunTests. The guard is kept anyway, because
+-- re-applying a migration by hand is a thing people do to a database they think is
+-- behind, and the tier holds the file to that contract.
+--
+-- KNOWN GAP, from spec 026. ForgetSubjectAsync deletes the nw_subject row, and this
+-- guard reads a missing row as first sight. Forget `operator` or `demo`, re-apply
+-- this file by hand, and all four grants come back. Closing it needs a marker the
+-- forget cannot remove, which is a new migration and a schema change, so it is a
+-- note on work/todo.md rather than an edit to an applied file.
 WITH seeded AS (
     INSERT INTO nw_subject (subject)
     VALUES ('operator'), ('demo')
