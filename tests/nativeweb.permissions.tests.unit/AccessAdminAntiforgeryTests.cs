@@ -42,7 +42,7 @@ public sealed class AccessAdminAntiforgeryTests
                     endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.Contains("POST") == true),
         ];
 
-        Assert.Equal(7, posts.Length);
+        Assert.Equal(9, posts.Length);
         Assert.All(posts, post => Assert.NotNull(post.Metadata.GetMetadata<IAntiforgeryMetadata>()));
     }
 

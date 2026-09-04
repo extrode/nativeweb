@@ -55,4 +55,166 @@ public sealed class InMemoryPermissionStoreTests
         await Assert.ThrowsAsync<PermissionConflictException>(
             async () => await store.GrantToGroupAsync(404, "sample:article.view", default));
     }
+
+    [Fact]
+    public async Task DeletingAGroup_TakesItsMembershipsAndItsGrants()
+    {
+        var store = new InMemoryPermissionStore();
+        long group = await store.CreateGroupAsync("editors", default);
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.EnsureSubjectAsync("sub-2", default);
+        await store.AddMemberAsync("sub-1", group, default);
+        await store.AddMemberAsync("sub-2", group, default);
+        await store.GrantToGroupAsync(group, "sample:article.view", default);
+        await store.GrantToGroupAsync(group, "sample:article.change", default);
+
+        await store.DeleteGroupAsync(group, default);
+
+        Assert.Empty(await store.GroupsAsync(default));
+        Assert.Empty(await store.MembersAsync(group, default));
+        Assert.Empty(await store.GroupGrantsAsync(group, default));
+        Assert.Empty(await store.GrantedAsync("sub-1", default));
+        Assert.Empty(await store.GrantedAsync("sub-2", default));
+    }
+
+    [Fact]
+    public async Task DeletingAGroup_LeavesItsMembersOwnGrants()
+    {
+        var store = new InMemoryPermissionStore();
+        long group = await store.CreateGroupAsync("editors", default);
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.AddMemberAsync("sub-1", group, default);
+        await store.GrantToGroupAsync(group, "sample:article.delete", default);
+        await store.GrantToSubjectAsync("sub-1", "sample:article.view", default);
+
+        await store.DeleteGroupAsync(group, default);
+
+        Assert.Equal(["sample:article.view"], await store.GrantedAsync("sub-1", default));
+        Assert.Contains("sub-1", await store.SubjectsAsync(default));
+    }
+
+    [Fact]
+    public async Task DeletingAGroup_LeavesTheOtherGroupsAlone()
+    {
+        var store = new InMemoryPermissionStore();
+        long doomed = await store.CreateGroupAsync("doomed", default);
+        long kept = await store.CreateGroupAsync("kept", default);
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.AddMemberAsync("sub-1", doomed, default);
+        await store.AddMemberAsync("sub-1", kept, default);
+        await store.GrantToGroupAsync(kept, "sample:article.view", default);
+
+        await store.DeleteGroupAsync(doomed, default);
+
+        Assert.Equal(["sub-1"], await store.MembersAsync(kept, default));
+        Assert.Equal(["sample:article.view"], await store.GroupGrantsAsync(kept, default));
+    }
+
+    [Fact]
+    public async Task DeletingAGroupTheStoreDoesNotHold_IsAConflict()
+    {
+        var store = new InMemoryPermissionStore();
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await store.DeleteGroupAsync(-1, default));
+    }
+
+    [Fact]
+    public async Task DeletingAGroupTwice_IsAConflictTheSecondTime()
+    {
+        var store = new InMemoryPermissionStore();
+        long group = await store.CreateGroupAsync("editors", default);
+
+        await store.DeleteGroupAsync(group, default);
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await store.DeleteGroupAsync(group, default));
+    }
+
+    [Fact]
+    public async Task ForgettingASubject_TakesItsMembershipsAndItsGrants()
+    {
+        var store = new InMemoryPermissionStore();
+        long first = await store.CreateGroupAsync("editors", default);
+        long second = await store.CreateGroupAsync("reviewers", default);
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.AddMemberAsync("sub-1", first, default);
+        await store.AddMemberAsync("sub-1", second, default);
+        await store.GrantToSubjectAsync("sub-1", "sample:article.view", default);
+
+        await store.ForgetSubjectAsync("sub-1", default);
+
+        Assert.Empty(await store.SubjectsAsync(default));
+        Assert.Empty(await store.MembersAsync(first, default));
+        Assert.Empty(await store.MembersAsync(second, default));
+        Assert.Empty(await store.SubjectGrantsAsync("sub-1", default));
+        Assert.Null(store.FirstSeen("sub-1"));
+    }
+
+    [Fact]
+    public async Task ForgettingASubject_LeavesTheGroupsItWasIn()
+    {
+        var store = new InMemoryPermissionStore();
+        long group = await store.CreateGroupAsync("editors", default);
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.EnsureSubjectAsync("sub-2", default);
+        await store.AddMemberAsync("sub-1", group, default);
+        await store.AddMemberAsync("sub-2", group, default);
+        await store.GrantToGroupAsync(group, "sample:article.view", default);
+
+        await store.ForgetSubjectAsync("sub-1", default);
+
+        Assert.Equal(["editors"], (await store.GroupsAsync(default)).Select(entry => entry.Name));
+        Assert.Equal(["sub-2"], await store.MembersAsync(group, default));
+        Assert.Equal(["sample:article.view"], await store.GroupGrantsAsync(group, default));
+    }
+
+    [Fact]
+    public async Task ASubjectSeenAgainAfterBeingForgotten_HoldsNothing()
+    {
+        var store = new InMemoryPermissionStore();
+        long group = await store.CreateGroupAsync("editors", default);
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.AddMemberAsync("sub-1", group, default);
+        await store.GrantToGroupAsync(group, "sample:article.view", default);
+        await store.GrantToSubjectAsync("sub-1", "sample:article.delete", default);
+
+        await store.ForgetSubjectAsync("sub-1", default);
+        await store.EnsureSubjectAsync("sub-1", default);
+
+        Assert.Empty(await store.GrantedAsync("sub-1", default));
+        Assert.Empty(await store.SubjectGrantsAsync("sub-1", default));
+    }
+
+    [Fact]
+    public async Task ForgettingASubjectTheStoreHasNotSeen_IsAConflict()
+    {
+        var store = new InMemoryPermissionStore();
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await store.ForgetSubjectAsync("sub-1", default));
+    }
+
+    [Fact]
+    public async Task ForgettingAnEmptySubject_IsRejected()
+    {
+        var store = new InMemoryPermissionStore();
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await store.ForgetSubjectAsync("", default));
+    }
+
+    [Fact]
+    public async Task ForgettingOneSubject_LeavesAnotherWhoseNameSharesAPrefix()
+    {
+        var store = new InMemoryPermissionStore();
+        await store.EnsureSubjectAsync("sub", default);
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.GrantToSubjectAsync("sub", "sample:article.view", default);
+        await store.GrantToSubjectAsync("sub-1", "sample:article.delete", default);
+
+        await store.ForgetSubjectAsync("sub", default);
+
+        Assert.Equal(["sample:article.delete"], await store.SubjectGrantsAsync("sub-1", default));
+    }
 }

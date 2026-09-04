@@ -206,6 +206,93 @@ public sealed class AccessAdminTests
 
     private const long NoSuchGroup = 4_294_967_296;
 
+    [Fact]
+    public async Task DeletingAGroup_RedirectsToTheIndexAndRemovesIt()
+    {
+        await using Harness harness = await Harness.StartAsync();
+        long group = await harness.Store.CreateGroupAsync("editors", default);
+        await harness.Store.EnsureSubjectAsync("sub-1", default);
+        await harness.Store.AddMemberAsync("sub-1", group, default);
+        await harness.Store.GrantToGroupAsync(group, "sample:article.view", default);
+
+        using HttpResponseMessage response = await harness.PostAsync($"/admin/access/groups/{group}/delete");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/admin/access/", response.Headers.Location?.OriginalString);
+        Assert.Empty(await harness.Store.GroupsAsync(default));
+        Assert.Empty(await harness.Store.GrantedAsync("sub-1", default));
+    }
+
+    [Fact]
+    public async Task DeletingAGroupThatHasGone_IsAConflict()
+    {
+        await using Harness harness = await Harness.StartAsync();
+        long group = await harness.Store.CreateGroupAsync("editors", default);
+        await harness.Store.DeleteGroupAsync(group, default);
+
+        using HttpResponseMessage response = await harness.PostAsync($"/admin/access/groups/{group}/delete");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TheGroupsDeleteControl_StatesWhatItRemoves()
+    {
+        await using Harness harness = await Harness.StartAsync();
+        long group = await harness.Store.CreateGroupAsync("editors", default);
+        await harness.Store.EnsureSubjectAsync("sub-1", default);
+        await harness.Store.EnsureSubjectAsync("sub-2", default);
+        await harness.Store.AddMemberAsync("sub-1", group, default);
+        await harness.Store.AddMemberAsync("sub-2", group, default);
+        await harness.Store.GrantToGroupAsync(group, "sample:article.view", default);
+
+        string html = await harness.GetAsync($"/admin/access/groups/{group}");
+
+        Assert.Contains("2 memberships", html, StringComparison.Ordinal);
+        Assert.Contains("1 permission", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ForgettingASubject_RedirectsToTheIndexAndRemovesIt()
+    {
+        await using Harness harness = await Harness.StartAsync();
+        long group = await harness.Store.CreateGroupAsync("editors", default);
+        await harness.Store.EnsureSubjectAsync("sub-1", default);
+        await harness.Store.AddMemberAsync("sub-1", group, default);
+        await harness.Store.GrantToSubjectAsync("sub-1", "sample:article.view", default);
+
+        using HttpResponseMessage response = await harness.PostAsync("/admin/access/subjects/sub-1/delete");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Empty(await harness.Store.SubjectsAsync(default));
+        Assert.Empty(await harness.Store.MembersAsync(group, default));
+        Assert.Single(await harness.Store.GroupsAsync(default));
+    }
+
+    [Fact]
+    public async Task ForgettingASubjectTheStoreHasNotSeen_IsAConflict()
+    {
+        await using Harness harness = await Harness.StartAsync();
+
+        using HttpResponseMessage response = await harness.PostAsync("/admin/access/subjects/sub-1/delete");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TheSubjectsDeleteControl_StatesWhatItRemoves()
+    {
+        await using Harness harness = await Harness.StartAsync();
+        await harness.Store.EnsureSubjectAsync("sub-1", default);
+        await harness.Store.GrantToSubjectAsync("sub-1", "sample:article.view", default);
+        await harness.Store.GrantToSubjectAsync("sub-1", "sample:article.change", default);
+
+        string html = await harness.GetAsync("/admin/access/subjects/sub-1");
+
+        Assert.Contains("2 permissions", html, StringComparison.Ordinal);
+        Assert.Contains("every group membership", html, StringComparison.Ordinal);
+    }
+
     private sealed class Harness : IAsyncDisposable
     {
         private WebApplication _app = null!;

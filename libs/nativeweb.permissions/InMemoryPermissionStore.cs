@@ -161,6 +161,45 @@ public sealed class InMemoryPermissionStore : IPermissionStore
     }
 
     /// <inheritdoc/>
+    public ValueTask DeleteGroupAsync(long groupId, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        if (!_groups.TryRemove(groupId, out _))
+        {
+            throw new PermissionConflictException($"No group with id {groupId}.");
+        }
+
+        // The sweep PostgreSQL gets from ON DELETE CASCADE on nw_group_member and
+        // nw_group_grant. Done after the group is gone, so a concurrent AddMemberAsync
+        // has already been refused by the containment check rather than racing to
+        // re-add a member behind this loop.
+        Sweep(_members, key => SplitMemberKey(key) is (_, long id) && id == groupId);
+        Sweep(_groupGrants, key => SplitGroupKey(key) is (long id, _) && id == groupId);
+
+        return ValueTask.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public ValueTask ForgetSubjectAsync(string subject, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(subject);
+        ct.ThrowIfCancellationRequested();
+
+        if (!_subjects.TryRemove(subject, out _))
+        {
+            throw new PermissionConflictException($"No subject {subject}.");
+        }
+
+        // The cascades on nw_group_member and nw_subject_grant. The groups themselves
+        // are untouched: this forgets a subject, not the groups it was in.
+        Sweep(_members, key => Owns(SplitMemberKey(key)?.Subject, subject));
+        Sweep(_subjectGrants, key => Owns(SplitLengthPrefixed(key)?.Head, subject));
+
+        return ValueTask.CompletedTask;
+    }
+
+    /// <inheritdoc/>
     public ValueTask<IReadOnlyList<string>> SubjectGrantsAsync(string subject, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrEmpty(subject);
@@ -234,6 +273,20 @@ public sealed class InMemoryPermissionStore : IPermissionStore
         _groupGrants.TryRemove(GroupKey(groupId, permission), out _);
         return ValueTask.CompletedTask;
     }
+
+    private static void Sweep(ConcurrentDictionary<string, byte> keys, Func<string, bool> matches)
+    {
+        foreach (string key in keys.Keys)
+        {
+            if (matches(key))
+            {
+                keys.TryRemove(key, out _);
+            }
+        }
+    }
+
+    private static bool Owns(string? owner, string subject) =>
+        owner is not null && string.Equals(owner, subject, StringComparison.Ordinal);
 
     private IEnumerable<long> GroupsOf(string subject)
     {

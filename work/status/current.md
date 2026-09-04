@@ -58,6 +58,17 @@ worth seeing here rather than hiding, but it is the exception.
   transformation that moves the subject to `sub`, and the unconfigured host answers 403 on
   `/admin/articles` while the configured one answers 200. 132 permissions unit facts, 196 scaffold
   integration.
+- **Spec 026 built and merged, `feat/026-permission-group-lifecycle`, 2026-09-04.** A group made
+  by a typo, and a subject that has left, can now be removed. `IPermissionStore` is sixteen
+  methods: `DeleteGroupAsync` and `ForgetSubjectAsync` join it, both raising
+  `PermissionConflictException` when nothing was removed, in both shipped stores. Deleting a
+  group takes its memberships and group grants and leaves members' direct grants; forgetting a
+  subject takes its direct grants and memberships and leaves the groups. The PostgreSQL half is
+  one `DELETE ... RETURNING` each over the migration's cascades, asserted against real
+  PostgreSQL rather than assumed. The access admin gains a confirmed, antiforgery-checked
+  control on each detail page naming the counts it removes; a post naming something already
+  gone is 409. Measured green: 149 permissions unit, 43 permissions integration, 268 scaffold
+  unit, 196 scaffold integration, 223 sample unit, 8 sample integration, 155 repo unit.
 - **The permissions e2e tier is not blocked.** It binds 5352, not the 5348 `justsmtp.web` holds;
   the earlier "blocked" reading was a 10-minute command timeout against a NativeAOT publish the
   fixture allows 30 minutes for. Run to completion 2026-09-04: 3/3 in 625 ms after a ~31-minute

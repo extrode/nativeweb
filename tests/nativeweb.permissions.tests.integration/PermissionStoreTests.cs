@@ -320,4 +320,70 @@ public sealed class PermissionStoreTests(PermissionHostFixture fixture)
 
         Assert.Contains("nws-undeclared", html, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task DeletingAGroup_TakesItsMembershipsAndGrantsWithIt()
+    {
+        string subject = PermissionHost.NewSubject();
+        long doomed = await Host.Store.CreateGroupAsync("doomed-" + subject, default);
+        long kept = await Host.Store.CreateGroupAsync("kept-" + subject, default);
+        await Host.Store.EnsureSubjectAsync(subject, default);
+        await Host.Store.AddMemberAsync(subject, doomed, default);
+        await Host.Store.AddMemberAsync(subject, kept, default);
+        await Host.Store.GrantToGroupAsync(doomed, PermissionHost.Change.Name, default);
+        await Host.Store.GrantToGroupAsync(kept, PermissionHost.View.Name, default);
+
+        await Host.Store.DeleteGroupAsync(doomed, default);
+
+        Assert.DoesNotContain(
+            await Host.Store.GroupsAsync(default), group => group.Id == doomed);
+        Assert.Contains(await Host.Store.GroupsAsync(default), group => group.Id == kept);
+        Assert.Empty(await Host.Store.GroupGrantsAsync(doomed, default));
+        Assert.Equal([PermissionHost.View.Name], await Host.Store.GroupGrantsAsync(kept, default));
+        Assert.Equal([subject], await Host.Store.MembersAsync(kept, default));
+        Assert.DoesNotContain(PermissionHost.Change.Name, await Host.Store.GrantedAsync(subject, default));
+    }
+
+    [Fact]
+    public async Task DeletingAGroup_WithdrawsWhatItGranted()
+    {
+        string subject = PermissionHost.NewSubject();
+        long group = await Host.Store.CreateGroupAsync("doomed-" + subject, default);
+        await Host.Store.EnsureSubjectAsync(subject, default);
+        await Host.Store.AddMemberAsync(subject, group, default);
+        await Host.Store.GrantToGroupAsync(group, PermissionHost.Change.Name, default);
+
+        using (HttpResponseMessage admitted = await Host.GetAsync("/change", subject))
+        {
+            Assert.Equal(HttpStatusCode.OK, admitted.StatusCode);
+        }
+
+        await Host.Store.DeleteGroupAsync(group, default);
+
+        using HttpResponseMessage refused = await Host.GetAsync("/change", subject);
+
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+    }
+
+    [Fact]
+    public async Task ForgettingASubject_TakesItsRowGrantsAndMembershipsWithIt()
+    {
+        string forgotten = PermissionHost.NewSubject();
+        string kept = PermissionHost.NewSubject();
+        long group = await Host.Store.CreateGroupAsync("shared-" + forgotten, default);
+        await Host.Store.EnsureSubjectAsync(forgotten, default);
+        await Host.Store.EnsureSubjectAsync(kept, default);
+        await Host.Store.AddMemberAsync(forgotten, group, default);
+        await Host.Store.AddMemberAsync(kept, group, default);
+        await Host.Store.GrantToSubjectAsync(forgotten, PermissionHost.Change.Name, default);
+        await Host.Store.GrantToSubjectAsync(kept, PermissionHost.Change.Name, default);
+
+        await Host.Store.ForgetSubjectAsync(forgotten, default);
+
+        Assert.Null(await PermissionHost.FirstSeenAsync(forgotten));
+        Assert.Empty(await Host.Store.SubjectGrantsAsync(forgotten, default));
+        Assert.Equal([kept], await Host.Store.MembersAsync(group, default));
+        Assert.Equal([PermissionHost.Change.Name], await Host.Store.SubjectGrantsAsync(kept, default));
+        Assert.NotNull(await PermissionHost.FirstSeenAsync(kept));
+    }
 }

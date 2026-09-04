@@ -1,6 +1,6 @@
 # 026 — Deleting a group, forgetting a subject
 
-Status: draft
+Status: done
 Created: 2026-09-04
 
 ## Problem
