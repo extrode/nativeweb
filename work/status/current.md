@@ -48,6 +48,16 @@ worth seeing here rather than hiding, but it is the exception.
   the diagnostic would have produced a compiling assembly that 403s forever. **One of fable's
   findings was refuted before acting**: emitting constants for a collision is not safe on its own,
   because both models share a type name and the hint name was built from it.
+- **Spec 025 built and merged, `feat/025-permission-subject-resolution`, 2026-09-04.** The
+  permission layer no longer hard-codes `ClaimTypes.NameIdentifier`: `PermissionSubjectResolver`
+  reads a configured claim name or a host-supplied function, refuses both at registration, and
+  treats an unauthenticated principal, an absent claim and a whitespace answer alike as no
+  subject. An authenticated principal with no subject logs one warning per request naming the
+  claim and the scheme and not the values. **The failure it fixes is asserted end to end**:
+  `tests/nativeweb.scaffold.tests.integration/SubjectClaimTests.cs` runs `apps/sample` behind a
+  transformation that moves the subject to `sub`, and the unconfigured host answers 403 on
+  `/admin/articles` while the configured one answers 200. 132 permissions unit facts, 196 scaffold
+  integration.
 - **The permissions e2e tier is not blocked.** It binds 5352, not the 5348 `justsmtp.web` holds;
   the earlier "blocked" reading was a 10-minute command timeout against a NativeAOT publish the
   fixture allows 30 minutes for. Run to completion 2026-09-04: 3/3 in 625 ms after a ~31-minute

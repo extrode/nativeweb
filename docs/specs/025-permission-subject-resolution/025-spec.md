@@ -1,6 +1,6 @@
 # 025 — How the permission layer names a subject
 
-Status: draft
+Status: done
 Created: 2026-09-04
 
 ## Problem
