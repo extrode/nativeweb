@@ -41,6 +41,12 @@ public sealed partial record OptionalDocumentForm(
 /// body of the fact about a JSON body, where no such field can exist. The header
 /// carries the same token through the same validation.
 /// </para>
+/// <para>
+/// Two facts use <see cref="PostWithFormTokenAsync"/> instead, because the field is
+/// not merely a second spelling of the header: finding it makes the antiforgery
+/// middleware read the form before the endpoint runs, and that ordering is what the
+/// header path can never reach.
+/// </para>
 /// </remarks>
 internal sealed class FormHost : IAsyncDisposable
 {
@@ -87,7 +93,11 @@ internal sealed class FormHost : IAsyncDisposable
         app.UseAntiforgery();
 
         app.MapGet("/token", (HttpContext context, IAntiforgery antiforgery) =>
-            Results.Text(antiforgery.GetAndStoreTokens(context).RequestToken ?? string.Empty));
+        {
+            AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(context);
+
+            return Results.Text(tokens.FormFieldName + "|" + (tokens.RequestToken ?? string.Empty));
+        });
 
         app.MapFormPost<DocumentForm>("/document", (form, _) => Task.FromResult(Describe(form.Caption, form.Document)));
 
@@ -109,17 +119,52 @@ internal sealed class FormHost : IAsyncDisposable
         using HttpResponseMessage issued = await _client.GetAsync(new Uri("/token", UriKind.Relative));
         issued.EnsureSuccessStatusCode();
 
-        string token = await issued.Content.ReadAsStringAsync(CancellationToken.None);
+        string[] token = (await issued.Content.ReadAsStringAsync(CancellationToken.None)).Split('|');
 
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(path, UriKind.Relative))
         {
             Content = content,
         };
-        request.Headers.Add(TokenHeader, token);
+        request.Headers.Add(TokenHeader, token[1]);
 
         // The test client keeps no cookie jar, so the pair the validation needs is
         // reassembled by hand: the cookie half comes back on the /token response and
         // is echoed here.
+        foreach (string cookie in issued.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values)
+            ? values
+            : [])
+        {
+            request.Headers.Add("Cookie", cookie.Split(';', 2)[0]);
+        }
+
+        return await _client.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Posts a multipart body carrying the token as a hidden field, the way a browser
+    /// submitting a real form does.
+    /// </summary>
+    /// <remarks>
+    /// This is the ordering the header path never reaches. The antiforgery middleware
+    /// runs before the endpoint, and for a form field it has to read the form to find
+    /// the token -- so by the time the generated binder installs the endpoint's form
+    /// limits the body is already consumed. Installing a fresh feature there re-reads
+    /// a spent stream and the whole route answers 500.
+    /// </remarks>
+    internal async Task<HttpResponseMessage> PostWithFormTokenAsync(
+        string path, MultipartFormDataContent content)
+    {
+        using HttpResponseMessage issued = await _client.GetAsync(new Uri("/token", UriKind.Relative));
+        issued.EnsureSuccessStatusCode();
+
+        string[] token = (await issued.Content.ReadAsStringAsync(CancellationToken.None)).Split('|');
+        content.Add(new StringContent(token[1]), token[0]);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(path, UriKind.Relative))
+        {
+            Content = content,
+        };
+
         foreach (string cookie in issued.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values)
             ? values
             : [])

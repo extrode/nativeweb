@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -150,9 +152,20 @@ public static class FormBinding
             size.MaxRequestBodySize = maxBytes;
         }
 
-        context.Features.Set<IFormFeature>(new FormFeature(
-            context.Request,
-            new FormOptions { MultipartBodyLengthLimit = maxBytes }));
+        // Only when nothing has read the form yet. The antiforgery middleware reads it
+        // to find the token, and it runs before any endpoint code -- so on a guarded
+        // multipart route the body is already consumed by the time this is called, and
+        // a fresh feature would re-read a spent stream and raise "Unexpected end of
+        // Stream" as a 500. The ceiling still holds in that case: File and RequiredFile
+        // measure the bound part, so an oversize upload is refused with 413 and nothing
+        // is stored. What is lost is only the mid-stream abort -- the body was buffered
+        // under the host-wide FormOptions before this ran.
+        if (context.Features.Get<IFormFeature>()?.Form is null)
+        {
+            context.Features.Set<IFormFeature>(new FormFeature(
+                context.Request,
+                new FormOptions { MultipartBodyLengthLimit = maxBytes }));
+        }
     }
 
     /// <summary>
@@ -217,17 +230,33 @@ public static class FormBinding
     /// <param name="form">The already-read form collection.</param>
     /// <param name="name">The wire name of the field.</param>
     /// <param name="accept">The accepted content types, or null for any.</param>
+    /// <param name="maxBytes">The largest accepted part, from the declaration.</param>
     /// <returns>The file, or <see langword="null"/>.</returns>
-    /// <exception cref="BadHttpRequestException">The content type is not accepted.</exception>
-    public static UploadedFile? File(IFormCollection form, string name, string[]? accept)
+    /// <exception cref="BadHttpRequestException">
+    /// The content type is not accepted, or the part is over the declared ceiling.
+    /// </exception>
+    public static UploadedFile? File(IFormCollection form, string name, string[]? accept, long maxBytes)
     {
         ArgumentNullException.ThrowIfNull(form);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
 
         IFormFile? file = form.Files.GetFile(name);
 
         if (file is null || file.Length == 0)
         {
             return null;
+        }
+
+        // The second half of the ceiling. LimitBody aborts the read mid-stream where
+        // it can, but it cannot where the form was already read (see the comment
+        // there), and it bounds the whole body rather than this one part. Measuring
+        // here is what makes the declared MaxBytes true of the field it is written on.
+        if (file.Length > maxBytes)
+        {
+            throw new BadHttpRequestException(
+                "The form field '" + name + "' accepts at most " + maxBytes.ToString(CultureInfo.InvariantCulture)
+                    + " bytes, and the file was " + file.Length.ToString(CultureInfo.InvariantCulture) + ".",
+                StatusCodes.Status413PayloadTooLarge);
         }
 
         RequireAccepted(file.ContentType, accept, name);
@@ -245,10 +274,11 @@ public static class FormBinding
     /// <param name="form">The already-read form collection.</param>
     /// <param name="name">The wire name of the field.</param>
     /// <param name="accept">The accepted content types, or null for any.</param>
+    /// <param name="maxBytes">The largest accepted part, from the declaration.</param>
     /// <returns>The file.</returns>
-    /// <exception cref="BadHttpRequestException">The field is absent, or not accepted.</exception>
-    public static UploadedFile RequiredFile(IFormCollection form, string name, string[]? accept) =>
-        File(form, name, accept)
+    /// <exception cref="BadHttpRequestException">The field is absent, not accepted, or too large.</exception>
+    public static UploadedFile RequiredFile(IFormCollection form, string name, string[]? accept, long maxBytes) =>
+        File(form, name, accept, maxBytes)
         ?? throw new BadHttpRequestException(
             "The form field '" + name + "' is required and carried no file.",
             StatusCodes.Status400BadRequest);

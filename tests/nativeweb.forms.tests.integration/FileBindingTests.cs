@@ -198,6 +198,44 @@ public sealed class FileBindingTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    /// <summary>
+    /// The token as a hidden field, which is what a browser posts. The antiforgery
+    /// middleware has to read the form to find it, so the endpoint's own form limits
+    /// are installed against a body that is already consumed.
+    /// </summary>
+    [Fact]
+    public async Task A_form_carrying_its_token_as_a_field_binds_rather_than_re_reading_a_spent_body()
+    {
+        await using FormHost host = await FormHost.StartAsync();
+
+        using MultipartFormDataContent body = Multipart(
+            ("document", "notes.txt", "text/plain", "the contents"), caption: "a caption");
+
+        using HttpResponseMessage response = await host.PostWithFormTokenAsync("/document", body);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(
+            "a caption|notes.txt|text/plain|12|the contents",
+            await response.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>
+    /// And the declared ceiling still holds on that path, where nothing aborted the
+    /// read: the bound part is measured, so an oversize upload is 413 and not a 200.
+    /// </summary>
+    [Fact]
+    public async Task An_oversize_file_posted_with_a_field_token_is_still_too_large()
+    {
+        await using FormHost host = await FormHost.StartAsync();
+
+        using MultipartFormDataContent body = Multipart(
+            ("document", "notes.txt", "text/plain", new string('x', 5000)));
+
+        using HttpResponseMessage response = await host.PostWithFormTokenAsync("/document", body);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+    }
+
     private static MultipartFormDataContent Multipart(
         (string Field, string FileName, string ContentType, string Content)? file = null,
         string? caption = null)

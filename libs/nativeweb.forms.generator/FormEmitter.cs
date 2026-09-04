@@ -134,7 +134,8 @@ internal static class FormEmitter
     // refused content type is raised.
     private static string Read(FormFieldModel field)
     {
-        string form = "form, \"" + Escape(field.WireName) + "\", " + Accept(field.Accept);
+        string form = "form, \"" + Escape(field.WireName) + "\", " + Accept(field.Accept)
+            + ", " + field.MaxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L";
 
         return field.Kind switch
         {

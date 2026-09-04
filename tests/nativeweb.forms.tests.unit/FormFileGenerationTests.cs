@@ -50,7 +50,7 @@ public sealed class FormFileGenerationTests
     {
         (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] UploadedFile Avatar"));
 
-        Assert.Contains("FormBinding.RequiredFile(form, \"avatar\", null)", emitted, StringComparison.Ordinal);
+        Assert.Contains("FormBinding.RequiredFile(form, \"avatar\", null, 1024L)", emitted, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class FormFileGenerationTests
     {
         (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] UploadedFile? Avatar"));
 
-        Assert.Contains("FormBinding.File(form, \"avatar\", null)", emitted, StringComparison.Ordinal);
+        Assert.Contains("FormBinding.File(form, \"avatar\", null, 1024L)", emitted, StringComparison.Ordinal);
         Assert.DoesNotContain("RequiredFile", emitted, StringComparison.Ordinal);
     }
 
@@ -135,7 +135,7 @@ public sealed class FormFileGenerationTests
             Model("string? Caption, [FormFile(MaxBytes = 1024)] UploadedFile Avatar"));
 
         Assert.Contains("FormBinding.Field(form, \"caption\")", emitted, StringComparison.Ordinal);
-        Assert.Contains("FormBinding.RequiredFile(form, \"avatar\", null)", emitted, StringComparison.Ordinal);
+        Assert.Contains("FormBinding.RequiredFile(form, \"avatar\", null, 1024L)", emitted, StringComparison.Ordinal);
     }
 
     [Fact]

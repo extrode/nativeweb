@@ -19,6 +19,10 @@ public sealed class FormFileBindingTests
 {
     private const string Png = "image/png";
 
+    // Wider than anything these facts post, so a call that is not about the ceiling
+    // is not silently about it.
+    private const long Ceiling = 4096L;
+
     [Fact]
     public void A_multipart_post_passes_the_multipart_guard()
     {
@@ -84,7 +88,7 @@ public sealed class FormFileBindingTests
     {
         IFormCollection form = FormWith(Named("avatar", "portrait.png", Png, "the bytes"));
 
-        UploadedFile? bound = FormBinding.File(form, "avatar", null);
+        UploadedFile? bound = FormBinding.File(form, "avatar", null, Ceiling);
 
         Assert.NotNull(bound);
         Assert.Equal("portrait.png", bound.Name);
@@ -97,7 +101,7 @@ public sealed class FormFileBindingTests
     [Fact]
     public void An_optional_file_the_form_does_not_carry_binds_null()
     {
-        Assert.Null(FormBinding.File(FormWith(), "avatar", null));
+        Assert.Null(FormBinding.File(FormWith(), "avatar", null, Ceiling));
     }
 
     /// <summary>
@@ -109,14 +113,14 @@ public sealed class FormFileBindingTests
     {
         IFormCollection form = FormWith(Named("avatar", "portrait.png", Png, ""));
 
-        Assert.Null(FormBinding.File(form, "avatar", null));
+        Assert.Null(FormBinding.File(form, "avatar", null, Ceiling));
     }
 
     [Fact]
     public void A_required_file_that_is_absent_is_400()
     {
         BadHttpRequestException thrown = Assert.Throws<BadHttpRequestException>(
-            () => FormBinding.RequiredFile(FormWith(), "avatar", null));
+            () => FormBinding.RequiredFile(FormWith(), "avatar", null, Ceiling));
 
         Assert.Equal(StatusCodes.Status400BadRequest, thrown.StatusCode);
         Assert.Contains("avatar", thrown.Message, StringComparison.Ordinal);
@@ -127,7 +131,7 @@ public sealed class FormFileBindingTests
     {
         IFormCollection form = FormWith(Named("avatar", "portrait.png", Png, "x"));
 
-        Assert.Equal("portrait.png", FormBinding.RequiredFile(form, "avatar", null).Name);
+        Assert.Equal("portrait.png", FormBinding.RequiredFile(form, "avatar", null, Ceiling).Name);
     }
 
     [Fact]
@@ -136,7 +140,7 @@ public sealed class FormFileBindingTests
         IFormCollection form = FormWith(Named("avatar", "payload.zip", "application/zip", "x"));
 
         BadHttpRequestException thrown = Assert.Throws<BadHttpRequestException>(
-            () => FormBinding.File(form, "avatar", [Png, "image/jpeg"]));
+            () => FormBinding.File(form, "avatar", [Png, "image/jpeg"], Ceiling));
 
         Assert.Equal(StatusCodes.Status415UnsupportedMediaType, thrown.StatusCode);
         Assert.Contains(Png, thrown.Message, StringComparison.Ordinal);
@@ -149,7 +153,7 @@ public sealed class FormFileBindingTests
     {
         IFormCollection form = FormWith(Named("avatar", "portrait.png", Png, "x"));
 
-        Assert.NotNull(FormBinding.File(form, "avatar", [Png]));
+        Assert.NotNull(FormBinding.File(form, "avatar", [Png], Ceiling));
     }
 
     /// <summary>
@@ -161,7 +165,7 @@ public sealed class FormFileBindingTests
     {
         IFormCollection form = FormWith(Named("avatar", "p.png", "image/PNG; charset=binary", "x"));
 
-        Assert.NotNull(FormBinding.File(form, "avatar", [Png]));
+        Assert.NotNull(FormBinding.File(form, "avatar", [Png], Ceiling));
     }
 
     [Fact]
@@ -170,7 +174,7 @@ public sealed class FormFileBindingTests
         IFormCollection form = FormWith(Named("avatar", "p.png", string.Empty, "x"));
 
         BadHttpRequestException thrown = Assert.Throws<BadHttpRequestException>(
-            () => FormBinding.File(form, "avatar", [Png]));
+            () => FormBinding.File(form, "avatar", [Png], Ceiling));
 
         Assert.Equal(StatusCodes.Status415UnsupportedMediaType, thrown.StatusCode);
     }
@@ -180,7 +184,7 @@ public sealed class FormFileBindingTests
     {
         IFormCollection form = FormWith(Named("avatar", "payload.zip", "application/zip", "x"));
 
-        Assert.NotNull(FormBinding.File(form, "avatar", []));
+        Assert.NotNull(FormBinding.File(form, "avatar", [], Ceiling));
     }
 
     /// <summary>
@@ -193,7 +197,59 @@ public sealed class FormFileBindingTests
     {
         IFormCollection form = FormWith(Named("avatar", "../../etc/passwd", Png, "x"));
 
-        Assert.Equal("../../etc/passwd", FormBinding.File(form, "avatar", null)?.Name);
+        Assert.Equal("../../etc/passwd", FormBinding.File(form, "avatar", null, Ceiling)?.Name);
+    }
+
+    /// <summary>
+    /// The second half of the declared ceiling. <see cref="FormBinding.LimitBody"/>
+    /// bounds the whole body before the read where it can; this bounds the one part,
+    /// and it is the only enforcement left when something read the form first.
+    /// </summary>
+    [Fact]
+    public void A_part_over_the_declared_ceiling_is_413_naming_both_sizes()
+    {
+        IFormCollection form = FormWith(Named("avatar", "portrait.png", Png, "0123456789"));
+
+        BadHttpRequestException thrown = Assert.Throws<BadHttpRequestException>(
+            () => FormBinding.File(form, "avatar", null, 9L));
+
+        Assert.Equal(StatusCodes.Status413PayloadTooLarge, thrown.StatusCode);
+        Assert.Contains("9 bytes", thrown.Message, StringComparison.Ordinal);
+        Assert.Contains("was 10", thrown.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_part_exactly_at_the_declared_ceiling_binds()
+    {
+        IFormCollection form = FormWith(Named("avatar", "portrait.png", Png, "0123456789"));
+
+        Assert.Equal(10, FormBinding.File(form, "avatar", null, 10L)?.Length);
+    }
+
+    /// <summary>
+    /// Size before type. A file that is both too large and the wrong type gets the
+    /// status for the thing that would have stopped the read, so the refusal does not
+    /// change depending on which check happens to run first.
+    /// </summary>
+    [Fact]
+    public void A_part_that_is_both_too_large_and_unaccepted_is_413()
+    {
+        IFormCollection form = FormWith(Named("avatar", "payload.zip", "application/zip", "0123456789"));
+
+        BadHttpRequestException thrown = Assert.Throws<BadHttpRequestException>(
+            () => FormBinding.File(form, "avatar", [Png], 4L));
+
+        Assert.Equal(StatusCodes.Status413PayloadTooLarge, thrown.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(0L)]
+    [InlineData(-1L)]
+    public void A_declared_ceiling_of_zero_or_less_is_refused(long maxBytes)
+    {
+        IFormCollection form = FormWith(Named("avatar", "portrait.png", Png, "x"));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => FormBinding.File(form, "avatar", null, maxBytes));
     }
 
     private static HttpFormFile Named(string field, string fileName, string contentType, string content)
