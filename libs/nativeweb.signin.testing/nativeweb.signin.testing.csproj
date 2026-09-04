@@ -25,7 +25,6 @@
     <IsTestProject>false</IsTestProject>
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.SignIn.Testing</PackageId>
-    <Version>0.1.0</Version>
     <!-- The property that keeps this out of an application's production closure,
          matching nativeweb.render.generator and nativeweb.scaffold.generator.
          NuGet installs a developmentDependency with PrivateAssets=all, so a

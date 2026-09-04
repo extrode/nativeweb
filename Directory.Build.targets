@@ -71,7 +71,45 @@
          also notes. Write dashes as semicolons or commas here.) -->
     <Authors>Extrode LLC</Authors>
     <PackageProjectUrl>https://github.com/extrode/nativeweb</PackageProjectUrl>
+
+    <!-- Provenance (spec 028 R3). The nuspec already carried a `commit` before
+         this line existed, because the SDK picks SourceRevisionId up on its own ;
+         it carried no `url`, so a package named a revision with nothing to
+         resolve it against. Both halves or neither is the useful state.
+
+         RepositoryUrl is the same string as PackageProjectUrl above and is
+         deliberately not factored into one property: they answer different
+         questions (where the project lives for a reader, which repository this
+         binary came from) and a fork or a mirror separates them. -->
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/extrode/nativeweb</RepositoryUrl>
+
+    <!-- Deterministic paths on a runner, so two builds of the same commit
+         produce the same bytes. Off locally, because it rewrites source paths
+         into the PDB and breaks stepping into the library from a sibling
+         checkout ; which is the whole point of checkout mode. GitHub Actions
+         sets CI=true; so does every other runner worth naming. -->
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <!-- The library's own README travels with the package (spec 028 R4).
+
+       Guarded by Exists rather than set unconditionally: nine of the thirteen
+       packable projects have a README.md and the four generators do not, and
+       naming a readme file that is not packed is NU5039, which under
+       TreatWarningsAsErrors is a build failure rather than a nag.
+
+       MSBuildProjectDirectory, not MSBuildThisFileDirectory: this file is
+       imported into every project, so the path has to resolve per project.
+       LICENSE.md and NOTICE.md below are the opposite case ; one repository
+       file, shipped in every package. -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true' and Exists('$(MSBuildProjectDirectory)\README.md')">
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(PackageReadmeFile)' != ''">
+    <None Include="$(MSBuildProjectDirectory)\README.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="" Visible="false" />

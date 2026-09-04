@@ -7,7 +7,6 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Web</PackageId>
-    <Version>0.1.0</Version>
     <Description>NativeWeb framework: the request pipeline — security headers, public-page output cache, error pages, static pages, flash, readiness, CSP reporting.</Description>
     <RootNamespace>NativeWeb.Web</RootNamespace>
     <!-- The Request Delegate Generator. MapGet/MapPost carry

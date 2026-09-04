@@ -47,6 +47,8 @@ Answers to specific questions. Not written to be read in order.
 | [`02-reference/configuration.md`](02-reference/configuration.md) | Every setting, default, and failure mode. |
 | [`01-architecture/progressive-enhancement.md`](01-architecture/progressive-enhancement.md) | HTMX and Alpine conventions. Mandatory for every browser-facing page. |
 | [`02-reference/template-diagnostics.md`](02-reference/template-diagnostics.md) | `NWT001`–`NWT016`: what each template build error means and how to fix it. |
+| [`02-reference/versioning.md`](02-reference/versioning.md) | What a `NativeWeb.*` version promises, what counts as breaking, how long a released minor is supported, how a library is retired, and how a release is cut. |
+| [`02-reference/breaking-changes.md`](02-reference/breaking-changes.md) | Every change that makes a consumer's code stop compiling or stop behaving as it did, newest first, with the edit. |
 | [`02-reference/security-baseline.md`](02-reference/security-baseline.md) | The security checklist and what has been verified against it. Written against the identity provider that has since left; read it as the posture a stamped product inherits. |
 | [`02-reference/migration-lock-review.md`](02-reference/migration-lock-review.md) | How long `db/migrate.sh` holds its locks. Read before pointing it at a live database. |
 | [`02-reference/performance.md`](02-reference/performance.md) | Every load measurement taken here, what changed between them, and the bottlenecks found — including the one that cost 35% of page throughput to a header nobody was setting. |

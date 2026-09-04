@@ -101,6 +101,15 @@ Its reference implementation is named as `justsmtp.com`'s `apps/web-next/` on br
 
 ### G1 — There is no way to consume NativeWeb except a checkout of `HEAD`
 
+> **Closed 2026-09-04 by [spec 028](../specs/028-versioned-package-releases/028-spec.md).** One
+> `VersionPrefix` in `Directory.Build.props` for all thirteen packable projects, an opt-in
+> `IsReleaseBuild` so an unmarked pack can only produce `-dev`, `tools/pack.ts` packing and then
+> reading back each `.nupkg` (13 of 13 in 24.9 s), a tag-only `.github/workflows/publish.yml`, and
+> [`versioning.md`](../02-reference/versioning.md) for decision 004's second obligation. Two of
+> its four remain and neither is work here: the org-side read grant, and repointing
+> `justsmtp.com`, which §5 below puts in that repository. **Nothing has been published** — no
+> `v*` tag exists, so the count below is the state that was measured, not the state today.
+
 Eight libraries set `IsPackable` and a `PackageId` (`nativeweb.{web,render,render.generator,forms,forms.generator,scaffold,scaffold.generator,security,mail}`). Nothing packs them: no
 `dotnet pack` step in either workflow, no version property, and **one tag in the repository's
 history** — `pre-idp-extraction`, which is not a release. `justsmtp.com/Directory.Packages.props:49-52`
@@ -112,12 +121,23 @@ which is how §2 and §3 both broke.
 
 ### G2 — Removing a library has no consumer-facing consequence
 
+> **Closed 2026-09-01 by spec 017:** `docs/02-reference/breaking-changes.md`, linked from
+> `docs/README.md`, carrying the 2026-08-31 removals retrospectively. Spec 028 added the
+> structural half this section asks for — a pinned version a consumer can stay on — and
+> [`versioning.md`](../02-reference/versioning.md) states the deprecate-then-remove path these two
+> libraries did not get.
+
 `nativeweb.signin.epass` and `nativeweb.auth` left on 2026-08-31. Seven files in `justsmtp.com`
 and a planning document in `ghosthive.com` still name them. Nothing in this repository knows any
 consumer exists, so nothing could have flagged it. G1 is the structural fix (a pinned version
 lets a consumer stay put); a `docs/` breaking-change log is the cheap one.
 
 ### G3 — A relying party is framework, and the framework has none
+
+> **Answered and built: spec 016 shipped `libs/nativeweb.signin` on 2026-09-01** —
+> authorization-code with PKCE, the session cookie primitive and the introspection filter, with no
+> provider flow, realm or client registry. It sits on the `contrib.auth` side of the Django line
+> the way `django-allauth` does. Migrating each consumer onto it is that consumer's work.
 
 This is the gap that decides whether `ghosthive.com` can ever migrate, and it is the one that
 needs a decision rather than work.
@@ -155,6 +175,9 @@ should say so rather than leave it implied.
 
 ### G5 — No list primitives, so every consumer builds keyset pagination twice
 
+> **Closed 2026-09-01 by spec 017**, as the last paragraph of this section already records.
+> Structured filtering was scoped out and stays out.
+
 `ghosthive.com/libs/ghosthive.runtime` hand-rolls `ListQueryParser`, `FilterComposer`, keyset
 `Cursor` and `ListExecutor` — for its *generated tenant* APIs. Its own control-plane list
 endpoints then go without: `Program.cs:498` is `SELECT id, name FROM projects WHERE owner_sub = @sub`
@@ -169,12 +192,21 @@ stays that way; structured filters were scoped out and are not coming.
 
 ### G6 — Seven of nine libraries have no README
 
+> **Closed 2026-09-02 by spec 018**, and the count above was already stale when this was written.
+> Nine of the thirteen packable libraries have a README today and the four without are the source
+> generators, which a consumer references as an analyzer and calls nothing in; each is documented
+> in the runtime library it serves. Since spec 028 a library's README also travels inside its
+> `.nupkg`.
+
 Only `nativeweb.scaffold` and `nativeweb.assets` document themselves, and `nativeweb.assets` is
 not a library. **`nativeweb.web` — the newest, the largest seam, and the one §1 shows a consumer
 reimplemented by hand — has none.** `docs/README.md` already admits this; it is listed here
 because §1 measured what it costs.
 
 ### G7 — Every guide assumes a greenfield product
+
+> **Closed 2026-09-02 by spec 018:** `docs/00-quick-start/adopting-in-an-existing-app.md`, checked
+> by taking a stock `dotnet new web` project through every step of it.
 
 `getting-started.md` goes clone → build → green suite → `tools/new-product.ps1`. That is the right
 path for a new product and **not one of the three consumers can take it**: each has an existing

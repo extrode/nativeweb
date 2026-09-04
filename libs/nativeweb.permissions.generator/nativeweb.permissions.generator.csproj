@@ -22,7 +22,6 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Permissions.Generator</PackageId>
-    <Version>0.1.0</Version>
     <Description>NativeWeb framework: build-time permission constant and catalog source generator.</Description>
     <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeBuildOutput>false</IncludeBuildOutput>
