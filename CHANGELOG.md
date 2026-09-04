@@ -11,6 +11,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ## [Unreleased]
 
+### Added
+
+- **Spec 025: the claim carrying the permission subject is configurable.**
+  `AddPermissions(catalog, options => options.ClaimName = "sub")` for a scheme that leaves `sub`
+  alone, or `options.Resolve = user => ...` for a subject that is not any one claim. Configuring
+  both is refused at registration. Configuring nothing is `ClaimTypes.NameIdentifier`, which is
+  what every application on this layer had, so nothing changes on upgrade. An authenticated
+  principal that yields no subject is now logged once per request, at warning, naming the claim
+  looked for and the scheme — never the claim values. Before this, a JWT bearer host with
+  `MapInboundClaims` off answered 403 from every gated route with nothing recorded to say why.
+
 ### Fixed
 
 - `[Permissions]` extras that emit the same C# identifier are now the NWP007 error rather than
