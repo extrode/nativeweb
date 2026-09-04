@@ -35,6 +35,15 @@ sections that apply; drop the empty ones rather than leaving them blank.
   before it are supported, and the deprecate-then-remove path `nativeweb.signin.epass` did not get.
   This closes G1 in `docs/architecture/004-consumer-readiness.md` and obligation 2 of decision 004.
 
+  Four guards came out of the branch's own review, each one a way a package could reach the feed
+  unverified. `dotnet nuget push` globs the output directory rather than reading a manifest, so
+  `tools/pack.ts` now refuses to run when that directory holds a package the run will not produce
+  and says which; `verify` refuses a package carrying JauntyQ, which AGENTS.md forbids
+  redistributing; the publish workflow checks the repository is private before it pushes, because a
+  package linked by `RepositoryUrl` inherits that repository's visibility; and it runs the two
+  suites that guard it -- `tools/pack.test.ts` and `nativeweb.repo.tests.unit` -- because a tag can
+  be placed on any commit, including one whose suite never went green.
+
 - **Spec 027: forms take files and carry state between steps.** `libs/nativeweb.forms` gains a
   file field -- declare an `UploadedFile` member, decorate it `[FormFile(MaxBytes = ..., Accept =
   [...])]`, and the generated binder refuses a urlencoded post with 415, installs the declared

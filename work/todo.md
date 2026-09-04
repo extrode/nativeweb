@@ -2049,6 +2049,14 @@ an answer different from the one the audit assumed.
 - **`FormValueAsync` joins repeated form fields with a comma.** Posting `permission` twice yields
   `a,b`, which fails catalog validation rather than being rejected as malformed. Harmless today
   because the catalog check catches it; a wrong message for the wrong reason.
+- **The GitHub Packages credential is written into the checked-out `nuget.config` in clear text.**
+  `dotnet nuget update source jauntyq-github --store-password-in-clear-text` with no `--configfile`
+  writes to the nearest config declaring that source, which is the committed one, so the token sits
+  in the workspace for the rest of the job. Three workflow jobs do it -- ci.yml's `test` and
+  `aot-publish` and now publish.yml, which is the one holding `packages: write`. Job-scoped and
+  ephemeral, and the same pattern predates spec 028; the fix is `--configfile` pointing at a config
+  outside the tree, or `dotnet nuget push --interactive` style env credentials. Found reviewing 028,
+  out of its scope.
 - **`PermissionModel` has no value equality**, so the generator's `Collect()` compares by
   reference and the incremental cache never hits across edits. A correctness non-issue and a
   build-time cost only.
