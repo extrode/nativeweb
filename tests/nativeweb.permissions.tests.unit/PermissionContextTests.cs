@@ -210,10 +210,11 @@ public sealed class PermissionContextTests
         };
 
         var context = new PermissionContext(store, Registry());
+        ClaimsPrincipal one = Signed("sub-1"), two = Signed("sub-2");
 
-        Task<IReadOnlySet<string>> first = context.HeldAsync(Signed("sub-1")).AsTask();
+        Task<IReadOnlySet<string>> first = context.HeldAsync(one).AsTask();
         await entered1.Task;
-        Task<IReadOnlySet<string>> second = context.HeldAsync(Signed("sub-2")).AsTask();
+        Task<IReadOnlySet<string>> second = context.HeldAsync(two).AsTask();
         await entered2.Task;
 
         release2.SetResult();
@@ -223,7 +224,10 @@ public sealed class PermissionContextTests
 
         store.BeforeGranted = null;
 
-        Assert.Equal([Delete.Name], await context.HeldAsync(Signed("sub-2")));
+        // The same objects, because a memo keyed on the principal reference is
+        // answered from the memo here and only here: a fresh principal for sub-2
+        // would miss it and read the store, which hides the interleaving.
+        Assert.Equal([Delete.Name], await context.HeldAsync(two));
     }
 
     private sealed class StoppedClock : TimeProvider

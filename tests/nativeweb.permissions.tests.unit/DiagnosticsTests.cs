@@ -335,6 +335,30 @@ public sealed class DiagnosticsTests
                 tree => tree.FilePath.EndsWith("ArticlePermissions.g.cs", StringComparison.Ordinal)));
     }
 
+    [Fact]
+    public void ADiagnostic_CannotBeLoweredOrSuppressed()
+    {
+        const string model = """
+            using NativeWeb.Permissions;
+
+            namespace Demo
+            {
+                [Permissions("delete")]
+                public sealed class Article { }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, _, _) =
+            GeneratorHarness.Run("Sample", GeneratorHarness.Attributes, model);
+
+        Diagnostic reported = Assert.Single(diagnostics, diagnostic => diagnostic.Id == "NWP001");
+
+        Assert.Contains(
+            WellKnownDiagnosticTags.NotConfigurable,
+            reported.Descriptor.CustomTags,
+            StringComparer.Ordinal);
+    }
+
     private static string[] Ids((ImmutableArray<Diagnostic> Diagnostics, string Source, int FileCount) run) =>
         [.. run.Diagnostics.Select(diagnostic => diagnostic.Id)];
 }
