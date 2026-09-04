@@ -37,7 +37,6 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.SignIn</PackageId>
-    <Version>0.1.0</Version>
     <Description>NativeWeb framework: the OAuth 2.0 relying party — authorization-code with PKCE, a server-side session, silent refresh, and bearer introspection. Client only; never an issuer.</Description>
   </PropertyGroup>
 

@@ -11,7 +11,6 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Render</PackageId>
-    <Version>0.1.0</Version>
     <Description>NativeWeb framework: compiled-template render runtime (TemplateWriter, Html, IResult adapters, locale tables).</Description>
   </PropertyGroup>
   <ItemGroup>

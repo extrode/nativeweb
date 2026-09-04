@@ -23,7 +23,6 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.Permissions</PackageId>
-    <Version>0.1.0</Version>
     <Description>NativeWeb framework: model permissions, groups, and the store contract the permission decisions read.</Description>
   </PropertyGroup>
   <ItemGroup>

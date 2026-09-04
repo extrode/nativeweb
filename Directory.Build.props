@@ -28,6 +28,36 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
+  <!-- The framework's version, in one place (spec 028 R1/R2).
+
+       It used to be thirteen places: every packable csproj under libs/ carried
+       its own <Version>0.1.0</Version>, which is the shape that already went
+       wrong once here with <Authors> ; ten copies said the retired org name for
+       three days after the rename because nothing made them move together.
+       PackageVersionTests bans a per-project <Version> for that reason.
+
+       VersionPrefix lives in this file rather than in Directory.Build.targets
+       beside the pack metadata, because it is unconditional: every project has a
+       version, packable or not. The pack block over there is conditioned on
+       IsPackable, which is set by each csproj and so is not answerable until
+       after the csproj is imported.
+
+       A RELEASE IS OPT-IN, and the direction is the point. IsReleaseBuild=true
+       clears the suffix and produces the stable version; every other build
+       produces X.Y.Z;dev. The other way round ; stable by default, suffixed when
+       something marks the build as local ; makes an unmarked pack
+       indistinguishable from a release, and a package that claims to be a
+       release and is not is the one thing a feed must never receive. Only
+       .github/workflows/publish.yml sets it, and only after checking the tag
+       against VersionPrefix.
+
+       (XML forbids a double hyphen inside a comment, as nuget.config also notes.
+       Dashes are written as semicolons above.) -->
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix Condition="'$(IsReleaseBuild)' != 'true'">dev</VersionSuffix>
+  </PropertyGroup>
+
   <!-- Local checkout of JauntyQ (data-access source generator), referenced by
        project until JauntyQ ships on NuGet — same wiring as epass.io / reader.
        Two probes, not one. The first is the ordinary checkout: jauntyq as a
