@@ -485,6 +485,22 @@ export async function verify(
     return `package carries JauntyQ, which may not be redistributed: ${jauntyq.join(", ")}.`;
   }
 
+  // A package with no code in it is the failure nothing else here would catch.
+  // The four generators get their assembly from a `<None Include="$(OutputPath)
+  // \$(AssemblyName).dll" Pack="true">` item, and MSBuild drops a None item
+  // whose file is absent without saying so; NU5128, which would otherwise
+  // complain about an empty package, is NoWarn'd in each generator csproj
+  // because a generator legitimately ships no lib/ folder. So a renamed
+  // AssemblyName or a moved OutputPath yields a nupkg holding a nuspec, the
+  // licence and the notice, and every other check above passes it.
+  const assemblies = [...files.keys()].filter((name) =>
+    /^(lib|analyzers|runtimes|tools)\/.*\.dll$/i.test(name)
+  );
+
+  if (assemblies.length === 0) {
+    return "package contains no assembly under lib/, analyzers/, runtimes/ or tools/.";
+  }
+
   if (project.hasReadme) {
     if (facts.readme !== "README.md") {
       return `the project has a README.md and the nuspec names ${facts.readme} (R4).`;

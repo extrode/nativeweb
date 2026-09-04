@@ -100,6 +100,70 @@ public sealed class PublishWorkflowTests
                 + "tag. Everything else runs on every push to every branch.");
     }
 
+    [Fact]
+    public void ThePushDoesNotSkipDuplicates()
+    {
+        string[] pushLines = [.. File
+            .ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))
+            .SkipWhile(line => !IsANuGetPush(line))];
+
+        Assert.NotEmpty(pushLines);
+
+        string[] offenders = [.. pushLines
+            .TakeWhile(line => line.Trim().Length > 0)
+            .Where(line => !line.TrimStart().StartsWith('#'))
+            .Where(line => line.Contains("--skip-duplicate", StringComparison.Ordinal))];
+
+        Assert.True(
+            offenders.Length == 0,
+            "The push carries --skip-duplicate. A retagged release then publishes the packages "
+                + "that failed the first time from a different commit than the ones that "
+                + "succeeded, and the version ends up carrying two <repository commit> values. "
+                + "Let the second attempt fail and delete the partial version by hand.");
+    }
+
+    [Fact]
+    public void PublishRefusesACommitCiHasNotPassed()
+    {
+        string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))];
+
+        int gate = Array.FindIndex(lines, line => line.Contains("check-runs", StringComparison.Ordinal)
+            && !line.TrimStart().StartsWith('#'));
+        int push = Array.FindIndex(lines, IsANuGetPush);
+
+        Assert.True(
+            gate >= 0,
+            "Nothing in the workflow reads the tagged commit's check runs. A tag can be placed on "
+                + "any commit, including one whose suite never went green, and the tag is the "
+                + "only trigger this workflow has.");
+
+        Assert.True(gate < push, "The CI check runs after the push, which gates nothing.");
+
+        // The job keys in ci.yml, so a renamed job breaks this test rather than
+        // leaving the gate reading a check run that no longer exists and always
+        // finding nothing.
+        string publish = string.Join('\n', lines);
+        string ci = File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "ci.yml"));
+
+        string[] jobs = [.. ci
+            .Split('\n')
+            .SkipWhile(line => !line.StartsWith("jobs:", StringComparison.Ordinal))
+            .Where(line => line.Length > 2
+                && line.StartsWith("  ", StringComparison.Ordinal)
+                && !char.IsWhiteSpace(line[2])
+                && line.TrimEnd().EndsWith(':'))
+            .Select(line => line.Trim().TrimEnd(':'))];
+
+        Assert.NotEmpty(jobs);
+
+        string[] ungated = [.. jobs.Where(job => !publish.Contains(job, StringComparison.Ordinal))];
+
+        Assert.True(
+            ungated.Length == 0,
+            $"These ci.yml jobs are not required by the publish gate: {string.Join(", ", ungated)}. "
+                + "A job the gate does not name can be red on the commit being released.");
+    }
+
     /// <summary>
     /// A `dotnet nuget push` in an executable position, not in a comment.
     /// </summary>

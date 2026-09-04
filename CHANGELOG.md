@@ -11,6 +11,37 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A Fable review of the two merged branches found twelve real gaps; all twelve are closed.**
+  The publish path had four. `tools/pack.ts` verified a package's nuspec, licence, notice and
+  README and never checked it contained an assembly, so a generator whose `AssemblyName` moved
+  would produce an empty package that passed all thirteen checks -- NU5128 is `NoWarn`ed in each
+  generator csproj, because a generator legitimately ships no `lib/`. `publish.yml` published on a
+  tag without ever reading whether CI passed on the tagged commit, and it carried
+  `--skip-duplicate`, which let a retagged release ship six packages from one commit beside seven
+  from another under a single version. `PackageVersionTests` banned `<Version>` in a packable
+  project and not `<VersionPrefix>` or `<PackageVersion>`, which override the central version the
+  same way.
+
+  `tools/stamp-check.ts` had four. A `dotnet test` step whose `--filter` matched nothing exits 0,
+  so a drifted filter reported the integration tier `ok` having booted nothing -- the exact
+  outcome the script exists to prevent; each tier now reports its test count and a zero fails.
+  `diagnosticsIn` required a diagnostic code, missing an MSBuild `warning : ` with none.
+  A relative `--dest` was inspected in one directory and stamped into another. The
+  `--with-database` instructions named a database the tier does not read and omitted the
+  connection-string variable, so following them exactly still failed.
+
+  Both cleanup scripts used `git branch -d` as the merged-into-`dev` check. Git accepts a branch
+  merged to its own *upstream*, so a pushed branch whose commits never reached `dev` deleted with
+  a warning and exit 0 -- reproduced in a throwaway repository on 2026-09-05. Both now ask
+  `git merge-base --is-ancestor <branch> dev` first.
+
+  And a licence fact three files stated was false: no packable library carries JauntyQ-generated
+  output. Only `apps/sample` and `skeleton/` reference JauntyQ and neither is packed; the comment
+  claiming otherwise named `NativeWeb.Data`, which left with the identity provider on 2026-08-31.
+  The private feed is still required, for the plainer reason that the packages are proprietary.
+
 ### Added
 
 - **`tools/stamp-check.ts` builds the skeleton here, and the first thing it found was a defect.**
@@ -19,7 +50,7 @@ sections that apply; drop the empty ones rather than leaving them blank.
   `tools/new-product.ps1`, builds it and runs its unit tier in the mixed mode CI uses -- NativeWeb
   by checkout because this working tree is what is under test, JauntyQ by packages because no
   jauntyq sibling exists -- and runs the integration tier too with `--with-database`. Measured
-  2026-09-05: stamp 2.4 s, build 4.0 s, unit tier 1.3 s. It writes and never deletes; a destination
+  2026-09-05: stamp 2.6 s, build 4-10 s, each tier under 2 s. It writes and never deletes; a destination
   that already holds anything is refused and named.
 
   Two facts it needed and nothing recorded. A stamped product's first commit is on its own `main`,

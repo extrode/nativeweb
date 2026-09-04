@@ -2,11 +2,13 @@ import { assertEquals, assertStringIncludes, assertThrows } from "jsr:@std/asser
 
 import {
   DATABASE_FREE_FILTER,
+  databaseHint,
   diagnosticsIn,
   occupants,
   parseArgs,
   stampEnvironment,
   stampStepEnvironment,
+  testsRun,
 } from "./stamp-check.ts";
 
 Deno.test("parseArgs stamps Stampcheck into tmp by default", () => {
@@ -72,8 +74,44 @@ Deno.test("the stamp step still resolves NativeWeb by checkout", () => {
   assertEquals(stampStepEnvironment("C:/repo").NativeWebRoot, "C:/repo");
 });
 
-Deno.test("the database-free filter excludes readyz and nothing else", () => {
-  assertEquals(DATABASE_FREE_FILTER, "FullyQualifiedName!~Readyz");
+Deno.test("the database-free filter excludes exactly one test in the skeleton tier", async () => {
+  const source = await Deno.readTextFile(
+    new URL("../skeleton/tests/__product__.tests.integration/SmokeTests.cs", import.meta.url),
+  );
+
+  const names = [...source.matchAll(/public\s+(?:async\s+)?Task\s+(\w+)\s*\(/g)].map((m) => m[1]);
+  const term = DATABASE_FREE_FILTER.split("!~")[1];
+  const excluded = names.filter((name) => name.includes(term));
+
+  assertEquals(names.length > 1, true);
+  assertEquals(excluded, ["Readyz_ReportsReady"]);
+});
+
+Deno.test("testsRun reads the count a passing tier reports", () => {
+  assertEquals(testsRun("Passed!  - Failed: 0, Passed: 148, Skipped: 0, Total: 148"), 148);
+});
+
+Deno.test("testsRun answers zero for a filter that matched nothing", () => {
+  assertEquals(testsRun("No test matches the given testcase filter in x.dll"), 0);
+});
+
+Deno.test("testsRun answers null for output that is not a test run", () => {
+  assertEquals(testsRun("Build succeeded."), null);
+});
+
+Deno.test("diagnosticsIn catches an MSBuild warning that carries no code", () => {
+  assertEquals(
+    diagnosticsIn("Directory.Build.props(5,3): warning : the skeleton pins a stale version"),
+    ["Directory.Build.props(5,3): warning : the skeleton pins a stale version"],
+  );
+});
+
+Deno.test("the database hint names the database and the variable the tier reads", () => {
+  const lines = databaseHint({ name: "Widgets", slug: "widgets" }).join("\n");
+
+  assertStringIncludes(lines, "CREATE DATABASE widgets_test");
+  assertStringIncludes(lines, "Widgets__Db__ConnectionString");
+  assertStringIncludes(lines, "Database=widgets_test");
 });
 
 Deno.test("diagnosticsIn reports a build error and ignores a path that reads like one", () => {

@@ -110,9 +110,14 @@ nuget.org.
 
 That is not a default anyone is free to change. `AGENTS.md` states it and
 `libs/nativeweb.security/nativeweb.security.csproj` repeats it at the point of use: the packages
-are proprietary, and the three that carry JauntyQ-generated output — `nativeweb.security`,
-`nativeweb.render.generator` and `nativeweb.scaffold.generator` — are additionally limited by the
-JauntyQ license to self-hosted use of the generated output. A public feed is redistribution.
+are proprietary, and a public feed publishes proprietary source.
+
+**No packable library carries JauntyQ-generated output**, and that is worth stating because an
+earlier draft of this page claimed three of them did. `grep -rn -i jauntyq libs/ --include=*.csproj`
+finds comments only; the two projects that reference JauntyQ are `apps/sample` and the stamped
+product under `skeleton/`, neither of which is packable. `tools/pack.ts` still refuses a package
+containing a JauntyQ path, because that check is what keeps the claim true rather than assumed:
+a library that grows a JauntyQ reference would otherwise reach the feed and the licence bars it.
 
 ## Cutting a release
 

@@ -9,8 +9,9 @@ lists what would go and changes nothing. Pass -Execute (-e) to act.
 Candidates, each checked at run time rather than asserted here:
 
   every merged branch matching *skeleton-stamp*
-                           `git branch -d` is the merged check: git compares commits and refuses an
-                           unmerged branch, so an in-progress branch is safe.
+                           `git merge-base --is-ancestor <branch> dev` is the merged check, not
+                           `git branch -d`: git accepts a branch merged to its own upstream, so a
+                           pushed-but-unmerged branch deletes with only a warning.
 
   stamped products under tmp/
                            Every directory tmp/stamp-check/ holds, plus tmp/localprobe, which was
@@ -71,10 +72,21 @@ foreach ($target in $targets) {
         continue
     }
 
+    # `git branch -d` is NOT the merged check it looks like. Git accepts a branch
+    # merged to its own upstream, so a pushed branch whose commits never reached
+    # dev deletes with a warning and exit 0 -- measured 2026-09-05. merge-base
+    # asks the question the script means to ask.
+    git -C $repo merge-base --is-ancestor $target dev
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "skip:  $target is not merged into dev. Left alone."
+        $script:failed = $true
+        continue
+    }
+
     Step "git branch -d $target" {
         git -C $repo branch -d $target
         if ($LASTEXITCODE -ne 0) {
-            Write-Host '  refused: git would not delete it, which means it is not merged. Left alone.'
+            Write-Host '  refused: git would not delete it. Left alone.'
             $script:failed = $true
         }
     }

@@ -70,10 +70,13 @@ jobs:
 
       # A package pushed to GitHub Packages is linked to the repository named in
       # its nuspec <repository url> and inherits that repository's visibility.
-      # Three libraries here carry JauntyQ-generated output, and AGENTS.md
-      # forbids redistributing JauntyQ; a public repository would make the whole
-      # feed a redistribution the licence does not permit. So the visibility is
-      # a precondition of publishing, checked rather than assumed.
+      # The packages are proprietary framework source, so a public repository
+      # would publish them. The visibility is a precondition, checked rather
+      # than assumed.
+      #
+      # Not the JauntyQ licence: no packable library references JauntyQ, only
+      # apps/sample and skeleton/ do, and neither is packed. pack.ts refuses a
+      # package carrying a JauntyQ path, which is what keeps that true.
       - name: The repository is private
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -105,6 +108,26 @@ jobs:
           deno test -A tools/pack.test.ts
           dotnet test tests/nativeweb.repo.tests.unit -v q --nologo $DOTNET_BUILD_ARGS
 
+      # The guards above are the cheap ones, and they are not the suite. CI runs
+      # the whole thing on every push and its result is attached to the commit,
+      # so requiring it here costs one API call and closes the case a tag on an
+      # untested commit opens. A missing conclusion fails the same as a failing
+      # one: "CI never ran on this commit" is not a reason to publish it.
+      - name: CI passed on this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for job in test aot-publish skeleton-stamp; do
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
+              --jq ".check_runs[] | select(.name==\"$job\") | .conclusion" | head -1)"
+            if [ "$conclusion" != "success" ]; then
+              echo "CI job '$job' on $GITHUB_SHA is '${conclusion:-absent}', not success." >&2
+              echo "Tag a commit CI has passed. Nothing is published." >&2
+              exit 1
+            fi
+            echo "$job: success"
+          done
+
       - name: Pack
         run: deno run -A tools/pack.ts --release $DOTNET_BUILD_ARGS
 
@@ -113,10 +136,21 @@ jobs:
       # written out by hand in one file and not another; OrgReferenceTests bans
       # the old name, and this form cannot acquire a new one to ban.
       #
-      # --skip-duplicate so a re-run of a partially failed publish finishes
-      # rather than dying on the packages that already landed. It does not make
-      # an overwrite possible: GitHub Packages refuses a version that exists,
-      # and this only turns that refusal into a skip.
+      # No --skip-duplicate, and that is the deliberate half of this step.
+      #
+      # The flag was here so a publish that died halfway could be re-run. It
+      # also silently permits the case that matters: a v0.1.0 run pushes 7 of
+      # 13 and dies, someone fixes the cause and moves the tag with `git tag -f`,
+      # and the second run skips the 7 already on the feed and pushes 6 built
+      # from a different commit. One version then exists whose packages carry
+      # two <repository commit> values and were never built together, which is
+      # the lockstep invariant docs/02-reference/versioning.md rests on. Nothing
+      # in the run can see it: verify reads local files only.
+      #
+      # Without the flag a partial publish fails loudly on the second attempt,
+      # and recovery is a human decision: delete the partial version from the
+      # feed, then re-run the tag. That is the right cost. A version already
+      # restored by a consumer cannot be fixed by pushing over it either way.
       #
       # The glob is safe because pack.ts refuses to run when the output directory
       # holds a .nupkg it will not produce: everything matched here has been
@@ -126,4 +160,3 @@ jobs:
           dotnet nuget push "artifacts/packages/*.nupkg"
           --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
           --api-key ${{ secrets.GITHUB_TOKEN }}
-          --skip-duplicate

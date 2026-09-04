@@ -178,7 +178,9 @@ no git identity fails the same step, which is why CI sets one.
 **Or let the check do all of it.** `tools/stamp-check.ts` stamps into `tmp/`, builds and runs the
 stamped unit tier, and adds the integration tier with `--with-database` once its role and database
 exist. It is how you tell whether `skeleton/` still builds before you stamp the product you mean to
-keep -- measured 2026-09-05 at 2.4 s to stamp, 4.0 s to build and 1.3 s to test.
+keep -- measured 2026-09-05 at 2.6 s to stamp, 4 to 10 s to build depending on how warm the
+framework's own output is, and under 2 s per tier. It prints the test count beside each tier:
+1 unit and 6 of the 7 integration facts, the seventh being the one that opens a database.
 
 ```
 deno run -A tools/stamp-check.ts
