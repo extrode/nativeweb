@@ -197,7 +197,7 @@ internal sealed class FormModel : IEquatable<FormModel>
                         where,
                         parameter.Name,
                         "it is declared '" + parameter.Type.ToDisplayString()
-                            + "'. Declare it 'FormFile' or 'FormFile?', or drop the attribute"));
+                            + "'. Declare it 'UploadedFile' or 'UploadedFile?', or drop the attribute"));
                     usable = false;
                     continue;
                 }
@@ -293,8 +293,8 @@ internal sealed class FormModel : IEquatable<FormModel>
         return usable ? model : null;
     }
 
-    // FormFile is a reference type, so "required" is the annotation: `FormFile` is a
-    // field the model says must be there, `FormFile?` one it says may be absent. That
+    // UploadedFile is a reference type, so "required" is the annotation: `UploadedFile` is a
+    // field the model says must be there, `UploadedFile?` one it says may be absent. That
     // is the same reading NWF003 gives `string?`, and it means a file field needs no
     // second attribute to say which it is.
     private static FormFieldKind FileKind(ITypeSymbol type)
@@ -315,7 +315,7 @@ internal sealed class FormModel : IEquatable<FormModel>
             .WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.None);
 
     // Both attribute targets, for the reason WireName reads both: on a record's
-    // primary constructor `[property: FormFile(...)]` is legal and reads naturally.
+    // primary constructor `[property: UploadedFile(...)]` is legal and reads naturally.
     private static AttributeData? FileAttribute(IParameterSymbol parameter)
     {
         AttributeData? found = Find(parameter.GetAttributes());

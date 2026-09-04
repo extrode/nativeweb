@@ -13,7 +13,7 @@ namespace NativeWeb.Forms.Tests.Unit;
 /// The file half of the generator, spec 027 R1 and R5.
 /// </summary>
 /// <remarks>
-/// The attributes and <c>FormFile</c> are declared inline for the reason
+/// The attributes and <c>UploadedFile</c> are declared inline for the reason
 /// <see cref="FormGeneratorTests"/> gives: the generator matches by metadata name, so
 /// the test compilation needs nothing but the BCL, and the emitted source is asserted
 /// rather than compiled. It is compiled for real by <c>apps/sample</c>, which is what
@@ -41,14 +41,14 @@ public sealed class FormFileGenerationTests
                 public string[]? Accept { get; set; }
             }
 
-            public sealed class FormFile { }
+            public sealed class UploadedFile { }
         }
         """;
 
     [Fact]
     public void A_required_file_field_binds_through_RequiredFile()
     {
-        (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] FormFile Avatar"));
+        (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] UploadedFile Avatar"));
 
         Assert.Contains("FormBinding.RequiredFile(form, \"avatar\", null)", emitted, StringComparison.Ordinal);
     }
@@ -56,7 +56,7 @@ public sealed class FormFileGenerationTests
     [Fact]
     public void An_optional_file_field_binds_through_File()
     {
-        (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] FormFile? Avatar"));
+        (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] UploadedFile? Avatar"));
 
         Assert.Contains("FormBinding.File(form, \"avatar\", null)", emitted, StringComparison.Ordinal);
         Assert.DoesNotContain("RequiredFile", emitted, StringComparison.Ordinal);
@@ -67,7 +67,7 @@ public sealed class FormFileGenerationTests
     {
         (_, string emitted) = Run(
             Attributes,
-            Model("[FormFile(MaxBytes = 1024, Accept = new[] { \"image/png\", \"image/jpeg\" })] FormFile Avatar"));
+            Model("[FormFile(MaxBytes = 1024, Accept = new[] { \"image/png\", \"image/jpeg\" })] UploadedFile Avatar"));
 
         Assert.Contains(
             "new string[] { \"image/png\", \"image/jpeg\" }", emitted, StringComparison.Ordinal);
@@ -76,7 +76,7 @@ public sealed class FormFileGenerationTests
     [Fact]
     public void The_declared_ceiling_bounds_the_body_before_the_read()
     {
-        (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 4096)] FormFile Avatar"));
+        (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 4096)] UploadedFile Avatar"));
 
         int limit = emitted.IndexOf("LimitBody(context, 4096L)", StringComparison.Ordinal);
         int read = emitted.IndexOf("ReadLimitedFormAsync", StringComparison.Ordinal);
@@ -95,7 +95,7 @@ public sealed class FormFileGenerationTests
     {
         (_, string emitted) = Run(
             Attributes,
-            Model("[FormFile(MaxBytes = 8192)] FormFile Avatar, [FormFile(MaxBytes = 1024)] FormFile? Banner"));
+            Model("[FormFile(MaxBytes = 8192)] UploadedFile Avatar, [FormFile(MaxBytes = 1024)] UploadedFile? Banner"));
 
         Assert.Contains("LimitBody(context, 8192L)", emitted, StringComparison.Ordinal);
     }
@@ -103,7 +103,7 @@ public sealed class FormFileGenerationTests
     [Fact]
     public void The_multipart_guard_is_emitted_only_for_a_model_carrying_a_file()
     {
-        (_, string withFile) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] FormFile Avatar"));
+        (_, string withFile) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] UploadedFile Avatar"));
         (_, string textOnly) = Run(Attributes, Model("string? Username"));
 
         Assert.Contains("RequireMultipart(context)", withFile, StringComparison.Ordinal);
@@ -119,7 +119,7 @@ public sealed class FormFileGenerationTests
     [Fact]
     public void The_form_content_type_guard_still_runs_first()
     {
-        (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] FormFile Avatar"));
+        (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 1024)] UploadedFile Avatar"));
 
         int form = emitted.IndexOf("RequireFormContentType", StringComparison.Ordinal);
         int multipart = emitted.IndexOf("RequireMultipart", StringComparison.Ordinal);
@@ -132,7 +132,7 @@ public sealed class FormFileGenerationTests
     {
         (_, string emitted) = Run(
             Attributes,
-            Model("string? Caption, [FormFile(MaxBytes = 1024)] FormFile Avatar"));
+            Model("string? Caption, [FormFile(MaxBytes = 1024)] UploadedFile Avatar"));
 
         Assert.Contains("FormBinding.Field(form, \"caption\")", emitted, StringComparison.Ordinal);
         Assert.Contains("FormBinding.RequiredFile(form, \"avatar\", null)", emitted, StringComparison.Ordinal);
@@ -143,7 +143,7 @@ public sealed class FormFileGenerationTests
     {
         (_, string emitted) = Run(
             Attributes,
-            Model("[FormField(\"profile_picture\"), FormFile(MaxBytes = 1024)] FormFile Avatar"));
+            Model("[FormField(\"profile_picture\"), FormFile(MaxBytes = 1024)] UploadedFile Avatar"));
 
         Assert.Contains("\"profile_picture\"", emitted, StringComparison.Ordinal);
     }
@@ -151,7 +151,7 @@ public sealed class FormFileGenerationTests
     [Fact]
     public void A_file_field_with_no_FormFile_attribute_is_NWF006()
     {
-        AssertOnlyDiagnostic("NWF006", Run(Attributes, Model("FormFile Avatar")));
+        AssertOnlyDiagnostic("NWF006", Run(Attributes, Model("UploadedFile Avatar")));
     }
 
     [Theory]
@@ -160,7 +160,7 @@ public sealed class FormFileGenerationTests
     public void A_ceiling_of_zero_or_less_is_NWF006(string maxBytes)
     {
         AssertOnlyDiagnostic(
-            "NWF006", Run(Attributes, Model("[FormFile(MaxBytes = " + maxBytes + ")] FormFile Avatar")));
+            "NWF006", Run(Attributes, Model("[FormFile(MaxBytes = " + maxBytes + ")] UploadedFile Avatar")));
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public sealed class FormFileGenerationTests
     {
         AssertOnlyDiagnostic(
             "NWF006",
-            Run(Attributes, Model("[FormFile(MaxBytes = 1024, Accept = new[] { \"image/png\", \"  \" })] FormFile Avatar")));
+            Run(Attributes, Model("[FormFile(MaxBytes = 1024, Accept = new[] { \"image/png\", \"  \" })] UploadedFile Avatar")));
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public sealed class FormFileGenerationTests
     [Fact]
     public void A_model_rejected_by_NWF006_emits_nothing()
     {
-        (_, string emitted) = Run(Attributes, Model("FormFile Avatar"));
+        (_, string emitted) = Run(Attributes, Model("UploadedFile Avatar"));
 
         Assert.Equal("", emitted);
     }

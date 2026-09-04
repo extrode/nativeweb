@@ -1,0 +1,24 @@
+<!--#template
+  @layout layout/page
+  @param string AntiforgeryFieldName
+  @param string BotCanary
+  @param string Error
+  @param string Role
+  @param string Carried
+  @param string Comment
+-->
+<h1 class="page__title">{{t:survey.step2.title}}</h1>
+<p class="page__lede">{{t:survey.step2.lede}}</p>
+<p class="survey__answered">{{t:survey.step2.answered}} {{Role}}</p>
+{{if Error.Length != 0}}<p class="notice notice--error">{{Error}}</p>{{/if}}
+<form class="form" method="post" action="/survey">
+{{> shared/antiforgery FieldName=AntiforgeryFieldName Token=AntiforgeryToken}}
+{{> shared/bot-traps Canary=BotCanary}}
+<input type="hidden" name="carried" value="{{Carried}}">
+<div class="field">
+<label class="field__label" for="comment">{{t:survey.comment}}</label>
+<textarea class="input" id="comment" name="comment" rows="6" required>{{Comment}}</textarea>
+</div>
+<button class="btn btn--primary" type="submit">{{t:survey.submit}}</button>
+<p class="field__hint">{{t:survey.step2.hint}}</p>
+</form>

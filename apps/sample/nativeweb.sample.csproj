@@ -22,6 +22,11 @@
     <ProjectReference Include="..\..\libs\nativeweb.forms.generator\nativeweb.forms.generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
+
+    <!-- Spec 027: the contact form sends through the framework mail seam. MailKitLite
+         and MimeKitLite come with it, both AOT-guaranteed variants. -->
+    <ProjectReference Include="..\..\libs\nativeweb.mail\nativeweb.mail.csproj" />
+
     <ProjectReference Include="..\..\libs\nativeweb.scaffold\nativeweb.scaffold.csproj" />
     <ProjectReference Include="..\..\libs\nativeweb.scaffold.generator\nativeweb.scaffold.generator.csproj"
                       OutputItemType="Analyzer"

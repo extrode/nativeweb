@@ -84,7 +84,7 @@ public sealed class FormFileBindingTests
     {
         IFormCollection form = FormWith(Named("avatar", "portrait.png", Png, "the bytes"));
 
-        FormFile? bound = FormBinding.File(form, "avatar", null);
+        UploadedFile? bound = FormBinding.File(form, "avatar", null);
 
         Assert.NotNull(bound);
         Assert.Equal("portrait.png", bound.Name);

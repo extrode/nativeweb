@@ -60,7 +60,7 @@ public sealed class FormFieldAttribute(string name) : Attribute
 /// </summary>
 /// <remarks>
 /// <para>
-/// Required on every <see cref="FormFile"/> member, because a public upload with no
+/// Required on every <see cref="UploadedFile"/> member, because a public upload with no
 /// declared ceiling is a way to fill a disk. NWF006 is the build error for a
 /// declaration the binder cannot honour.
 /// </para>

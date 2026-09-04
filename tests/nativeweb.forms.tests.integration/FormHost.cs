@@ -15,14 +15,14 @@ namespace NativeWeb.Forms.Tests.Integration;
 [Form]
 public sealed partial record DocumentForm(
     [FormField("caption")] string? Caption,
-    [FormFile(MaxBytes = 4096, Accept = ["text/plain"])] FormFile Document);
+    [FormFile(MaxBytes = 4096, Accept = ["text/plain"])] UploadedFile Document);
 
 /// <summary>
 /// The same file, optional, and with no accepted-type set.
 /// </summary>
 [Form]
 public sealed partial record OptionalDocumentForm(
-    [FormFile(MaxBytes = 4096)] FormFile? Document);
+    [FormFile(MaxBytes = 4096)] UploadedFile? Document);
 
 /// <summary>
 /// Two routes over a real request pipeline, spec 027 R1-R5.
@@ -139,7 +139,7 @@ internal sealed class FormHost : IAsyncDisposable
     // The bound file is read here rather than counted, so a test asserting on the
     // content is asserting that the bytes survived the binder rather than that a
     // header did.
-    private static IResult Describe(string? caption, FormFile file)
+    private static IResult Describe(string? caption, UploadedFile file)
     {
         using var reader = new StreamReader(file.OpenReadStream());
 

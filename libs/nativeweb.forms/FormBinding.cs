@@ -219,7 +219,7 @@ public static class FormBinding
     /// <param name="accept">The accepted content types, or null for any.</param>
     /// <returns>The file, or <see langword="null"/>.</returns>
     /// <exception cref="BadHttpRequestException">The content type is not accepted.</exception>
-    public static FormFile? File(IFormCollection form, string name, string[]? accept)
+    public static UploadedFile? File(IFormCollection form, string name, string[]? accept)
     {
         ArgumentNullException.ThrowIfNull(form);
 
@@ -231,7 +231,7 @@ public static class FormBinding
         }
 
         RequireAccepted(file.ContentType, accept, name);
-        return new FormFile(file);
+        return new UploadedFile(file);
     }
 
     /// <summary>
@@ -247,7 +247,7 @@ public static class FormBinding
     /// <param name="accept">The accepted content types, or null for any.</param>
     /// <returns>The file.</returns>
     /// <exception cref="BadHttpRequestException">The field is absent, or not accepted.</exception>
-    public static FormFile RequiredFile(IFormCollection form, string name, string[]? accept) =>
+    public static UploadedFile RequiredFile(IFormCollection form, string name, string[]? accept) =>
         File(form, name, accept)
         ?? throw new BadHttpRequestException(
             "The form field '" + name + "' is required and carried no file.",

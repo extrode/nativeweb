@@ -27,11 +27,11 @@ namespace NativeWeb.Forms;
 /// the request and no longer. A handler that needs the bytes past that copies them.
 /// </para>
 /// </remarks>
-public sealed class FormFile
+public sealed class UploadedFile
 {
     private readonly IFormFile _file;
 
-    internal FormFile(IFormFile file)
+    internal UploadedFile(IFormFile file)
     {
         _file = file;
     }
