@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using NativeWeb.Mail;
+using NativeWeb.Security;
 
 namespace NativeWeb.Sample.Tests.Integration;
 
@@ -121,6 +122,26 @@ internal static class Pages
         page.EnsureSuccessStatusCode();
 
         return Carried(await page.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>
+    /// The one hidden field on a page that is not a bot trap: the antiforgery token.
+    /// </summary>
+    internal static string AntiforgeryFieldName(Dictionary<string, string> carried)
+    {
+        ArgumentNullException.ThrowIfNull(carried);
+
+        string[] traps =
+        [
+            BotTraps.HiddenFilledName,
+            BotTraps.HiddenEmptyName,
+            BotTraps.OffscreenFilledName,
+            BotTraps.OffscreenEmptyName,
+            BotTraps.CanaryName,
+            "carried",
+        ];
+
+        return carried.Keys.Single(name => !traps.Contains(name, StringComparer.Ordinal));
     }
 
     internal static Dictionary<string, string> Carried(string html)

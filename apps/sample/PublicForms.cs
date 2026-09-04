@@ -107,7 +107,7 @@ internal static partial class PublicForms
         if (verdict.Tripped)
         {
             BotTraps.LogTripped(logger, verdict, http.Request.Path);
-            return Sent(http);
+            return Sent(http, form.Email ?? "");
         }
 
         LocaleCatalog locale = Locales.Get(http.GetLocale());
@@ -154,7 +154,7 @@ internal static partial class PublicForms
                 message: form.Message ?? "");
         }
 
-        return Sent(http);
+        return Sent(http, form.Email!);
     }
 
     private static Task<IResult> UploadPageAsync(HttpContext http, IAntiforgery antiforgery) =>
@@ -288,11 +288,22 @@ internal static partial class PublicForms
             Responses: responses));
     }
 
-    private static IResult Sent(HttpContext http)
+    // The address is named, because a confirmation that says only "sent" tells a
+    // person nothing they can check. It is the address they typed, which is also
+    // where this form sends: the sample mails the sender a copy of their own
+    // message, since a reference application has no inbox of its own to deliver to.
+    private static IResult Sent(HttpContext http, string toAddress)
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
 
-        return Contact(http, Antiforgery(http), notice: locale["contact.sent"], error: "", name: "", email: "", message: "");
+        return Contact(
+            http,
+            Antiforgery(http),
+            notice: locale["contact.sent"] + " " + toAddress,
+            error: "",
+            name: "",
+            email: "",
+            message: "");
     }
 
     private static IResult Contact(

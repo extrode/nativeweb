@@ -72,10 +72,10 @@ Plan: ./027-plan.md
       R10, R12, R13, R15 — done when: the traversal name writes nothing outside the directory, a
       refusing transport is not a 500, a tripped bot trap is refused, a tampered carried value is
       refused, and the double-submit condition is asserted.
-- [ ] T19 The forms e2e tier — files: `tests/nativeweb.forms.tests.e2e/` — covers: R17 — done when:
+- [x] T19 The forms e2e tier — files: `tests/nativeweb.forms.tests.e2e/` — covers: R17 — done when:
       the project exists on the model of `tests/nativeweb.permissions.tests.e2e`, and a browser
       completes all three forms against the published NativeAOT sample.
-- [ ] T20 Documentation and record — files: `libs/nativeweb.forms/README.md`, `CHANGELOG.md`,
+- [x] T20 Documentation and record — files: `libs/nativeweb.forms/README.md`, `CHANGELOG.md`,
       `work/status/current.md` — covers: R18 — done when: the README documents the file field, its
       limits, NWF006 and `CarriedAnswers`; the changelog names all of it under Unreleased; and the
       spec's acceptance criteria are re-read against what was built before `Status: done`.

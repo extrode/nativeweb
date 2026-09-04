@@ -59,7 +59,7 @@
     "email": "Your email address",
     "message": "Message",
     "submit": "Send",
-    "sent": "Thank you. Your message was sent.",
+    "sent": "Thank you. Your message was sent to",
     "unsent": "Your message could not be sent just now. Nothing was lost -- please try again later.",
     "incomplete": "Every field is required, and the email address has to look like one."
   },

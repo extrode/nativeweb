@@ -65,6 +65,11 @@ public sealed class PublicFormsTests
             ("message", "Hello from the reference application."));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(
+            "was sent to ada@example.test",
+            await response.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
+
         (string to, NativeWeb.Mail.EmailContent content) = Assert.Single(factory.Mail.Sent);
         Assert.Equal("ada@example.test", to);
         Assert.Contains("Ada", content.Subject, StringComparison.Ordinal);
@@ -123,6 +128,31 @@ public sealed class PublicFormsTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("was sent", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Empty(factory.Mail.Sent);
+    }
+
+    /// <summary>
+    /// R10. The token is attached by <c>MapFormPost</c> itself, so this is asserting
+    /// that the mapping call did it rather than that the handler remembered to.
+    /// </summary>
+    [Fact]
+    public async Task A_post_carrying_no_antiforgery_token_is_refused_and_sends_nothing()
+    {
+        using var factory = new SampleFormsFactory();
+        using HttpClient client = factory.CreateBrowser();
+
+        Dictionary<string, string> carried = await Pages.CarriedFieldsAsync(client, "/contact");
+        carried.Remove(Pages.AntiforgeryFieldName(carried));
+
+        using HttpResponseMessage response = await Pages.PostAsync(
+            client,
+            carried,
+            "/contact",
+            ("name", "Ada"),
+            ("email", "ada@example.test"),
+            ("message", "Hello."));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Empty(factory.Mail.Sent);
     }
 

@@ -1,6 +1,6 @@
 # 027 — Sample forms examples: contact, upload, two-step
 
-Status: draft
+Status: done
 Created: 2026-09-04
 
 ## Problem

@@ -6,6 +6,23 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Spec 027 - sample forms examples: contact, upload, two-step. Done on
+  `feat/027-sample-forms-examples`, 2026-09-04.** `libs/nativeweb.forms` gained a file field
+  (`UploadedFile`, `[FormFile(MaxBytes, Accept)]`, `NWF006`) and `CarriedAnswers`, signed expiring
+  form state over Data Protection; `libs/nativeweb.mail` gained `IEmailTransport`;
+  `NativeWebOptions` gained `Uploads:Directory`. `apps/sample` serves `/contact`, `/upload` and
+  `/survey` behind the existing bot traps and antiforgery, with `UploadStore` choosing every stored
+  name so a client filename is never a path. Two new tiers: `tests/nativeweb.forms.tests.integration`
+  and `tests/nativeweb.forms.tests.e2e`. One defect found by the sample's own forms and fixed here:
+  `LimitBody` reinstalled a `FormFeature` over a body the antiforgery middleware had already read,
+  so every guarded multipart route answered 500; the ceiling is now enforced on the bound part as
+  well. Green: forms unit 143, forms integration 14, forms e2e 6, mail 56, web 173, sample unit 223,
+  sample integration 27, repo 155, render 219, security 175, scaffold unit 268, permissions unit 151,
+  signin unit 373, signin integration 25. `dotnet publish apps/sample -c Release -r win-x64`
+  succeeds with zero warnings after `nativeweb.mail` joined its references.
+  Known gap, stated rather than hidden: the "exists but unwritable" branch of
+  `TryPrepareUploadDirectory` has no test -- chmod is a no-op for a test process running as
+  Administrator on Windows, so there is no portable way to produce it.
 - **Spec 024 - model permissions and groups. Done on `feat/024-model-permissions`, 2026-09-03.**
   `libs/nativeweb.permissions` plus its generator: `[Permissions]` on a model yields four
   compile-time constants, the scaffolded admin gates each route and draws only the controls the

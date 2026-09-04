@@ -21,11 +21,19 @@ both:
 | --- | --- |
 | `[Form]` (`FormAttribute`) | On a class. Marks a partial record as a form model, so the generator emits its binder |
 | `[FormField("name")]` (`FormFieldAttribute`) | On a property or a parameter. The wire name when it differs from the member name |
+| `[FormFile]` (`FormFileAttribute`) | On a property or a parameter. Marks a file field, carrying its `MaxBytes` ceiling and an optional `Accept` set |
+| `UploadedFile` | The bound file: `Name`, `ContentType`, `Length` and `OpenReadStream()`. Not `IFormFile`, so a handler never reaches back into `HttpContext` |
+| `CarriedAnswers` | Signed, expiring form state carried in one hidden field between the steps of a multi-step form |
+| `AddNativeWebForms()` | Registers `CarriedAnswers`. A host that skips it gets a stated failure from the container rather than a null |
 | `IFormModel<TSelf>` | The seam the generated partial implements: a `BindFormAsync` that reads the declared fields |
 | `MapFormPost` / `MapFormPut` / `MapFormPatch` / `MapFormDelete` | Maps a route on that verb, binding `TForm` through `TForm.BindFormAsync` |
 | `MapForm` | The one implementation behind the four: takes the HTTP method as a string, for a verb they do not name |
 | `FormBinding.RequireFormContentType` | Throws 415 unless the request carries a form body. The first statement of every generated binder |
 | `FormBinding` `Field` | One declared field from an `IFormCollection`, or `null` when the form does not carry it |
+| `FormBinding.RequireMultipart` | Throws 415 for a urlencoded post to a model with a file field. Emitted only for such a model |
+| `FormBinding.LimitBody` | Installs the declared ceiling as a per-endpoint `FormOptions.MultipartBodyLengthLimit` before the read |
+| `FormBinding.ReadLimitedFormAsync` | Reads the form, turning an over-limit body into 413 and a malformed one into 400 |
+| `FormBinding` `File` / `RequiredFile` | One declared file field, measured against its ceiling and checked against its `Accept` set |
 | `RequiresAntiforgery` / `RequireFormAntiforgery` | Antiforgery metadata, and the extension that attaches it. The mapping calls do this themselves |
 
 The handler is a `Func<TForm, HttpContext, Task<IResult>>` with
@@ -112,10 +120,70 @@ Every refusal is a build error rather than emitted code that does not compile:
 | --- | --- |
 | `NWF001` | The model is not declared partial |
 | `NWF002` | The model does not have one accessible constructor to bind through. A record's copy constructor is never a candidate |
-| `NWF003` | A member is not declared string? with a nullable annotation: form values arrive as text and may be absent, so conversion belongs in the handler |
+| `NWF003` | A member is neither `string?` nor a file field: text values arrive as text and may be absent, so conversion belongs in the handler |
 | `NWF004` | Two members share a wire name. Compared case-insensitively, because the form collection is keyed that way, so ConfirmPassphrase collides with confirmPassphrase |
 | `NWF005` | The model is a struct, static, generic, nested or file-local |
+| `NWF006` | A file field cannot be bound as declared: `[FormFile]` on a member that is not an `UploadedFile`, an `UploadedFile` with no `[FormFile]`, a `MaxBytes` of zero or less, or a blank `Accept` entry |
 | `NWF010` | A plain `Map*` route takes a `[Form]` model as a handler parameter. Reported by `MissingAntiforgeryAnalyzer` at the `Map*` call rather than at the model, because the same model may be bound rightly by one route and wrongly by another |
+
+## A file field
+
+Declare the member as `UploadedFile` (or `UploadedFile?` for an optional one) and decorate it
+`[FormFile]`. The ceiling is required; the accepted content types are not.
+
+```csharp
+[Form]
+public sealed partial record UploadForm(
+    string? Caption,
+    [FormField("picture")]
+    [FormFile(MaxBytes = 1_048_576, Accept = ["image/png", "image/jpeg"])]
+    UploadedFile Picture);
+```
+
+A model that has one file field changes what the generated binder does, in four ways:
+
+| | What the emitted binder does |
+| --- | --- |
+| Content type | `RequireMultipart` first. A urlencoded body cannot carry a file, so binding one would report every file member missing and blame the client for a field they could not send |
+| Size | `LimitBody` before the read, with the largest `MaxBytes` any file field on the model declares, because the body carries every field at once. Over it, 413 |
+| Type | Each part's declared media type is compared against that field's `Accept`, parameters stripped and case-insensitively. Outside the set, 415 |
+| Presence | A missing required file is 400, which is what a missing required text field gets. A part present but empty binds `null`, because a browser posts one for a file input the person left alone |
+
+**The ceiling is enforced twice, and both are needed.** `LimitBody` aborts the read mid-stream,
+which is the refusal that matters: nothing is buffered. But it cannot install a limit on a form that
+has already been read, and on any antiforgery-guarded route carrying its token as a hidden field the
+middleware has read the form before the endpoint runs. So `File` and `RequiredFile` measure the
+bound part as well. Installing a fresh feature over a spent stream instead is a 500 for every such
+route, which is what this library did until 2026-09-04.
+
+**The client's file name is never a path.** It reaches the handler unchanged, because it is shown to
+a person, and an application storing the file chooses its own name. `apps/sample/UploadStore.cs` is
+the worked example.
+
+## Carried answers
+
+A multi-step form has to carry step one's answers into step two. `CarriedAnswers` does it in one
+opaque hidden field over ASP.NET Core Data Protection's time-limited protector, so nothing is kept
+on the server between the two requests and there is no session to expire, no row to clean up and
+nothing to correlate.
+
+```csharp
+string carried = answers.Protect(new Dictionary<string, string> { ["role"] = form.Role }, TimeSpan.FromMinutes(20));
+
+// next request
+if (!answers.TryUnprotect(form.Carried, out IReadOnlyDictionary<string, string> read, out CarriedAnswersFailure why))
+{
+    // why is Absent, Altered or Expired -- three different things to say
+}
+```
+
+`Expired` is separate from `Altered` on purpose: "this took too long, start again" is an instruction
+and "this was altered" is not. The payload is length-prefixed key/value pairs rather than JSON, so
+no reflection-based serializer is involved and the AOT publish stays clean.
+
+It comes from `AddNativeWebForms()` and is a singleton. `IDataProtectionProvider` is already in the
+container of every NativeWeb host (`NativeWebPipeline` calls `AddDataProtection().PersistKeysToFileSystem`),
+so key rotation and cross-instance validity come with the host rather than needing a key of their own.
 
 ## Why the route is written by hand
 
@@ -144,11 +212,21 @@ to null in silence. The only shape that both binds and survives an AOT publish i
   emitted `Map*` call binds the reflection overload and fails an AOT publish. The application writes
   the route and calls `MapFormPost` itself.
 - No data access. Binding produces a value; what happens to it is the application's.
+- **No storage.** A bound `UploadedFile` is a stream and three pieces of metadata. Where an upload
+  goes, under what name, and whether it is served back are the application's, because every one of
+  those is a decision this library would be guessing at.
 - No token is issued or checked here beyond requiring a valid one: antiforgery is the middleware's,
   wired by the host, and this library only marks the routes it must not skip.
 
 ## Proved by
 
 `tests/nativeweb.forms.tests.unit`: `FormBindingTests.cs`, `FormGeneratorTests.cs`,
-`MapFormTests.cs`, `RequiresAntiforgeryTests.cs` and `MissingAntiforgeryAnalyzerTests.cs`, one file
-per public unit above.
+`FormFileBindingTests.cs`, `FormFileGenerationTests.cs`, `CarriedAnswersTests.cs`, `MapFormTests.cs`,
+`RequiresAntiforgeryTests.cs` and `MissingAntiforgeryAnalyzerTests.cs`, one file per public unit
+above.
+
+`tests/nativeweb.forms.tests.integration`: the binder over a real pipeline -- what each refusal
+answers, and the token-as-a-field ordering the unit tier cannot construct.
+
+`tests/nativeweb.forms.tests.e2e`: a browser completing `apps/sample`'s three public forms against
+the published NativeAOT binary.
