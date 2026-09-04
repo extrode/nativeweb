@@ -46,8 +46,14 @@ export function expectedVersion(prefix: string, release: boolean): string {
   return release ? prefix : `${prefix}-dev`;
 }
 
+/**
+ * MSBuild compares property values case-insensitively, so `<IsPackable>True`
+ * is packable to the build and has to be packable here too. Matching only the
+ * lowercase spelling would drop that project out of the pack silently: never
+ * packed, never verified, and CI still green.
+ */
 export function isPackable(csprojXml: string): boolean {
-  return /<IsPackable>\s*true\s*<\/IsPackable>/.test(csprojXml);
+  return /<IsPackable>\s*true\s*<\/IsPackable>/i.test(csprojXml);
 }
 
 export function packageIdOf(csprojXml: string): string | null {
@@ -200,38 +206,53 @@ export interface PackableProject {
   hasReadme: boolean;
 }
 
+/**
+ * Every packable project under `libs/`, at any depth.
+ *
+ * Recursive rather than one level down because `PackageVersionTests` enumerates
+ * with `SearchOption.AllDirectories`. A project the test asserts on and this
+ * script never packs is the gap that lets an unpublished library through with
+ * both checks green, so the two enumerations have to agree.
+ */
 export async function packableProjects(libs: string): Promise<PackableProject[]> {
   const found: PackableProject[] = [];
 
-  for await (const entry of Deno.readDir(libs)) {
-    if (!entry.isDirectory) continue;
+  for await (const csproj of csprojFilesIn(libs)) {
+    const xml = await Deno.readTextFile(csproj);
 
-    const directory = join(libs, entry.name);
+    if (!isPackable(xml)) continue;
 
-    for await (const file of Deno.readDir(directory)) {
-      if (!file.name.endsWith(".csproj")) continue;
+    const packageId = packageIdOf(xml);
 
-      const csproj = join(directory, file.name);
-      const xml = await Deno.readTextFile(csproj);
-
-      if (!isPackable(xml)) continue;
-
-      const packageId = packageIdOf(xml);
-
-      if (packageId === null) {
-        throw new Error(`${csproj} sets IsPackable but declares no PackageId.`);
-      }
-
-      found.push({
-        csproj,
-        directory,
-        packageId,
-        hasReadme: await exists(join(directory, "README.md")),
-      });
+    if (packageId === null) {
+      throw new Error(`${csproj} sets IsPackable but declares no PackageId.`);
     }
+
+    const directory = dirname(csproj);
+
+    found.push({
+      csproj,
+      directory,
+      packageId,
+      hasReadme: await exists(join(directory, "README.md")),
+    });
   }
 
   return found.sort((a, b) => a.packageId.localeCompare(b.packageId));
+}
+
+async function* csprojFilesIn(directory: string): AsyncGenerator<string> {
+  for await (const entry of Deno.readDir(directory)) {
+    const path = join(directory, entry.name);
+
+    if (entry.isDirectory) {
+      if (entry.name === "bin" || entry.name === "obj") continue;
+
+      yield* csprojFilesIn(path);
+    } else if (entry.name.endsWith(".csproj")) {
+      yield path;
+    }
+  }
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -281,7 +302,12 @@ function repoRoot(): string {
   // tools/pack.ts -> tools -> repo root. Resolved from this file rather than
   // from the cwd so the script works from anywhere, which is what lets a
   // workflow step call it without a `cd`.
-  return dirname(dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")));
+  // decodeURIComponent because a checkout under a path with a space arrives
+  // here as %20 and every read after it fails on a path that does not exist.
+  const path = decodeURIComponent(new URL(import.meta.url).pathname);
+
+  // tools/pack.ts -> tools -> repo root, so two levels.
+  return dirname(dirname(path.replace(/^\/([A-Za-z]:)/, "$1")));
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -308,6 +334,19 @@ async function main(argv: string[]): Promise<number> {
   );
 
   await Deno.mkdir(out, { recursive: true });
+
+  const stray = await strayPackages(out, projects.map((p) => `${p.packageId}.${version}.nupkg`));
+
+  if (stray.length > 0) {
+    console.error(
+      `${out} already holds ${stray.length} package(s) this run will not produce:` +
+        `\n${stray.map((name) => `  ${name}`).join("\n")}\n\n` +
+        "The publish workflow pushes every .nupkg in this directory, so a stale one" +
+        " ships unverified. Remove them and run again; this script deletes nothing.",
+    );
+
+    return 1;
+  }
 
   const failures: string[] = [];
 
@@ -365,6 +404,26 @@ async function main(argv: string[]): Promise<number> {
   return 0;
 }
 
+/**
+ * Packages already in the output directory that this run will not overwrite.
+ *
+ * `dotnet nuget push` globs the directory rather than reading a manifest, so
+ * anything left here by an earlier run -- a `--release` pack beside a `-dev`
+ * one, most obviously -- would be pushed without ever having been verified.
+ */
+export async function strayPackages(out: string, expected: string[]): Promise<string[]> {
+  const wanted = new Set(expected);
+  const stray: string[] = [];
+
+  for await (const entry of Deno.readDir(out)) {
+    if (entry.isFile && entry.name.endsWith(".nupkg") && !wanted.has(entry.name)) {
+      stray.push(entry.name);
+    }
+  }
+
+  return stray.sort();
+}
+
 /** Everything spec 028 asks a produced package to carry. Null means it does. */
 export async function verify(
   project: PackableProject,
@@ -379,15 +438,27 @@ export async function verify(
     return `pack reported success but ${nupkg} does not exist.`;
   }
 
-  const files = await readZip(bytes);
+  // Reading the archive is guarded as well as opening it. A truncated .nupkg
+  // or a nuspec with no <id> throws, and an unhandled throw out of here would
+  // lose the failure report for every package in the run that was fine.
   const nuspecName = `${project.packageId}.nuspec`;
-  const nuspecBytes = files.get(nuspecName);
 
-  if (nuspecBytes === undefined) {
-    return `package contains no ${nuspecName}.`;
+  let files: Map<string, Uint8Array>;
+  let facts: NuspecFacts;
+
+  try {
+    files = await readZip(bytes);
+
+    const nuspecBytes = files.get(nuspecName);
+
+    if (nuspecBytes === undefined) {
+      return `package contains no ${nuspecName}.`;
+    }
+
+    facts = nuspecFacts(new TextDecoder().decode(nuspecBytes));
+  } catch (error) {
+    return `${nupkg} could not be read as a package: ${error}`;
   }
-
-  const facts = nuspecFacts(new TextDecoder().decode(nuspecBytes));
 
   if (facts.version !== version) {
     return `nuspec version is ${facts.version}, expected ${version} (R1, R2).`;
@@ -402,6 +473,16 @@ export async function verify(
   // is a copy. Directory.Build.targets packs both; this is what proves it did.
   for (const required of ["LICENSE.md", "NOTICE.md"]) {
     if (!files.has(required)) return `package contains no ${required}.`;
+  }
+
+  // AGENTS.md: JauntyQ may never be redistributed, and a package pushed to the
+  // feed is redistribution. Package mode makes it a dependency the consumer
+  // restores for itself; a checkout-mode pack is the path that could embed it,
+  // and this is what would catch that before the file leaves the machine.
+  const jauntyq = [...files.keys()].filter((name) => /jauntyq/i.test(name));
+
+  if (jauntyq.length > 0) {
+    return `package carries JauntyQ, which may not be redistributed: ${jauntyq.join(", ")}.`;
   }
 
   if (project.hasReadme) {

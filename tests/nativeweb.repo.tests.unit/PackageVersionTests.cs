@@ -117,7 +117,8 @@ public sealed class PackageVersionTests
         string[] projects = [.. Directory.GetFiles(libs, "*.csproj", SearchOption.AllDirectories)
             .Where(p => XDocument.Load(p)
                 .Descendants()
-                .Any(e => e.Name.LocalName == "IsPackable" && e.Value.Trim() == "true"))];
+                .Any(e => e.Name.LocalName == "IsPackable"
+                    && e.Value.Trim().Equals("true", StringComparison.OrdinalIgnoreCase)))];
 
         Assert.True(
             projects.Length > 0,

@@ -5,9 +5,11 @@ import {
   expectedVersion,
   isPackable,
   nuspecFacts,
+  packableProjects,
   packageIdOf,
   parseArgs,
   readZip,
+  strayPackages,
   verify,
   versionPrefixOf,
 } from "./pack.ts";
@@ -257,6 +259,115 @@ Deno.test("verify reports a package that pack said it produced and did not", asy
   assertStringIncludes(problem ?? "", "does not exist");
 });
 
+Deno.test("isPackable accepts the spelling MSBuild accepts", () => {
+  assertEquals(isPackable("<IsPackable>True</IsPackable>"), true);
+  assertEquals(isPackable("<IsPackable>TRUE</IsPackable>"), true);
+  assertEquals(isPackable("<IsPackable>false</IsPackable>"), false);
+});
+
+Deno.test("verify refuses a package carrying JauntyQ, which may not be redistributed", async () => {
+  const path = await writeTempNupkg(goodNuspec(), {
+    readme: true,
+    extra: { "lib/net10.0/JauntyQ.Runtime.dll": "MZ" },
+  });
+
+  const problem = await verify(
+    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    path,
+    "0.1.0-dev",
+  );
+
+  assertStringIncludes(problem ?? "", "JauntyQ");
+});
+
+Deno.test("verify names the package it cannot read rather than throwing out of the run", async () => {
+  const directory = await Deno.makeTempDir();
+  const path = `${directory}/NativeWeb.Render.0.1.0-dev.nupkg`;
+
+  await Deno.writeFile(path, new TextEncoder().encode("PK not really a zip"));
+
+  const problem = await verify(
+    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    path,
+    "0.1.0-dev",
+  );
+
+  assertStringIncludes(problem ?? "", "could not be read as a package");
+});
+
+// --- strayPackages --------------------------------------------------------
+
+Deno.test("strayPackages passes a directory holding only what this run produces", async () => {
+  const out = await Deno.makeTempDir();
+
+  await Deno.writeTextFile(`${out}/NativeWeb.Render.0.1.0-dev.nupkg`, "");
+
+  assertEquals(await strayPackages(out, ["NativeWeb.Render.0.1.0-dev.nupkg"]), []);
+});
+
+Deno.test("strayPackages finds a release package left beside a dev one", async () => {
+  const out = await Deno.makeTempDir();
+
+  await Deno.writeTextFile(`${out}/NativeWeb.Render.0.1.0-dev.nupkg`, "");
+  await Deno.writeTextFile(`${out}/NativeWeb.Render.0.1.0.nupkg`, "");
+
+  assertEquals(
+    await strayPackages(out, ["NativeWeb.Render.0.1.0-dev.nupkg"]),
+    ["NativeWeb.Render.0.1.0.nupkg"],
+  );
+});
+
+Deno.test("strayPackages ignores files that are not packages", async () => {
+  const out = await Deno.makeTempDir();
+
+  await Deno.writeTextFile(`${out}/NativeWeb.Render.0.1.0-dev.snupkg`, "");
+  await Deno.writeTextFile(`${out}/notes.txt`, "");
+
+  assertEquals(await strayPackages(out, []), []);
+});
+
+// --- packableProjects -----------------------------------------------------
+
+Deno.test("packableProjects finds a project nested below the library directory", async () => {
+  const libs = await Deno.makeTempDir();
+
+  await Deno.mkdir(`${libs}/nativeweb.render/inner`, { recursive: true });
+  await Deno.writeTextFile(
+    `${libs}/nativeweb.render/inner/nativeweb.render.csproj`,
+    "<Project><PropertyGroup><IsPackable>true</IsPackable>" +
+      "<PackageId>NativeWeb.Render</PackageId></PropertyGroup></Project>",
+  );
+
+  const found = await packableProjects(libs);
+
+  assertEquals(found.map((project) => project.packageId), ["NativeWeb.Render"]);
+});
+
+Deno.test("packableProjects skips build output", async () => {
+  const libs = await Deno.makeTempDir();
+
+  await Deno.mkdir(`${libs}/nativeweb.render/obj`, { recursive: true });
+  await Deno.writeTextFile(
+    `${libs}/nativeweb.render/obj/copied.csproj`,
+    "<Project><PropertyGroup><IsPackable>true</IsPackable>" +
+      "<PackageId>NativeWeb.Render</PackageId></PropertyGroup></Project>",
+  );
+
+  assertEquals(await packableProjects(libs), []);
+});
+
+Deno.test("packableProjects refuses a packable project with no PackageId", async () => {
+  const libs = await Deno.makeTempDir();
+
+  await Deno.mkdir(`${libs}/nativeweb.render`);
+  await Deno.writeTextFile(
+    `${libs}/nativeweb.render/nativeweb.render.csproj`,
+    "<Project><PropertyGroup><IsPackable>true</IsPackable></PropertyGroup></Project>",
+  );
+
+  await assertRejects(() => packableProjects(libs));
+});
+
 // --- fixtures -------------------------------------------------------------
 
 function goodNuspec(): string {
@@ -271,13 +382,14 @@ function goodNuspec(): string {
 
 async function writeTempNupkg(
   nuspec: string,
-  options: { readme: boolean; notice?: boolean },
+  options: { readme: boolean; notice?: boolean; extra?: Record<string, string> },
 ): Promise<string> {
   const id = nuspec.match(/<id>([^<]+)<\/id>/)![1];
 
   const entries: [string, string][] = [[`${id}.nuspec`, nuspec], ["LICENSE.md", "license"]];
   if (options.notice !== false) entries.push(["NOTICE.md", "notice"]);
   if (options.readme) entries.push(["README.md", "# readme"]);
+  for (const [name, content] of Object.entries(options.extra ?? {})) entries.push([name, content]);
 
   const path = `${await Deno.makeTempDir()}/${id}.nupkg`;
   await Deno.writeFile(path, await zipOf(entries, true));

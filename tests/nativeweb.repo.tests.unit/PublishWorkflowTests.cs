@@ -22,6 +22,12 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// extraction below is what makes the question "which triggers are declared"
 /// answerable instead of "does this string appear anywhere".
 /// </para>
+/// <para>
+/// The tag patterns are read as well as the key that holds them. Asserting only
+/// that <c>push</c> carries <c>tags</c> passes on <c>- "*"</c>, which publishes
+/// on every tag including a moving one like <c>latest</c> -- the opposite of
+/// what this class is named for.
+/// </para>
 /// </remarks>
 public sealed class PublishWorkflowTests
 {
@@ -39,6 +45,14 @@ public sealed class PublishWorkflowTests
         string[] pushKeys = [.. Keys(on, indent: 4)];
 
         Assert.Equal(["tags"], pushKeys);
+
+        string[] patterns = [.. on
+            .Split('\n')
+            .Select(line => line.TrimEnd())
+            .Where(line => line.TrimStart().StartsWith("- ", StringComparison.Ordinal))
+            .Select(line => line.TrimStart()[2..].Trim().Trim('"', '\''))];
+
+        Assert.Equal(["v[0-9]+.[0-9]+.[0-9]+"], patterns);
     }
 
     [Fact]
@@ -72,7 +86,9 @@ public sealed class PublishWorkflowTests
         string root = RepoRoot();
 
         string[] offenders = [.. Directory
-            .GetFiles(Path.Combine(root, ".github", "workflows"), "*.yml")
+            .GetFiles(Path.Combine(root, ".github", "workflows"))
+            .Where(p => p.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
+                || p.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))
             .Where(p => Path.GetRelativePath(root, p).Replace('\\', '/') != PublishWorkflow)
             .Where(p => File.ReadAllLines(p).Any(IsANuGetPush))
             .Select(p => Path.GetRelativePath(root, p))];

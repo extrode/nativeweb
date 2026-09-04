@@ -68,6 +68,23 @@ jobs:
           fi
           echo "Releasing $declared"
 
+      # A package pushed to GitHub Packages is linked to the repository named in
+      # its nuspec <repository url> and inherits that repository's visibility.
+      # Three libraries here carry JauntyQ-generated output, and AGENTS.md
+      # forbids redistributing JauntyQ; a public repository would make the whole
+      # feed a redistribution the licence does not permit. So the visibility is
+      # a precondition of publishing, checked rather than assumed.
+      - name: The repository is private
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          private="$(gh api "repos/$GITHUB_REPOSITORY" --jq .private)"
+          if [ "$private" != "true" ]; then
+            echo "$GITHUB_REPOSITORY is public, so every pushed package would be too." >&2
+            echo "AGENTS.md forbids redistributing JauntyQ. Nothing is published." >&2
+            exit 1
+          fi
+
       # Same step ci.yml runs, and for the same reason: nuget.config declares
       # the jauntyq-github source and deliberately carries no credentials, so
       # without this the restore under `dotnet pack` fails 401.
@@ -77,6 +94,16 @@ jobs:
           --username ${{ github.actor }}
           --password ${{ secrets.GITHUB_TOKEN }}
           --store-password-in-clear-text
+
+      # The tag is the only gate on this workflow, and a tag can be placed on any
+      # commit -- including one whose suite never went green. These two are the
+      # guards over this workflow and over the version stamping it depends on, so
+      # they are cheap, need no database, and are the ones whose failure means
+      # the packages about to be built are wrong.
+      - name: The release guards
+        run: |
+          deno test -A tools/pack.test.ts
+          dotnet test tests/nativeweb.repo.tests.unit -v q --nologo $DOTNET_BUILD_ARGS
 
       - name: Pack
         run: deno run -A tools/pack.ts --release $DOTNET_BUILD_ARGS
@@ -90,6 +117,10 @@ jobs:
       # rather than dying on the packages that already landed. It does not make
       # an overwrite possible: GitHub Packages refuses a version that exists,
       # and this only turns that refusal into a skip.
+      #
+      # The glob is safe because pack.ts refuses to run when the output directory
+      # holds a .nupkg it will not produce: everything matched here has been
+      # packed and verified by the step above.
       - name: Push
         run: >
           dotnet nuget push "artifacts/packages/*.nupkg"
