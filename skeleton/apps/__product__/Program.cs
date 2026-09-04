@@ -49,6 +49,16 @@ public sealed class Program
             builder.Services.AddSignIn(signIn);
         }
 
+        // Unconditionally, because the two middlewares below are unconditional and
+        // AddSignIn is not. A product stamped before it has a sign-in provider --
+        // which is every product on its first day -- registered neither service and
+        // died in UseAuthorization at startup with "Unable to find the required
+        // services", taking all seven of its own integration tests with it. Both
+        // calls are idempotent, so the configured path is unchanged: AddSignIn adds
+        // the scheme and these add nothing a second time.
+        builder.Services.AddAuthentication();
+        builder.Services.AddAuthorization();
+
         WebApplication app = builder.Build();
 
         app.MapStaticAssets();
