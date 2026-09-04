@@ -6,6 +6,14 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Milestone 1 - the skeleton builds here, not only in CI. `fix/skeleton-stamp-authorization`,
+  2026-09-05.** `tools/stamp-check.ts` stamps a product, builds it and runs its unit tier against
+  this working tree; the integration tier is opt-in behind `--with-database` because it needs the
+  stamped product's own Postgres role. Its first run found the reason the gap mattered: a stamped
+  product registered the authorization services only when a sign-in provider was configured and
+  died at startup without one. Both are fixed and merged; the remaining half of the milestone is
+  that nothing replaces `SkeletonParityTests`, which left with the identity provider.
+
 - **Spec 028 - versioned package releases. Building on `feat/028-package-releases`, 2026-09-04.**
   Closes G1 in `docs/architecture/004-consumer-readiness.md` and discharges obligation 2 of
   `docs/decisions/2026-08-30-004-package-mode-for-consumers.md`: one `VersionPrefix` in

@@ -13,6 +13,32 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Added
 
+- **`tools/stamp-check.ts` builds the skeleton here, and the first thing it found was a defect.**
+  `skeleton/` ships a complete product and nothing but CI's `skeleton-stamp` job had ever compiled
+  it, so drift landed on whoever stamped next. The script stamps a product with
+  `tools/new-product.ps1`, builds it and runs its unit tier in the mixed mode CI uses -- NativeWeb
+  by checkout because this working tree is what is under test, JauntyQ by packages because no
+  jauntyq sibling exists -- and runs the integration tier too with `--with-database`. Measured
+  2026-09-05: stamp 2.4 s, build 4.0 s, unit tier 1.3 s. It writes and never deletes; a destination
+  that already holds anything is refused and named.
+
+  Two facts it needed and nothing recorded. A stamped product's first commit is on its own `main`,
+  which a global protected-branch hook refuses, so the stamp failed with every file already
+  written; `GIT_ALLOW_PROTECTED=1` is what says that commit is intended. And the integration tier
+  wants the stamped product's own Postgres role and database, which CI creates as a job step and a
+  workstation does not have, so that tier is opt-in rather than silently skipped.
+
+### Fixed
+
+- **A stamped product with no sign-in provider could not start.**
+  `skeleton/apps/__product__/Program.cs` called `UseAuthentication()` and `UseAuthorization()`
+  unconditionally while the services behind them were registered only by `AddSignIn`, which runs
+  only when `__PRODUCT__:SignIn:AuthorizationEndpoint` is configured. Every product on its first
+  day is in that state, and every one of them died at startup with "Unable to find the required
+  services", taking all seven of its own integration tests with it. Both registrations are now
+  unconditional and idempotent, so the configured path is unchanged. Found by the first run of
+  `tools/stamp-check.ts`, which is the point of having it.
+
 - **Spec 028: NativeWeb can be released as packages.** One `VersionPrefix` in
   `Directory.Build.props` replaces the thirteen per-project `<Version>0.1.0</Version>` lines, and
   a release is opt-in: `IsReleaseBuild=true` clears the suffix, so every unmarked pack produces

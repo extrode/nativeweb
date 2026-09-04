@@ -41,13 +41,26 @@ public sealed class Program
         // the same degrade-rather-than-crash posture as the connection string above.
         // Every key is under __PRODUCT__:SignIn; see libs/nativeweb.signin/README.md.
         // Registering it is what gives RequireAuthorization a scheme to challenge
-        // with; without it a protected route answers a bare 401 to everybody.
+        // with. Without a provider there is no scheme, so a route you have marked
+        // RequireAuthorization fails closed and answers 500 rather than a redirect
+        // to a sign-in page that does not exist: mark routes as protected after you
+        // have configured a provider, not before.
         IConfigurationSection signIn = builder.Configuration.GetSection("__PRODUCT__:SignIn");
 
         if (signIn["AuthorizationEndpoint"] is { Length: > 0 })
         {
             builder.Services.AddSignIn(signIn);
         }
+
+        // Unconditionally, because the two middlewares below are unconditional and
+        // AddSignIn is not. A product stamped before it has a sign-in provider --
+        // which is every product on its first day -- registered neither service and
+        // died in UseAuthorization at startup with "Unable to find the required
+        // services", taking all seven of its own integration tests with it. Both
+        // calls are idempotent, so the configured path is unchanged: AddSignIn adds
+        // the scheme and these add nothing a second time.
+        builder.Services.AddAuthentication();
+        builder.Services.AddAuthorization();
 
         WebApplication app = builder.Build();
 
