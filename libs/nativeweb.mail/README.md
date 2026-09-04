@@ -16,7 +16,16 @@ wire. There is no generator.
 | `IEmailContentRenderer` | interface | The app renders content per locale: `LoginLinkAsync`, `OneTimeCodeAsync` |
 | `SmtpOptions` | options | The host binds it from a section of its choosing; `IsEnabled` and `Validate` govern use |
 | `SmtpSecurityMode` | enum | `StartTls` for real submission, `None` for a loopback fake only |
-| `SmtpTransport` | class | `SendAsync`: connect, authenticate, send, disconnect, once per call |
+| `IEmailTransport` | interface | `SendAsync`: the seam a host substitutes when it has no mail server |
+| `SmtpTransport` | class | The one implementation: connect, authenticate, send, disconnect, once per call |
+
+A host that wants mail without a mail server -- a test, a development host, an
+application that queues rather than sends -- implements `IEmailTransport` and registers
+that instead. The interface is one method wide on purpose: rendering, recipient parsing
+and retry live elsewhere, and a seam wider than a substitute can plausibly implement
+stops being substitutable. An implementation reports a failed send by throwing, and
+which exception is its own business, so a caller that must not fail a request over a
+mail server catches broadly.
 
 `SendAsync` takes the recipient as a string and runs it through `ParseRecipient`
 itself, so a caller that renders content first and sends second needs no validation
