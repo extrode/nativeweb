@@ -230,6 +230,100 @@ public sealed class PermissionContextTests
         Assert.Equal([Delete.Name], await context.HeldAsync(two));
     }
 
+    [Fact]
+    public async Task AHostThatNamesItsClaim_ResolvesGrantsUnderThatName()
+    {
+        var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.GrantToSubjectAsync("sub-1", Change.Name, default);
+
+        var context = new PermissionContext(
+            store,
+            Registry(),
+            new PermissionSubjectResolver(new PermissionSubjectOptions { ClaimName = "sub" }));
+
+        ClaimsPrincipal user = new(new ClaimsIdentity([new Claim("sub", "sub-1")], "bearer"));
+
+        Assert.Equal([Change.Name], await context.HeldAsync(user));
+    }
+
+    [Fact]
+    public async Task AHostThatNamesItsClaim_StopsReadingTheDefaultOne()
+    {
+        var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.GrantToSubjectAsync("sub-1", Change.Name, default);
+
+        var context = new PermissionContext(
+            store,
+            Registry(),
+            new PermissionSubjectResolver(new PermissionSubjectOptions { ClaimName = "sub" }));
+
+        Assert.Empty(await context.HeldAsync(Signed("sub-1")));
+        Assert.Equal(0, store.GrantedCalls);
+    }
+
+    [Fact]
+    public async Task AnAuthenticatedPrincipalWithNoSubject_IsReportedOnce()
+    {
+        var logger = new RecordingLogger<PermissionContext>();
+        var context = new PermissionContext(new CountingPermissionStore(), Registry(), null, logger);
+        ClaimsPrincipal user = new(new ClaimsIdentity([new Claim("email", "a@b.c")], "bearer"));
+
+        Assert.Empty(await context.HeldAsync(user));
+        Assert.Empty(await context.HeldAsync(user));
+
+        string recorded = Assert.Single(logger.Warnings);
+        Assert.Contains("bearer", recorded, StringComparison.Ordinal);
+        Assert.Contains(ClaimTypes.NameIdentifier, recorded, StringComparison.Ordinal);
+        Assert.DoesNotContain("a@b.c", recorded, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnAnonymousPrincipal_IsNotReported()
+    {
+        var logger = new RecordingLogger<PermissionContext>();
+        var context = new PermissionContext(new CountingPermissionStore(), Registry(), null, logger);
+
+        Assert.Empty(await context.HeldAsync(new ClaimsPrincipal(new ClaimsIdentity())));
+        Assert.Empty(logger.Warnings);
+    }
+
+    [Fact]
+    public async Task ASubjectHoldingNothing_IsNotReportedAsAnAbsentSubject()
+    {
+        var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
+        var logger = new RecordingLogger<PermissionContext>();
+        var context = new PermissionContext(store, Registry(), null, logger);
+
+        Assert.Empty(await context.HeldAsync(Signed("sub-1")));
+        Assert.Empty(logger.Warnings);
+        Assert.Equal(1, store.GrantedCalls);
+    }
+
+    [Fact]
+    public async Task TheConfiguredResolversAnswer_IsWhatTheStoreIsAskedAbout()
+    {
+        var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("acme:sub-1", default);
+        await store.GrantToSubjectAsync("acme:sub-1", Delete.Name, default);
+
+        var context = new PermissionContext(
+            store,
+            Registry(),
+            new PermissionSubjectResolver(new PermissionSubjectOptions
+            {
+                Resolve = user => user.FindFirstValue("tenant") + ":" + user.FindFirstValue(ClaimTypes.NameIdentifier),
+            }));
+
+        ClaimsPrincipal user = new(new ClaimsIdentity(
+            [new Claim("tenant", "acme"), new Claim(ClaimTypes.NameIdentifier, "sub-1")],
+            "test"));
+
+        Assert.Equal([Delete.Name], await context.HeldAsync(user));
+    }
+
     private sealed class StoppedClock : TimeProvider
     {
         internal StoppedClock(DateTimeOffset now) => Now = now;

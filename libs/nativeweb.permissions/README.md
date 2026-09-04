@@ -65,6 +65,39 @@ routing refuses the request outright if that middleware is absent, rather than l
 unvalidated post through. `UseNativeWebPipeline` already does this; a host wiring its
 own pipeline calls it after `UseAuthentication` and `UseAuthorization`.
 
+## Naming the subject
+
+The subject is the `NameIdentifier` claim by default. A JWT bearer scheme configured not to map
+inbound claims leaves `sub` as `sub`, and such a host says so:
+
+```csharp
+builder.Services.AddPermissions(PermissionCatalog.All, options => options.ClaimName = "sub");
+```
+
+A subject that is not any one claim comes from a function instead:
+
+```csharp
+builder.Services.AddPermissions(
+    PermissionCatalog.All,
+    options => options.Resolve = user => user.FindFirstValue("tenant") + ":" + user.FindFirstValue("sub"));
+```
+
+| | |
+| --- | --- |
+| Both configured | Refused at registration, so the application does not start |
+| Anonymous principal | No subject, no store call, nothing logged: a public page is not a fault |
+| Empty or whitespace answer | No subject, and no blank row in the store |
+| Anything else | Handed to the store as it came back — nothing is trimmed or lower-cased |
+
+Whatever comes back is the key of every grant row, every membership and every subject record, so
+a normalisation applied here would have to be applied identically by every store, every migration
+and every operator typing a subject into the access admin.
+
+**An authenticated principal that yields no subject is logged once per request, at warning.** The
+message names what was looked for and which scheme authenticated the caller, never the claim
+values: a subject identifies a person, and a diagnostic carrying it would hand every product on
+this layer a retention question of its own.
+
 ## A hand-written endpoint
 
 A model needs no generated admin for any of this to work. Given
@@ -107,12 +140,10 @@ it names is a value you look up from your provider, not a name you can guess.
   no profile field, no user table. epass.io owns identity; this reads a string. Nothing here
   depends on `nativeweb.signin`.
 
-  **That claim is not configurable yet, and the failure is silent.** A scheme that surfaces the
-  subject under any other name — a JWT bearer scheme configured not to map inbound claims is the
-  ordinary case — yields no subject, which is the empty held set, which is a 403 from every gated
-  route with nothing recorded to say why. Spec 025 is the fix; until it lands, a host on such a
-  scheme maps the claim to NameIdentifier itself, through ASP.NET Core's claims transformation or
-  its scheme's own claim actions.
+  **Which claim is configurable** — see *Naming the subject* below. A host whose scheme surfaces
+  the subject under another name says so once at registration. A host that does not, and whose
+  scheme does not use NameIdentifier, gets no subject, which is the empty held set, which is a 403
+  from every gated route — now with one warning per request naming the claim that was looked for.
 - **No row-level decisions.** `AllowsAsync` and the filter both accept a resource identity and
   carry it to the store, and neither shipped store consults it. The decision is per model. That
   is what makes the held set one call per request instead of one per row — and the visible

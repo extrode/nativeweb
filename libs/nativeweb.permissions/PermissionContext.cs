@@ -1,6 +1,8 @@
 using System.Collections.Frozen;
 using System.Security.Claims;
 
+using Microsoft.Extensions.Logging;
+
 namespace NativeWeb.Permissions;
 
 /// <summary>
@@ -25,19 +27,40 @@ namespace NativeWeb.Permissions;
 /// the second subject beside the first subject's permissions, which is the defect
 /// this memo exists to avoid rather than to cause.</para>
 /// </remarks>
-public sealed class PermissionContext : IPermissionContext
+public sealed partial class PermissionContext : IPermissionContext
 {
     private static readonly FrozenSet<string> None = FrozenSet<string>.Empty;
 
     private readonly IPermissionStore _store;
     private readonly PermissionRegistry _registry;
+    private readonly PermissionSubjectResolver _subjects;
+    private readonly ILogger<PermissionContext>? _logger;
     private Answer? _answer;
+    private bool _reportedAbsent;
 
     /// <summary>Creates the context.</summary>
-    public PermissionContext(IPermissionStore store, PermissionRegistry registry)
+    /// <param name="store">Where grants live.</param>
+    /// <param name="registry">Everything this application declares.</param>
+    /// <param name="subjects">
+    /// How a principal is named. Omitted, the subject is the
+    /// <see cref="ClaimTypes.NameIdentifier"/> claim, which is what
+    /// <see cref="PermissionSubjectOptions"/> defaults to.
+    /// </param>
+    /// <param name="logger">
+    /// Where an authenticated principal carrying no subject is reported. Omitted,
+    /// that state is silent, which is the state spec 025 exists to end -- so a host
+    /// wiring this by hand rather than through <c>AddPermissions</c> should pass one.
+    /// </param>
+    public PermissionContext(
+        IPermissionStore store,
+        PermissionRegistry registry,
+        PermissionSubjectResolver? subjects = null,
+        ILogger<PermissionContext>? logger = null)
     {
         _store = store;
         _registry = registry;
+        _subjects = subjects ?? new PermissionSubjectResolver(new PermissionSubjectOptions());
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -45,10 +68,25 @@ public sealed class PermissionContext : IPermissionContext
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        string? subject = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? subject = _subjects.Of(user);
 
-        if (string.IsNullOrEmpty(subject))
+        if (subject is null)
         {
+            // Only when the principal is authenticated, and once. An anonymous
+            // request has no subject by definition and is the ordinary state of a
+            // public page; warning about it would bury the case this is for, which
+            // is a signed-in caller the permission layer cannot name and therefore
+            // refuses everything.
+            if (!_reportedAbsent && user.Identity?.IsAuthenticated == true)
+            {
+                _reportedAbsent = true;
+
+                if (_logger is not null)
+                {
+                    NoSubject(_logger, _subjects.Source, user.Identity.AuthenticationType ?? "(none)");
+                }
+            }
+
             return None;
         }
 
@@ -75,6 +113,17 @@ public sealed class PermissionContext : IPermissionContext
 
         return declared;
     }
+
+    // What was looked for and which scheme authenticated the caller, never the claim
+    // values: the subject is an identifier for a person, and a diagnostic that logged
+    // it would hand every product on this layer a retention question of its own.
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Warning,
+        Message = "A principal authenticated by '{Scheme}' carries no permission subject in {Source}. "
+            + "Every permission decision for this request refuses. Configure "
+            + "AddPermissions(catalog, options => ...) if the subject arrives under another name.")]
+    private static partial void NoSubject(ILogger logger, string source, string scheme);
 
     private sealed record Answer(string Subject, IReadOnlySet<string> Held);
 }
