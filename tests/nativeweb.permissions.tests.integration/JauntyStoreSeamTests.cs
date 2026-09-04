@@ -84,6 +84,56 @@ public sealed class JauntyStoreSeamTests(PermissionHostFixture fixture)
                 .GrantToSubjectAsync(subject, PermissionHost.View.Name, default));
     }
 
+    [Fact]
+    public async Task DeletingAGroupThatDoesNotExist_IsAConflictInBothStores()
+    {
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await Postgres.DeleteGroupAsync(NoSuchGroup, default));
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await new InMemoryPermissionStore().DeleteGroupAsync(NoSuchGroup, default));
+    }
+
+    [Fact]
+    public async Task ForgettingASubjectNeitherStoreHasSeen_IsAConflictInBothStores()
+    {
+        string subject = PermissionHost.NewSubject();
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await Postgres.ForgetSubjectAsync(subject, default));
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await new InMemoryPermissionStore().ForgetSubjectAsync(subject, default));
+    }
+
+    [Fact]
+    public async Task DeletingTheSameGroupTwice_IsAConflictTheSecondTimeInBothStores()
+    {
+        long group = await GroupAsync();
+        await Postgres.DeleteGroupAsync(group, default);
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await Postgres.DeleteGroupAsync(group, default));
+
+        var memory = new InMemoryPermissionStore();
+        long inMemory = await memory.CreateGroupAsync("editors", default);
+        await memory.DeleteGroupAsync(inMemory, default);
+
+        await Assert.ThrowsAsync<PermissionConflictException>(
+            async () => await memory.DeleteGroupAsync(inMemory, default));
+    }
+
+    [Theory]
+    [InlineData("")]
+    public async Task ForgettingAnEmptySubject_IsRejectedByBothStores(string subject)
+    {
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await Postgres.ForgetSubjectAsync(subject, default));
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await new InMemoryPermissionStore().ForgetSubjectAsync(subject, default));
+    }
+
     private async Task<long> GroupAsync() =>
         await Postgres.CreateGroupAsync("seam-" + Guid.NewGuid().ToString("N")[..12], default);
 }

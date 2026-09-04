@@ -83,6 +83,36 @@ public interface IPermissionStore
     /// <summary>Takes a subject out of a group. A subject not in it is not an error.</summary>
     ValueTask RemoveMemberAsync(string subject, long groupId, CancellationToken ct);
 
+    /// <summary>
+    /// Removes a group, every membership in it and every permission granted to it.
+    /// </summary>
+    /// <remarks>
+    /// <para>A group the store does not hold is
+    /// <see cref="PermissionConflictException"/>, as it is for
+    /// <see cref="AddMemberAsync"/> and <see cref="GrantToGroupAsync"/>: an
+    /// operator's post naming a group that has gone since the page rendered is a
+    /// stale form, not a fault the admin should answer 500 to.</para>
+    /// <para>Its members keep everything granted to them directly. Nothing else is
+    /// removed: a group is a way of holding permissions, and deleting one is not a
+    /// statement about the people who were in it.</para>
+    /// </remarks>
+    ValueTask DeleteGroupAsync(long groupId, CancellationToken ct);
+
+    /// <summary>
+    /// Removes a subject's record, every group membership it holds and every
+    /// permission granted to it directly.
+    /// </summary>
+    /// <remarks>
+    /// <para>A subject the store has not seen is
+    /// <see cref="PermissionConflictException"/>, for the reason
+    /// <see cref="DeleteGroupAsync"/> gives.</para>
+    /// <para>The groups it belonged to survive with their other members. So does the
+    /// person: this forgets one application's authorization record for a subject
+    /// string, and identity belongs to whatever issued it. A subject seen again
+    /// afterwards is a new record holding nothing, not a restoration.</para>
+    /// </remarks>
+    ValueTask ForgetSubjectAsync(string subject, CancellationToken ct);
+
     /// <summary>The permission names granted to a subject directly, not through a group.</summary>
     ValueTask<IReadOnlyList<string>> SubjectGrantsAsync(string subject, CancellationToken ct);
 

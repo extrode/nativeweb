@@ -42,6 +42,11 @@ internal sealed class CountingPermissionStore : IPermissionStore
 
     public ValueTask<IReadOnlyList<string>> SubjectsAsync(CancellationToken ct) => _inner.SubjectsAsync(ct);
 
+    public ValueTask DeleteGroupAsync(long groupId, CancellationToken ct) => _inner.DeleteGroupAsync(groupId, ct);
+
+    public ValueTask ForgetSubjectAsync(string subject, CancellationToken ct) =>
+        _inner.ForgetSubjectAsync(subject, ct);
+
     public ValueTask<long> CreateGroupAsync(string name, CancellationToken ct) => _inner.CreateGroupAsync(name, ct);
 
     public ValueTask<IReadOnlyList<PermissionGroup>> GroupsAsync(CancellationToken ct) => _inner.GroupsAsync(ct);

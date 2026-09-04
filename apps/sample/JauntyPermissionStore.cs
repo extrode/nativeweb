@@ -139,6 +139,39 @@ internal sealed class JauntyPermissionStore(NpgsqlDataSource dataSource) : IPerm
         await db.Permissions.RemoveMemberAsync(subject, groupId, ct).ConfigureAwait(false);
     }
 
+    public async ValueTask DeleteGroupAsync(long groupId, CancellationToken ct)
+    {
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        var db = new JauntyDb(connection);
+
+        List<PermissionQueries.Result.DeleteGroup> deleted =
+            await db.Permissions.DeleteGroupAsync(groupId, ct).ConfigureAwait(false);
+
+        // No row came back, so there was none to delete. The in-memory store answers
+        // the same input the same way; one seam must not hand the caller a silent
+        // success here and a conflict there.
+        if (deleted.Count == 0)
+        {
+            throw new PermissionConflictException($"No group with id {groupId}.");
+        }
+    }
+
+    public async ValueTask ForgetSubjectAsync(string subject, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(subject);
+
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        var db = new JauntyDb(connection);
+
+        List<PermissionQueries.Result.ForgetSubject> forgotten =
+            await db.Permissions.ForgetSubjectAsync(subject, ct).ConfigureAwait(false);
+
+        if (forgotten.Count == 0)
+        {
+            throw new PermissionConflictException($"No subject {subject}.");
+        }
+    }
+
     public async ValueTask<IReadOnlyList<string>> SubjectGrantsAsync(string subject, CancellationToken ct)
     {
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);

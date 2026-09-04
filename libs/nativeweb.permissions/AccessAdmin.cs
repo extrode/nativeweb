@@ -109,6 +109,15 @@ public static class AccessAdmin
                 ScaffoldEndpoints.Handle(http => RevokeFromSubjectAsync(http, basePath)))
             .WithMetadata(RequiresAntiforgery.Instance);
 
+        // The two destructive ones. Both redirect to the index rather than back to
+        // the page they were posted from, because that page is what they removed.
+        group.MapPost("/groups/{id}/delete", ScaffoldEndpoints.Handle(http => DeleteGroupAsync(http, basePath)))
+            .WithMetadata(RequiresAntiforgery.Instance);
+        group.MapPost(
+                "/subjects/{subject}/delete",
+                ScaffoldEndpoints.Handle(http => ForgetSubjectAsync(http, basePath)))
+            .WithMetadata(RequiresAntiforgery.Instance);
+
         return group;
     }
 
@@ -202,6 +211,14 @@ public static class AccessAdmin
 
         AppendGrants(body, http, Registry(http), grants, self, antiforgeryField);
 
+        AppendDelete(
+            body,
+            http,
+            self,
+            "the group, " + Counted(members.Count, "membership", "memberships")
+                + " and " + Counted(grants.Count, "permission", "permissions"),
+            antiforgeryField);
+
         return page(http, match.Name, body.ToString());
     }
 
@@ -227,6 +244,14 @@ public static class AccessAdmin
         var body = new StringBuilder(2048);
         body.Append("<div class=\"nws-head\"><h1>").Append(Enc(subject)).Append("</h1></div>");
         AppendGrants(body, http, Registry(http), grants, self, antiforgeryField);
+
+        AppendDelete(
+            body,
+            http,
+            self,
+            "the subject, " + Counted(grants.Count, "permission", "permissions")
+                + " and every group membership it holds",
+            antiforgeryField);
 
         return page(http, subject, body.ToString());
     }
@@ -392,6 +417,58 @@ public static class AccessAdmin
 
         return Results.Redirect(SubjectPath(basePath, subject));
     }
+
+    private static async Task<IResult> DeleteGroupAsync(HttpContext http, string basePath)
+    {
+        long? id = GroupId(http);
+
+        if (id is null)
+        {
+            return Results.BadRequest();
+        }
+
+        return await WrittenAsync(
+            () => Store(http).DeleteGroupAsync(id.Value, http.RequestAborted),
+            Results.Redirect(basePath + "/")).ConfigureAwait(false);
+    }
+
+    private static async Task<IResult> ForgetSubjectAsync(HttpContext http, string basePath)
+    {
+        string subject = ScaffoldEndpoints.RouteValue(http, "subject");
+
+        if (subject.Length == 0)
+        {
+            return Results.NotFound();
+        }
+
+        return await WrittenAsync(
+            () => Store(http).ForgetSubjectAsync(subject, http.RequestAborted),
+            Results.Redirect(basePath + "/")).ConfigureAwait(false);
+    }
+
+    // What the delete takes with it, in the counts the page already loaded. A store
+    // read added for the sake of a label would widen IPermissionStore for every host
+    // that implements it, so a subject's control names its grants and says that its
+    // memberships go too rather than counting them.
+    private static void AppendDelete(
+        StringBuilder body,
+        HttpContext http,
+        string self,
+        string what,
+        Func<HttpContext, string> antiforgeryField)
+    {
+        body.Append("<form method=\"post\" action=\"").Append(Enc(self)).Append("/delete\" class=\"nws-danger\">")
+            .Append(antiforgeryField(http))
+            .Append("<p>Deleting this removes ").Append(Enc(what)).Append(".</p>")
+            .Append("<button type=\"submit\" class=\"nws-btn nws-btn--danger\" data-nws-confirm=\"")
+            .Append(Enc("Delete, removing " + what + "?"))
+            .Append("\">Delete</button></form>");
+    }
+
+    private static string Counted(int count, string one, string many) =>
+        count == 1
+            ? "1 " + one
+            : count.ToString(CultureInfo.InvariantCulture) + " " + many;
 
     // Every one of these posts names a group or a subject the rendered page saw and
     // the store may no longer have. Both shipped stores raise

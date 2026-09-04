@@ -13,6 +13,13 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Added
 
+- **Spec 026: groups and subjects can be removed.** `IPermissionStore` gains `DeleteGroupAsync`
+  and `ForgetSubjectAsync`, and the access admin gains a confirmed, antiforgery-checked control
+  for each on the matching detail page, naming the memberships and grants it is about to remove.
+  Deleting a group takes its memberships and grants with it and leaves members' direct grants
+  alone; forgetting a subject takes its direct grants and memberships and leaves the groups. A
+  post naming something that has gone since the page rendered is a 409. Before this, a group
+  created by a typo stayed forever and a departed subject kept its grants.
 - **Spec 025: the claim carrying the permission subject is configurable.**
   `AddPermissions(catalog, options => options.ClaimName = "sub")` for a scheme that leaves `sub`
   alone, or `options.Resolve = user => ...` for a subject that is not any one claim. Configuring

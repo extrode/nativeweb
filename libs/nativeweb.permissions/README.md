@@ -119,7 +119,7 @@ app.MapPost("/articles/{id}/publish", Publish)
 
 ## What the store owes you
 
-`IPermissionStore` is fourteen methods over five tables. `apps/sample/JauntyPermissionStore.cs` is
+`IPermissionStore` is sixteen methods over five tables. `apps/sample/JauntyPermissionStore.cs` is
 a worked implementation over PostgreSQL through JauntyQ, and
 `docs/specs/024-model-permissions/024-schema.sql` is the DDL it expects, kept as a reference
 nothing applies.
@@ -133,6 +133,25 @@ A fresh database has nobody holding a permission, so nobody can reach the access
 the first grant, so the admin is unreachable forever. Every application on this layer seeds its
 own first subject; `db/sample/migrations/0006_permissions.sql` is the sample's, and the subject
 it names is a value you look up from your provider, not a name you can guess.
+
+## Removing a group or a subject
+
+Two destructive controls sit on the access admin, one on each detail page, and both are
+irreversible from the UI:
+
+| Control | Route | What goes |
+| --- | --- | --- |
+| Delete this group | `POST /admin/access/groups/{id}/delete` | The group, every membership in it and every grant made to it. Members keep their own direct grants |
+| Forget this subject | `POST /admin/access/subjects/{subject}/delete` | The subject row, its direct grants and every group membership it holds. The groups themselves survive |
+
+Each control names the counts it is about to remove, and each posts through the antiforgery
+filter behind a confirmation. A post naming a group or subject that has gone since the page
+rendered is a 409, not a silent success: `DeleteGroupAsync` and `ForgetSubjectAsync` both raise
+`PermissionConflictException` when nothing was removed, in both shipped stores.
+
+**Forgetting a subject is not a ban.** The next request that authenticates it writes the subject
+row again through `EnsureSubjectAsync`, holding nothing. What the delete removes is the grants,
+not the identity, which this layer does not own.
 
 ## What it deliberately does not do
 
