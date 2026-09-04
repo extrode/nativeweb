@@ -13,6 +13,28 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Added
 
+- **Spec 028: NativeWeb can be released as packages.** One `VersionPrefix` in
+  `Directory.Build.props` replaces the thirteen per-project `<Version>0.1.0</Version>` lines, and
+  a release is opt-in: `IsReleaseBuild=true` clears the suffix, so every unmarked pack produces
+  `X.Y.Z-dev` and nothing built by accident can be mistaken for a release on a feed. Each package
+  now carries the repository url beside the commit the SDK already emitted, and the nine libraries
+  that document themselves ship their own `README.md` inside the `.nupkg`.
+
+  `tools/pack.ts` is the one pack command -- a person runs it, CI runs it on every push, and
+  `.github/workflows/publish.yml` runs it with `--release`. It packs and then opens each produced
+  package, because `dotnet pack` succeeding says the build worked and says nothing about what
+  ended up in the file. Measured 2026-09-04: 13 of 13 packed and verified in 24.9 s.
+
+  Publishing triggers on a `v[0-9]+.[0-9]+.[0-9]+` tag and on nothing else -- no
+  `workflow_dispatch`, no branch push -- and refuses a tag that disagrees with `VersionPrefix`
+  before it packs anything. A version on GitHub Packages cannot be replaced, only deleted, so an
+  accidental publish burns a version number rather than a run.
+
+  [`docs/02-reference/versioning.md`](docs/02-reference/versioning.md) states what a version
+  promises: what each component means, what counts as breaking, that the current minor and the one
+  before it are supported, and the deprecate-then-remove path `nativeweb.signin.epass` did not get.
+  This closes G1 in `docs/architecture/004-consumer-readiness.md` and obligation 2 of decision 004.
+
 - **Spec 027: forms take files and carry state between steps.** `libs/nativeweb.forms` gains a
   file field -- declare an `UploadedFile` member, decorate it `[FormFile(MaxBytes = ..., Accept =
   [...])]`, and the generated binder refuses a urlencoded post with 415, installs the declared

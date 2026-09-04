@@ -4,10 +4,15 @@ Every change that makes a consumer's existing code stop compiling or stop behavi
 newest first. A consumer reads this file top-down from wherever they last upgraded and stops
 when they reach an entry they have already taken.
 
-**Entries are dated and identified by commit, not by version.** NativeWeb is not packaged or
-versioned yet — consumers take it as a submodule or a project reference off `dev` — so a version
-number here would be a promise nothing enforces. When the libraries are packaged, the version
-each entry first shipped in gets added to it; the dates stay.
+**Entries are dated and identified by commit.** Every entry below predates the first release, so
+none carries a version: consumers took the framework as a project reference off `dev`, where a
+version number would have been a promise nothing enforced. Spec 028 built the pack and the
+tag-triggered publish, so entries from the first `v*` tag onward name the version they first
+shipped in as well. The dates stay either way.
+
+**What a version promises is in [`versioning.md`](versioning.md)** — what each component means,
+what counts as breaking, how long a released minor is supported, and the deprecation path a
+library takes before it is removed.
 
 **A breaking change is not a defect.** This repository would rather break a seam than carry a
 shim that makes the wrong shape survivable, because a shim outlives the reason for it and the

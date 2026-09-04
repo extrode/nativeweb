@@ -1,6 +1,6 @@
 # 028 — Versioned package releases
 
-Status: draft
+Status: done
 Created: 2026-09-04
 
 ## Problem

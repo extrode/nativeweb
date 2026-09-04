@@ -30,10 +30,17 @@ wish list; the value is in recording the ones nobody has got to yet.
   two libraries that no longer exist.
 
   Work that lands here, in the order the document argues for:
-  - **G1 — pack and version the libraries.** Eight carry `IsPackable` and a `PackageId` and
-    nothing packs them; the repository has one tag ever, and it is not a release. Decision 004
-    approved package mode on 2026-08-30 and listed four obligations; none is done. Until one is,
-    every consumer builds against whatever `dev` happens to be.
+  - ~~**G1 — pack and version the libraries.**~~ **Closed 2026-09-04 by spec 028:** one
+    `VersionPrefix` in `Directory.Build.props` for all thirteen packable projects, an opt-in
+    `IsReleaseBuild` so every unmarked pack is `-dev`, `tools/pack.ts` packing and then verifying
+    each `.nupkg` (13 of 13 in 24.9 s), a tag-only `.github/workflows/publish.yml`, and
+    `docs/02-reference/versioning.md` for obligation 2 of decision 004.
+
+    **Two of decision 004's four obligations remain, and neither is work here.** Obligation 1 is
+    the org-side package read grant; obligation 4 is repointing `justsmtp.com`, which
+    `docs/architecture/004-consumer-readiness.md` §5 puts in that repository. **Nothing has been
+    published yet** — the workflow exists and no `v*` tag has been pushed, so the pins in
+    `skeleton/Directory.Packages.props` still resolve to nothing until a release is cut.
   - ~~**G2 — a breaking-change log in `docs/`.**~~ **Closed 2026-09-01 by spec 017:**
     `docs/02-reference/breaking-changes.md`, linked from the README, opening with the 017
     `ListAsync` change and carrying the 2026-08-31 removals of `nativeweb.signin.epass` and
