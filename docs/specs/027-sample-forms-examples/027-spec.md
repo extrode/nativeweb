@@ -64,7 +64,14 @@ upload is the same gap one layer down.
 - R3 A file-valued field on a form posted as `application/x-www-form-urlencoded` is rejected with
   a client error, not a server error.
 - R4 A maximum accepted size and a set of accepted content types are declared alongside the
-  field, and a request exceeding either is refused before the body is read to completion.
+  field. A request exceeding the size limit is refused before the body is read to completion. A
+  request carrying a content type outside the declared set is refused after the form is read and
+  before any byte of it is written to storage.
+
+  **Amended 2026-09-04, during planning.** R4 originally required the early refusal for both.
+  `IFormCollection` exposes a part's content type only once the whole form has been read, so
+  refusing earlier needs a hand-written `MultipartReader` loop in place of `ReadFormAsync` --
+  a different and much larger design. The size half is unchanged and is a real mid-read abort.
 - R5 Declaring a file-valued field in a way the binder cannot honour is a build error carrying a
   diagnostic id in the library's existing `NWF` series, not a runtime failure.
 - R6 The framework offers a way to carry a set of form answers from one request to the next such
@@ -107,7 +114,8 @@ upload is the same gap one layer down.
 - Given a field declared with a 1 MB limit, when a 2 MB file is posted, then the response is 413
   and the whole body was not buffered (R4).
 - Given a field declared with a content-type set that excludes `application/zip`, when a zip is
-  posted, then the response is a client error naming what is accepted (R4).
+  posted, then the response is a client error naming what is accepted, and nothing was written to
+  storage (R4).
 - Given a build where a file field is declared on a model the binder cannot honour, then the build
   fails with an `NWF` diagnostic whose message names the declaration and what to do (R5).
 - Given first-step answers carried to the second step, when the carried value is altered by one
