@@ -170,6 +170,20 @@ The dry run lists every file it would copy, stamp and rename — 168 files, from
 does not ignore. It also does `git init`, an initial commit, and a `dev` branch, so what you get is
 a repository rather than a directory.
 
+**Two things the stamp needs that nothing else tells you.** A global protected-branch git hook
+refuses the stamped product's first commit on its own `main`, which fails the stamp with every file
+already written; prefix the command with `GIT_ALLOW_PROTECTED=1` if you have one. And a runner with
+no git identity fails the same step, which is why CI sets one.
+
+**Or let the check do all of it.** `tools/stamp-check.ts` stamps into `tmp/`, builds and runs the
+stamped unit tier, and adds the integration tier with `--with-database` once its role and database
+exist. It is how you tell whether `skeleton/` still builds before you stamp the product you mean to
+keep -- measured 2026-09-05 at 2.4 s to stamp, 4.0 s to build and 1.3 s to test.
+
+```
+deno run -A tools/stamp-check.ts
+```
+
 **Put it beside your NativeWeb checkout**, as `../probe` above does. The stamped product resolves
 the framework libraries and JauntyQ from siblings by default, and step 4 below is much harder if
 you skip this.
