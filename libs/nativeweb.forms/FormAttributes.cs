@@ -54,3 +54,47 @@ public sealed class FormFieldAttribute(string name) : Attribute
     /// <summary>The name as it appears in the posted form.</summary>
     public string Name { get; } = name;
 }
+
+/// <summary>
+/// The limits a file-valued form field is bound under.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Required on every <see cref="FormFile"/> member, because a public upload with no
+/// declared ceiling is a way to fill a disk. NWF006 is the build error for a
+/// declaration the binder cannot honour.
+/// </para>
+/// <para>
+/// <b>The two limits are enforced at different moments, and the difference matters.</b>
+/// <see cref="MaxBytes"/> is installed as the request's multipart body limit before
+/// the form is read, so an oversize request is aborted mid-read and answered 413 --
+/// the bytes are never all received. <see cref="Accept"/> can only be checked once
+/// the form has been read, because a part's content type is not exposed until then;
+/// it is checked before anything is written to storage, and answers 415. Spec 027 R4
+/// records why the second is not the first.
+/// </para>
+/// </remarks>
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
+public sealed class FormFileAttribute : Attribute
+{
+    /// <summary>
+    /// The largest accepted request body, in bytes. Must be greater than zero.
+    /// </summary>
+    /// <remarks>
+    /// This bounds the whole multipart body, not the one part, because that is what
+    /// the server can enforce before reading it. A form carrying a 1 MB file and two
+    /// short text fields needs a little more than 1 MB here.
+    /// </remarks>
+    public long MaxBytes { get; set; }
+
+    /// <summary>
+    /// The content types accepted, or <see langword="null"/> to accept any.
+    /// </summary>
+    /// <remarks>
+    /// Compared case-insensitively against the client's declared type, with any
+    /// parameters after a <c>;</c> ignored, so <c>image/png</c> matches
+    /// <c>image/png; charset=binary</c>. An entry that is empty or whitespace is
+    /// NWF006: it would silently accept the request that declares no type at all.
+    /// </remarks>
+    public string[]? Accept { get; set; }
+}
