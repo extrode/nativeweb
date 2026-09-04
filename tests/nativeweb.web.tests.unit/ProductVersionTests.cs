@@ -44,6 +44,7 @@ public sealed class ProductVersionTests
             ConfigurationSection = "Demo",
             TelemetryServiceName = "Demo",
             DataProtectionKeyDirectory = Path.Combine(AppContext.BaseDirectory, "dp-keys"),
+            UploadDirectory = Path.Combine(AppContext.BaseDirectory, "uploads"),
         };
 
         builder.AddNativeWebWeb(options, productAssembly);
