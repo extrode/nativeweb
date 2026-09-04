@@ -143,6 +143,14 @@ public sealed class PermissionsGenerator : IIncrementalGenerator
             {
                 spc.ReportDiagnostic(Diagnostic.Create(
                     PermissionsDiagnostics.ModelNameCollides, Location.None, other, model.FullName));
+
+                // Emitted for the same reason a declined model's constants are, and
+                // it is why the hint name carries the namespace: two colliding
+                // models share a type name, so a hint name built from the type name
+                // alone is a duplicate and the generator throws instead of
+                // reporting. The constants class itself does not collide, because
+                // the namespaces differ.
+                Constants(spc, model, scope, PermissionNaming.CoreActions.ToImmutableArray());
                 continue;
             }
 
@@ -158,9 +166,13 @@ public sealed class PermissionsGenerator : IIncrementalGenerator
             // real NWP00x error buried under a CS0234 cascade from files they cannot
             // open, and the cascade is what they read first. The build still fails, on
             // the diagnostic, which is the outcome the diagnostic is for.
-            spc.AddSource(
-                model.TypeName + "Permissions.g.cs",
-                PermissionsEmitter.Constants(model, scope, actions));
+            //
+            // NWP003 and NWP004 are the two this cannot cover. They are the scope
+            // itself being unusable, and every permission name begins with the scope,
+            // so there is no name to emit a constant for. Those two return above,
+            // before any model is visited, and the cascade they produce is the price
+            // of not inventing a scope.
+            Constants(spc, model, scope, actions);
 
             if (!usable)
             {
@@ -181,10 +193,26 @@ public sealed class PermissionsGenerator : IIncrementalGenerator
             }
         }
 
-        if (catalog.Count > 0)
-        {
-            spc.AddSource("PermissionCatalog.g.cs", PermissionsEmitter.Catalog(catalog));
-        }
+        // Emitted even when every model was declined, and empty rather than absent.
+        // R15 is that an assembly declaring nothing gets no file; this assembly
+        // declared something and was refused, so the author's own
+        // AddPermissions(PermissionCatalog.All) must still compile. Otherwise a
+        // single-model application answers one NWP00x with a CS0103 in a file the
+        // author did open, which is the cascade this generator stopped emitting.
+        spc.AddSource("PermissionCatalog.g.cs", PermissionsEmitter.Catalog(catalog));
+    }
+
+    // The hint name carries the namespace, so two models with one type name are two
+    // files. Roslyn throws on a duplicate hint name, which would turn a reported
+    // collision into a crashed generator.
+    private static void Constants(
+        SourceProductionContext spc, PermissionModel model, string scope, ImmutableArray<string> actions)
+    {
+        string hint = model.Namespace.Length == 0
+            ? model.TypeName + "Permissions.g.cs"
+            : model.Namespace + "." + model.TypeName + "Permissions.g.cs";
+
+        spc.AddSource(hint, PermissionsEmitter.Constants(model, scope, actions));
     }
 
     // The four, then the declared extras that are usable, in declaration order.

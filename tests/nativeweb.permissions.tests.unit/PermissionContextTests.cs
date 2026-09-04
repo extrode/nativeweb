@@ -150,19 +150,80 @@ public sealed class PermissionContextTests
     }
 
     [Fact]
-    public async Task TheSamePrincipal_IsReadFromTheStoreOnce()
+    public async Task TwoPrincipalsForOneSubject_ShareTheStoreRead()
     {
         var store = new CountingPermissionStore();
         await store.EnsureSubjectAsync("sub-1", default);
         await store.GrantToSubjectAsync("sub-1", Change.Name, default);
-        var permissions = new PermissionService(new PermissionContext(store, Registry()));
-        ClaimsPrincipal user = Signed("sub-1");
-        int before = store.GrantedCalls;
+        var context = new PermissionContext(store, Registry());
 
-        await permissions.AllowsAsync(user, Change);
-        await permissions.AllowsAsync(user, Delete);
+        await context.HeldAsync(Signed("sub-1"));
+        await context.HeldAsync(Signed("sub-1"));
 
-        Assert.Equal(before + 1, store.GrantedCalls);
+        Assert.Equal(1, store.GrantedCalls);
+    }
+
+    [Fact]
+    public async Task AnIdentityGivenANewSubject_IsAnsweredAboutTheNewOne()
+    {
+        var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.EnsureSubjectAsync("sub-2", default);
+        await store.GrantToSubjectAsync("sub-1", Change.Name, default);
+        await store.GrantToSubjectAsync("sub-2", Delete.Name, default);
+        var context = new PermissionContext(store, Registry());
+
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "sub-1")], "test");
+        var user = new ClaimsPrincipal(identity);
+
+        Assert.Equal([Change.Name], await context.HeldAsync(user));
+
+        identity.RemoveClaim(identity.FindFirst(ClaimTypes.NameIdentifier));
+        identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, "sub-2"));
+
+        Assert.Equal([Delete.Name], await context.HeldAsync(user));
+    }
+
+    [Fact]
+    public async Task TwoOverlappingReads_LeaveNeitherSubjectHoldingTheOthersPermissions()
+    {
+        var store = new CountingPermissionStore();
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.EnsureSubjectAsync("sub-2", default);
+        await store.GrantToSubjectAsync("sub-1", Change.Name, default);
+        await store.GrantToSubjectAsync("sub-2", Delete.Name, default);
+
+        TaskCompletionSource entered1 = new(), entered2 = new(), release1 = new(), release2 = new();
+
+        store.BeforeGranted = async subject =>
+        {
+            if (string.Equals(subject, "sub-1", StringComparison.Ordinal))
+            {
+                entered1.TrySetResult();
+                await release1.Task;
+            }
+            else
+            {
+                entered2.TrySetResult();
+                await release2.Task;
+            }
+        };
+
+        var context = new PermissionContext(store, Registry());
+
+        Task<IReadOnlySet<string>> first = context.HeldAsync(Signed("sub-1")).AsTask();
+        await entered1.Task;
+        Task<IReadOnlySet<string>> second = context.HeldAsync(Signed("sub-2")).AsTask();
+        await entered2.Task;
+
+        release2.SetResult();
+        Assert.Equal([Delete.Name], await second);
+        release1.SetResult();
+        Assert.Equal([Change.Name], await first);
+
+        store.BeforeGranted = null;
+
+        Assert.Equal([Delete.Name], await context.HeldAsync(Signed("sub-2")));
     }
 
     private sealed class StoppedClock : TimeProvider

@@ -36,7 +36,7 @@ That is the declaration. It produces four names — `sample:article.view`, `.add
 | `[Permissions]` | class | The four. `[Permissions("publish")]` adds a fifth that gates nothing by itself |
 | `Permission` | struct | One name. Every API takes this, never a string, which is what makes a removed declaration a build error |
 | `IPermissions.AllowsAsync` | injected | The one call a hand-written endpoint makes |
-| `IPermissionContext.HeldAsync` | injected | The subject's whole held set, one store read per principal |
+| `IPermissionContext.HeldAsync` | injected | The subject's whole held set, one store read per subject |
 | `PermissionEndpointFilter` | filter | What the scaffolding appends to each generated route, and what you add to gate your own |
 | `IPermissionStore` | seam | Where grants live. You implement it, or take `InMemoryPermissionStore` |
 | `MapAccessAdmin` | endpoints | Groups, members and grants, as pages |

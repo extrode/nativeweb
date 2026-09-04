@@ -255,9 +255,84 @@ public sealed class DiagnosticsTests
 
         Compilation compiled = GeneratorHarness.Compile("Sample", GeneratorHarness.Attributes, model);
 
-        Assert.DoesNotContain(
+        SyntaxTree catalog = Assert.Single(
             compiled.SyntaxTrees,
             tree => tree.FilePath.EndsWith("PermissionCatalog.g.cs", StringComparison.Ordinal));
+
+        Assert.DoesNotContain("ArticlePermissions.", catalog.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ADeclinedModel_StillLeavesTheCatalogReferenceable()
+    {
+        const string model = """
+            using NativeWeb.Permissions;
+
+            namespace Demo
+            {
+                [Permissions("delete")]
+                public sealed class Article { }
+            }
+            """;
+
+        const string consumer = """
+            internal static class Host
+            {
+                internal static int Count() => PermissionCatalog.All.Count;
+            }
+            """;
+
+        Compilation compiled =
+            GeneratorHarness.Compile("Sample", GeneratorHarness.Attributes, model, consumer);
+
+        Assert.DoesNotContain(
+            compiled.GetDiagnostics(),
+            diagnostic => diagnostic.Id is "CS0103" or "CS0234" or "CS0246" or "CS0826");
+    }
+
+    [Fact]
+    public void CollidingModels_BothStillEmitTheirConstantsClass()
+    {
+        const string first = """
+            using NativeWeb.Permissions;
+
+            namespace Blog
+            {
+                [Permissions]
+                public sealed class Article { }
+
+                public static class BlogConsumer
+                {
+                    public static Permission Gate() => ArticlePermissions.View;
+                }
+            }
+            """;
+
+        const string second = """
+            using NativeWeb.Permissions;
+
+            namespace Shop
+            {
+                [Permissions]
+                public sealed class Article { }
+
+                public static class ShopConsumer
+                {
+                    public static Permission Gate() => ArticlePermissions.View;
+                }
+            }
+            """;
+
+        Compilation compiled = GeneratorHarness.Compile("Sample", GeneratorHarness.Attributes, first, second);
+
+        Assert.DoesNotContain(
+            compiled.GetDiagnostics(),
+            diagnostic => diagnostic.Id is "CS0234" or "CS0103" or "CS0246");
+
+        Assert.Equal(
+            2,
+            compiled.SyntaxTrees.Count(
+                tree => tree.FilePath.EndsWith("ArticlePermissions.g.cs", StringComparison.Ordinal)));
     }
 
     private static string[] Ids((ImmutableArray<Diagnostic> Diagnostics, string Source, int FileCount) run) =>

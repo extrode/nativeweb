@@ -161,25 +161,7 @@ public sealed class Program
 
             // Grants live as long as the process on this path, which is what makes
             // the Playwright tier able to grant one and watch a control appear.
-            //
-            // ArticlePermissions.All, not PermissionCatalog.All. The catalog is every
-            // permission the assembly declares; migration 0006 seeds four literal
-            // sample:article.* names. Those are the same set only while Article is the
-            // one model carrying [Permissions], so the catalog would have silently
-            // seeded a second model's permissions here and not on the database path.
-            // SeedGrantParityTests holds the two lists together.
-            var permissions = new InMemoryPermissionStore();
-            foreach (string subject in new[] { "operator", "demo" })
-            {
-                permissions.EnsureSubjectAsync(subject, default).AsTask().GetAwaiter().GetResult();
-                foreach (Permission permission in ArticlePermissions.All)
-                {
-                    permissions.GrantToSubjectAsync(subject, permission.Name, default)
-                        .AsTask().GetAwaiter().GetResult();
-                }
-            }
-
-            builder.Services.AddSingleton<IPermissionStore>(permissions);
+            builder.Services.AddSingleton<IPermissionStore>(Seed.Permissions());
         }
         else
         {
@@ -306,6 +288,42 @@ public sealed class Program
 
 internal static class Seed
 {
+    // The two subjects and four permission names migration 0006 seeds on the
+    // database path, granted here so the in-memory path is the same site.
+    //
+    // ArticlePermissions.All, not PermissionCatalog.All. The catalog is every
+    // permission the assembly declares; the migration seeds four literal
+    // sample:article.* names. Those are the same set only while Article is the one
+    // model carrying [Permissions], so the catalog would silently seed a second
+    // model's permissions here and not on the database path.
+    //
+    // A method rather than a loop inside Program.Main because that loop was
+    // unreachable from a test: SeedGrantParityTests compared the migration to
+    // ArticlePermissions.All and would have stayed green through a revert to
+    // PermissionCatalog.All, which is the one edit it existed to catch. It runs
+    // this now, so what it asserts is what the sample does.
+    internal static InMemoryPermissionStore Permissions()
+    {
+        var store = new InMemoryPermissionStore();
+
+        foreach (string subject in Subjects)
+        {
+            store.EnsureSubjectAsync(subject, default).AsTask().GetAwaiter().GetResult();
+
+            foreach (Permission permission in ArticlePermissions.All)
+            {
+                store.GrantToSubjectAsync(subject, permission.Name, default).AsTask().GetAwaiter().GetResult();
+            }
+        }
+
+        return store;
+    }
+
+    // `operator` is the subject AdminSignIn.cs issues for the passphrase sign-in
+    // and `demo` the one the Development-only /signin issues. Both are seeded by
+    // migration 0006 on the database path.
+    internal static readonly string[] Subjects = ["operator", "demo"];
+
     // The same three tags migration 0003 seeds on the database path, and the same
     // eight articles migration 0005 seeds there -- one dataset written twice, so
     // a run picks a store and not a different site. A row changed here is changed

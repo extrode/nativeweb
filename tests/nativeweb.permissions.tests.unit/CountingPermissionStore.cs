@@ -24,10 +24,20 @@ internal sealed class CountingPermissionStore : IPermissionStore
         return _inner.EnsureSubjectAsync(subject, ct);
     }
 
-    public ValueTask<IReadOnlyCollection<string>> GrantedAsync(string subject, CancellationToken ct)
+    // Lets a test hold one read open while another starts, which is the only way
+    // to reach the interleaving PermissionContext memoises against.
+    internal Func<string, Task>? BeforeGranted { get; set; }
+
+    public async ValueTask<IReadOnlyCollection<string>> GrantedAsync(string subject, CancellationToken ct)
     {
         GrantedCalls++;
-        return _inner.GrantedAsync(subject, ct);
+
+        if (BeforeGranted is not null)
+        {
+            await BeforeGranted(subject).ConfigureAwait(false);
+        }
+
+        return await _inner.GrantedAsync(subject, ct).ConfigureAwait(false);
     }
 
     public ValueTask<IReadOnlyList<string>> SubjectsAsync(CancellationToken ct) => _inner.SubjectsAsync(ct);

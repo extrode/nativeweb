@@ -6,6 +6,14 @@ namespace NativeWeb.Permissions.Generator;
 // warning: the alternative to stopping is emitting a permission name the author
 // did not mean, which becomes a grant row in a database and outlives the build
 // that produced it.
+//
+// NotConfigurable on every one, so none can be lowered in .editorconfig or
+// suppressed by pragma. A declined model still emits its constants class, which is
+// what stops one NWP00x becoming a CS0234 cascade -- and it means a host that
+// silenced the diagnostic would get an assembly that compiles, whose declined model
+// is absent from the catalog, so every route gating on it answers 403 for the life
+// of the deployment and the access admin cannot grant the names to fix it. A build
+// error is the smaller failure.
 internal static class PermissionsDiagnostics
 {
     internal static readonly DiagnosticDescriptor ExtraCollidesWithCore = new(
@@ -14,7 +22,8 @@ internal static class PermissionsDiagnostics
         messageFormat: "'{0}' declares the extra permission '{1}', which is already one of the four every model gets. Remove it.",
         category: "NativeWeb.Permissions",
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        customTags: WellKnownDiagnosticTags.NotConfigurable);
 
     internal static readonly DiagnosticDescriptor ExtraNotUsable = new(
         id: "NWP002",
@@ -22,7 +31,8 @@ internal static class PermissionsDiagnostics
         messageFormat: "'{0}' declares the extra permission '{1}'. A permission name must match [a-z][a-z0-9_]*, because a dot separates the model from the action and a colon separates the assembly scope.",
         category: "NativeWeb.Permissions",
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        customTags: WellKnownDiagnosticTags.NotConfigurable);
 
     internal static readonly DiagnosticDescriptor NoUsableScope = new(
         id: "NWP003",
@@ -30,7 +40,8 @@ internal static class PermissionsDiagnostics
         messageFormat: "The assembly name '{0}' cannot be used as a permission scope. Add [assembly: PermissionScope(\"...\")] with a name matching [a-z][a-z0-9_.]*.",
         category: "NativeWeb.Permissions",
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        customTags: WellKnownDiagnosticTags.NotConfigurable);
 
     internal static readonly DiagnosticDescriptor ScopeNotUsable = new(
         id: "NWP004",
@@ -38,7 +49,8 @@ internal static class PermissionsDiagnostics
         messageFormat: "[assembly: PermissionScope(\"{0}\")] is not a usable scope. It must match [a-z][a-z0-9_.]*.",
         category: "NativeWeb.Permissions",
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        customTags: WellKnownDiagnosticTags.NotConfigurable);
 
     internal static readonly DiagnosticDescriptor DuplicateExtra = new(
         id: "NWP005",
@@ -46,7 +58,8 @@ internal static class PermissionsDiagnostics
         messageFormat: "'{0}' declares the extra permission '{1}' more than once",
         category: "NativeWeb.Permissions",
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        customTags: WellKnownDiagnosticTags.NotConfigurable);
 
     internal static readonly DiagnosticDescriptor ExtraCollidesWithIdentifier = new(
         id: "NWP007",
@@ -54,7 +67,8 @@ internal static class PermissionsDiagnostics
         messageFormat: "'{0}' declares the extra permission '{1}', whose constant would be named '{2}', and that name is already taken by {3}. Rename it.",
         category: "NativeWeb.Permissions",
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        customTags: WellKnownDiagnosticTags.NotConfigurable);
 
     internal static readonly DiagnosticDescriptor ModelNameCollides = new(
         id: "NWP006",
@@ -62,5 +76,6 @@ internal static class PermissionsDiagnostics
         messageFormat: "'{0}' and '{1}' have the same type name, so they would produce the same permission names within one assembly scope. Rename one, or move it to its own assembly.",
         category: "NativeWeb.Permissions",
         defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        customTags: WellKnownDiagnosticTags.NotConfigurable);
 }

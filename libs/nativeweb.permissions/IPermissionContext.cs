@@ -28,11 +28,12 @@ public interface IPermissionContext
     /// through a group.
     /// </summary>
     /// <remarks>
-    /// Resolved on the first call and reused for the rest of the request. With no
-    /// subject claim the answer is the empty set and the store is not called at all.
-    /// Names the store returns that this application does not declare are dropped.
+    /// Resolved on the first call for a subject and reused for the rest of the
+    /// request. With no subject claim the answer is the empty set and the store is
+    /// not called at all. Names the store returns that this application does not
+    /// declare are dropped.
     /// </remarks>
     /// <param name="user">The current principal.</param>
-    /// <param name="ct">Cancels the store call, on the first invocation only.</param>
+    /// <param name="ct">Cancels the store call, on the calls that make one.</param>
     ValueTask<IReadOnlySet<string>> HeldAsync(ClaimsPrincipal user, CancellationToken ct = default);
 }
