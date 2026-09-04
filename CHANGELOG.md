@@ -22,14 +22,31 @@ sections that apply; drop the empty ones rather than leaving them blank.
   `PermissionConflictException` from `AddMemberAsync` and `GrantToSubjectAsync`, and both reject
   an empty subject or permission with `ArgumentException`. `EnsureSubjectAsync` is the one call
   that admits a subject.
-- `IPermissionContext.HeldAsync` answers about the principal it was passed. It memoised on the
-  instance, so a second call carrying a different principal was answered about the first one.
+- `IPermissionContext.HeldAsync` answers about the subject the principal carries. It memoised on
+  the instance, so a second call carrying a different principal was answered about the first one;
+  keying on the principal reference fixed that case and left two more, both closed here. Two
+  overlapping calls could leave one subject holding the other's permissions, because the key was
+  written before the store read and the answer after it; and an identity whose subject claim
+  changed in place was answered about its old subject. Subject and held set are now one field,
+  written once.
 - A model declined by NWP001-007 still emits its constants class. Losing it turned one real
   diagnostic into a CS0234 cascade from generated files the author cannot open. The declined
   model stays out of `PermissionCatalog` and the build still fails on the diagnostic.
 - `apps/sample` seeds the same permissions on both run modes. The in-memory path granted
   `PermissionCatalog.All` where `0006_permissions.sql` seeds four literal `sample:article.*`
   names, which are the same set only while `Article` is the one model declaring `[Permissions]`.
+  The seed is `Seed.Permissions()` so the parity test runs it: the first version of that test
+  compared the migration to `ArticlePermissions.All` and never touched the seed, so it would have
+  stayed green through the revert it existed to catch.
+- Two models whose permission names collide (NWP006) both still emit their constants class, so
+  the collision is one diagnostic rather than a cascade. Generated hint names carry the namespace,
+  without which two same-named types crash the generator on a duplicate hint name.
+- `PermissionCatalog` is emitted whenever an assembly declares a model, empty if every one of them
+  was declined. A single-model application answered one NWP00x with a CS0103 on its own
+  `AddPermissions(PermissionCatalog.All)` line.
+- NWP001-007 carry `NotConfigurable`, so none can be lowered in `.editorconfig` or suppressed by
+  pragma. Since a declined model now emits its constants, silencing the diagnostic would have
+  produced an assembly that compiles and gates every route on that model at 403 permanently.
 
 
 Merged into `dev`, not yet tagged.

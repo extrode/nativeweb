@@ -87,15 +87,28 @@ internal static class PermissionsEmitter
         built.AppendLine("{");
         built.AppendLine("    /// <summary>Every declared permission, in declaration order.</summary>");
         built.Append("    public static readonly ").Append(ReadOnlyList).Append('<').Append(Permission)
-             .AppendLine("> All = new[]");
-        built.AppendLine("    {");
+             .Append("> All =");
 
-        foreach (string constant in qualifiedConstants)
+        // An implicitly-typed empty array is CS0826, and the empty case is reached:
+        // an assembly whose only model was declined still emits this file, so the
+        // author's AddPermissions(PermissionCatalog.All) compiles and the build
+        // fails on the diagnostic rather than on a name that went missing.
+        if (qualifiedConstants.Count == 0)
         {
-            built.Append("        ").Append(constant).AppendLine(",");
+            built.Append(" global::System.Array.Empty<").Append(Permission).AppendLine(">();");
         }
+        else
+        {
+            built.AppendLine(" new[]");
+            built.AppendLine("    {");
 
-        built.AppendLine("    };");
+            foreach (string constant in qualifiedConstants)
+            {
+                built.Append("        ").Append(constant).AppendLine(",");
+            }
+
+            built.AppendLine("    };");
+        }
         built.AppendLine("}");
 
         return SourceText.From(built.ToString(), Encoding.UTF8);

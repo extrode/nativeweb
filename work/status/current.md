@@ -33,6 +33,21 @@ worth seeing here rather than hiding, but it is the exception.
   names `0006_permissions.sql` seeds. One narrower case stays open in `work/todo.md`: a consumer
   referencing `nativeweb.permissions` without its generator as an analyzer gets the same cascade,
   and no generator can see another's output to detect it.
+- **Second fable pass over those fixes, `fix/024-fable-second-pass`, 2026-09-04.** The three fixes
+  above were themselves reviewed by `review-deep`, which found four things worth acting on and one
+  vacuous test. Two of them said the fixes did not do what they claimed. `HeldAsync`'s memo keyed
+  on the principal reference wrote its key before the store read and its answer after, so two
+  overlapping calls could leave one subject holding the other's permissions -- the memo is now one
+  field, keyed on the resolved subject, and three facts hold it, all three red against the merged
+  code. `SeedGrantParityTests` compared the migration to `ArticlePermissions.All` and never ran the
+  seed, so it would have stayed green through the revert it was written to catch; the seed is
+  `Seed.Permissions()` and the test runs it. Also: colliding models (NWP006) now emit their
+  constants class too, which needed namespace-qualified hint names or the generator crashes on a
+  duplicate; `PermissionCatalog` is emitted empty rather than absent when every model was declined;
+  and NWP001-007 are `NotConfigurable`, because a declined model emitting constants means silencing
+  the diagnostic would have produced a compiling assembly that 403s forever. **One of fable's
+  findings was refuted before acting**: emitting constants for a collision is not safe on its own,
+  because both models share a type name and the hint name was built from it.
 - **The permissions e2e tier is not blocked.** It binds 5352, not the 5348 `justsmtp.web` holds;
   the earlier "blocked" reading was a 10-minute command timeout against a NativeAOT publish the
   fixture allows 30 minutes for. Run to completion 2026-09-04: 3/3 in 625 ms after a ~31-minute
