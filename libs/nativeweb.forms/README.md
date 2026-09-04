@@ -25,7 +25,7 @@ both:
 | `UploadedFile` | The bound file: `Name`, `ContentType`, `Length` and `OpenReadStream()`. Not `IFormFile`, so a handler never reaches back into `HttpContext` |
 | `CarriedAnswers` | Signed, expiring form state carried in one hidden field between the steps of a multi-step form |
 | `AddNativeWebForms()` | Registers `CarriedAnswers`. A host that skips it gets a stated failure from the container rather than a null |
-| `IFormModel<TSelf>` | The seam the generated partial implements: a `BindFormAsync` that reads the declared fields |
+| `IFormModel<TSelf>` | The seam the generated partial implements: a `BindFormAsync` that reads the declared fields, and a `MaxBodyBytes` that publishes the model's declared body ceiling |
 | `MapFormPost` / `MapFormPut` / `MapFormPatch` / `MapFormDelete` | Maps a route on that verb, binding `TForm` through `TForm.BindFormAsync` |
 | `MapForm` | The one implementation behind the four: takes the HTTP method as a string, for a verb they do not name |
 | `FormBinding.RequireFormContentType` | Throws 415 unless the request carries a form body. The first statement of every generated binder |
@@ -122,7 +122,7 @@ Every refusal is a build error rather than emitted code that does not compile:
 | `NWF002` | The model does not have one accessible constructor to bind through. A record's copy constructor is never a candidate |
 | `NWF003` | A member is neither `string?` nor a file field: text values arrive as text and may be absent, so conversion belongs in the handler |
 | `NWF004` | Two members share a wire name. Compared case-insensitively, because the form collection is keyed that way, so ConfirmPassphrase collides with confirmPassphrase |
-| `NWF005` | The model is a struct, static, generic, nested or file-local |
+| `NWF005` | The model is a struct, static, abstract, generic, nested or file-local |
 | `NWF006` | A file field cannot be bound as declared: `[FormFile]` on a member that is not an `UploadedFile`, an `UploadedFile` with no `[FormFile]`, a `MaxBytes` of zero or less, or a blank `Accept` entry |
 | `NWF010` | A plain `Map*` route takes a `[Form]` model as a handler parameter. Reported by `MissingAntiforgeryAnalyzer` at the `Map*` call rather than at the model, because the same model may be bound rightly by one route and wrongly by another |
 
@@ -145,9 +145,19 @@ A model that has one file field changes what the generated binder does, in four 
 | | What the emitted binder does |
 | --- | --- |
 | Content type | `RequireMultipart` first. A urlencoded body cannot carry a file, so binding one would report every file member missing and blame the client for a field they could not send |
-| Size | `LimitBody` before the read, with the largest `MaxBytes` any file field on the model declares, because the body carries every field at once. Over it, 413 |
+| Size | `LimitBody` before the read, with the **sum** of every file field's `MaxBytes` plus 64 KiB of envelope, because one body carries every part at once. Over it, 413 |
 | Type | Each part's declared media type is compared against that field's `Accept`, parameters stripped and case-insensitively. Outside the set, 415 |
 | Presence | A missing required file is 400, which is what a missing required text field gets. A part present but empty binds `null`, because a browser posts one for a file input the person left alone |
+
+**The declared ceiling is also published to routing, or it would be unreachable.** The generated
+partial exposes `MaxBodyBytes` and `MapForm` attaches it as `IRequestSizeLimitMetadata`, which
+routing applies to the request immediately after matching the endpoint. That is the only seam where
+it works: by the time the binder runs, `UseAntiforgery` has read the body,
+`IHttpMaxRequestBodySizeFeature.IsReadOnly` is true, and the host-wide ceiling has already answered.
+Measured 2026-09-04 -- a 300 KB upload to a field declaring `MaxBytes = 1_048_576` was refused by
+`NativeWebOptions.MaxRequestBodyBytes`'s 128 KiB default, so the declaration meant nothing in the
+configuration a deployment runs. A model with no file field publishes `0` and the host's own limit
+stands.
 
 **The ceiling is enforced twice, and both are needed.** `LimitBody` aborts the read mid-stream,
 which is the refusal that matters: nothing is buffered. But it cannot install a limit on a form that

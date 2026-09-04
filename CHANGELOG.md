@@ -46,6 +46,32 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Fixed
 
+- **A declared `[FormFile(MaxBytes = ...)]` ceiling is reachable.** It was not: the framework's own
+  128 KiB `MaxRequestBodyBytes` refused the request long before the binder could raise the limit,
+  and by the time the binder runs the feature is read-only. Measured 2026-09-04 -- a 300 KB upload
+  to a field declaring 1 MiB was refused, so the declaration meant nothing in the configuration a
+  deployment runs. A form model now publishes `MaxBodyBytes` and `MapForm` attaches it as routing's
+  `IRequestSizeLimitMetadata`, applied right after the endpoint is matched. The ceiling is also the
+  sum of a model's file fields rather than the largest of them, so a post within every field's own
+  limit is no longer answered 413.
+
+- A `[FormField]` name carrying a quote no longer emits source that does not compile.
+  `SymbolDisplay.FormatLiteral(value, quote: false)` escapes the backslash and the newline and
+  leaves the quote alone. An abstract form model is now the NWF005 build error rather than CS0144
+  inside generated source.
+
+- **The sample's contact form is no longer an open relay.** It mailed the address on the form, so an
+  unauthenticated stranger chose both the recipient and the text of mail sent from the application's
+  own domain. The destination is `Sample:Contact:ToAddress` and the sender's address rides in the
+  body.
+
+- Six defects in the sample's upload and survey forms: a media type carrying a parameter missed the
+  extension table and answered 500 on a valid upload; a copy that failed left the file
+  `FileMode.CreateNew` had already made; a configured upload directory written with a trailing
+  separator 404'd everything it stored; uploads grew without bound; an unwritable directory was a
+  500 rather than the upload-failed page; and a blank second survey answer discarded a carried value
+  the server had just verified, while an absent one accused the visitor of altering it.
+
 - A form endpoint whose antiforgery token arrives as a hidden field no longer answers 500. The
   antiforgery middleware reads the form to find the token, so the endpoint's own form limits were
   being installed over a stream that had already been consumed; they are now installed only when

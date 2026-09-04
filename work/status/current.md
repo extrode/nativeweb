@@ -16,10 +16,23 @@ worth seeing here rather than hiding, but it is the exception.
   and `tests/nativeweb.forms.tests.e2e`. One defect found by the sample's own forms and fixed here:
   `LimitBody` reinstalled a `FormFeature` over a body the antiforgery middleware had already read,
   so every guarded multipart route answered 500; the ceiling is now enforced on the bound part as
-  well. Green: forms unit 143, forms integration 14, forms e2e 6, mail 56, web 173, sample unit 223,
-  sample integration 27, repo 155, render 219, security 175, scaffold unit 268, permissions unit 151,
+  well. The two-lens branch review then returned 17 candidate findings; one was refuted and
+  dropped (a mail header injection through the subject: MimeKit encodes header values, and
+  `IsComplete` already rejects whitespace in the address). The rest are fixed on the branch, the
+  largest being that **a declared `MaxBytes` was unreachable** -- `NativeWebOptions.MaxRequestBodyBytes`
+  refused a 300 KB upload to a field declaring 1 MiB, confirmed by an e2e fact posting one at the
+  published binary, and the binder cannot raise the limit because the feature is read-only by the
+  time it runs. A model now publishes `MaxBodyBytes` and `MapForm` attaches it as routing's
+  `IRequestSizeLimitMetadata`. Also fixed: the contact form was an open relay (it mailed the address
+  on the form; the destination is now `Sample:Contact:ToAddress`), a media type carrying a parameter
+  500'd a valid upload, a failed copy left a partial file, a trailing separator in the configured
+  directory 404'd every stored picture, uploads grew without bound, and `FormatLiteral(quote: false)`
+  does not escape the quote character.
+  Green: forms unit 148, forms integration 16, forms e2e 7, mail 56, web 173, sample unit 231,
+  sample integration 29, repo 155, render 219, security 175, scaffold unit 268, permissions unit 151,
   signin unit 373, signin integration 25. `dotnet publish apps/sample -c Release -r win-x64`
-  succeeds with zero warnings after `nativeweb.mail` joined its references.
+  succeeds with zero warnings; `structure-audit` reports 0 errors and the 3 pre-existing tool-owned
+  naming warnings.
   Known gap, stated rather than hidden: the "exists but unwritable" branch of
   `TryPrepareUploadDirectory` has no test -- chmod is a no-op for a test process running as
   Administrator on Windows, so there is no portable way to produce it.
