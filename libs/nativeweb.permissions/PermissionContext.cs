@@ -8,11 +8,12 @@ namespace NativeWeb.Permissions;
 /// intersected with the registry, held for the rest of the request.
 /// </summary>
 /// <remarks>
-/// The subject is read once, on the first call, and the answer does not change
-/// afterwards even if the principal does. That is safe because the instance is
-/// scoped to one request and authentication has run before any endpoint filter or
-/// handler asks; it is stated because a caller that resolved this before
-/// authentication would get the anonymous answer for the whole request.
+/// The answer is held per principal, not per instance. Scoped to one request there
+/// is normally only ever one, and caching on the instance alone was how this was
+/// first written -- but it made the <c>user</c> parameter a lie: a second call with
+/// a different principal got the first one's permissions. A request that
+/// re-authenticates, or a handler that asks about a principal it constructed, is
+/// answered about the principal it passed.
 /// </remarks>
 public sealed class PermissionContext : IPermissionContext
 {
@@ -20,6 +21,7 @@ public sealed class PermissionContext : IPermissionContext
 
     private readonly IPermissionStore _store;
     private readonly PermissionRegistry _registry;
+    private ClaimsPrincipal? _principal;
     private IReadOnlySet<string>? _held;
 
     /// <summary>Creates the context.</summary>
@@ -34,10 +36,12 @@ public sealed class PermissionContext : IPermissionContext
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        if (_held is not null)
+        if (_held is not null && ReferenceEquals(_principal, user))
         {
             return _held;
         }
+
+        _principal = user;
 
         string? subject = user.FindFirstValue(ClaimTypes.NameIdentifier);
 
