@@ -7,6 +7,15 @@ using Microsoft.CodeAnalysis;
 
 namespace NativeWeb.Forms.Generator;
 
+// What a bound member is filled from. Text is every member the library had before
+// spec 027; the two file kinds are that spec.
+internal enum FormFieldKind
+{
+    Text,
+    OptionalFile,
+    RequiredFile,
+}
+
 // One field of a declared form: the constructor parameter the emitted binder
 // fills, and the wire name it reads from.
 internal sealed class FormFieldModel : IEquatable<FormFieldModel>
@@ -15,15 +24,37 @@ internal sealed class FormFieldModel : IEquatable<FormFieldModel>
 
     public string WireName { get; set; } = "";
 
+    public FormFieldKind Kind { get; set; } = FormFieldKind.Text;
+
+    // Zero for a text field, and never zero for a file field: NWF006 rejects a file
+    // declaration that does not state a ceiling, so the emitter can rely on it.
+    public long MaxBytes { get; set; }
+
+    public ImmutableArray<string> Accept { get; set; } = ImmutableArray<string>.Empty;
+
     public bool Equals(FormFieldModel? other) =>
         other is not null
         && ParameterName == other.ParameterName
-        && WireName == other.WireName;
+        && WireName == other.WireName
+        && Kind == other.Kind
+        && MaxBytes == other.MaxBytes
+        && Accept.SequenceEqual(other.Accept, StringComparer.Ordinal);
 
     public override bool Equals(object? obj) => Equals(obj as FormFieldModel);
 
-    public override int GetHashCode() =>
-        unchecked((ParameterName.GetHashCode() * 397) ^ WireName.GetHashCode());
+    public override int GetHashCode()
+    {
+        int hash = unchecked((ParameterName.GetHashCode() * 397) ^ WireName.GetHashCode());
+        hash = unchecked((hash * 397) ^ (int)Kind);
+        hash = unchecked((hash * 397) ^ MaxBytes.GetHashCode());
+
+        foreach (string accepted in Accept)
+        {
+            hash = unchecked((hash * 397) ^ accepted.GetHashCode());
+        }
+
+        return hash;
+    }
 }
 
 // A [Form]-decorated type, parsed into the shape the emitter needs. Built only
@@ -151,19 +182,91 @@ internal sealed class FormModel : IEquatable<FormModel>
         {
             Location where = parameter.Locations.FirstOrDefault() ?? location;
 
-            if (!IsNullableString(parameter.Type))
+            FormFieldKind kind = FileKind(parameter.Type);
+            AttributeData? fileAttribute = FileAttribute(parameter);
+
+            if (kind == FormFieldKind.Text)
             {
-                // Every value in a form arrives as text, and a field the client omits
-                // arrives not at all. `string?` is the only member type that can state
-                // both facts; a conversion belongs in the handler, where a bad one can
-                // be reported to the person who typed it.
-                diagnostics.Add(Diagnostic.Create(
-                    FormDiagnostics.UnsupportedMemberType,
-                    where,
-                    parameter.Name,
-                    parameter.Type.ToDisplayString()));
-                usable = false;
-                continue;
+                if (fileAttribute is not null)
+                {
+                    // [FormFile] says "bind this from the uploaded parts", and a
+                    // `string?` cannot hold one. Silently ignoring the attribute would
+                    // leave an author believing a limit is enforced that is not.
+                    diagnostics.Add(Diagnostic.Create(
+                        FormDiagnostics.UnsupportedFileDeclaration,
+                        where,
+                        parameter.Name,
+                        "it is declared '" + parameter.Type.ToDisplayString()
+                            + "'. Declare it 'FormFile' or 'FormFile?', or drop the attribute"));
+                    usable = false;
+                    continue;
+                }
+
+                if (!IsNullableString(parameter.Type))
+                {
+                    // Every value in a form arrives as text, and a field the client omits
+                    // arrives not at all. `string?` is the only member type that can state
+                    // both facts; a conversion belongs in the handler, where a bad one can
+                    // be reported to the person who typed it.
+                    diagnostics.Add(Diagnostic.Create(
+                        FormDiagnostics.UnsupportedMemberType,
+                        where,
+                        parameter.Name,
+                        parameter.Type.ToDisplayString()));
+                    usable = false;
+                    continue;
+                }
+            }
+
+            long maxBytes = 0;
+            ImmutableArray<string> accept = ImmutableArray<string>.Empty;
+
+            if (kind != FormFieldKind.Text)
+            {
+                if (fileAttribute is null)
+                {
+                    // A public upload with no declared ceiling is a way to fill a
+                    // disk, so the ceiling is required rather than defaulted: a
+                    // default here would be a number nobody chose, applied to every
+                    // upload endpoint in every consuming application.
+                    diagnostics.Add(Diagnostic.Create(
+                        FormDiagnostics.UnsupportedFileDeclaration,
+                        where,
+                        parameter.Name,
+                        "it carries no [FormFile]. Add [FormFile(MaxBytes = ...)] to state the largest body this endpoint accepts"));
+                    usable = false;
+                    continue;
+                }
+
+                maxBytes = FileMaxBytes(fileAttribute);
+
+                if (maxBytes <= 0)
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        FormDiagnostics.UnsupportedFileDeclaration,
+                        where,
+                        parameter.Name,
+                        "its MaxBytes is " + maxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                            + ". State a positive number of bytes"));
+                    usable = false;
+                    continue;
+                }
+
+                accept = FileAccept(fileAttribute);
+
+                if (accept.Any(a => a.Trim().Length == 0))
+                {
+                    // An empty entry matches the request that declares no content
+                    // type at all, so a set carrying one accepts what the author
+                    // wrote the set to refuse.
+                    diagnostics.Add(Diagnostic.Create(
+                        FormDiagnostics.UnsupportedFileDeclaration,
+                        where,
+                        parameter.Name,
+                        "its Accept list has an empty entry, which would accept a file declaring no content type. Remove it"));
+                    usable = false;
+                    continue;
+                }
             }
 
             string wire = WireName(parameter);
@@ -177,10 +280,110 @@ internal sealed class FormModel : IEquatable<FormModel>
             }
 
             seen[wire] = parameter.Name;
-            model.Fields.Add(new FormFieldModel { ParameterName = parameter.Name, WireName = wire });
+            model.Fields.Add(new FormFieldModel
+            {
+                ParameterName = parameter.Name,
+                WireName = wire,
+                Kind = kind,
+                MaxBytes = maxBytes,
+                Accept = accept,
+            });
         }
 
         return usable ? model : null;
+    }
+
+    // FormFile is a reference type, so "required" is the annotation: `FormFile` is a
+    // field the model says must be there, `FormFile?` one it says may be absent. That
+    // is the same reading NWF003 gives `string?`, and it means a file field needs no
+    // second attribute to say which it is.
+    private static FormFieldKind FileKind(ITypeSymbol type)
+    {
+        if (type.ToDisplayString(NullableFree) != FormGenerator.FormFileType)
+        {
+            return FormFieldKind.Text;
+        }
+
+        return type.NullableAnnotation == NullableAnnotation.Annotated
+            ? FormFieldKind.OptionalFile
+            : FormFieldKind.RequiredFile;
+    }
+
+    private static readonly SymbolDisplayFormat NullableFree =
+        SymbolDisplayFormat.FullyQualifiedFormat
+            .WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted)
+            .WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.None);
+
+    // Both attribute targets, for the reason WireName reads both: on a record's
+    // primary constructor `[property: FormFile(...)]` is legal and reads naturally.
+    private static AttributeData? FileAttribute(IParameterSymbol parameter)
+    {
+        AttributeData? found = Find(parameter.GetAttributes());
+        if (found is not null)
+        {
+            return found;
+        }
+
+        foreach (ISymbol member in parameter.ContainingType.GetMembers(parameter.Name))
+        {
+            if (member is IPropertySymbol property)
+            {
+                found = Find(property.GetAttributes());
+                if (found is not null)
+                {
+                    return found;
+                }
+            }
+        }
+
+        return null;
+
+        static AttributeData? Find(ImmutableArray<AttributeData> attributes)
+        {
+            foreach (AttributeData attribute in attributes)
+            {
+                if (attribute.AttributeClass?.ToDisplayString() == FormGenerator.FormFileAttribute)
+                {
+                    return attribute;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    private static long FileMaxBytes(AttributeData attribute)
+    {
+        foreach (KeyValuePair<string, TypedConstant> named in attribute.NamedArguments)
+        {
+            if (named.Key == "MaxBytes" && named.Value.Value is long declared)
+            {
+                return declared;
+            }
+        }
+
+        return 0;
+    }
+
+    private static ImmutableArray<string> FileAccept(AttributeData attribute)
+    {
+        foreach (KeyValuePair<string, TypedConstant> named in attribute.NamedArguments)
+        {
+            if (named.Key != "Accept" || named.Value.Kind != TypedConstantKind.Array)
+            {
+                continue;
+            }
+
+            ImmutableArray<string>.Builder accepted = ImmutableArray.CreateBuilder<string>();
+            foreach (TypedConstant element in named.Value.Values)
+            {
+                accepted.Add(element.Value as string ?? "");
+            }
+
+            return accepted.ToImmutable();
+        }
+
+        return ImmutableArray<string>.Empty;
     }
 
     // [FormField("...")] wins; otherwise the parameter name with its first letter
@@ -295,6 +498,15 @@ internal static class FormDiagnostics
         category: "NativeWeb.Forms",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor UnsupportedFileDeclaration = new(
+        id: "NWF006",
+        title: "File form field cannot be bound as declared",
+        messageFormat: "The form field '{0}' cannot be bound as a file: {1}",
+        category: "NativeWeb.Forms",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "A file field is bound under a declared ceiling and an optional content-type set, and the emitted binder installs the ceiling on the request before the form is read. A declaration the emitter cannot honour has to fail the build: the alternatives are a public upload endpoint with no size limit, or an Accept set that silently admits what it was written to refuse.");
 
     internal static readonly DiagnosticDescriptor MissingAntiforgery = new(
         id: "NWF010",

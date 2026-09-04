@@ -22,6 +22,8 @@ public sealed class FormGenerator : IIncrementalGenerator
 {
     internal const string FormAttribute = "NativeWeb.Forms.FormAttribute";
     internal const string FormFieldAttribute = "NativeWeb.Forms.FormFieldAttribute";
+    internal const string FormFileAttribute = "NativeWeb.Forms.FormFileAttribute";
+    internal const string FormFileType = "NativeWeb.Forms.FormFile";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {

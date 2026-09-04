@@ -48,9 +48,46 @@ internal static class FormEmitter
         sb.AppendLine("        // FIRST, and it has to be: argument binding runs upstream of the whole");
         sb.AppendLine("        // endpoint-filter pipeline, so a filter cannot protect this read.");
         sb.AppendLine("        global::NativeWeb.Forms.FormBinding.RequireFormContentType(context);");
+
+        bool hasFile = false;
+        long maxBytes = 0;
+
+        foreach (FormFieldModel candidate in model.Fields)
+        {
+            if (candidate.Kind != FormFieldKind.Text)
+            {
+                hasFile = true;
+                maxBytes = candidate.MaxBytes > maxBytes ? candidate.MaxBytes : maxBytes;
+            }
+        }
+
+        if (hasFile)
+        {
+            sb.AppendLine();
+            sb.AppendLine("        // A urlencoded body cannot carry a file, so binding one would report every");
+            sb.AppendLine("        // file member missing and blame the client for a field they could not send.");
+            sb.AppendLine("        global::NativeWeb.Forms.FormBinding.RequireMultipart(context);");
+            sb.AppendLine();
+            sb.AppendLine("        // Before the read, so the read enforces it: an oversize body is aborted");
+            sb.AppendLine("        // partway through rather than buffered whole and then measured. The largest");
+            sb.AppendLine("        // MaxBytes any file field on this model declares is what bounds the body,");
+            sb.AppendLine("        // because the body carries every field at once.");
+            sb.AppendLine("        global::NativeWeb.Forms.FormBinding.LimitBody(context, "
+                + maxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L);");
+        }
+
         sb.AppendLine();
         sb.AppendLine("        global::Microsoft.AspNetCore.Http.IFormCollection form =");
-        sb.AppendLine("            await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);");
+
+        if (hasFile)
+        {
+            sb.AppendLine("            await global::NativeWeb.Forms.FormBinding.ReadLimitedFormAsync(context).ConfigureAwait(false);");
+        }
+        else
+        {
+            sb.AppendLine("            await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);");
+        }
+
         sb.AppendLine();
 
         if (model.Fields.Count == 0)
@@ -66,8 +103,7 @@ internal static class FormEmitter
             {
                 FormFieldModel field = model.Fields[i];
                 sb.AppendLine("            "
-                    + Identifier(field.ParameterName) + ": global::NativeWeb.Forms.FormBinding.Field(form, \""
-                    + Escape(field.WireName) + "\")"
+                    + Identifier(field.ParameterName) + ": " + Read(field)
                     + (i < model.Fields.Count - 1 ? "," : ");"));
             }
         }
@@ -92,6 +128,40 @@ internal static class FormEmitter
     // Roslyn already knows how; FormatLiteral is the compiler's own routine.
     private static string Escape(string value) =>
         Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(value, quote: false);
+
+    // Which helper fills this member. A text field is the pre-027 call; a file field
+    // carries its declared Accept set to the binder, which is where the 415 for a
+    // refused content type is raised.
+    private static string Read(FormFieldModel field)
+    {
+        string form = "form, \"" + Escape(field.WireName) + "\", " + Accept(field.Accept);
+
+        return field.Kind switch
+        {
+            FormFieldKind.RequiredFile => "global::NativeWeb.Forms.FormBinding.RequiredFile(" + form + ")",
+            FormFieldKind.OptionalFile => "global::NativeWeb.Forms.FormBinding.File(" + form + ")",
+            _ => "global::NativeWeb.Forms.FormBinding.Field(form, \"" + Escape(field.WireName) + "\")",
+        };
+    }
+
+    // null rather than an empty array, so the binder's "accepts anything" branch is
+    // taken by reference check rather than by allocating an array to find it empty.
+    private static string Accept(System.Collections.Immutable.ImmutableArray<string> accept)
+    {
+        if (accept.IsDefaultOrEmpty)
+        {
+            return "null";
+        }
+
+        var sb = new StringBuilder("new string[] { ");
+        for (int i = 0; i < accept.Length; i++)
+        {
+            sb.Append('"').Append(Escape(accept[i])).Append('"');
+            sb.Append(i < accept.Length - 1 ? ", " : " }");
+        }
+
+        return sb.ToString();
+    }
 
     // A symbol's Name drops the verbatim prefix, so a type or parameter written
     // `@class` or `@event` comes back as a bare keyword and emits code that does not
