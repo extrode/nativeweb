@@ -217,6 +217,8 @@ public static class AdminSignIn
             locale: locale,
             Title: locale["signin.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: "",
+            FlashError: "",
             AntiforgeryFieldName: tokens.FormFieldName,
             SignedInAs: !refused && http.User.Identity?.IsAuthenticated == true ? http.User.Identity.Name ?? "" : "",
             Refused: refused,

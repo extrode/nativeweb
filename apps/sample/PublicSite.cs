@@ -69,6 +69,8 @@ internal static class PublicSite
             locale: locale,
             Title: locale["hero.title"],
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Articles: recent);
     }
 
@@ -99,6 +101,8 @@ internal static class PublicSite
             locale: locale,
             Title: detail.Value.Title,
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Article: detail.Value,
             Paragraphs: Paragraphs(detail.Value.Body));
     }
@@ -112,6 +116,8 @@ internal static class PublicSite
             locale: locale,
             Title: locale["tags.title"],
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Tags: all);
     }
 
@@ -138,6 +144,8 @@ internal static class PublicSite
             locale: locale,
             Title: tag.Value.Name,
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Name: tag.Value.Name,
             Articles: tagged);
     }

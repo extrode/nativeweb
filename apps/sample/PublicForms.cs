@@ -93,7 +93,7 @@ internal static partial class PublicForms
     }
 
     private static Task<IResult> ContactPageAsync(HttpContext http, IAntiforgery antiforgery) =>
-        Task.FromResult(Contact(http, antiforgery, notice: "", error: "", name: "", email: "", message: ""));
+        Task.FromResult(Contact(http, antiforgery, error: "", name: "", email: "", message: ""));
 
     // The bot-trap contract (spec 019 R23): a tripped form takes the endpoint's
     // NORMAL-outcome path with no side effect. Telling the sender their message was
@@ -117,7 +117,6 @@ internal static partial class PublicForms
             return Contact(
                 http,
                 Antiforgery(http),
-                notice: "",
                 error: locale["contact.incomplete"],
                 name: form.Name ?? "",
                 email: form.Email ?? "",
@@ -154,7 +153,6 @@ internal static partial class PublicForms
             return Contact(
                 http,
                 Antiforgery(http),
-                notice: "",
                 error: locale["contact.unsent"],
                 name: form.Name ?? "",
                 email: form.Email ?? "",
@@ -270,6 +268,8 @@ internal static partial class PublicForms
             locale: locale,
             Title: locale["survey.step2.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: "",
+            FlashError: "",
             AntiforgeryFieldName: tokens.FormFieldName,
             BotCanary: BotTraps.IssueCanary(http),
             Error: error,
@@ -335,6 +335,8 @@ internal static partial class PublicForms
             locale: locale,
             Title: locale["survey.done.title"],
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Role: role,
             Comment: form.Comment,
             Responses: responses));
@@ -344,24 +346,27 @@ internal static partial class PublicForms
     // person nothing they can check. It is the address they typed and the one a reply
     // would go to -- NOT where the message went, which is configuration and is not the
     // visitor's business to be told.
+    //
+    // Post-redirect-get (spec 029 R9). The confirmation rides in the flash cookie and
+    // is read back by the GET, so a reload of the confirmation re-requests /contact
+    // instead of the browser offering to re-send the message. It is also the only
+    // path in this application that produces a flash, which is what makes the
+    // framework's banner partials reachable through a real request.
     private static IResult Sent(HttpContext http, string toAddress)
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
+        Flash.Set(http, FlashKind.Success, locale["contact.sent"] + " " + toAddress);
 
-        return Contact(
-            http,
-            Antiforgery(http),
-            notice: locale["contact.sent"] + " " + toAddress,
-            error: "",
-            name: "",
-            email: "",
-            message: "");
+        return Results.Redirect("/contact");
     }
 
+    // The one page in the sample that reads a flash. Taken here rather than in the
+    // endpoint because Take expires the cookie on the response it is given, so it has
+    // to run on the response that renders the message -- taking it and then returning
+    // a redirect would consume the message and show it to nobody.
     private static IResult Contact(
         HttpContext http,
         IAntiforgery antiforgery,
-        string notice,
         string error,
         string name,
         string email,
@@ -369,14 +374,16 @@ internal static partial class PublicForms
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
         AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
+        (string ok, string flashError) = Flash.Take(http);
 
         return Templates.Forms.Contact.Result(
             locale: locale,
             Title: locale["contact.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: ok,
+            FlashError: flashError,
             AntiforgeryFieldName: tokens.FormFieldName,
             BotCanary: BotTraps.IssueCanary(http),
-            Notice: notice,
             Error: error,
             Name: name,
             Email: email,
@@ -398,6 +405,8 @@ internal static partial class PublicForms
             locale: locale,
             Title: locale["upload.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: "",
+            FlashError: "",
             AntiforgeryFieldName: tokens.FormFieldName,
             BotCanary: BotTraps.IssueCanary(http),
             Error: error,
@@ -415,6 +424,8 @@ internal static partial class PublicForms
             locale: locale,
             Title: locale["survey.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: "",
+            FlashError: "",
             AntiforgeryFieldName: tokens.FormFieldName,
             BotCanary: BotTraps.IssueCanary(http),
             Error: error,

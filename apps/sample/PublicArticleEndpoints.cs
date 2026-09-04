@@ -160,6 +160,8 @@ internal static class PublicArticleEndpoints
             locale: locale,
             Title: locale["title.articles"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: "",
+            FlashError: "",
             Query: query ?? "",
             Take: take,
             AntiforgeryFieldName: tokens.FormFieldName,

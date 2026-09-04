@@ -252,6 +252,8 @@ public sealed class PublicArticlesTests
             Take: 20,
             AntiforgeryFieldName: "__RequestVerificationToken",
             AntiforgeryToken: "token",
+            FlashOk: "",
+            FlashError: "",
             Articles: []);
         string fragment = Templates.Articles.Results.ToHtmlString(locale: Locales.En, Articles: []);
 
@@ -277,6 +279,8 @@ public sealed class PublicArticlesTests
             Take: 20,
             AntiforgeryFieldName: "",
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Articles: []);
 
         Assert.DoesNotContain("<form", page, StringComparison.Ordinal);
@@ -303,6 +307,8 @@ public sealed class PublicArticlesTests
             Take: 5,
             AntiforgeryFieldName: "__RequestVerificationToken",
             AntiforgeryToken: "token",
+            FlashOk: "",
+            FlashError: "",
             Articles: []);
 
         Assert.Contains("id=\"max\"", page, StringComparison.Ordinal);

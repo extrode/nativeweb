@@ -66,6 +66,19 @@ internal sealed class SampleFormsFactory : WebApplicationFactory<NativeWeb.Sampl
             AllowAutoRedirect = true,
         });
 
+    /// <summary>
+    /// The same browser with the redirect left for the test to follow, so the 302 and
+    /// the headers on it can be read. A following client hands back only the final
+    /// response, which is where the Set-Cookie that arms the flash stops being visible.
+    /// </summary>
+    internal HttpClient CreateBrowserThatStopsAtRedirects() =>
+        CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost/"),
+            HandleCookies = true,
+            AllowAutoRedirect = false,
+        });
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
