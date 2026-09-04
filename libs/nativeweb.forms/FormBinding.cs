@@ -184,12 +184,23 @@ public static class FormBinding
         {
             return await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);
         }
-        catch (InvalidDataException tooLarge)
+        catch (InvalidDataException malformed)
         {
+            // ReadFormAsync raises InvalidDataException for a body that broke a limit
+            // AND for one that is not a well-formed multipart body at all, and there
+            // is no exception type or property separating them. Only the limit is a
+            // 413; answering 413 to a truncated body would tell a client to send less
+            // of something that was never the wrong size. The framework's limit
+            // messages all read "... length limit N exceeded", so that is the test,
+            // and anything it does not match falls to the safer 400.
+            bool overLimit = malformed.Message.Contains("length limit", StringComparison.Ordinal);
+
             throw new BadHttpRequestException(
-                "The uploaded form is larger than this endpoint accepts.",
-                StatusCodes.Status413PayloadTooLarge,
-                tooLarge);
+                overLimit
+                    ? "The uploaded form is larger than this endpoint accepts."
+                    : "The uploaded form could not be read.",
+                overLimit ? StatusCodes.Status413PayloadTooLarge : StatusCodes.Status400BadRequest,
+                malformed);
         }
     }
 
