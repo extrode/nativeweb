@@ -249,6 +249,40 @@ Deno.test("verify accepts a generator, which has no README by design", async () 
   );
 });
 
+Deno.test("verify refuses a package with no assembly in it", async () => {
+  const path = await writeTempNupkg(goodNuspec(), { readme: true, assembly: false });
+
+  const problem = await verify(
+    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    path,
+    "0.1.0-dev",
+  );
+
+  assertStringIncludes(problem ?? "", "contains no assembly");
+});
+
+Deno.test("verify accepts a generator whose assembly is under analyzers", async () => {
+  const path = await writeTempNupkg(
+    goodNuspec()
+      .replace("<readme>README.md</readme>", "")
+      .replace("NativeWeb.Render", "NativeWeb.Render.Generator"),
+    {
+      readme: false,
+      assembly: false,
+      extra: { "analyzers/dotnet/cs/nativeweb.render.generator.dll": "MZ" },
+    },
+  );
+
+  assertEquals(
+    await verify(
+      { csproj: "x", directory: "y", packageId: "NativeWeb.Render.Generator", hasReadme: false },
+      path,
+      "0.1.0-dev",
+    ),
+    null,
+  );
+});
+
 Deno.test("verify reports a package that pack said it produced and did not", async () => {
   const problem = await verify(
     { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
@@ -382,12 +416,18 @@ function goodNuspec(): string {
 
 async function writeTempNupkg(
   nuspec: string,
-  options: { readme: boolean; notice?: boolean; extra?: Record<string, string> },
+  options: {
+    readme: boolean;
+    notice?: boolean;
+    assembly?: boolean;
+    extra?: Record<string, string>;
+  },
 ): Promise<string> {
   const id = nuspec.match(/<id>([^<]+)<\/id>/)![1];
 
   const entries: [string, string][] = [[`${id}.nuspec`, nuspec], ["LICENSE.md", "license"]];
   if (options.notice !== false) entries.push(["NOTICE.md", "notice"]);
+  if (options.assembly !== false) entries.push([`lib/net10.0/${id}.dll`, "MZ"]);
   if (options.readme) entries.push(["README.md", "# readme"]);
   for (const [name, content] of Object.entries(options.extra ?? {})) entries.push([name, content]);
 

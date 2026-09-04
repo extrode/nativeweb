@@ -25,7 +25,7 @@
  * is not a decision a check should take.
  */
 
-import { dirname, join } from "jsr:@std/path@1";
+import { dirname, join, resolve } from "jsr:@std/path@1";
 
 export interface Options {
   name: string;
@@ -126,8 +126,30 @@ export function stampStepEnvironment(repoRoot: string): Record<string, string> {
 export function diagnosticsIn(output: string): string[] {
   return output
     .split(/\r?\n/)
-    .filter((line) => /\b(warning|error)\s+[A-Z]+\d+\s*:/i.test(line))
+    // The code is optional. An MSBuild <Warning Text="..."/> with no Code
+    // prints "warning : ..." and C#-level TreatWarningsAsErrors does not
+    // elevate an MSBuild task warning, so exit code stays 0 and requiring
+    // [A-Z]+\d+ would let it through.
+    .filter((line) => /\b(warning|error)\s*([A-Z]+\d+)?\s*:/i.test(line))
     .map((line) => line.trim());
+}
+
+/**
+ * How many tests a `dotnet test` step actually ran. Null means its output
+ * carries no summary line at all.
+ *
+ * Exit code is not enough. A `--filter` that matches nothing prints "No test
+ * matches the given testcase filter" and exits 0 -- measured, not assumed -- so
+ * a renamed test or a drifted filter would report the integration tier as `ok`
+ * having booted nothing. That is the one outcome this whole script exists to
+ * prevent, so the count is read and a zero is a failure.
+ */
+export function testsRun(output: string): number | null {
+  const summary = output.match(/\bPassed:\s*(\d+)/);
+
+  if (summary !== null) return Number(summary[1]);
+
+  return /\bTotal tests:\s*(\d+)/.test(output) || /No test matches/.test(output) ? 0 : null;
 }
 
 /** What is already in the destination. Empty means it is safe to stamp into. */
@@ -154,6 +176,30 @@ export async function occupants(destination: string): Promise<string[]> {
  * test boots the host and asserts over HTTP, which needs nothing provisioned.
  */
 export const DATABASE_FREE_FILTER = "FullyQualifiedName!~Readyz";
+
+/**
+ * The commands that make `--with-database` able to pass.
+ *
+ * All three lines are needed and an earlier version printed one. The stamped
+ * tier resolves its connection string from `<Name>__Db__ConnectionString` and
+ * falls back to `Database=<slug>_dev;Username=<slug>_app` with no password
+ * (`skeleton/tests/__product__.tests.integration/TestDatabase.cs`), so creating
+ * a database under any other name and stopping there leaves the run failing in
+ * the same place it failed before. The names and the variable match the
+ * `skeleton-stamp` job in ci.yml, which is the one configuration known to work.
+ */
+export function databaseHint(options: Pick<Options, "name" | "slug">): string[] {
+  const connection = `Host=localhost;Database=${options.slug}_test;` +
+    `Username=${options.slug}_app;Password=local_test_password`;
+
+  return [
+    `  psql -v ON_ERROR_STOP=1 \\`,
+    `    -c "CREATE ROLE ${options.slug}_app LOGIN PASSWORD 'local_test_password';" \\`,
+    `    -c "CREATE DATABASE ${options.slug}_test OWNER ${options.slug}_app;"`,
+    `  export ${options.name}__Db__ConnectionString="${connection}"`,
+    `  deno run -A tools/stamp-check.ts --with-database`,
+  ];
+}
 
 export interface StepResult {
   label: string;
@@ -198,7 +244,12 @@ function repoRoot(): string {
 async function main(argv: string[]): Promise<number> {
   const options = parseArgs(argv);
   const root = repoRoot();
-  const destination = options.destination ?? join(root, "tmp", "stamp-check", options.slug);
+  // Resolved, because the guard below runs in Deno.cwd() and new-product.ps1
+  // runs with cwd: root. A relative --dest would be inspected in one directory
+  // and stamped into another.
+  const destination = options.destination === null
+    ? join(root, "tmp", "stamp-check", options.slug)
+    : resolve(options.destination);
 
   const present = await occupants(destination);
 
@@ -294,27 +345,38 @@ async function main(argv: string[]): Promise<number> {
 
   for (const step of steps) {
     const diagnostics = diagnosticsIn(step.output);
-    const ok = step.code === 0 && diagnostics.length === 0;
+    const ran = step.label.includes("tests") ? testsRun(step.output) : null;
+    const empty = ran === 0;
+    const ok = step.code === 0 && diagnostics.length === 0 && !empty;
 
-    console.log(`  ${ok ? "ok  " : "FAIL"} ${step.label} (${step.seconds.toFixed(1)} s)`);
+    const count = ran === null || ran === 0 ? "" : `, ${ran} tests`;
+    console.log(`  ${ok ? "ok  " : "FAIL"} ${step.label} (${step.seconds.toFixed(1)} s${count})`);
 
     if (ok) continue;
 
     failed = true;
+
+    if (empty) {
+      console.error(
+        `  ${step.label} ran no tests and exited 0. A filter that matches nothing does that, ` +
+          "so the tier was never executed and this run proves nothing.",
+      );
+    }
+
     console.error(step.output.trimEnd());
 
     for (const diagnostic of diagnostics) console.error(`  ${diagnostic}`);
   }
 
-  if (!options.withDatabase) {
+  // Only when the tier ran. Printed after a failed build it says a fact was
+  // excluded when in truth no fact was attempted at all.
+  const integrationRan = steps.some((step) => step.label.startsWith("integration tests"));
+
+  if (!options.withDatabase && integrationRan) {
     console.log(`\nOne fact was not run: ${DATABASE_FREE_FILTER} excluded it.`);
     console.log("It opens the stamped product's database, which CI creates and a workstation");
     console.log("does not have. To run the whole tier:");
-    console.log(
-      `  psql -c "CREATE ROLE ${options.slug}_app LOGIN PASSWORD '...';" ` +
-        `-c "CREATE DATABASE ${options.slug}_test OWNER ${options.slug}_app;"`,
-    );
-    console.log("  deno run -A tools/stamp-check.ts --with-database");
+    console.log(databaseHint(options).join("\n"));
   }
 
   console.log(`\nThe stamped product is at ${destination}. Nothing here removes it.`);

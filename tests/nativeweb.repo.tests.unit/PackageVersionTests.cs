@@ -48,17 +48,22 @@ public sealed class PackageVersionTests
     {
         string root = RepoRoot();
 
+        // All three override the central VersionPrefix, so banning only <Version>
+        // leaves two spellings of the same mistake passing.
+        string[] banned = ["Version", "VersionPrefix", "PackageVersion"];
+
         string[] offenders = [.. PackableProjects(root)
-            .Where(p => XDocument.Load(p)
+            .Select(p => (Path: Path.GetRelativePath(root, p), Doc: XDocument.Load(p)))
+            .SelectMany(p => p.Doc
                 .Descendants()
-                .Any(e => e.Name.LocalName == "Version"))
-            .Select(p => Path.GetRelativePath(root, p))];
+                .Where(e => banned.Contains(e.Name.LocalName))
+                .Select(e => $"{p.Path} declares <{e.Name.LocalName}>"))];
 
         Assert.True(
             offenders.Length == 0,
-            $"These declare their own <Version>: {string.Join(", ", offenders)}. A local one wins "
-                + "over the central VersionPrefix, so the package it produces silently stops "
-                + "moving with the rest of the framework. Delete the line.");
+            $"{string.Join(", ", offenders)}. A local one wins over the central VersionPrefix, "
+                + "so the package it produces silently stops moving with the rest of the "
+                + "framework. Delete the line.");
     }
 
     [Fact]

@@ -6,6 +6,11 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **A Fable review of both merged branches, and the twelve fixes it produced.** Fable had not
+  seen either branch: 028 and the stamp check both went to `review` (opus) on two lenses. Its
+  fourteen findings settled to twelve real, one refuted and one not a finding, every one of them
+  verified with a shell rather than taken on trust. Merged on `fix/fable-review-findings`.
+
 - **Milestone 1 - the skeleton builds here, not only in CI. `fix/skeleton-stamp-authorization`,
   2026-09-05.** `tools/stamp-check.ts` stamps a product, builds it and runs its unit tier against
   this working tree; the integration tier is opt-in behind `--with-database` because it needs the
