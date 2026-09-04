@@ -36,7 +36,9 @@ Deno.test("parseArgs refuses an argument it does not know rather than ignoring i
 });
 
 Deno.test("parseArgs refuses a flag whose value is missing", () => {
-  assertThrows(() => parseArgs(["--name"]));
+  const error = assertThrows(() => parseArgs(["--dest"]));
+
+  assertStringIncludes((error as Error).message, "needs a value");
 });
 
 Deno.test("stampEnvironment resolves NativeWeb by checkout and JauntyQ by packages", () => {
