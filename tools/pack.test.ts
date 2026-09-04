@@ -57,12 +57,15 @@ Deno.test("diagnosticsIn catches a real MSBuild diagnostic", () => {
   assertEquals(diagnosticsIn(output).length, 2);
 });
 
-Deno.test("diagnosticsIn ignores NuGet's readme advice, which is prose", () => {
-  // The four generator packages have no README by design, and NuGet says so on
-  // every pack. Counting this as a failure would make the correct state
-  // unreachable, so the shape matched is `warning NU5039:` and not the word.
-  const output =
-    "  The package NativeWeb.Render.Generator.0.1.0-dev is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why package readmes are important.";
+Deno.test("diagnosticsIn ignores lines that carry the word and mean nothing", () => {
+  // Each of these is a line a real pack log contains. A filter on the bare word
+  // flags all three, and the middle one is a path that exists in this
+  // repository today.
+  const output = [
+    "  0 Warning(s)",
+    "  nativeweb.web -> C:\\src\\nativeweb\\libs\\nativeweb.web\\ErrorPageMiddleware.cs",
+    "  The package NativeWeb.Render.Generator.0.1.0-dev is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why.",
+  ].join("\n");
 
   assertEquals(diagnosticsIn(output), []);
 });
@@ -133,6 +136,16 @@ Deno.test("readZip reads every entry, not only the first", async () => {
 
   assertEquals([...files.keys()].sort(), ["one.txt", "three.txt", "two.txt"]);
   assertEquals(new TextDecoder().decode(files.get("three.txt")), "3");
+});
+
+Deno.test("readZip finds the data past a local extra field", async () => {
+  // A real .nupkg carries an extra field on every local header, and its length
+  // differs from the central entry's, so the data offset has to be read from
+  // the local header. Without a fixture that has one, a reader that assumes
+  // zero passes every other test here and then misreads every package.
+  const files = await readZip(await zipOf([["a.txt", "hello"]], false, 11));
+
+  assertEquals(new TextDecoder().decode(files.get("a.txt")), "hello");
 });
 
 Deno.test("readZip refuses something that is not a zip", async () => {
@@ -267,7 +280,11 @@ async function writeTempNupkg(
  * A zip writer, so the reader is proved against bytes this file produced rather
  * than against a .nupkg a build had to make first.
  */
-async function zipOf(entries: [string, string][], deflate: boolean): Promise<Uint8Array> {
+async function zipOf(
+  entries: [string, string][],
+  deflate: boolean,
+  localExtraLength = 0,
+): Promise<Uint8Array> {
   const encoder = new TextEncoder();
   const local: Uint8Array[] = [];
   const central: Uint8Array[] = [];
@@ -280,7 +297,7 @@ async function zipOf(entries: [string, string][], deflate: boolean): Promise<Uin
     const method = deflate ? 8 : 0;
     const crc = crc32(raw);
 
-    const header = new Uint8Array(30 + nameBytes.length);
+    const header = new Uint8Array(30 + nameBytes.length + localExtraLength);
     const headerView = new DataView(header.buffer);
     headerView.setUint32(0, 0x04034b50, true);
     headerView.setUint16(4, 20, true);
@@ -289,7 +306,9 @@ async function zipOf(entries: [string, string][], deflate: boolean): Promise<Uin
     headerView.setUint32(18, data.length, true);
     headerView.setUint32(22, raw.length, true);
     headerView.setUint16(26, nameBytes.length, true);
+    headerView.setUint16(28, localExtraLength, true);
     header.set(nameBytes, 30);
+    header.fill(0xff, 30 + nameBytes.length);
 
     local.push(header, data);
 

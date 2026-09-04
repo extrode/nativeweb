@@ -57,12 +57,16 @@ export function packageIdOf(csprojXml: string): string | null {
 /**
  * The lines in pack output that mean something went wrong.
  *
- * Deliberately narrower than "contains the word warning". NuGet emits an
- * informational NU5133 for a package with no README -- plain prose, no
- * diagnostic prefix -- and the four generators legitimately have none, so
- * treating every mention as a failure would make the correct state unreachable.
- * The shape matched here is MSBuild's own `warning NU5039:` / `error CS0246:`,
- * which is what a real diagnostic looks like.
+ * Deliberately narrower than "contains the word warning". Two things in a
+ * normal pack log carry the word and mean nothing: MSBuild's own `0 Warning(s)`
+ * summary, and any project or output path with `error` or `warning` in it --
+ * `libs/nativeweb.web/ErrorPageMiddleware.cs` is in this repository today.
+ * The shape matched here is MSBuild's diagnostic form, `warning NU5039:` and
+ * `error CS0246:`, which is what a line that means something looks like.
+ *
+ * NuGet's advice for a package with no README is a third case and needs no
+ * special handling: it is plain prose carrying neither word, and the four
+ * generator packages legitimately have no README.
  */
 export function diagnosticsIn(output: string): string[] {
   return output
