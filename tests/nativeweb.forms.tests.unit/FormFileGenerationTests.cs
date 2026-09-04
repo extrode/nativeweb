@@ -78,26 +78,41 @@ public sealed class FormFileGenerationTests
     {
         (_, string emitted) = Run(Attributes, Model("[FormFile(MaxBytes = 4096)] UploadedFile Avatar"));
 
-        int limit = emitted.IndexOf("LimitBody(context, 4096L)", StringComparison.Ordinal);
+        int limit = emitted.IndexOf("LimitBody(context, MaxBodyBytes)", StringComparison.Ordinal);
         int read = emitted.IndexOf("ReadLimitedFormAsync", StringComparison.Ordinal);
 
+        Assert.Contains("public static long MaxBodyBytes => 69632L;", emitted, StringComparison.Ordinal);
         Assert.True(limit >= 0, "the declared ceiling was not emitted");
         Assert.True(read >= 0, "the limited read was not emitted");
         Assert.True(limit < read, "the ceiling must be installed before the form is read");
     }
 
     /// <summary>
-    /// The body carries every field at once, so one ceiling bounds it, and it has to
-    /// be the largest any field declares or the roomiest field could never arrive.
+    /// One body carries every part at once, so the ceiling is the sum of the declared
+    /// field limits and not the largest of them: at the largest, a post carrying both
+    /// files within their own limits is answered 413.
     /// </summary>
     [Fact]
-    public void Two_file_fields_bound_the_body_by_the_larger_ceiling()
+    public void Two_file_fields_bound_the_body_by_their_sum()
     {
         (_, string emitted) = Run(
             Attributes,
             Model("[FormFile(MaxBytes = 8192)] UploadedFile Avatar, [FormFile(MaxBytes = 1024)] UploadedFile? Banner"));
 
-        Assert.Contains("LimitBody(context, 8192L)", emitted, StringComparison.Ordinal);
+        Assert.Contains("public static long MaxBodyBytes => 74752L;", emitted, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Zero means "the host's own limit is the right one", which is what MapForm reads
+    /// to decide whether to attach the size-limit metadata at all. A text-only form has
+    /// no size of its own to declare and must not raise the host ceiling.
+    /// </summary>
+    [Fact]
+    public void A_text_only_model_declares_no_body_ceiling()
+    {
+        (_, string emitted) = Run(Attributes, Model("string? Username"));
+
+        Assert.Contains("public static long MaxBodyBytes => 0L;", emitted, StringComparison.Ordinal);
     }
 
     [Fact]

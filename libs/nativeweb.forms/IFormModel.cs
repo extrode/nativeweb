@@ -46,4 +46,30 @@ public interface IFormModel<TSelf>
     /// implementation calls first.
     /// </exception>
     static abstract ValueTask<TSelf> BindFormAsync(HttpContext context);
+
+    /// <summary>
+    /// The largest request body this model can bind, in bytes, or <c>0</c> when the
+    /// model declares no file field and the host's own limit is the right one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why the model has to publish this rather than raise the limit itself.</b>
+    /// The binder runs after routing, after <c>UseAntiforgery()</c>, and after the
+    /// body has been read — by which point
+    /// <c>IHttpMaxRequestBodySizeFeature.IsReadOnly</c> is true and the host-wide
+    /// ceiling has already refused the request. Measured 2026-09-04: a 300 KB upload
+    /// to a field declaring <c>MaxBytes = 1_048_576</c> was refused by
+    /// <c>NativeWebOptions.MaxRequestBodyBytes</c>'s 128 KiB
+    /// default, so the declared ceiling was unreachable in the configuration the
+    /// deployment runs.
+    /// </para>
+    /// <para>
+    /// Read by <see cref="FormEndpointRouteBuilderExtensions.MapForm{TForm}"/>, which
+    /// turns it into <c>IRequestSizeLimitMetadata</c> on the endpoint. Routing's own
+    /// size-limit middleware applies that immediately after matching and therefore
+    /// before anything reads the body, which is the only seam where the feature is
+    /// still writable.
+    /// </para>
+    /// </remarks>
+    static abstract long MaxBodyBytes { get; }
 }

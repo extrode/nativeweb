@@ -134,6 +134,32 @@ public sealed class PublicFormFlowTests(FormSampleFixture sample, FormBrowserFix
         Assert.Equal(Picture, await served!.BodyAsync());
     }
 
+    /// <summary>
+    /// The declared ceiling is 1 MB, and this is well under it. It is over the
+    /// framework's own default 128 KiB request-body limit, which is what this asserts
+    /// does not apply to a route that declared its own.
+    /// </summary>
+    [Fact]
+    public async Task UploadForm_GivenAPictureUnderTheDeclaredCeiling_AcceptsIt()
+    {
+        await using IBrowserContext context = await browser.Browser.NewContextAsync();
+        IPage page = await context.NewPageAsync();
+
+        await page.GotoAsync($"{sample.BaseUrl}/upload");
+
+        await page.SetInputFilesAsync(
+            "#picture",
+            new FilePayload
+            {
+                Name = "large.png",
+                MimeType = "image/png",
+                Buffer = new byte[300 * 1024],
+            });
+        await page.ClickAsync("button[type=submit]");
+
+        Assert.Equal(1, await page.Locator(".notice a").CountAsync());
+    }
+
     [Fact]
     public async Task UploadForm_GivenAFileOutsideTheAcceptedSet_RefusesIt()
     {

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -25,7 +26,13 @@ public sealed partial record OptionalDocumentForm(
     [FormFile(MaxBytes = 4096)] UploadedFile? Document);
 
 /// <summary>
-/// Two routes over a real request pipeline, spec 027 R1-R5.
+/// A model with no file field, so it declares no body ceiling of its own.
+/// </summary>
+[Form]
+public sealed partial record CaptionOnlyForm([FormField("caption")] string? Caption);
+
+/// <summary>
+/// Three routes over a real request pipeline, spec 027 R1-R5.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -101,6 +108,8 @@ internal sealed class FormHost : IAsyncDisposable
 
         app.MapFormPost<DocumentForm>("/document", (form, _) => Task.FromResult(Describe(form.Caption, form.Document)));
 
+        app.MapFormPost<CaptionOnlyForm>("/caption", (form, _) => Task.FromResult(Results.Text(form.Caption ?? "")));
+
         app.MapFormPost<OptionalDocumentForm>(
             "/optional",
             (form, _) => Task.FromResult(
@@ -110,6 +119,12 @@ internal sealed class FormHost : IAsyncDisposable
 
         return new FormHost(app, app.GetTestClient());
     }
+
+    /// <summary>
+    /// The endpoints this host mapped, for asserting what MapForm attached to them.
+    /// </summary>
+    internal IReadOnlyList<Endpoint> Endpoints =>
+        _app.Services.GetRequiredService<EndpointDataSource>().Endpoints;
 
     /// <summary>
     /// Posts <paramref name="content"/> with a freshly issued token and its cookie.

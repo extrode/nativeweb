@@ -119,9 +119,31 @@ public static class FormEndpointRouteBuilderExtensions
             await result.ExecuteAsync(context).ConfigureAwait(false);
         };
 
-        return endpoints.MapMethods(pattern, [method], route)
+        IEndpointConventionBuilder mapped = endpoints.MapMethods(pattern, [method], route)
             .RequireFormAntiforgery()
             .WithMetadata(new AcceptsMetadata(FormContentTypes));
+
+        return TForm.MaxBodyBytes > 0
+            ? mapped.WithMetadata(new FormBodySizeLimit(TForm.MaxBodyBytes))
+            : mapped;
+    }
+
+    /// <summary>
+    /// The declared body ceiling, as routing's own metadata.
+    /// </summary>
+    /// <remarks>
+    /// Routing reads this right after the endpoint is matched and writes it to
+    /// <c>IHttpMaxRequestBodySizeFeature</c> there, which is before
+    /// <c>UseAntiforgery()</c> and so before anything has read the body. The binder
+    /// cannot do it: by the time it runs the feature is read-only and the host-wide
+    /// ceiling has already answered. Measured 2026-09-04 — see
+    /// <see cref="IFormModel{TSelf}.MaxBodyBytes"/>.
+    /// </remarks>
+    /// <param name="maxBytes">The declared ceiling.</param>
+    private sealed class FormBodySizeLimit(long maxBytes) : IRequestSizeLimitMetadata
+    {
+        /// <inheritdoc/>
+        public long? MaxRequestBodySize { get; } = maxBytes;
     }
 
     // What the route consumes, and it is ordering rather than documentation.

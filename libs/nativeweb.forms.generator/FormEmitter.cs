@@ -21,6 +21,14 @@ namespace NativeWeb.Forms.Generator;
 //    nothing to infer.
 internal static class FormEmitter
 {
+    // Added to the sum of the file fields' MaxBytes to get the body ceiling. It covers
+    // the multipart boundaries and per-part headers, the antiforgery token, the bot-trap
+    // fields, and every text field on the model -- none of which a per-file limit counts
+    // and all of which arrive in the same body. Generous rather than computed: the number
+    // that matters is the per-field one, checked exactly by FormBinding.File, and this is
+    // only there to stop the envelope refusing a request whose files are each in range.
+    private const long MultipartEnvelopeBytes = 64 * 1024;
+
     public static string Emit(FormModel model)
     {
         var sb = new StringBuilder(2048);
@@ -41,14 +49,6 @@ internal static class FormEmitter
         sb.AppendLine("partial " + model.TypeKeyword + " " + typeName
             + " : global::NativeWeb.Forms.IFormModel<" + typeName + ">");
         sb.AppendLine("{");
-        sb.AppendLine("    /// <summary>Binds this form from the request. Called by MapFormPost, not by hand.</summary>");
-        sb.AppendLine("    public static async global::System.Threading.Tasks.ValueTask<" + typeName + "> BindFormAsync(");
-        sb.AppendLine("        global::Microsoft.AspNetCore.Http.HttpContext context)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        // FIRST, and it has to be: argument binding runs upstream of the whole");
-        sb.AppendLine("        // endpoint-filter pipeline, so a filter cannot protect this read.");
-        sb.AppendLine("        global::NativeWeb.Forms.FormBinding.RequireFormContentType(context);");
-
         bool hasFile = false;
         long maxBytes = 0;
 
@@ -57,9 +57,34 @@ internal static class FormEmitter
             if (candidate.Kind != FormFieldKind.Text)
             {
                 hasFile = true;
-                maxBytes = candidate.MaxBytes > maxBytes ? candidate.MaxBytes : maxBytes;
+
+                // The SUM, not the largest. One body carries every part at once, so a
+                // model with two 1 MB file fields has to accept 2 MB or a post that is
+                // within every declared field ceiling is answered 413.
+                maxBytes += candidate.MaxBytes;
             }
         }
+
+        // Headroom for what the file parts do not account for: the multipart boundaries
+        // and per-part headers, and every text field on the same model. A body ceiling
+        // set to the sum of the file limits alone would refuse a request whose files are
+        // each within their limit, since the envelope is not free.
+        if (hasFile)
+        {
+            maxBytes += MultipartEnvelopeBytes;
+        }
+
+        sb.AppendLine("    /// <summary>The largest request body this form accepts. Read by MapForm.</summary>");
+        sb.AppendLine("    public static long MaxBodyBytes => "
+            + maxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L;");
+        sb.AppendLine();
+        sb.AppendLine("    /// <summary>Binds this form from the request. Called by MapFormPost, not by hand.</summary>");
+        sb.AppendLine("    public static async global::System.Threading.Tasks.ValueTask<" + typeName + "> BindFormAsync(");
+        sb.AppendLine("        global::Microsoft.AspNetCore.Http.HttpContext context)");
+        sb.AppendLine("    {");
+        sb.AppendLine("        // FIRST, and it has to be: argument binding runs upstream of the whole");
+        sb.AppendLine("        // endpoint-filter pipeline, so a filter cannot protect this read.");
+        sb.AppendLine("        global::NativeWeb.Forms.FormBinding.RequireFormContentType(context);");
 
         if (hasFile)
         {
@@ -69,11 +94,10 @@ internal static class FormEmitter
             sb.AppendLine("        global::NativeWeb.Forms.FormBinding.RequireMultipart(context);");
             sb.AppendLine();
             sb.AppendLine("        // Before the read, so the read enforces it: an oversize body is aborted");
-            sb.AppendLine("        // partway through rather than buffered whole and then measured. The largest");
-            sb.AppendLine("        // MaxBytes any file field on this model declares is what bounds the body,");
-            sb.AppendLine("        // because the body carries every field at once.");
-            sb.AppendLine("        global::NativeWeb.Forms.FormBinding.LimitBody(context, "
-                + maxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L);");
+            sb.AppendLine("        // partway through rather than buffered whole and then measured. The same");
+            sb.AppendLine("        // ceiling MapForm published to routing, which is what raised the host-wide");
+            sb.AppendLine("        // limit far enough upstream for this body to have arrived at all.");
+            sb.AppendLine("        global::NativeWeb.Forms.FormBinding.LimitBody(context, MaxBodyBytes);");
         }
 
         sb.AppendLine();
