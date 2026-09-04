@@ -17,6 +17,7 @@
 
   <PropertyGroup>
     <NativeWebAssetsDirectory Condition="'$(NativeWebAssetsDirectory)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)..', 'wwwroot'))</NativeWebAssetsDirectory>
+    <NativeWebTemplatesDirectory Condition="'$(NativeWebTemplatesDirectory)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)..', 'templates'))</NativeWebTemplatesDirectory>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(NativeWebImportAssets)' != 'false'">
@@ -32,5 +33,77 @@
              CopyToPublishDirectory="PreserveNewest"
              Visible="false" />
   </ItemGroup>
+
+  <!-- Framework-owned templates (spec 029), the same argument as the assets
+       above applied to markup this library's own code renders. shared/bot-traps
+       spells five BotTraps field names as literal text and shared/antiforgery
+       spells the antiforgery input Chrome.For fills; a per-product copy of
+       either is a fix that cannot be shipped, and in the bot-trap case a rename
+       that silently stops matching.
+
+       A Target and not an ItemGroup, for one reason that is easy to get wrong:
+       a consumer imports this file near the top of its csproj and declares its
+       own <AdditionalFiles Include="templates\**\*.html" /> further down, so an
+       ItemGroup here runs before the product's templates exist as items and
+       would see an empty set. Evaluation order is the whole difficulty.
+
+       No LogicalPath is computed by hand. RenderTemplateGenerator keys a
+       template's name on the part after the LAST "/templates/" segment of its
+       physical path, whatever that path is, so a file delivered from here
+       compiles to the same name a product's own copy would, which is what
+       lets this move happen with no call site changed. The relative paths below
+       exist only to compare the two sets. -->
+  <PropertyGroup>
+    <NativeWebProductTemplatesDirectory Condition="'$(NativeWebProductTemplatesDirectory)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'templates'))</NativeWebProductTemplatesDirectory>
+  </PropertyGroup>
+
+  <Target Name="NativeWebAddFrameworkTemplates"
+          BeforeTargets="CoreCompile"
+          Condition="'$(NativeWebImportTemplates)' != 'false'">
+
+    <ItemGroup>
+      <NativeWebFrameworkTemplate Include="$(NativeWebTemplatesDirectory)**\*.html" />
+      <NativeWebFrameworkTemplate>
+        <LogicalPath>$([MSBuild]::MakeRelative('$(NativeWebTemplatesDirectory)', '%(FullPath)'))</LogicalPath>
+      </NativeWebFrameworkTemplate>
+
+      <NativeWebProductTemplate Include="$(NativeWebProductTemplatesDirectory)**\*.html" />
+      <NativeWebProductTemplate>
+        <LogicalPath>$([MSBuild]::MakeRelative('$(NativeWebProductTemplatesDirectory)', '%(FullPath)'))</LogicalPath>
+      </NativeWebProductTemplate>
+
+      <!-- A declared override is written the way it reads in the framework tree,
+           e.g. <NativeWebTemplateOverride Include="shared\bot-traps.html" />. -->
+      <NativeWebTemplateOverride>
+        <LogicalPath>$([MSBuild]::ValueOrDefault('%(Identity)', '').Replace('/', '\'))</LogicalPath>
+      </NativeWebTemplateOverride>
+
+      <NativeWebFrameworkTemplate Remove="@(NativeWebTemplateOverride)" MatchOnMetadata="LogicalPath" />
+
+      <!-- The intersection, as framework minus (framework minus product).
+           Remove does set difference and there is no set-intersection item
+           operation, so it is spelled out rather than looped. -->
+      <NativeWebFrameworkOnlyTemplate Include="@(NativeWebFrameworkTemplate)" />
+      <NativeWebFrameworkOnlyTemplate Remove="@(NativeWebProductTemplate)" MatchOnMetadata="LogicalPath" />
+      <NativeWebTemplateClash Include="@(NativeWebFrameworkTemplate)" />
+      <NativeWebTemplateClash Remove="@(NativeWebFrameworkOnlyTemplate)" MatchOnMetadata="LogicalPath" />
+    </ItemGroup>
+
+    <Message Importance="normal"
+             Condition="'@(NativeWebTemplateOverride)' != ''"
+             Text="NativeWeb: $(MSBuildProjectName) overrides framework template(s) @(NativeWebTemplateOverride->'%(LogicalPath)', ', '). The product's copy is compiled; the framework's is not." />
+
+    <!-- Not a warning. Two files at one logical path is a silent last-wins in
+         the generator today: it keys its model dictionary on the logical path,
+         so the second file replaces the first before the emitter's NWT009
+         duplicate-class check ever runs, and which one survives depends on
+         MSBuild item order. There is no correct guess to make here. -->
+    <Error Condition="'@(NativeWebTemplateClash)' != ''"
+           Text="These templates exist both in $(MSBuildProjectName) and in the framework: @(NativeWebTemplateClash->'%(LogicalPath)', ', '). Delete the product's copy to take the framework's, or declare the override with &lt;NativeWebTemplateOverride Include=&quot;shared\name.html&quot; /&gt; to keep your own. Leaving both is a silent last-wins in the render generator." />
+
+    <ItemGroup>
+      <AdditionalFiles Include="@(NativeWebFrameworkTemplate)" />
+    </ItemGroup>
+  </Target>
 
 </Project>
