@@ -95,7 +95,7 @@ public sealed class FormFileGenerationTests
     {
         (_, string emitted) = Run(
             Attributes,
-            Model("[FormFile(MaxBytes = 1024)] FormFile Avatar, [FormFile(MaxBytes = 8192)] FormFile? Banner"));
+            Model("[FormFile(MaxBytes = 8192)] FormFile Avatar, [FormFile(MaxBytes = 1024)] FormFile? Banner"));
 
         Assert.Contains("LimitBody(context, 8192L)", emitted, StringComparison.Ordinal);
     }
