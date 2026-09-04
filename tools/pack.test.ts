@@ -96,9 +96,18 @@ Deno.test("nuspecFacts reports a repository element with no url", () => {
 });
 
 Deno.test("parseArgs forwards what it does not own", () => {
-  const options = parseArgs(["-p:JauntyQUsePackages=true", "--release", "--out", "x", "-v", "q"]);
+  const options = parseArgs([
+    "-p:JauntyQUsePackages=true",
+    "--release",
+    "--out",
+    "x",
+    "--print-version",
+    "-v",
+    "q",
+  ]);
 
   assertEquals(options.release, true);
+  assertEquals(options.printVersion, true);
   assertEquals(options.out, "x");
   assertEquals(options.forwarded, ["-p:JauntyQUsePackages=true", "-v", "q"]);
 });

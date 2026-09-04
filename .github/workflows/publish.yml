@@ -1,0 +1,98 @@
+name: Publish
+
+# Spec 028 R6. A tag and nothing else.
+#
+# No push:branches, no pull_request, no workflow_dispatch. Every one of those
+# would put a package on the feed from a commit nobody decided to release, and
+# a version already on GitHub Packages cannot be replaced -- only deleted and
+# re-pushed, which breaks any consumer that already restored it. The manual
+# trigger is the tempting one to add and the one that most reliably ships
+# something by accident.
+#
+# The pattern requires a bare semver: v0.1.0 publishes, v0.1.0-rc1 and
+# release-0.1.0 do not match and nothing runs at all.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+# packages:write is the whole reason this file is separate from ci.yml. CI runs
+# on every push with packages:read; giving that job write access so it could
+# also publish would mean every branch push held a token that can overwrite the
+# framework's own feed.
+permissions:
+  contents: read
+  packages: write
+
+env:
+  # No JauntyQ sibling checkout on a runner; the pinned packages come from
+  # Directory.Packages.props, the same way ci.yml builds.
+  DOTNET_BUILD_ARGS: -p:JauntyQUsePackages=true
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Deno is not preinstalled on a GitHub runner and denoland/setup-deno is a
+      # `uses:` step, which decision 2026-08-20-001 keeps this repository down to
+      # exactly one of (actions/checkout). The official installer is a plain
+      # `run:` step and pulls a single static binary -- no node, no npm, nothing
+      # resolved from a package registry.
+      #
+      # DENO_VERSION is pinned rather than floating: `| sh` against whatever is
+      # current means a release day upstream can change what publishes here.
+      - name: Install Deno
+        env:
+          DENO_VERSION: v2.9.5
+        run: |
+          curl -fsSL https://deno.land/install.sh | sh -s -- --yes "$DENO_VERSION"
+          echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+
+      # The tag says what is being released and Directory.Build.props says what
+      # will be built. When they disagree the tag is a lie, and the failure has
+      # to happen here rather than after thirteen packages are on the feed under
+      # a version nobody chose.
+      - name: The tag and VersionPrefix agree
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          declared="$(deno run -A tools/pack.ts --print-version --release)"
+          if [ "$tag" != "$declared" ]; then
+            echo "Tag $GITHUB_REF_NAME names $tag; Directory.Build.props declares $declared." >&2
+            echo "Bump VersionPrefix and retag, or tag the version that is declared." >&2
+            exit 1
+          fi
+          echo "Releasing $declared"
+
+      # Same step ci.yml runs, and for the same reason: nuget.config declares
+      # the jauntyq-github source and deliberately carries no credentials, so
+      # without this the restore under `dotnet pack` fails 401.
+      - name: Authenticate to GitHub Packages
+        run: >
+          dotnet nuget update source jauntyq-github
+          --username ${{ github.actor }}
+          --password ${{ secrets.GITHUB_TOKEN }}
+          --store-password-in-clear-text
+
+      - name: Pack
+        run: deno run -A tools/pack.ts --release $DOTNET_BUILD_ARGS
+
+      # repository_owner rather than a literal org. The 2026-08-26 move from
+      # extrode-legacy-org to extrode cost three days of red CI because a feed URL was
+      # written out by hand in one file and not another; OrgReferenceTests bans
+      # the old name, and this form cannot acquire a new one to ban.
+      #
+      # --skip-duplicate so a re-run of a partially failed publish finishes
+      # rather than dying on the packages that already landed. It does not make
+      # an overwrite possible: GitHub Packages refuses a version that exists,
+      # and this only turns that refusal into a skip.
+      - name: Push
+        run: >
+          dotnet nuget push "artifacts/packages/*.nupkg"
+          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          --api-key ${{ secrets.GITHUB_TOKEN }}
+          --skip-duplicate

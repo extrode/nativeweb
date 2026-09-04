@@ -245,6 +245,7 @@ async function exists(path: string): Promise<boolean> {
 
 export interface Options {
   release: boolean;
+  printVersion: boolean;
   out: string | null;
   forwarded: string[];
 }
@@ -258,11 +259,13 @@ export interface Options {
  * every occurrence would silently change what dotnet was asked to do.
  */
 export function parseArgs(argv: string[]): Options {
-  const options: Options = { release: false, out: null, forwarded: [] };
+  const options: Options = { release: false, printVersion: false, out: null, forwarded: [] };
 
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--release") {
       options.release = true;
+    } else if (argv[i] === "--print-version") {
+      options.printVersion = true;
     } else if (argv[i] === "--out") {
       if (i + 1 >= argv.length) throw new Error("--out needs a directory.");
       options.out = argv[++i];
@@ -282,13 +285,21 @@ function repoRoot(): string {
 }
 
 async function main(argv: string[]): Promise<number> {
-  const { release, out: requestedOut, forwarded } = parseArgs(argv);
+  const { release, printVersion, out: requestedOut, forwarded } = parseArgs(argv);
 
   const root = repoRoot();
   const out = requestedOut ?? join(root, "artifacts", "packages");
 
   const prefix = versionPrefixOf(await Deno.readTextFile(join(root, "Directory.Build.props")));
   const version = expectedVersion(prefix, release);
+
+  // The publish workflow reads the version from here rather than grepping the
+  // props file, so the tag check and the pack agree by construction: one parse,
+  // one place it can be wrong.
+  if (printVersion) {
+    console.log(version);
+    return 0;
+  }
   const projects = await packableProjects(join(root, "libs"));
 
   console.log(

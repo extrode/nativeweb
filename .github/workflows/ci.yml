@@ -195,6 +195,30 @@ jobs:
       - name: Restore the solution file the removal step edited
         run: git checkout -- NativeWeb.slnx
 
+      # Deno is not preinstalled on a GitHub runner, and denoland/setup-deno is
+      # a `uses:` step -- decision 2026-08-20-001 keeps this repository down to
+      # exactly one of those. The official installer is a plain `run:` step
+      # fetching a single static binary: no node, no npm, no package registry.
+      # Pinned rather than floating, so an upstream release day cannot change
+      # what runs here.
+      - name: Install Deno
+        env:
+          DENO_VERSION: v2.9.5
+        run: |
+          curl -fsSL https://deno.land/install.sh | sh -s -- --yes "$DENO_VERSION"
+          echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+
+      - name: Pack tool tests
+        run: deno test -A tools/pack.test.ts
+
+      # Spec 028 R5: prove the pack path on every push, publishing nothing. The
+      # release version is produced only by publish.yml, so what this builds is
+      # X.Y.Z-dev and goes no further than the runner's disk. Without it the
+      # publish workflow would be the first place a pack failure was ever seen,
+      # which is the worst place: mid-release, with a tag already pushed.
+      - name: Pack every library
+        run: deno run -A tools/pack.ts $DOTNET_BUILD_ARGS
+
       - name: Install Playwright browsers
         run: pwsh tests/nativeweb.scaffold.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 

@@ -19,11 +19,20 @@
 
   <!-- Package mode for the source-generator/framework dependencies
        (-p:JauntyQUsePackages=true / -p:NativeWebUsePackages=true).
-       KNOWN GAP: the private feed these would restore from does not exist yet,
-       so package mode cannot currently restore. A local sibling checkout of
-       jauntyq and of NativeWeb (checkout mode, the default) is the working
-       path; these pins are here so package mode is a version bump away once
-       the feed lands. -->
+
+       THE NativeWeb.* PINS ARE NOT FREE TEXT. Directory.Build.props in the
+       NativeWeb repository declares one VersionPrefix and every NativeWeb.*
+       package carries it; these five must equal it, and
+       PackageVersionTests.SkeletonPinsMatchTheFrameworkVersion fails naming
+       the offender when they do not. A stamped product is the last place that
+       disagreement should surface, because there it surfaces as NU1101 against
+       a version that was never published.
+
+       KNOWN GAP, and it is now half the size it was: spec 028 built the pack
+       and the tag-triggered publish (.github/workflows/publish.yml), so a
+       release puts these versions on the feed. Until a v0.1.0 tag is pushed
+       nothing is there to restore, and a local sibling checkout of jauntyq and
+       of NativeWeb (checkout mode, the default) stays the working path. -->
   <ItemGroup>
     <PackageVersion Include="JauntyQ.Generator" Version="0.4.0" />
     <PackageVersion Include="JauntyQ.Runtime" Version="0.4.0" />
