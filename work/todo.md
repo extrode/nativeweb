@@ -2039,14 +2039,17 @@ an answer different from the one the audit assumed.
 
 ## From the fable (review-deep) pass on spec 024, 2026-09-04
 
-- `IPermissionStore` has no way to delete a group or forget a subject, and the access admin
-  exposes none, so a mistyped group name is permanent on both stores. The `ON DELETE CASCADE`
-  clauses in `db/sample/migrations/0006_permissions.sql` are reachable only by hand-written SQL,
-  and `PermissionConflictException` cites "a group that has since been deleted" as a state
-  nothing can currently produce.
-- `PermissionContext.HeldAsync` reads the subject from `ClaimTypes.NameIdentifier` with no way
-  for a host to name another claim. A scheme that surfaces `sub` unmapped is silently answered
-  403 by `PermissionEndpointFilter` with nothing in a log to say why.
+- ~~`IPermissionStore` has no way to delete a group or forget a subject.~~ **Promoted 2026-09-04
+  to [spec 026](../docs/specs/026-permission-group-lifecycle/026-spec.md)**, `Status: draft`, 11
+  requirements. The `ON DELETE CASCADE` clauses in `db/sample/migrations/0006_permissions.sql`
+  exist for a delete no code path performs, and `PermissionConflictException` cites "a group that
+  has since been deleted" as a state nothing can produce.
+- ~~`PermissionContext.HeldAsync` reads the subject from `ClaimTypes.NameIdentifier` with no way
+  for a host to name another claim.~~ **Promoted 2026-09-04 to
+  [spec 025](../docs/specs/025-permission-subject-resolution/025-spec.md)**, `Status: draft`, 8
+  requirements. A JWT bearer scheme with `MapInboundClaims = false` reaches it from stock
+  configuration: every gated route answers 403 with nothing recorded to say the subject was never
+  found.
 - `PermissionContext.HeldAsync` memoises on the first principal and ignores the `user` argument
   thereafter. Bounded today by the context being request-scoped, but the parameter is misleading.
 - `ScaffoldGenerator` sets `HasPermissions` on attribute presence alone, so when the permissions
