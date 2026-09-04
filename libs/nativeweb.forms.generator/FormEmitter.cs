@@ -147,25 +147,31 @@ internal static class FormEmitter
     // A [FormField] name is an arbitrary string constant, so escaping only the
     // backslash and the quote is not enough: a name carrying a newline or any other
     // control character would be emitted verbatim into a "..." literal and the
-    // generated file would not compile -- which is the R8 failure the model
-    // validation exists to prevent, arriving through the emitter instead.
-    // Roslyn already knows how; FormatLiteral is the compiler's own routine.
-    private static string Escape(string value) =>
-        Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(value, quote: false);
+    // generated file would not compile. Roslyn already knows how; FormatLiteral is
+    // the compiler's own routine.
+    //
+    // It returns the SURROUNDING QUOTES TOO, and that is why, not a convenience.
+    // Measured 2026-09-04: quote:false escapes the backslash and the newline but
+    // leaves the quote character alone, so [FormField("a\"b")] emitted
+    // Field(form, "a"b") and the generated file did not compile -- the exact failure
+    // this helper exists to prevent. quote:true is the overload that escapes it, and
+    // it cannot be asked for the escaping without the delimiters.
+    private static string Literal(string value) =>
+        Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(value, quote: true);
 
     // Which helper fills this member. A text field is the pre-027 call; a file field
     // carries its declared Accept set to the binder, which is where the 415 for a
     // refused content type is raised.
     private static string Read(FormFieldModel field)
     {
-        string form = "form, \"" + Escape(field.WireName) + "\", " + Accept(field.Accept)
+        string form = "form, " + Literal(field.WireName) + ", " + Accept(field.Accept)
             + ", " + field.MaxBytes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L";
 
         return field.Kind switch
         {
             FormFieldKind.RequiredFile => "global::NativeWeb.Forms.FormBinding.RequiredFile(" + form + ")",
             FormFieldKind.OptionalFile => "global::NativeWeb.Forms.FormBinding.File(" + form + ")",
-            _ => "global::NativeWeb.Forms.FormBinding.Field(form, \"" + Escape(field.WireName) + "\")",
+            _ => "global::NativeWeb.Forms.FormBinding.Field(form, " + Literal(field.WireName) + ")",
         };
     }
 
@@ -181,7 +187,7 @@ internal static class FormEmitter
         var sb = new StringBuilder("new string[] { ");
         for (int i = 0; i < accept.Length; i++)
         {
-            sb.Append('"').Append(Escape(accept[i])).Append('"');
+            sb.Append(Literal(accept[i]));
             sb.Append(i < accept.Length - 1 ? ", " : " }");
         }
 

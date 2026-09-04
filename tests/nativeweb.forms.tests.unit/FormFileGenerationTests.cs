@@ -212,6 +212,51 @@ public sealed class FormFileGenerationTests
         Assert.Equal("", emitted);
     }
 
+    /// <summary>
+    /// A wire name is an arbitrary string constant, and a quote in one used to reach
+    /// the emitted literal unescaped: <c>SymbolDisplay.FormatLiteral(value, quote:
+    /// false)</c> escapes the backslash and the newline and leaves the quote alone,
+    /// measured 2026-09-04.
+    /// </summary>
+    /// <param name="wireName">The declared name.</param>
+    [Theory]
+    [InlineData("a\\\"b")]
+    [InlineData("a\\b")]
+    [InlineData("a\nb")]
+    public void A_wire_name_carrying_a_delimiter_still_emits_parseable_source(string wireName)
+    {
+        (_, string emitted) = Run(
+            Attributes,
+            Model("[FormField(\"" + wireName + "\")] string? Caption"));
+
+        Assert.DoesNotContain(
+            CSharpSyntaxTree.ParseText(emitted).GetDiagnostics(),
+            d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    /// <summary>
+    /// The emitter ends in <c>new T(...)</c>, so an abstract model would fail as CS0144
+    /// inside generated source the author never wrote. NWF005 rejects it at the
+    /// declaration instead.
+    /// </summary>
+    [Fact]
+    public void An_abstract_model_is_refused_by_NWF005()
+    {
+        AssertOnlyDiagnostic(
+            "NWF005",
+            Run(
+                Attributes,
+                """
+                using NativeWeb.Forms;
+
+                namespace Demo
+                {
+                    [Form]
+                    public abstract partial record UploadForm(string? Caption);
+                }
+                """));
+    }
+
     private static string Model(string parameters) => """
         using NativeWeb.Forms;
 

@@ -118,11 +118,15 @@ internal sealed class FormModel : IEquatable<FormModel>
     // caller emits for exactly the non-null results.
     public static FormModel? Build(INamedTypeSymbol type, Location location, List<Diagnostic> diagnostics)
     {
-        if (type.TypeKind != TypeKind.Class || type.IsStatic)
+        if (type.TypeKind != TypeKind.Class || type.IsStatic || type.IsAbstract)
         {
             // IFormModel<TSelf> is constrained to reference types, so a struct cannot
             // implement it at all. [Form]'s AttributeUsage already
             // blocks the obvious cases; this catches what it cannot.
+            //
+            // Abstract is here because the emitter ends in `new T(...)`: an abstract
+            // model passes every other check and then fails as CS0144 inside generated
+            // source the author never wrote and cannot fix.
             diagnostics.Add(Diagnostic.Create(FormDiagnostics.UnsupportedDeclaration, location, type.Name));
             return null;
         }
@@ -494,7 +498,7 @@ internal static class FormDiagnostics
     internal static readonly DiagnosticDescriptor UnsupportedDeclaration = new(
         id: "NWF005",
         title: "Form model declaration is not supported",
-        messageFormat: "'{0}' cannot carry a generated binder. A form model must be a non-generic, non-nested, non-file-local, non-static reference type, because IFormModel<TSelf> is constrained to reference types and the binder is emitted as a partial of the type itself, in another file.",
+        messageFormat: "'{0}' cannot carry a generated binder. A form model must be a non-generic, non-nested, non-file-local, non-static, non-abstract reference type, because IFormModel<TSelf> is constrained to reference types and the binder is emitted as a partial of the type itself, in another file.",
         category: "NativeWeb.Forms",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
