@@ -217,4 +217,49 @@ public sealed class InMemoryPermissionStoreTests
 
         Assert.Equal(["sample:article.delete"], await store.SubjectGrantsAsync("sub-1", default));
     }
+
+    [Fact]
+    public async Task DeletingGroupOne_LeavesGroupTenAlone()
+    {
+        var store = new InMemoryPermissionStore();
+        long doomed = 0;
+        long kept = 0;
+        for (int i = 1; i <= 10; i++)
+        {
+            long group = await store.CreateGroupAsync("group-" + i, default);
+            doomed = i == 1 ? group : doomed;
+            kept = i == 10 ? group : kept;
+        }
+
+        Assert.Equal(1, doomed);
+        Assert.Equal(10, kept);
+
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.AddMemberAsync("sub-1", kept, default);
+        await store.GrantToGroupAsync(kept, "sample:article.view", default);
+
+        await store.DeleteGroupAsync(doomed, default);
+
+        Assert.Equal(["sub-1"], await store.MembersAsync(kept, default));
+        Assert.Equal(["sample:article.view"], await store.GroupGrantsAsync(kept, default));
+    }
+
+    [Fact]
+    public async Task ForgettingASubject_LeavesASubjectWhoseNameExtendsIt()
+    {
+        var store = new InMemoryPermissionStore();
+        long group = await store.CreateGroupAsync("editors", default);
+        await store.EnsureSubjectAsync("sub", default);
+        await store.EnsureSubjectAsync("sub-1", default);
+        await store.AddMemberAsync("sub", group, default);
+        await store.AddMemberAsync("sub-1", group, default);
+        await store.GrantToSubjectAsync("sub", "sample:article.view", default);
+        await store.GrantToSubjectAsync("sub-1", "sample:article.view", default);
+
+        await store.ForgetSubjectAsync("sub", default);
+
+        Assert.Equal(["sub-1"], await store.MembersAsync(group, default));
+        Assert.Equal(["sample:article.view"], await store.SubjectGrantsAsync("sub-1", default));
+        Assert.Empty(await store.SubjectGrantsAsync("sub", default));
+    }
 }

@@ -5,9 +5,13 @@ using Xunit;
 namespace NativeWeb.Permissions.Tests.Integration;
 
 /// <summary>
-/// <c>db/migrate.sh</c> re-runs every migration file, so the bootstrap grant in
-/// <c>0006_permissions.sql</c> runs again on every deploy. It has to seed the first
-/// operator on a fresh database and leave a revoked grant revoked on an old one.
+/// The bootstrap grant in <c>0006_permissions.sql</c> has to seed the first operator
+/// on a fresh database and leave a revoked grant revoked on an old one.
+///
+/// This summary used to say <c>db/migrate.sh</c> re-runs every migration file. It does
+/// not: <c>is_tracked()</c> skips any version already in <c>schema_migrations</c>. The
+/// contract asserted here is for a hand re-apply, which is what an operator does to a
+/// database they believe is behind.
 /// </summary>
 /// <remarks>
 /// In a schema of its own, created and dropped by the test: the file is applied for
