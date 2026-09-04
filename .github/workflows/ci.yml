@@ -213,10 +213,12 @@ jobs:
 
       # tools/stamp-check.ts is the local half of the skeleton-stamp job below:
       # the job proves the skeleton end to end on a runner, and the script lets a
-      # person prove it here before pushing. Its own suite is what keeps the two
-      # in step -- the environment it assembles is the mixed-mode combination the
-      # job's `env:` block spells out, and a drift between them makes the local
-      # check answer a different question from CI's.
+      # person prove it here before pushing. This step runs the script's own
+      # suite, not the script -- the stamp itself is the job below, which has the
+      # Postgres service and the git identity a stamp needs. What the suite
+      # covers is the argument handling and the environment the script assembles;
+      # nothing here reads that job's `env:` block, so the two staying in step is
+      # a thing to check by hand when either changes.
       - name: Stamp check tool tests
         run: deno test -A tools/stamp-check.test.ts
 

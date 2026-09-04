@@ -1,6 +1,13 @@
 import { assertEquals, assertStringIncludes, assertThrows } from "jsr:@std/assert@1";
 
-import { diagnosticsIn, occupants, parseArgs, stampEnvironment } from "./stamp-check.ts";
+import {
+  DATABASE_FREE_FILTER,
+  diagnosticsIn,
+  occupants,
+  parseArgs,
+  stampEnvironment,
+  stampStepEnvironment,
+} from "./stamp-check.ts";
 
 Deno.test("parseArgs stamps Stampcheck into tmp by default", () => {
   const options = parseArgs([]);
@@ -46,11 +53,27 @@ Deno.test("stampEnvironment resolves NativeWeb by checkout and JauntyQ by packag
 
   assertEquals(env.NativeWebRoot, "C:/repo");
   assertEquals(env.JauntyQUsePackages, "true");
-  assertEquals(env.NativeWebUsePackages, undefined);
+  assertEquals(env.NativeWebUsePackages, "");
 });
 
-Deno.test("stampEnvironment lets the stamped product make its first commit on main", () => {
-  assertEquals(stampEnvironment("C:/repo").GIT_ALLOW_PROTECTED, "1");
+Deno.test("stampEnvironment blanks the switches an exporting shell would flip", () => {
+  const env = stampEnvironment("C:/repo");
+
+  assertEquals(env.NativeWebUsePackages, "");
+  assertEquals(env.JauntyQRoot, "");
+});
+
+Deno.test("only the stamp step may commit to a protected branch", () => {
+  assertEquals(stampEnvironment("C:/repo").GIT_ALLOW_PROTECTED, undefined);
+  assertEquals(stampStepEnvironment("C:/repo").GIT_ALLOW_PROTECTED, "1");
+});
+
+Deno.test("the stamp step still resolves NativeWeb by checkout", () => {
+  assertEquals(stampStepEnvironment("C:/repo").NativeWebRoot, "C:/repo");
+});
+
+Deno.test("the database-free filter excludes readyz and nothing else", () => {
+  assertEquals(DATABASE_FREE_FILTER, "FullyQualifiedName!~Readyz");
 });
 
 Deno.test("diagnosticsIn reports a build error and ignores a path that reads like one", () => {
@@ -63,6 +86,17 @@ Deno.test("diagnosticsIn reports a build error and ignores a path that reads lik
 
 Deno.test("occupants answers nothing for a destination that does not exist", async () => {
   assertEquals(await occupants(`${await Deno.makeTempDir()}/absent`), []);
+});
+
+Deno.test("occupants treats a file where a directory was named as something in the way", async () => {
+  const path = `${await Deno.makeTempDir()}/not-a-directory`;
+
+  await Deno.writeTextFile(path, "");
+
+  const found = await occupants(path);
+
+  assertEquals(found.length, 1);
+  assertStringIncludes(found[0], "could not be read as a directory");
 });
 
 Deno.test("occupants names what is in the way", async () => {

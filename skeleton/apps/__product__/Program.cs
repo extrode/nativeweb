@@ -41,7 +41,10 @@ public sealed class Program
         // the same degrade-rather-than-crash posture as the connection string above.
         // Every key is under __PRODUCT__:SignIn; see libs/nativeweb.signin/README.md.
         // Registering it is what gives RequireAuthorization a scheme to challenge
-        // with; without it a protected route answers a bare 401 to everybody.
+        // with. Without a provider there is no scheme, so a route you have marked
+        // RequireAuthorization fails closed and answers 500 rather than a redirect
+        // to a sign-in page that does not exist: mark routes as protected after you
+        // have configured a provider, not before.
         IConfigurationSection signIn = builder.Configuration.GetSection("__PRODUCT__:SignIn");
 
         if (signIn["AuthorizationEndpoint"] is { Length: > 0 })
