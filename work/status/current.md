@@ -15,10 +15,15 @@ worth seeing here rather than hiding, but it is the exception.
   at the exclusion ranges. Both allocators now bind `::1` once at static init and remember the
   answer, and both `PortAllocationTests` use that same value so a test cannot be stricter than
   the allocator. The exchange went both ways: this repo sent the wildcard correction that
-  justsmtp had already reproduced independently, and got this back. **Only half the fix is
-  testable here.** A host where `::1` is unbindable is not available, so the new test asserts the
-  cached answer matches a live bind; breaking the helper to `false` turns it red, breaking it to
-  `true` cannot, and the remarks say so. Scaffold 33/33, sign-in 6/6, permissions 3/3, forms 7/7,
+  justsmtp had already reproduced independently, and got this back. **"Only half the fix is testable
+  here" was wrong, and the user caught it.** The obstacle was never that this machine has IPv6 --
+  it does, which is precisely why the false branch never runs here. The obstacle was that the
+  decision was hard-wired into the allocator, so a differently-configured machine was the only way
+  in. Both allocators take the `::1` check as a parameter now, on `fix/ipv6-gate-testable`, and
+  both sides are asserted: a predicate that never accepts must exhaust the loop and say
+  "32 attempts" rather than return a port, and `CanBindV6` returning false is proved by holding
+  `::1` on a port and asking about that port, which needs no special host. A platform limit was
+  claimed where there was a design limit. Scaffold 36/36, sign-in 9/9, permissions 3/3, forms 7/7,
   sample unit 231, solution build 0 warnings.
 
 - **No e2e fixture names a port any more, and the sign-in tier's allocator was wrong. Done on
