@@ -1,6 +1,7 @@
 # 029 — Framework-owned templates
-Status: draft
+Status: done
 Created: 2026-09-05
+Completed: 2026-09-05
 
 ## Problem
 
@@ -125,6 +126,25 @@ anything at all.
   expired in the same response.
 - **R10** Given `deno run -A tools/stamp-check.ts`, when it runs, then every step reports `ok` with
   a non-zero test count, and the stamped product's rendered chrome matches what it renders today.
+
+## What was proved, and what was not
+
+Every criterion above was met on `feat/029-framework-templates`, each by a build or a test run
+rather than by inspection: the delivery, the undeclared-clash error, the declared override and
+the opt-out were each exercised by building `apps/sample` in that state and reading the result.
+Suite counts after the change — sample unit 231, sample integration 32, web unit 177, repo 171 —
+and `deno run -A tools/stamp-check.ts` reports every step `ok` with non-zero test counts against
+a stamped product that carries no `templates/shared/` at all.
+
+**R2's package half is unproven and does not become true by this spec closing.** Both in-repo
+consumers take `NativeWeb.Web` by `ProjectReference`, and the stamp check runs in mixed mode, so
+what is proved is that a `ProjectReference` consumer receives the templates and that
+`nativeweb.web.csproj` packs `templates\**\*` into the `.nupkg`. That a `PackageReference`
+consumer restoring from the feed receives them is unexercised, because nothing has been
+published: no `v*` tag exists, and the publish gate requires three green CI jobs on the tagged
+commit while all three fail on a JauntyQ package 403. The mechanism is the one `wwwroot/` already
+uses through the same `build/NativeWeb.Web.targets`, which NuGet imports by package id — but that
+is an argument, not a run.
 
 ## Open questions
 

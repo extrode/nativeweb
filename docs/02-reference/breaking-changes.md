@@ -21,6 +21,56 @@ instead is this file: what changed, why, and the before/after a consumer edits b
 
 ---
 
+## 2026-09-05 — four shared templates are delivered by the framework, not vendored
+
+**Seam:** `NativeWeb.Web`'s MSBuild contribution — `libs/nativeweb.web/build/NativeWeb.Web.targets`.
+**Spec:** [029](../specs/029-framework-owned-templates/029-spec.md).
+**Affects:** every product carrying its own `templates/shared/antiforgery.html`,
+`bot-traps.html`, `banner-ok.html` or `banner-error.html`. A product carrying none of them
+takes this change by rebuilding and changes nothing.
+
+These four render framework markup from framework code: `Chrome.For` fills the antiforgery
+input and issues the bot-trap canary, and `Flash.Take` feeds the two banners. As per-product
+copies they were a fix that could not ship. `bot-traps.html` was the sharp end — it spells five
+`BotTraps` field names as literal text, and a renamed constant left every vendored copy
+rendering fields the inspector no longer reads, with no compile error, no test failure and no
+runtime error. Bot detection just stopped.
+
+They now live at `libs/nativeweb.web/templates/shared/` and are contributed as `AdditionalFiles`
+by `NativeWeb.Web.targets`. The logical names are unchanged — the render generator keys a
+template's name on the part after the last `/templates/` segment of its physical path — so
+**no call site changes**: `{{> shared/bot-traps Canary=BotCanary}}` resolves as it always did.
+
+**Delete your copy.** That is the whole upgrade:
+
+```
+rm templates/shared/antiforgery.html templates/shared/bot-traps.html
+rm templates/shared/banner-ok.html templates/shared/banner-error.html
+```
+
+Leaving one in place is a build error naming the file, not a silent last-wins — the generator
+keys its model dictionary on the logical path, so before this the second file to arrive replaced
+the first and which one that was depended on MSBuild item order.
+
+Two escape hatches, if deleting is not what you want:
+
+```xml
+<!-- keep your own copy of one, and say so -->
+<ItemGroup>
+  <NativeWebTemplateOverride Include="shared\bot-traps.html" />
+</ItemGroup>
+
+<!-- take none of them -->
+<PropertyGroup>
+  <NativeWebImportTemplates>false</NativeWebImportTemplates>
+</PropertyGroup>
+```
+
+An override logs a message naming what it replaced. Turning the import off entirely makes a call
+site to a framework template fail at compile time with NWT005, which is the right failure.
+
+---
+
 ## 2026-09-01 — `IScaffoldStore<T>.ListAsync` takes an ordering and a cursor
 
 **Seam:** `NativeWeb.Scaffold.IScaffoldStore<T>` — `libs/nativeweb.scaffold/IScaffoldStore.cs`.

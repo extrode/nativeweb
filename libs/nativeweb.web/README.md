@@ -158,6 +158,39 @@ cookie-free neighbours (`/feed`, `/sitemap.xml`, `/robots.txt`, `/about`) with `
 The policy never widens what the default policy refused: a request carrying `Authorization` or
 an authenticated user neither reads nor fills the shared store.
 
+## Templates it delivers
+
+Four partials ship with this library and are contributed to the consumer's compilation by
+`build/NativeWeb.Web.targets`, exactly as `wwwroot/_nativeweb/` is (spec 029). They render this
+library's own markup, so a fix to one reaches a product the way a fix to `Chrome.cs` does.
+
+| template | filled by |
+|---|---|
+| `shared/antiforgery.html` | `Chrome.For` — the token input, named as the antiforgery service names it |
+| `shared/bot-traps.html` | `Chrome.For` — the five fields `BotTraps.Inspect` reads back, and the canary |
+| `shared/banner-ok.html` | `Flash.Take`'s `Ok` |
+| `shared/banner-error.html` | `Flash.Take`'s `Error` |
+
+Call them by their logical names and nothing else is needed:
+
+```
+{{> shared/antiforgery FieldName=AntiforgeryFieldName Token=AntiforgeryToken}}
+{{> shared/bot-traps Canary=BotCanary}}
+```
+
+**The `{{if}}` guard on a banner lives at the call site, not in the partial.** A partial whose
+body is a bare else-less `{{if}}` is an unclean splice that bails the build-time HTML formatter
+for every page in the product, so `layout/page.html` writes:
+
+```
+{{if FlashOk.Length != 0}}{{> shared/banner-ok Message=FlashOk}}{{/if}}
+```
+
+**Keeping your own copy of one is a declaration, not a coincidence.** Two files at one logical
+path is a silent last-wins in the render generator, so an undeclared clash is a build error
+naming the file. Declare `<NativeWebTemplateOverride Include="shared\bot-traps.html" />`
+to keep yours, or set `<NativeWebImportTemplates>false</NativeWebImportTemplates>` to take none.
+
 ## What this library does not do
 
 - **No routing, no views, no controllers.** Rendering is `nativeweb.render`; declarative CRUD is
@@ -175,5 +208,12 @@ an authenticated user neither reads nor fills the shared store.
 headers, the static-page route map and its collision guard, the readiness cache, and the
 negotiation chooser, routes and cache keys (`NegotiationTests`, `NegotiatedEndpointsTests`,
 `NegotiatedCacheTests`).
+`BotTrapTemplateTests` reads the trap-field constants off `BotTraps` by reflection and asserts
+set equality against the `name="…"` attributes in `shared/bot-traps.html`, in both directions:
+the template naming an extra field is as wrong as it naming one fewer.
+`tests/nativeweb.repo.tests.unit/FrameworkTemplateTests.cs` refuses a copy reintroduced under a
+consumer without a declared override, and
+`tests/nativeweb.sample.tests.integration/ContactFlashTests.cs` drives both banners through a
+real post-redirect-get.
 `apps/sample` exercises the whole pipeline through a real entry point, and
 `tests/nativeweb.scaffold.tests.e2e` drives the published NativeAOT binary.

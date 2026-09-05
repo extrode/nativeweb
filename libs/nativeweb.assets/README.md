@@ -14,6 +14,16 @@ copy is a framework that cannot ship a CSS fix. The base path is underscore-pref
 a build error rather than a precedence question, and an app is free to have its own
 `wwwroot/css/base.css`.
 
+**Four shared templates followed on 2026-09-05 (spec 029 R1).** `shared/antiforgery.html`,
+`shared/bot-traps.html`, `shared/banner-ok.html` and `shared/banner-error.html` are at
+`libs/nativeweb.web/templates/shared/` and the same `.targets` contributes them as
+`AdditionalFiles`. Same argument, one library further in: they render framework markup from
+framework code, so `bot-traps.html` spelling five `BotTraps` field names as literal text made a
+renamed constant a silent failure in every vendored copy.
+`tests/nativeweb.repo.tests.unit/FrameworkTemplateTests.cs` refuses a reintroduced copy the way
+the parity test used to catch drift, and `NativeWeb.Web.targets` makes an undeclared one a build
+error.
+
 Third-party libraries are unchanged: each app still vendors its own htmx, Alpine and fonts, and
 `tests/nativeweb.repo.tests.unit/AssetParityTests.cs` still checks those trees agree between
 consumers. They are not the framework's to own — what is vendored is an upstream release, and the
@@ -29,5 +39,6 @@ version they roll back to stops being a plausible target. Today: `htmx-2.0.10.mi
 `apps/web` and the skeleton served before the htmx 4.0.0 upgrade.
 
 To change a framework asset: edit the one file under `libs/nativeweb.web/wwwroot/_nativeweb/`.
-Nothing to re-copy. To upgrade a vendored third-party library: apply it to every consumer's
-`wwwroot/vendor/` in the same branch, which is what the remaining parity test checks.
+Nothing to re-copy, and the same for a framework template under
+`libs/nativeweb.web/templates/`. To upgrade a vendored third-party library: apply it to every
+consumer's `wwwroot/vendor/` in the same branch, which is what the remaining parity test checks.
