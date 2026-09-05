@@ -212,13 +212,14 @@ public static class AdminSignIn
         IAntiforgery antiforgery = http.RequestServices.GetRequiredService<IAntiforgery>();
         AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
         LocaleCatalog locale = Locales.Get(http.GetLocale());
+        (string Ok, string Error) flash = Flash.Take(http);
 
         string html = Templates.Signin.Form.ToHtmlString(
             locale: locale,
             Title: locale["signin.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
-            FlashOk: "",
-            FlashError: "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             AntiforgeryFieldName: tokens.FormFieldName,
             SignedInAs: !refused && http.User.Identity?.IsAuthenticated == true ? http.User.Identity.Name ?? "" : "",
             Refused: refused,

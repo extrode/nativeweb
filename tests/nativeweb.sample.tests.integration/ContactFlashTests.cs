@@ -43,7 +43,7 @@ public sealed class ContactFlashTests
             ("email", "ada@example.test"),
             ("message", "Hello from the reference application."));
 
-        Assert.Equal(HttpStatusCode.Found, posted.StatusCode);
+        Assert.Equal(HttpStatusCode.SeeOther, posted.StatusCode);
         Assert.Equal("/contact", posted.Headers.Location?.ToString());
         Assert.Contains(
             SetCookies(posted),
@@ -78,7 +78,7 @@ public sealed class ContactFlashTests
             ("email", "ada@example.test"),
             ("message", "Hello."));
 
-        Assert.Equal(HttpStatusCode.Found, posted.StatusCode);
+        Assert.Equal(HttpStatusCode.SeeOther, posted.StatusCode);
 
         using HttpResponseMessage redirected = await client.GetAsync(new Uri("/contact", UriKind.Relative));
 
@@ -106,6 +106,47 @@ public sealed class ContactFlashTests
         string body = await client.GetStringAsync(new Uri("/contact", UriKind.Relative));
 
         Assert.DoesNotContain("class=\"banner", body, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A flash the redirect target never rendered is spent by whatever full page the
+    /// visitor reaches instead, because every full-page render site in the sample
+    /// takes it (`Flash.cs` requires this of a product).
+    /// </summary>
+    /// <remarks>
+    /// The cost of one site forgetting is not a missing banner. `PublicPageCache`
+    /// reads this cookie to decide a response cannot be shared, so an unspent flash
+    /// keeps its owner off the public output cache for the cookie's whole five-minute
+    /// life. `/` is an `AsPublicPage` route, which makes it the one to check.
+    /// </remarks>
+    [Fact]
+    public async Task A_flash_the_redirect_target_never_saw_is_spent_by_the_next_full_page()
+    {
+        using var factory = new SampleFormsFactory();
+        using HttpClient client = factory.CreateBrowserThatStopsAtRedirects();
+
+        Dictionary<string, string> carried = await Pages.CarriedFieldsAsync(client, "/contact");
+
+        using HttpResponseMessage posted = await Pages.PostAsync(
+            client,
+            carried,
+            "/contact",
+            ("name", "Ada"),
+            ("email", "ada@example.test"),
+            ("message", "Hello."));
+
+        Assert.Equal(HttpStatusCode.SeeOther, posted.StatusCode);
+
+        using HttpResponseMessage elsewhere = await client.GetAsync(new Uri("/", UriKind.Relative));
+
+        Assert.Contains("banner--ok", await elsewhere.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Contains(
+            SetCookies(elsewhere),
+            value => value.StartsWith(Flash.CookieName + "=;", StringComparison.OrdinalIgnoreCase));
+
+        using HttpResponseMessage contact = await client.GetAsync(new Uri("/contact", UriKind.Relative));
+
+        Assert.DoesNotContain("banner--ok", await contact.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
     private static string[] SetCookies(HttpResponseMessage response) =>

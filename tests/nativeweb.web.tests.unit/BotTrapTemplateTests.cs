@@ -35,6 +35,13 @@ namespace NativeWeb.Web.Tests.Unit;
 /// </remarks>
 public sealed partial class BotTrapTemplateTests
 {
+    /// <summary>
+    /// How many trap fields <see cref="BotTraps"/> declares. A floor, not a copy of
+    /// the names: the reflection below is what reads them, and this only stops the
+    /// reflection quietly finding none.
+    /// </summary>
+    private const int ExpectedTrapFields = 5;
+
     [Fact]
     public void TheTemplateNamesEveryTrapFieldAndNoOthers()
     {
@@ -76,15 +83,49 @@ public sealed partial class BotTrapTemplateTests
         Assert.Equal([expected], values);
     }
 
+    /// <summary>
+    /// The class is on the element that wraps the two offscreen traps, not merely
+    /// somewhere in the file.
+    /// </summary>
+    /// <remarks>
+    /// The class is what the stylesheet moves offscreen. On any other element the
+    /// two inputs are visible controls in the middle of the form, which a person
+    /// fills in and a bot does not -- the traps inverted, firing on everyone.
+    /// </remarks>
     [Fact]
     public void TheOffscreenWrapperUsesTheClassTheFrameworkDeclares()
     {
+        string wrapper = OffscreenWrapper();
+
         Assert.Contains(
             BotTraps.OffscreenClass,
-            ClassAttribute()
-                .Matches(TemplateSource())
-                .SelectMany(m => m.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)),
+            ClassAttribute().Match(wrapper).Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries),
             StringComparer.Ordinal);
+
+        string[] wrapped = [.. InputElement()
+            .Matches(wrapper)
+            .Select(m => NameAttribute().Match(m.Value).Groups[1].Value)];
+
+        Assert.Contains(BotTraps.OffscreenFilledName, wrapped, StringComparer.Ordinal);
+        Assert.Contains(BotTraps.OffscreenEmptyName, wrapped, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The opening tag of the element carrying a class, through to the end of the
+    /// template. The partial has one such element and it is the last thing in the
+    /// file bar the canary, so the tail is the wrapper's content.
+    /// </summary>
+    private static string OffscreenWrapper()
+    {
+        string source = TemplateSource();
+        Match opening = ClassAttribute().Match(source);
+
+        Assert.True(
+            opening.Success,
+            "shared/bot-traps.html carries no class attribute at all, so there is no wrapper to "
+                + "check and the two offscreen traps are visible controls in the form.");
+
+        return source[opening.Index..];
     }
 
     /// <summary>
@@ -100,10 +141,11 @@ public sealed partial class BotTrapTemplateTests
             .Select(f => (string)f.GetRawConstantValue()!)];
 
         Assert.True(
-            found.Length > 1,
-            "Found no trap-field constants on BotTraps, so this class asserts nothing. The naming "
-                + "convention this reflects over (a public const string ending in 'Name') has "
-                + "changed, and the template is now unguarded.");
+            found.Length >= ExpectedTrapFields,
+            $"Found {found.Length} trap-field constants on BotTraps and expected {ExpectedTrapFields}, "
+                + "so this class is asserting less than it was written to. The naming convention it "
+                + "reflects over (a public const string ending in 'Name') has changed, or a trap was "
+                + "removed. Either is a reason to look, not to lower this number.");
 
         return found;
     }

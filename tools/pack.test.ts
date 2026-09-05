@@ -6,6 +6,7 @@ import {
   isPackable,
   nuspecFacts,
   packableProjects,
+  packedDirectories,
   packageIdOf,
   parseArgs,
   readZip,
@@ -412,6 +413,87 @@ function goodNuspec(): string {
   <readme>README.md</readme>
   <repository type="git" url="https://github.com/extrode/nativeweb" commit="abc123" />
 </metadata></package>`;
+}
+
+Deno.test("packedDirectories reads the recursive globs and ignores single files", () => {
+  const xml = [
+    '<None Include="build@NativeWeb.Web.targets" Pack="true" PackagePath="build@" />',
+    '<None Include="wwwroot@**@*" Pack="true" PackagePath="wwwroot@" />',
+    '<None Include="templates@**@*" Pack="true" PackagePath="templates@" />',
+    '<None Include="notes@**@*" />',
+  ].join("").replaceAll("@", SLASH);
+
+  assertEquals(packedDirectories(xml), [
+    { directory: "wwwroot", packagePath: "wwwroot/" },
+    { directory: "templates", packagePath: "templates/" },
+  ]);
+});
+
+/**
+ * A wrong PackagePath is the one way the framework's templates and assets can go
+ * missing from a package that every other check here passes.
+ */
+Deno.test("verify rejects a package that flattened a packed directory", async () => {
+  const project = await projectPacking("templates", ["shared/banner-ok.html"]);
+
+  const path = await writeTempNupkg(goodNuspec(), {
+    readme: true,
+    extra: { "templates/banner-ok.html": "<div></div>" },
+  });
+
+  const problem = await verify(project, path, "0.1.0-dev");
+
+  assertStringIncludes(problem ?? "", "templates/shared/banner-ok.html");
+});
+
+Deno.test("verify accepts a package that kept the packed directory's shape", async () => {
+  const project = await projectPacking("templates", ["shared/banner-ok.html"]);
+
+  const path = await writeTempNupkg(goodNuspec(), {
+    readme: true,
+    extra: { "templates/shared/banner-ok.html": "<div></div>" },
+  });
+
+  assertEquals(await verify(project, path, "0.1.0-dev"), null);
+});
+
+Deno.test("verify rejects a NativeWeb.Web package whose templates moved off their path", async () => {
+  // The csproj and the package agree, so the layout check above passes: this is
+  // the wrong-PackagePath failure, which only the required-paths rule can see.
+  const project = await projectPacking("templates", ["shared/banner-ok.html"], "content");
+  project.packageId = "NativeWeb.Web";
+
+  const path = await writeTempNupkg(goodNuspec().replace("NativeWeb.Render", "NativeWeb.Web"), {
+    readme: true,
+    extra: { "content/shared/banner-ok.html": "<div></div>" },
+  });
+
+  const problem = await verify(project, path, "0.1.0-dev");
+
+  assertStringIncludes(problem ?? "", "templates/shared/antiforgery.html");
+});
+
+const SLASH = String.fromCharCode(92);
+
+/** A real project directory whose csproj packs one glob, with files under it. */
+async function projectPacking(directory: string, relatives: string[], packagePath = directory) {
+  const root = await Deno.makeTempDir();
+  const glob = `${directory}${SLASH}**${SLASH}*`;
+  const csproj = `${root}/x.csproj`;
+
+  await Deno.writeTextFile(
+    csproj,
+    `<Project><ItemGroup><None Include="${glob}" Pack="true" ` +
+      `PackagePath="${packagePath}${SLASH}" /></ItemGroup></Project>`,
+  );
+
+  for (const relative of relatives) {
+    const full = `${root}/${directory}/${relative}`;
+    await Deno.mkdir(full.slice(0, full.lastIndexOf("/")), { recursive: true });
+    await Deno.writeTextFile(full, "<div></div>");
+  }
+
+  return { csproj, directory: root, packageId: "NativeWeb.Render", hasReadme: true };
 }
 
 async function writeTempNupkg(

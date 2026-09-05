@@ -166,8 +166,8 @@ library's own markup, so a fix to one reaches a product the way a fix to `Chrome
 
 | template | filled by |
 |---|---|
-| `shared/antiforgery.html` | `Chrome.For` — the token input, named as the antiforgery service names it |
-| `shared/bot-traps.html` | `Chrome.For` — the five fields `BotTraps.Inspect` reads back, and the canary |
+| `shared/antiforgery.html` | the token input, named as `IAntiforgery` names it — `Chrome.For` supplies both, or a handler reads `GetAndStoreTokens` itself |
+| `shared/bot-traps.html` | the five fields `BotTraps.Inspect` reads back, plus the canary from `BotTraps.IssueCanary` — again via `Chrome.For` or directly |
 | `shared/banner-ok.html` | `Flash.Take`'s `Ok` |
 | `shared/banner-error.html` | `Flash.Take`'s `Error` |
 
@@ -213,7 +213,10 @@ set equality against the `name="…"` attributes in `shared/bot-traps.html`, in 
 the template naming an extra field is as wrong as it naming one fewer.
 `tests/nativeweb.repo.tests.unit/FrameworkTemplateTests.cs` refuses a copy reintroduced under a
 consumer without a declared override, and
-`tests/nativeweb.sample.tests.integration/ContactFlashTests.cs` drives both banners through a
-real post-redirect-get.
+`tests/nativeweb.sample.tests.integration/ContactFlashTests.cs` drives `shared/banner-ok.html`
+through a real post-redirect-get, and asserts that the response rendering it expires the cookie
+and that the next one does not render it. `shared/banner-error.html` has no request-level
+coverage: nothing in `apps/sample` sets an error flash, because its one failure path re-renders
+the form in place to keep what the visitor typed.
 `apps/sample` exercises the whole pipeline through a real entry point, and
 `tests/nativeweb.scaffold.tests.e2e` drives the published NativeAOT binary.

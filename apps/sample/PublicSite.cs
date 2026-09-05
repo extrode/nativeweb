@@ -64,13 +64,14 @@ internal static class PublicSite
         IReadOnlyList<PublishedArticle> recent = await articles
             .RecentAsync(PublicArticleEndpoints.PageSize, http.RequestAborted).ConfigureAwait(false);
         LocaleCatalog locale = Locales.Get(http.GetLocale());
+        (string Ok, string Error) flash = Flash.Take(http);
 
         return Templates.Site.Home.Result(
             locale: locale,
             Title: locale["hero.title"],
             AntiforgeryToken: "",
-            FlashOk: "",
-            FlashError: "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             Articles: recent);
     }
 
@@ -97,12 +98,14 @@ internal static class PublicSite
         }
 
         LocaleCatalog locale = Locales.Get(http.GetLocale());
+        (string Ok, string Error) flash = Flash.Take(http);
+
         return Templates.Articles.Show.Result(
             locale: locale,
             Title: detail.Value.Title,
             AntiforgeryToken: "",
-            FlashOk: "",
-            FlashError: "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             Article: detail.Value,
             Paragraphs: Paragraphs(detail.Value.Body));
     }
@@ -111,13 +114,14 @@ internal static class PublicSite
     {
         IReadOnlyList<TagSummary> all = await tags.ListAsync(http.RequestAborted).ConfigureAwait(false);
         LocaleCatalog locale = Locales.Get(http.GetLocale());
+        (string Ok, string Error) flash = Flash.Take(http);
 
         return Templates.Tags.Index.Result(
             locale: locale,
             Title: locale["tags.title"],
             AntiforgeryToken: "",
-            FlashOk: "",
-            FlashError: "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             Tags: all);
     }
 
@@ -139,13 +143,14 @@ internal static class PublicSite
         IReadOnlyList<PublishedArticle> tagged = await articles
             .ByTagAsync(slug, PublicArticleEndpoints.PageSize, http.RequestAborted).ConfigureAwait(false);
         LocaleCatalog locale = Locales.Get(http.GetLocale());
+        (string Ok, string Error) flash = Flash.Take(http);
 
         return Templates.Tags.Show.Result(
             locale: locale,
             Title: tag.Value.Name,
             AntiforgeryToken: "",
-            FlashOk: "",
-            FlashError: "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             Name: tag.Value.Name,
             Articles: tagged);
     }

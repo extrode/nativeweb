@@ -136,10 +136,12 @@ Suite counts after the change — sample unit 231, sample integration 32, web un
 and `deno run -A tools/stamp-check.ts` reports every step `ok` with non-zero test counts against
 a stamped product that carries no `templates/shared/` at all.
 
-**R2's package half is unproven and does not become true by this spec closing.** Both in-repo
-consumers take `NativeWeb.Web` by `ProjectReference`, and the stamp check runs in mixed mode, so
-what is proved is that a `ProjectReference` consumer receives the templates and that
-`nativeweb.web.csproj` packs `templates\**\*` into the `.nupkg`. That a `PackageReference`
+**R2's package half is proved as far as the package, and no further.** Both in-repo consumers
+take `NativeWeb.Web` by `ProjectReference`, and the stamp check runs in mixed mode. What is
+proved is that a `ProjectReference` consumer receives the templates, and that a built
+`NativeWeb.Web.nupkg` carries all four at `templates/shared/` — `tools/pack.ts` asserts those
+four paths by name and refuses the package otherwise, which was demonstrated by moving the
+`PackagePath` and watching the pack run fail. That a `PackageReference`
 consumer restoring from the feed receives them is unexercised, because nothing has been
 published: no `v*` tag exists, and the publish gate requires three green CI jobs on the tagged
 commit while all three fail on a JauntyQ package 403. The mechanism is the one `wwwroot/` already

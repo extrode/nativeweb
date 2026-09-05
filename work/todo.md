@@ -2089,3 +2089,20 @@ an answer different from the one the audit assumed.
   `0006_permissions.sql` seeds four literal `sample:article.*` names.~~ **Fixed 2026-09-04** on
   `fix/024-permission-followups`: `ArticlePermissions.All` on both, with `SeedGrantParityTests`
   parsing the migration's `VALUES` list and comparing it to the generated constants.
+- `libs/nativeweb.render.generator/RenderTemplateGenerator.cs:52` — the comment says a
+  same-logical-path collision "falls out as NWT009 via class-name collision". It cannot: line 54
+  does `models[path] = …`, so the second file replaces the first before the emitter runs, and
+  NWT009 only fires for *different* logical paths colliding on a class name. Found reviewing spec
+  029, whose `NativeWeb.Web.targets` states the real behaviour; out of that spec's scope to fix.
+- `NativeWeb.Web.targets` scopes its clash check to `$(MSBuildProjectDirectory)/templates`, but the
+  generator keys on the last `/templates/` segment of *any* `AdditionalFiles` path. A consumer
+  whose templates arrive through some other glob can still collide with a framework template
+  silently.
+- Nothing marks `libs/nativeweb.web/templates/**` as a watched input for a consumer, so an edit to
+  a framework template does not make `dotnet watch` or the IDE's up-to-date check rebuild the
+  product. `apps/sample/nativeweb.sample.csproj` has a `<Watch>` for its own templates and there is
+  no equivalent for the framework's.
+- The design system exists in three byte-identical copies. `scripts/cleanup/015-framework-web-seam.ps1`
+  removes the two that spec 015 superseded and has never been run.
+- `scripts/cleanup/fable-review-findings.ps1` globs `*fable-review*`, which is wider than the
+  synopsis says it removes.

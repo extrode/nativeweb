@@ -50,6 +50,13 @@ public sealed class FrameworkTemplateTests
     {
         string root = RepoRoot();
 
+        Assert.True(
+            Directory.Exists(Path.Combine(root, templates)),
+            $"{templates} does not exist, so this theory case compares the framework's templates "
+                + "against nothing and passes whatever the consumer carries. Either the directory "
+                + "moved and FrameworkTemplateTests.Consumers is stale, or this consumer is gone "
+                + "and its row should be too.");
+
         string[] framework = LogicalPaths(Path.Combine(root, FrameworkTemplates));
         string[] mine = LogicalPaths(Path.Combine(root, templates));
         string[] declared = Overrides(Path.Combine(root, project));
@@ -101,6 +108,12 @@ public sealed class FrameworkTemplateTests
     /// <c>tests/nativeweb.render.tests.unit/templates</c> holds generator
     /// fixtures, references <c>nativeweb.render</c> alone, and is not a consumer
     /// however much its directory name looks like one.
+    /// </para>
+    /// <para>
+    /// It reads <c>&lt;Import&gt;</c> only, which is what a <c>ProjectReference</c>
+    /// consumer writes. A <c>PackageReference</c> consumer gets the same targets
+    /// imported by NuGet on package id and would be invisible here — there is no
+    /// such project in this repository, and one arriving is a reason to extend this.
     /// </remarks>
     [Fact]
     public void EveryProjectThatReceivesFrameworkTemplatesIsDeclaredHere()
@@ -128,6 +141,17 @@ public sealed class FrameworkTemplateTests
             undeclared.Length == 0,
             "These projects receive the framework's templates and are not covered by the override "
                 + $"check. Add each to FrameworkTemplateTests.Consumers: {string.Join(", ", undeclared)}");
+
+        string[] stale = [.. Consumers
+            .Select(c => c.Templates)
+            .Except(importers, StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)];
+
+        Assert.True(
+            stale.Length == 0,
+            "These rows in FrameworkTemplateTests.Consumers name a project that no longer imports "
+                + "NativeWeb.Web.targets, so the theory cases built from them assert nothing about "
+                + $"anything: {string.Join(", ", stale)}");
     }
 
     private static bool ImportsTheWebTargets(string project) =>

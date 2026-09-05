@@ -155,13 +155,14 @@ internal static class PublicArticleEndpoints
         AntiforgeryTokenSet tokens)
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
+        (string Ok, string Error) flash = Flash.Take(http);
 
         return Templates.Articles.Index.Result(
             locale: locale,
             Title: locale["title.articles"],
             AntiforgeryToken: tokens.RequestToken ?? "",
-            FlashOk: "",
-            FlashError: "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             Query: query ?? "",
             Take: take,
             AntiforgeryFieldName: tokens.FormFieldName,
