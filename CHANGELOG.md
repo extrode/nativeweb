@@ -13,6 +13,33 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Changed
 
+- **JauntyQ resolves from packages by default, and a bare `dotnet build` works again.**
+  JauntyQ split: its generator and runtime moved to a public core repository, so the sibling
+  `../jauntyq` checkout stopped carrying either project this repository referenced. Six sites
+  pointed at the half that left, and every local build failed fast until
+  `-p:JauntyQUsePackages=true` was passed by hand. The default is inverted now — packages by
+  default, `-p:JauntyQUsePackages=false` for a checkout — and the probe block, the two-depth
+  `.worktrees` probe and `EnsureJauntyQRoot` are untouched, so checkout mode is intact for the day
+  the public core is cloned.
+
+  `NativeWeb.slnx` loses the two dead solution members, which is what makes a root
+  `dotnet build` possible at all: that listing was unconditional, so a solution-wide restore hit
+  `MSB3202` in package mode too, and `.github/workflows/ci.yml` worked around it with a
+  `dotnet sln remove` before restore plus a `git checkout --` before the first test step. Both
+  steps are gone, along with the two tests that paired them. `skeleton/.github/workflows/ci.yml`
+  loses the `extrode/jauntyq` clone from both jobs and the workflow-level `JauntyQRoot`;
+  `scripts/deploy/build.sh` stops asking for the mode that cannot restore.
+
+  Verified with **no flag on the command line**: the solution builds 0 warnings 0 errors, which it
+  had never done in package mode; `apps/sample` the same under repo-wide `TreatWarningsAsErrors`;
+  render 219, forms 148, scaffold 268, permissions 151, sample 231 all at baseline, and repo 189
+  (183 plus seven new facts, minus a merged pair). `JauntyQResolutionModeTests` asks MSBuild for
+  the resolved property and item lists rather than reading the props file, and five breaks were
+  checked — one of which found the new test's own external-project check running paths through a
+  helper that trimmed off the prefix it was looking for. `NativeWeb.*` package mode is **not**
+  flipped with it: none has published. Decision
+  `docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md`.
+
 - **Eleven NuGet pins bumped to current, the Roslyn one last and for a different reason.**
   AngleSharp 1.6.0 -> 1.7.3,
   Geralt 4.3.0 -> 4.4.0, `Microsoft.AspNetCore.Mvc.Testing` and `.TestHost` 10.0.7 -> 10.0.11,

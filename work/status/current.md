@@ -6,14 +6,21 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **JauntyQ package mode is the default. Building on `chore/jauntyq-package-default`, 2026-09-05.**
+- **JauntyQ package mode is the default. Done on `chore/jauntyq-package-default`, 2026-09-05.**
   JauntyQ split its generator and runtime out to a public core repository, so `../jauntyq` no
   longer carries either csproj this repository referenced. Six sites pointed at the half that
   left, `NativeWeb.slnx` among them, and every local build failed fast until
   `-p:JauntyQUsePackages=true` was passed by hand. The flip inverts one property: package mode is
   the default, `-p:JauntyQUsePackages=false` selects a checkout. The probe block and
   `EnsureJauntyQRoot` are untouched, so checkout mode is intact for the day the public core is
-  cloned. Plan in `docs/plans/2026-09-05-011-jauntyq-package-mode-default.md`.
+  cloned. `NativeWeb.slnx` loses its two dead members, which is what makes a root `dotnet build`
+  work at all, and with them go the `dotnet sln remove` / `git checkout --` pair in
+  `.github/workflows/ci.yml` and the `extrode/jauntyq` clone in the skeleton's. Every tier at
+  baseline with no flag on the command line - render 219, forms 148, scaffold 268, permissions
+  151, sample 231, repo 189 (183 plus seven new, minus a merged pair) - and the solution builds 0
+  warnings, which it had never done in package mode. Two things left for the user: the
+  pre-split sentinel, and the `AGENTS.md` licence sentence that no longer describes how we build.
+  Plan in `docs/plans/2026-09-05-011-jauntyq-package-mode-default.md`, decision 012.
 
 - **Ten outdated NuGet pins bumped. Done on `chore/package-bumps`, 2026-09-05.** Raised from the
   NuGet Solution "Updates" list: AngleSharp, Geralt, Mvc.Testing, TestHost, Logging.Abstractions,

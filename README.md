@@ -17,39 +17,30 @@ everything else.
 | .NET SDK | `10.0.100` or later feature band (`global.json`) | 10.0.203 |
 | PostgreSQL | any recent server; **optional to start**, see below | psql 18.2 |
 | PowerShell | 7+, for `tools/` and `scripts/` | 7.6.4 |
-| A JauntyQ checkout | **beside this one**, see the note | — |
+| The JauntyQ packages | restorable from `nuget.config`'s `jauntyq-github` source | `JauntyQ.*` 0.4.0 |
 
-**The JauntyQ prerequisite is load-bearing.** All data access goes through JauntyQ's source
-generator, so nothing here builds without it, and it is used from a local checkout only and may not
-be redistributed (`AGENTS.md`). Three things follow, each verified rather than assumed:
+**JauntyQ is load-bearing and needs no checkout.** All data access goes through its source
+generator, so nothing here builds without it, and its generated output is licensed for
+self-hosted-SaaS use only (`AGENTS.md`). Since 2026-09-05 it resolves **from packages by default**:
+`dotnet build` at the root or on any project just works, and no sibling `jauntyq/` is expected or
+probed. Decision `docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md` records why the
+default moved — JauntyQ split its generator and runtime out to a public core repository, and the
+sibling checkout stopped carrying either project this repository referenced.
 
-- **The solution build needs `jauntyq` as a literal sibling.** `NativeWeb.slnx` lists JauntyQ's two
-  projects as solution members unconditionally, so anywhere else fails with `error MSB3202`. Note
-  that `-p:JauntyQUsePackages=true` does **not** rescue it: that flag governs project references,
-  not solution membership.
-- **A per-project build probes for the same sibling, and no longer cares what the parent is
-  called.** `Directory.Build.props` tries `..\jauntyq` and `..\..\..\jauntyq`, the second being the
-  depth a `.worktrees/<branch>` or `.claude/worktrees/<name>` checkout sits at. Both probes now
-  agree with `NativeWeb.slnx`, which has always named `../jauntyq/...` relatively. Until
-  2026-08-26 they instead hard-coded an ancestor literally named `extrode-legacy-org.com`, so a renamed
-  source root broke every per-project build while the solution build kept working — the fix, and
-  the fix is in `Directory.Build.props`.
-  `-p:JauntyQRoot=<path>` remains the override for a checkout that is not a sibling.
-- **With no checkout anywhere, the build stops with a clear message** rather than a wall of
-  `CS0246`: *"JauntyQ checkout not found at '…'. Pass `-p:JauntyQRoot=<path>` or build with
-  `-p:JauntyQUsePackages=true`."*
+Two things follow, each verified rather than assumed:
 
-```
-your-source-root/
-  jauntyq/      <- the sibling the solution expects
-  NativeWeb/    <- this repository
-```
-
-Package mode (`-p:JauntyQUsePackages=true`) is what CI uses, and it needs the `jauntyq-github`
-source in `nuget.config` to be credentialed — see the comments in that file for the one-time
-`gh auth token` setup. It appears to work with no credentials on a machine whose NuGet cache is
-already populated from a previous `dotnet pack`, which is a trap worth knowing about: the cache is
-standing in for the feed, and the same command fails on a clean machine.
+- **The feed needs credentialing once.** `nuget.config` declares the `jauntyq-github` source and
+  deliberately carries no password; see the comments in that file for the `gh auth token` setup.
+  It appears to work with no credentials on a machine whose NuGet cache is already populated from
+  a previous `dotnet pack`, which is a trap worth knowing about: the cache is standing in for the
+  feed, and the same command fails on a clean machine with `NU1101`.
+- **Checkout mode is still there, behind `-p:JauntyQUsePackages=false`.** It expects `jauntyq` as a
+  sibling; `Directory.Build.props` probes `..\jauntyq` and `..\..\..\jauntyq`, the second being the
+  depth a `.worktrees/<branch>` or `.claude/worktrees/<name>` checkout sits at, and neither names
+  an ancestor directory. `-p:JauntyQRoot=<path>` overrides the location. **It does not resolve
+  against today's `jauntyq`**: the sentinel it probes for is a pre-split path, so selecting that
+  mode stops with *"JauntyQ checkout not found at '…'"* until someone clones the public core and
+  repoints it.
 
 ## Run it
 
@@ -73,8 +64,8 @@ epass now.
 ## Build and test
 
 ```
-dotnet build                                    # solution; needs the sibling jauntyq checkout
-dotnet build apps/sample                        # one project; two-depth probe, no sibling needed
+dotnet build                                    # the whole solution
+dotnet build apps/sample                        # one project
 dotnet test --project tests/nativeweb.render.tests.unit   # one tier; the full list is in getting-started
 ```
 
@@ -111,12 +102,13 @@ pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination C:\path\to\man
 pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination C:\path\to\manzil.my -Execute
 ```
 
-A stamped product consumes the framework libs dual-mode (spec 003 R1), mirroring the JauntyQ
-pattern: sibling checkout via `$(NativeWebRoot)` for co-development, or the `NativeWeb.*`
-packages with `-p:NativeWebUsePackages=true`. `dotnet pack` on `libs/nativeweb.*` produces
-the packages — **private feed only**; the JauntyQ license limits generated output to
-self-hosted use, and no feed exists yet (known gap, see the stamped README), so checkout
-mode is the working path today.
+A stamped product consumes the framework libs dual-mode (spec 003 R1): sibling checkout via
+`$(NativeWebRoot)` for co-development, or the `NativeWeb.*` packages with
+`-p:NativeWebUsePackages=true`. `dotnet pack` on `libs/nativeweb.*` produces the packages —
+**private feed only**; the JauntyQ license limits generated output to self-hosted use, and no
+`NativeWeb.*` package has published yet (known gap, see the stamped README), so checkout mode
+is the working path for the framework. Its JauntyQ half went the other way on 2026-09-05 and
+resolves from packages by default, needing no checkout at all.
 
 ## License
 

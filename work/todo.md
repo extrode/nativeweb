@@ -2119,14 +2119,26 @@ an answer different from the one the audit assumed.
   `libs/`, outside the xUnit1051 suppression the two `tests/Directory.Build.props` files added. It
   builds clean today, so nothing is broken; the first call site there that takes a
   `CancellationToken` becomes a build error rather than a warning.
-- `tests/nativeweb.repo.tests.unit/PackageFeedConfigTests.cs:234` names `apps/web/nativeweb.web.csproj`
-  in a comment as the path its bounded regex must not swallow. That project left the repo; the
-  command it guards is `apps/sample/nativeweb.sample.csproj` now. The regex is right, the comment
-  misdirects.
+- ~~`tests/nativeweb.repo.tests.unit/PackageFeedConfigTests.cs:234` names `apps/web/nativeweb.web.csproj`
+  in a comment as the path its bounded regex must not swallow.~~ **CLOSED 2026-09-05**: the regex
+  and its comment both went with `SolutionRemovePattern`, which existed only to check the
+  `dotnet sln remove` step that the JauntyQ split made unnecessary.
 
 
-- `Directory.Build.props:118` probes `$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj`,
-  but the jauntyq checkout has renamed its projects to `Extrode.JauntyQ.*` and has no
-  `JauntyQ.Generator` directory, so checkout mode fails fast on every build here. Package mode
-  (`JauntyQUsePackages=true`) is unaffected and is what the 2026-09-05 tier runs used. Found while
-  bumping the Roslyn pin; not fixed, because picking the new sentinel is a JauntyQ question.
+- ~~`Directory.Build.props:118` probes `$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj`,
+  but the jauntyq checkout has renamed its projects to `Extrode.JauntyQ.*`~~ **CLOSED 2026-09-05,
+  and the diagnosis above was wrong.** It is not a rename: JauntyQ **split**, moving its generator
+  and runtime to a public core repository that is not checked out here at all, so `../jauntyq`
+  carries only the premium half. Package mode is the default now
+  (`docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md`) and a bare `dotnet build`
+  works again.
+
+  **What is still open from it**, and both need a decision rather than work:
+  - The `EnsureJauntyQRoot` sentinel in `Directory.Build.props` and in
+    `skeleton/Directory.Build.props` still names the pre-split csproj. Whoever clones the public
+    core repoints both, along with the two `ProjectReference` pairs, in the same commit. Not
+    guessed here: a probe pointing at an unverified path is the `extrode-legacy-org.com` breakage
+    `JauntyQRootProbeTests` exists to prevent.
+  - `AGENTS.md` says "JauntyQ is used from a local checkout only." The default build resolves
+    packages now, so that no longer describes how we build. It is a licence statement, left
+    verbatim for the user to rule on.
