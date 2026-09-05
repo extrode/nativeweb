@@ -139,10 +139,10 @@
        JauntyQUsePackages flips the mode with nothing on the command line to show
        for it. -->
   <Target Name="ReportJauntyQResolution" BeforeTargets="BeforeBuild">
-    <Message Importance="normal"
+    <Message Importance="high"
              Condition="'$(JauntyQUsePackages)' != 'false'"
              Text="JauntyQ: packages (pinned in Directory.Packages.props)." />
-    <Message Importance="normal"
+    <Message Importance="high"
              Condition="'$(JauntyQUsePackages)' == 'false'"
              Text="JauntyQ: checkout at '$(JauntyQRoot)'." />
   </Target>

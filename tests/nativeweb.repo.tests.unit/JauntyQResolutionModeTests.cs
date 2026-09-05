@@ -32,6 +32,9 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </remarks>
 public sealed class JauntyQResolutionModeTests
 {
+    private static readonly string[] ResolutionProperties =
+        ["JauntyQUsePackages", "NativeWebUsePackages"];
+
     private static readonly string SampleProject =
         Path.Combine(RepoRoot(), "apps", "sample", "nativeweb.sample.csproj");
 
@@ -57,7 +60,7 @@ public sealed class JauntyQResolutionModeTests
     [Fact]
     public void TheSkeletonStillDefaultsToANativeWebCheckout()
     {
-        Assert.NotEqual("true", Property(SkeletonProject, "NativeWebUsePackages"));
+        Assert.Equal(string.Empty, Property(SkeletonProject, "NativeWebUsePackages"));
     }
 
     [Fact]
@@ -140,6 +143,15 @@ public sealed class JauntyQResolutionModeTests
             UseShellExecute = false,
         };
 
+        // MSBuild reads a bare environment variable as a property, so an inherited
+        // JauntyQUsePackages answers every question below before Directory.Build.props is
+        // consulted. Measured 2026-09-05: with JauntyQUsePackages=true exported, deleting the
+        // default assignment outright left all seven facts green.
+        foreach (string inherited in ResolutionProperties)
+        {
+            start.Environment.Remove(inherited);
+        }
+
         start.ArgumentList.Add("msbuild");
         start.ArgumentList.Add(project);
         start.ArgumentList.Add("-nologo");
@@ -152,7 +164,10 @@ public sealed class JauntyQResolutionModeTests
         using Process process = Process.Start(start)
             ?? throw new InvalidOperationException("dotnet msbuild did not start.");
 
-        string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+        // stderr is drained on its own task rather than after stdout: draining them in sequence
+        // deadlocks whenever the second pipe's buffer fills while the first is still being read.
+        Task<string> errors = process.StandardError.ReadToEndAsync();
+        string output = process.StandardOutput.ReadToEnd() + errors.GetAwaiter().GetResult();
         process.WaitForExit();
 
         return (process.ExitCode, output);

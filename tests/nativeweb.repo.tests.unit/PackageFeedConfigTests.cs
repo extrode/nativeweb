@@ -172,9 +172,8 @@ public sealed partial class PackageFeedConfigTests
         string solution = File.ReadAllText(Path.Combine(root, "NativeWeb.slnx"));
         string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
 
-        // The raw path, NOT Normalize()d: that helper exists to compare a solution path with a
-        // workflow one and trims the leading dots off to do it, which is the exact prefix this
-        // is looking for.
+        // "../" is the whole assertion, so the path is compared raw. Trimming leading dots to
+        // normalise it -- which the helper this test replaced did -- makes the check vacuous.
         string[] external = [.. SolutionProjectPattern().Matches(solution)
             .Select(m => m.Groups[1].Value.Replace('\\', '/'))
             .Where(p => p.StartsWith("../", StringComparison.Ordinal))];
@@ -187,9 +186,6 @@ public sealed partial class PackageFeedConfigTests
         Assert.DoesNotContain("dotnet sln NativeWeb.slnx remove", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("git checkout -- NativeWeb.slnx", workflow, StringComparison.Ordinal);
     }
-
-    /// <summary>Compare paths, not separators: the solution writes them one way and the workflow the other.</summary>
-    private static string Normalize(string path) => path.Replace('\\', '/').TrimStart('.', '/');
 
     [GeneratedRegex(@"dotnet nuget update source\s+(\S+)")]
     private static partial Regex UpdateSourcePattern();

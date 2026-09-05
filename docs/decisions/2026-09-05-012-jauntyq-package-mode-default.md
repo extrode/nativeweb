@@ -89,6 +89,27 @@ The third of those found a defect in the new test itself: the external-project c
 through `Normalize()`, which trims the leading dots, so `p.StartsWith("..")` could never be true
 and the assertion was vacuous. Fixed in `cd14c7d` and re-broken to confirm it fires.
 
+## What the review caught
+
+Two lenses (correctness, consequence) ran independently over the branch diff and reported the
+same two defects, both confirmed by a third worker that was asked to refute them and could not.
+
+| finding | where | fix |
+|---|---|---|
+| A stamped product's CI could no longer restore. Package mode maps `JauntyQ.*` to `framework-github` alone, GitHub Packages serves no read anonymously, and the skeleton workflow had no credential step at all — I removed the jauntyq clone without adding what package mode needs in its place. | `skeleton/.github/workflows/ci.yml` | an `Authenticate to GitHub Packages` step in each of the two jobs that restore, on `FRAMEWORK_CHECKOUT_TOKEN` rather than the automatic `GITHUB_TOKEN`, which is scoped to the product's own repository and cannot read the framework owner's packages at any permission level. `SkeletonFrameworkResolutionTests.EverySkeletonJobThatRestores_CredentialsTheJauntyQSource` now fails naming the job. |
+| Three of the seven new facts were vacuous. `Msbuild` started the child with the inherited environment, and MSBuild reads a bare environment variable as a property, so an exported `JauntyQUsePackages` answered before `Directory.Build.props` was consulted. Demonstrated: with it exported, deleting the default assignment outright left all seven green. | `tests/nativeweb.repo.tests.unit/JauntyQResolutionModeTests.cs` | the helper removes `JauntyQUsePackages` and `NativeWebUsePackages` from the child environment. Re-falsified the same way: with the variable still exported, deleting the default now fails `PackagesAreTheDefaultWithNoFlagOnTheCommandLine`. |
+
+Six smaller ones, each fixed: `ReportJauntyQResolution` printed at `Importance="normal"`, below the
+default console verbosity, so it never appeared anywhere it mattered (now `high`, matching the
+skeleton's twin); `PackageFeedConfigTests.Normalize` had no caller left; the child process drained
+stdout then stderr in sequence, which deadlocks if the second pipe fills; a reflowed comment in
+`.github/workflows/ci.yml` read as a fragment; `TheSkeletonStillDefaultsToANativeWebCheckout`
+asserted `NotEqual("true")`, which also passes for a typo; and five comment blocks still described
+checkout mode as the default (`NuGet.config`, `skeleton/nuget.config` twice,
+`skeleton/Directory.Packages.props` twice, `skeleton/libs/__product__.data/__product__.data.csproj`).
+
+Nothing was refuted. Repo tier after the fixes: **190**, 0 failed, 0 skipped.
+
 ## Open
 
 - **`AGENTS.md`: "JauntyQ is used from a local checkout only."** After this change the default
@@ -98,7 +119,16 @@ and the assertion was vacuous. Fixed in `cd14c7d` and re-broken to confirm it fi
 - **Package mode restores from the machine's NuGet cache, not a reachable feed.** 0.4.0 is present
   in `~/.nuget/packages`; a clean machine gets `NU1101`. Pre-existing and documented in
   `NuGet.config`'s own comment — but the default path depends on it now, which is a real widening
-  of an existing hole.
+  of an existing hole. `scripts/deploy/build.sh` is the sharp end: it credentials nothing and no
+  caller does it for the script, so a release from a cold host fails mid-publish. Left ungated
+  here because the alternative it replaced could not restore at all.
+- **The build-time trust boundary moved, and nothing pins it.** `JauntyQ.Generator` runs inside
+  `csc`. On the default path it now arrives from a mutable private feed rather than a readable
+  sibling checkout, on every machine, with no `packages.lock.json` anywhere in the repo
+  (`RestorePackagesWithLockFile` has no occurrences) and no signature check. `Version="0.4.0"` is a
+  floor, not an exact pin, so a cache-resident 0.4.0 built from any local jauntyq tree is preferred
+  over the feed and `build.sh` stamps only the nativeweb commit into `RELEASE`. Raised by the
+  consequence lens; a lockfile is separate work.
 - **Whether to clone the public JauntyQ core as a sibling.** If it is cloned, checkout mode needs
   that repository's real project paths in both `ProjectReference` pairs and in both `Ensure*Root`
   sentinels.

@@ -6,7 +6,7 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **JauntyQ package mode is the default. Done on `chore/jauntyq-package-default`, 2026-09-05.**
+- **JauntyQ package mode is the default. Done on `chore/jauntyq-package-default`, 2026-09-05 (reviewed, two lenses, 2 confirmed defects fixed).**
   JauntyQ split its generator and runtime out to a public core repository, so `../jauntyq` no
   longer carries either csproj this repository referenced. Six sites pointed at the half that
   left, `NativeWeb.slnx` among them, and every local build failed fast until

@@ -310,6 +310,62 @@ public sealed partial class SkeletonFrameworkResolutionTests
         }
     }
 
+    /// <summary>
+    /// Every job that restores credentials the source JauntyQ.* is mapped to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// JauntyQ resolves from packages by default since 2026-09-05, and
+    /// <c>skeleton/nuget.config</c> maps <c>JauntyQ.*</c> to <c>framework-github</c> alone --
+    /// GitHub Packages, which serves no read anonymously. A job that runs a restore without
+    /// this step dies NU1301/401 on JauntyQ.Generator before it compiles anything, which is
+    /// how this workflow shipped for the length of one review.
+    /// </para>
+    /// <para>
+    /// The credential is FRAMEWORK_CHECKOUT_TOKEN, not the automatic GITHUB_TOKEN: a stamped
+    /// product lives in its own repository, so the automatic token is scoped there and cannot
+    /// read the framework owner's packages at any permission level.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EverySkeletonJobThatRestores_CredentialsTheJauntyQSource()
+    {
+        string workflow = SkeletonWorkflow();
+        string mapped = File.ReadAllText(Path.Combine(RepoRoot(), "skeleton", "nuget.config"));
+
+        string? source = XDocument.Parse(mapped)
+            .Descendants("packageSource")
+            .Where(e => e.Elements("package")
+                .Any(p => (string?)p.Attribute("pattern") == "JauntyQ.*"))
+            .Select(e => (string?)e.Attribute("key"))
+            .SingleOrDefault();
+
+        Assert.False(string.IsNullOrEmpty(source), "skeleton/nuget.config maps no source for JauntyQ.*");
+
+        List<string> uncredentialed = [];
+        foreach ((string name, string body) in Jobs(workflow))
+        {
+            bool restores = body.Contains("dotnet restore", StringComparison.Ordinal)
+                || body.Contains("dotnet publish", StringComparison.Ordinal);
+
+            bool credentials = body.Contains(
+                $"dotnet nuget update source {source}",
+                StringComparison.Ordinal);
+
+            if (restores && !credentials)
+            {
+                uncredentialed.Add(name);
+            }
+        }
+
+        Assert.True(
+            uncredentialed.Count == 0,
+            $"skeleton job(s) restore without credentialing '{source}', which JauntyQ.* maps to: "
+                + string.Join(", ", uncredentialed));
+
+        Assert.DoesNotContain("secrets.GITHUB_TOKEN", workflow, StringComparison.Ordinal);
+    }
+
     /// <summary>The skeleton ships a nuget.config, and its mapping is total.</summary>
     /// <remarks>
     /// <para>

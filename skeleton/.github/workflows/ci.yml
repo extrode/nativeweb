@@ -21,7 +21,10 @@ env:
   # out to a public core repository, so cloning extrode/jauntyq no longer yields
   # the two csproj paths a product references and checkout mode cannot work at
   # all; package mode is the default now and needs no clone, no JauntyQRoot and
-  # no token. The clone step and the JauntyQRoot variable were removed with it.
+  # no token -- but it DOES need a credential on the framework-github source,
+  # because nuget.config maps JauntyQ.* there alone and GitHub Packages will not
+  # serve a read anonymously. That is the "Authenticate to GitHub Packages" step
+  # in each job below. The clone step and the JauntyQRoot variable were removed.
   #
   # A runner has no sibling checkout for the `$(NativeWebRoot)` probe in
   # Directory.Build.props, so the step below clones the framework and that
@@ -161,6 +164,23 @@ jobs:
           PGPASSWORD: ci_test_password
         run: bash db/migrate.sh
 
+      # JauntyQ resolves from packages now, and nuget.config maps JauntyQ.* to
+      # framework-github alone -- GitHub Packages, which needs auth even to READ.
+      # Without this step `dotnet restore` dies NU1301/401 on JauntyQ.Generator
+      # before anything else in the job runs.
+      #
+      # FRAMEWORK_CHECKOUT_TOKEN is reused rather than GITHUB_TOKEN on purpose:
+      # this product lives in its own repository, so the automatic token is
+      # scoped THERE and cannot read extrode's packages whatever its permissions
+      # block says. The secret must therefore carry `read:packages` alongside the
+      # repository read it already needs for the framework checkout above.
+      - name: Authenticate to GitHub Packages
+        run: >
+          dotnet nuget update source framework-github
+          --username ${{ github.actor }}
+          --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+          --store-password-in-clear-text
+
       - name: Restore
         run: dotnet restore
 
@@ -252,5 +272,22 @@ jobs:
       # say was a third-party action that was redundant and broke the publish
       # path. If the tools are genuinely absent the publish fails with a named
       # error, never a silent fallback.
+      # JauntyQ resolves from packages now, and nuget.config maps JauntyQ.* to
+      # framework-github alone -- GitHub Packages, which needs auth even to READ.
+      # Without this step `dotnet restore` dies NU1301/401 on JauntyQ.Generator
+      # before anything else in the job runs.
+      #
+      # FRAMEWORK_CHECKOUT_TOKEN is reused rather than GITHUB_TOKEN on purpose:
+      # this product lives in its own repository, so the automatic token is
+      # scoped THERE and cannot read extrode's packages whatever its permissions
+      # block says. The secret must therefore carry `read:packages` alongside the
+      # repository read it already needs for the framework checkout above.
+      - name: Authenticate to GitHub Packages
+        run: >
+          dotnet nuget update source framework-github
+          --username ${{ github.actor }}
+          --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+          --store-password-in-clear-text
+
       - name: Publish (NativeAOT)
         run: dotnet publish apps/__product__/__product__.csproj -c Release

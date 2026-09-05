@@ -17,8 +17,10 @@
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
   </ItemGroup>
 
-  <!-- Package mode for the source-generator/framework dependencies
-       (-p:JauntyQUsePackages=true / -p:NativeWebUsePackages=true).
+  <!-- Package pins for the source-generator/framework dependencies. The JauntyQ.*
+       pair is load-bearing on every build: package mode is JauntyQ's default since
+       2026-09-05. The NativeWeb.* five apply in package mode only
+       (-p:NativeWebUsePackages=true).
 
        THE NativeWeb.* PINS ARE NOT FREE TEXT. Directory.Build.props in the
        NativeWeb repository declares one VersionPrefix and every NativeWeb.*
@@ -31,8 +33,10 @@
        KNOWN GAP, and it is now half the size it was: spec 028 built the pack
        and the tag-triggered publish (.github/workflows/publish.yml), so a
        release puts these versions on the feed. Until a v0.1.0 tag is pushed
-       nothing is there to restore, and a local sibling checkout of jauntyq and
-       of NativeWeb (checkout mode, the default) stays the working path. -->
+       nothing is there to restore, and a local sibling checkout of NativeWeb
+       (its checkout mode is still the default) stays the working path. JauntyQ
+       has no such fallback: its checkout mode needs the post-split public core
+       repository, which is not what extrode/jauntyq holds. -->
   <ItemGroup>
     <PackageVersion Include="JauntyQ.Generator" Version="0.4.0" />
     <PackageVersion Include="JauntyQ.Runtime" Version="0.4.0" />

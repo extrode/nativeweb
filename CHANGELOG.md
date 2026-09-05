@@ -12,6 +12,14 @@ sections that apply; drop the empty ones rather than leaving them blank.
 ## [Unreleased]
 
 ### Changed
+- A stamped product's CI credentials the `framework-github` NuGet source in each job that restores.
+  Package mode is JauntyQ's default now and `skeleton/nuget.config` maps `JauntyQ.*` there alone,
+  so without it a stamped product died NU1301/401 on `JauntyQ.Generator` before compiling. Uses
+  `FRAMEWORK_CHECKOUT_TOKEN`: the automatic `GITHUB_TOKEN` is scoped to the product's own
+  repository and cannot read the framework owner's packages at any permission level.
+- `ReportJauntyQResolution` prints at `Importance="high"`, so the resolved mode is visible at the
+  default console verbosity rather than only at `-v normal`.
+
 
 - **JauntyQ resolves from packages by default, and a bare `dotnet build` works again.**
   JauntyQ split: its generator and runtime moved to a public core repository, so the sibling

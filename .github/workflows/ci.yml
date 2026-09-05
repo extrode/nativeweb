@@ -30,11 +30,11 @@ permissions:
   packages: read
 
 env:
-  # No JauntyQ sibling checkout exists in CI, and since the 2026-09-05 split
-  # none exists anywhere: package mode is the default now, and this flag states
-  # it rather than selecting it. It pulls the pinned
-  # JauntyQ.Generator/JauntyQ.Runtime versions from Directory.Packages.props
-  # instead (see Directory.Build.props's dual-mode resolution).
+  # No JauntyQ sibling checkout exists in CI, and since the 2026-09-05 split none
+  # exists anywhere. Package mode is the default now, so this flag states the mode
+  # rather than selecting it: the build takes the pinned JauntyQ.Generator and
+  # JauntyQ.Runtime versions from Directory.Packages.props either way (see
+  # Directory.Build.props's dual-mode resolution).
   DOTNET_BUILD_ARGS: -p:JauntyQUsePackages=true
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"

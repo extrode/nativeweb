@@ -1259,9 +1259,14 @@ not executed. Read each note below for which half survives.**
   touch: `apps/web/SecurityTxtEndpoint.cs` still emits `security@epass.io` literally — out of
   011's scope, and correct only after the cutover.
 - **CI cannot restore in package mode.** Only `-p:JauntyQUsePackages=true` paths are affected, and
-  a deploy pipeline that assumes package mode will not build. **011 sidesteps rather than closes
-  it**: `build.sh` pins `-p:JauntyQUsePackages=false` and builds from the local checkout, which is
-  why the release build is a workstation task and not a CI one.
+  a deploy pipeline that assumes package mode will not build. ~~**011 sidesteps rather than closes
+  it**: `build.sh` pins `-p:JauntyQUsePackages=false` and builds from the local checkout~~ — **that
+  sidestep went on 2026-09-05**, because the checkout it named no longer exists to build from
+  (`docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md`). `build.sh` passes
+  `-p:JauntyQUsePackages=true` now, so the release path restores `JauntyQ.*` like everything else.
+  It contains no `dotnet nuget update source` step and neither does any caller, so it works off a
+  warm `~/.nuget/packages` and a clean release host gets `NU1101` naming `jauntyq-github`. The
+  release is still a workstation task, for that reason rather than the old one.
 
   **The premise changed on 2026-08-29 and the cause is now narrower.** "No reachable feed
   publishes `JauntyQ.*`" is no longer true: `JauntyQ.Runtime`, `JauntyQ.Generator` and
