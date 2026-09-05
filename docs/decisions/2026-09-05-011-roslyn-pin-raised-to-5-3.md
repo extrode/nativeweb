@@ -30,14 +30,20 @@ carried no `sdk` section. On 2026-09-05 it merged `chore/pin-dotnet-10-sdk`
 break-checked the file rather than assuming it: with the block temporarily set to 9.0.311 and
 `rollForward: disable`, `dotnet --version` reported 9.0.311; reverted, 10.0.203.
 
-The rest of the consumer set was re-checked here before the pin moved, since 010 rested on it:
+The consumer set was re-checked here before the pin moved, since 010 rested on it being complete.
+Four sibling repositories were swept for a reference to any of the four published packages:
+`justsmtp.com`, `epass.io`, `ghosthive.com` and `jauntyq`.
 
-| repository | consumes the generators? | `global.json` `sdk` |
-|---|---|---|
-| `justsmtp.com` | yes, package pins | **10.0.100 / latestFeature** |
-| `epass.io` | no — `ProjectReference` to `nativeweb.render` and `nativeweb.security` only, neither of which references a generator project | none |
-| `ghosthive.com` | no | no `global.json` |
-| `jauntyq` | no | 8.0.100 / latestMajor |
+**`justsmtp.com` is the only consumer**, by package pin, and it is now pinned to
+`10.0.100 / latestFeature`. The other three do not consume a generator and so put no floor under
+this pin at all:
+
+- `epass.io` `ProjectReference`s `nativeweb.render` and `nativeweb.security`, and neither of those
+  references a generator project. Runtime libraries only.
+- `ghosthive.com` references nothing from here.
+- `jauntyq` references nothing from here either, and cannot: the dependency runs NativeWeb →
+  JauntyQ and only that way. Its four mentions of "NativeWeb" are a CI comment and two changelog
+  entries recording bugs NativeWeb reported *to* it, plus a note about a stale local checkout.
 
 So `justsmtp.com` was the whole floor, and it is pinned.
 
@@ -92,6 +98,6 @@ Unchanged in shape from 010, one version up:
    that will load it. Today it does not.
 2. A **new** consumer of the four packages appears without an `sdk` section pinning .NET 10 or
    later. The floor is a property of the consumer set, so it has to be re-checked whenever that set
-   grows — the table above is the check.
+   grows — the sweep above is the check, and it is only good for the four repositories it names.
 
 **An SDK upgrade here is still not a reason to raise the pin.** It lifts the ceiling only.

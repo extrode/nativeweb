@@ -10,6 +10,7 @@ Candidates, each checked at run time rather than asserted here:
 
   chore/roslyn-csharp-5-3      The pin bump and decisions 010/011.
   chore/roslyn-pin-followups   This script and the work/todo.md note.
+  docs/011-consumer-table      The consumer-set rewrite in decision 011.
 
 Both only once they are ancestors of dev.
 
@@ -46,7 +47,7 @@ function Step([string]$label, [scriptblock]$act) {
     }
 }
 
-foreach ($b in @('chore/roslyn-csharp-5-3', 'chore/roslyn-pin-followups')) {
+foreach ($b in @('chore/roslyn-csharp-5-3', 'chore/roslyn-pin-followups', 'docs/011-consumer-table')) {
     if (git -C $repo rev-parse --verify --quiet "refs/heads/$b") {
         # `git branch -d` is NOT the merged check it looks like: git accepts a branch merged
         # to its own upstream, so a pushed branch whose commits never reached dev deletes
