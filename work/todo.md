@@ -2124,3 +2124,9 @@ an answer different from the one the audit assumed.
   command it guards is `apps/sample/nativeweb.sample.csproj` now. The regex is right, the comment
   misdirects.
 
+
+- `Directory.Build.props:118` probes `$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj`,
+  but the jauntyq checkout has renamed its projects to `Extrode.JauntyQ.*` and has no
+  `JauntyQ.Generator` directory, so checkout mode fails fast on every build here. Package mode
+  (`JauntyQUsePackages=true`) is unaffected and is what the 2026-09-05 tier runs used. Found while
+  bumping the Roslyn pin; not fixed, because picking the new sentinel is a JauntyQ question.
