@@ -2128,6 +2128,12 @@ an answer different from the one the audit assumed.
   Both probe the two loopback addresses now, and since 2026-09-05 they decide whether to probe
   `::1` by binding it once rather than by reading `Socket.OSSupportsIPv6`, which reports the stack
   and not the address -- justsmtp.com's finding, on `fix/ipv6-loopback-trial-bind`.
+- Two cleanup scripts both claim `tmp/sample-publish.lock`, and they disagree about the guard:
+  `scripts/cleanup/signin-e2e-excluded-port.ps1` removes it unconditionally, while
+  `scripts/cleanup/scaffold-e2e-os-allocated-ports.ps1` removes it only when nothing holds it.
+  Running the first while an e2e tier publishes would let a second publish race it, which is the
+  ILC failure the lock exists to prevent. Neither has been run. Noticed 2026-09-05 while dry-running
+  all three; `ipv6-loopback-gate.ps1` deliberately does not touch the lock.
 - `libs/nativeweb.signin.testing` carries `[Fact]`-bearing conformance suites and sits under
   `libs/`, outside the xUnit1051 suppression the two `tests/Directory.Build.props` files added. It
   builds clean today, so nothing is broken; the first call site there that takes a
