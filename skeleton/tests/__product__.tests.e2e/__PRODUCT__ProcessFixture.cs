@@ -119,8 +119,9 @@ public sealed class __PRODUCT__ProcessFixture : IAsyncLifetime
 
         _process?.Dispose();
         DeleteCert();
+        GC.SuppressFinalize(this);
 
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
     // The fixture's own scratch: a throwaway key pair minted for this run.
