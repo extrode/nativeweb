@@ -6,6 +6,18 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **Ten outdated NuGet pins bumped. Done on `chore/package-bumps`, 2026-09-05.** Raised from the
+  NuGet Solution "Updates" list: AngleSharp, Geralt, Mvc.Testing, TestHost, Logging.Abstractions,
+  Playwright and the four OpenTelemetry packages, in both `Directory.Packages.props` files.
+  Playwright 1.49 -> 1.62 is the largest jump and the scaffold e2e tier passes 31/31 on the
+  installed chromium. Two of the twelve offered were refused with a measurement:
+  `Microsoft.CodeAnalysis.CSharp` 5.9.0 and `.Analyzers` 5.9.0 cannot load, because the SDK at
+  `C:/home/lang/dotnet/sdk/10.0.203` ships Roslyn 5.3.0 and a generator referencing a newer
+  `Microsoft.CodeAnalysis` than its host compiler fails CS9057. Staying at 4.12.0 rather than
+  moving to 5.3.0 is the user's call, taken 2026-09-05: an analyzer package's pin is a
+  compatibility floor for consumers of the four published generator packages, and nothing in them
+  calls a 5.x API. Every tier re-run at its recorded baseline, repo 183 with the new drift guard.
+
 - **xunit 2.9.3 -> xunit.v3 4.0.0. Done on `chore/xunit-v3`, 2026-09-05.** Not a pin bump: v3 is
   Microsoft.Testing.Platform, and the .NET 10 SDK will not run it through VSTest, so
   `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` are dropped and every `dotnet test` in

@@ -13,6 +13,16 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Changed
 
+- **Ten NuGet pins bumped to current; Roslyn deliberately not.** AngleSharp 1.6.0 -> 1.7.3,
+  Geralt 4.3.0 -> 4.4.0, `Microsoft.AspNetCore.Mvc.Testing` and `.TestHost` 10.0.7 -> 10.0.11,
+  `Microsoft.Extensions.Logging.Abstractions` 10.0.0 -> 10.0.11, `Microsoft.Playwright`
+  1.49.0 -> 1.62.0, and the four OpenTelemetry packages 1.17.0 -> 1.18.0 in lockstep, in both
+  `Directory.Packages.props` files. `Microsoft.CodeAnalysis.CSharp` stays at 4.12.0 and
+  `.Analyzers` at 3.11.0: the four `IsRoslynComponent` generator projects here are loaded by the
+  SDK's own compiler, which is Roslyn 5.3.0, so 5.9.0 fails with CS9057, and an analyzer package
+  targets the lowest Roslyn it supports rather than the newest. `PackageVersionTests` gained
+  `EveryPackagePinnedInBothFilesCarriesOneVersion`, because seven third-party pins are duplicated
+  between the framework and the skeleton and nothing asserted they agreed.
 - **The test suites run on xUnit v3 over Microsoft.Testing.Platform.** `xunit` 2.9.3,
   `xunit.runner.visualstudio` and `Microsoft.NET.Test.Sdk` are gone rather than bumped: `xunit.v3`
   4.0.0 depends on `Microsoft.Testing.Platform`, and the .NET 10 SDK refuses to drive it through
