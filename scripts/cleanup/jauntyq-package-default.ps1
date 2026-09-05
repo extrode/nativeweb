@@ -15,6 +15,10 @@ Candidates, each checked at run time rather than asserted here:
                            docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md, so the
                            files carry nothing that is not recorded.
 
+  tmp/stamp-*/             Stamped products written by tools/stamp-check.ts while verifying this
+                           branch (tmp/stamp-jauntyq, tmp/stamp-review2). The script that made
+                           them removes nothing itself.
+
   the chore/jauntyq-package-default branch itself
                            Only once it is an ancestor of dev.
 
@@ -60,9 +64,16 @@ function Step([string]$label, [scriptblock]$act) {
 # @() is required, not defensive habit: Set-StrictMode -Version Latest makes .Count on a
 # bare string throw rather than answer 1.
 $scratch = @()
-foreach ($pattern in @('tmp/fix-*.py', 'tmp/*.log')) {
+foreach ($pattern in @('tmp/fix-*.py', 'tmp/add-*.py', 'tmp/*.log', 'tmp/*.bak')) {
     $found = @(Get-ChildItem -Path (Join-Path $repo $pattern) -File -ErrorAction SilentlyContinue)
     $scratch += $found
+}
+
+$stamps = @(Get-ChildItem -Path (Join-Path $repo 'tmp/stamp-*') -Directory -ErrorAction SilentlyContinue)
+foreach ($dir in $stamps) {
+    Step "remove tree $($dir.FullName)" {
+        Remove-Item -Path $dir.FullName -Recurse -Force
+    }
 }
 
 if ($scratch.Count -eq 0) {
