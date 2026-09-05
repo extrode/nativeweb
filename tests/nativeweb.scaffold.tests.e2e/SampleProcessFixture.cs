@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -104,10 +106,6 @@ public abstract class SampleProcessFixture : IAsyncLifetime
 
     private readonly bool _https;
 
-    /// <param name="port">
-    /// One port per store, because both run for the whole tier: the same published
-    /// binary launched twice, differing only in configuration.
-    /// </param>
     /// <param name="connectionString">
     /// Null selects the in-memory store, exactly as an unset key does in production.
     /// </param>
@@ -127,13 +125,11 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     /// Production instance has to be reached the way Caddy reaches it, over TLS.
     /// </param>
     protected SampleProcessFixture(
-        int port,
         string? connectionString,
         string environment = "Development",
         IReadOnlyDictionary<string, string>? extraEnvironment = null,
         bool https = false)
     {
-        BaseUrl = https ? $"https://localhost:{port}" : $"http://localhost:{port}";
         _connectionString = connectionString;
         _environment = environment;
         _extraEnvironment = extraEnvironment ?? new Dictionary<string, string>();
@@ -141,7 +137,12 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     }
 
     /// <summary>Where this instance of the sample is listening.</summary>
-    public string BaseUrl { get; }
+    /// <remarks>
+    /// Assigned in <see cref="InitializeAsync"/> rather than in the constructor. A
+    /// free port is only free until something takes it, and the constructor runs
+    /// before a publish that holds a cross-process lock and may wait minutes.
+    /// </remarks>
+    public string BaseUrl { get; private set; } = string.Empty;
 
     /// <summary>The sample's most recent log lines, oldest first.</summary>
     public string LogTail => _log.ToString();
@@ -150,6 +151,10 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         string exePath = await PublishedExe.Value.ConfigureAwait(false);
+
+        // After the publish, not before it: see BaseUrl.
+        int port = FreePort();
+        BaseUrl = _https ? $"https://localhost:{port}" : $"http://localhost:{port}";
 
         var startInfo = new ProcessStartInfo(exePath)
         {
@@ -201,9 +206,12 @@ public abstract class SampleProcessFixture : IAsyncLifetime
 
         // Everything after Process.Start is inside this try. xUnit does not call
         // DisposeAsync when InitializeAsync throws, so an escape from here leaves the
-        // sample holding port 5347 for every subsequent run — the same trap
+        // sample running with nothing holding a handle to it — the same trap
         // AppProcessFixture documents, and the reason the readiness loop below catches
-        // broadly rather than only HttpRequestException.
+        // broadly rather than only HttpRequestException. It used to also poison every
+        // subsequent run by keeping the tier's one literal port; since FreePort the
+        // leak is an orphan process rather than a permanently red tier, which makes it
+        // quieter and no less worth catching.
         try
         {
             // Redirecting a stream obliges someone to drain it: the OS pipe buffer is a
@@ -380,6 +388,41 @@ public abstract class SampleProcessFixture : IAsyncLifetime
             throw new InvalidOperationException(
                 $"`{file} {arguments}` exited {process.ExitCode}. Log tail:\n{tail}");
         }
+    }
+
+    /// <summary>A port the operating system says is free.</summary>
+    /// <remarks>
+    /// <para>
+    /// Each fixture named a literal until 2026-09-05 -- 5347, 5348, 5351, 5352, 5353 -- and
+    /// two ways of losing were measured on this workstation. `JauntySampleFixture` on 5348
+    /// failed 31/31 with "Failed to bind to address http://127.0.0.1:5348: address already in
+    /// use" because another repository's preview app was listening. The sign-in tier lost the
+    /// other way on 5349 and 5350: `netsh interface ipv4 show excludedportrange protocol=tcp`
+    /// lists both as excluded, and a bind inside an excluded range is refused whether or not
+    /// anything is listening. Asking for port 0 answers both, and the second is the one a
+    /// different literal could not have fixed -- the exclusions are dynamic reservations that
+    /// move at boot, so which numbers are safe is a property of the machine.
+    /// </para>
+    /// <para>
+    /// <see cref="TcpListener.Create(int)"/> rather than a loopback listener, because it binds
+    /// dual-stack and the app is given `localhost`, which resolves to both 127.0.0.1 and ::1.
+    /// The two exclusion lists are separate -- `netsh interface ipv6 show excludedportrange` is
+    /// its own -- so an IPv4-only probe passes on a machine where they agree and leaves the gap
+    /// open on one where they do not.
+    /// </para>
+    /// <para>
+    /// One port, not a pair: each fixture launches one process binding one endpoint. The
+    /// sign-in tier needs two at once and holds both listeners open to get them, for the reason
+    /// `SignInProcessFixture.FreePorts` gives.
+    /// </para>
+    /// </remarks>
+    internal static int FreePort()
+    {
+        using var listener = TcpListener.Create(0);
+
+        listener.Start();
+
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
     /// <summary>
