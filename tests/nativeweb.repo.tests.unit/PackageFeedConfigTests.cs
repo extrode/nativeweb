@@ -172,9 +172,12 @@ public sealed partial class PackageFeedConfigTests
         string solution = File.ReadAllText(Path.Combine(root, "NativeWeb.slnx"));
         string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
 
+        // The raw path, NOT Normalize()d: that helper exists to compare a solution path with a
+        // workflow one and trims the leading dots off to do it, which is the exact prefix this
+        // is looking for.
         string[] external = [.. SolutionProjectPattern().Matches(solution)
-            .Select(m => Normalize(m.Groups[1].Value))
-            .Where(p => p.StartsWith("..", StringComparison.Ordinal))];
+            .Select(m => m.Groups[1].Value.Replace('\\', '/'))
+            .Where(p => p.StartsWith("../", StringComparison.Ordinal))];
 
         Assert.True(
             external.Length == 0,
