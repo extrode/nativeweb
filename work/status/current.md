@@ -6,6 +6,21 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **`Socket.OSSupportsIPv6` was the wrong gate, and justsmtp.com found it. Done on
+  `fix/ipv6-loopback-trial-bind`, 2026-09-05.** Both port allocators skipped the `::1` probe when
+  that flag was false. The flag is computed by creating an IPv6 socket, so it reports that the
+  stack exists, not that the loopback address can be bound: a machine with IPv6 off by group
+  policy answers true and then refuses every bind. All 32 attempts would fail for one cause and
+  throw "No port free on both loopback addresses after 32 attempts", sending whoever debugged it
+  at the exclusion ranges. Both allocators now bind `::1` once at static init and remember the
+  answer, and both `PortAllocationTests` use that same value so a test cannot be stricter than
+  the allocator. The exchange went both ways: this repo sent the wildcard correction that
+  justsmtp had already reproduced independently, and got this back. **Only half the fix is
+  testable here.** A host where `::1` is unbindable is not available, so the new test asserts the
+  cached answer matches a live bind; breaking the helper to `false` turns it red, breaking it to
+  `true` cannot, and the remarks say so. Scaffold 33/33, sign-in 6/6, permissions 3/3, forms 7/7,
+  sample unit 231, solution build 0 warnings.
+
 - **No e2e fixture names a port any more, and the sign-in tier's allocator was wrong. Done on
   `fix/scaffold-e2e-os-allocated-ports`, 2026-09-05.** Five fixtures across three tiers held
   literals -- 5347, 5348, 5351 in scaffold, 5352 in permissions, 5353 in forms -- all through one
@@ -29,10 +44,11 @@ worth seeing here rather than hiding, but it is the exception.
   a socket in a way forbidden by its access permissions" and had done since before the xunit v3
   move. Nothing held the ports: `SignInProcessFixture` named 5349 and 5350, and both sit in this
   machine's Windows TCP exclusion ranges - on the IPv6 list as well as the IPv4 one, which an
-  IPv4-only probe would have missed. The fixture asks for port 0 twice now, through
-  `TcpListener.Create` so the probe is dual-stack like the `localhost` binding it feeds, holding
-  both listeners open until both ports are known so the second call cannot be handed the first's
-  port back. Allocation moved out of the constructor and behind the publish, which had put a
+  IPv4-only probe would have missed. The fixture asks for port 0 twice now, holding both listeners
+  open until both ports are known so the second call cannot be handed the first's port back. It
+  used `TcpListener.Create` when this was written, on the reasoning that a dual-stack probe
+  matches the `localhost` binding it feeds; that was wrong and was corrected later the same day
+  -- see the bullet above. Allocation moved out of the constructor and behind the publish, which had put a
   30-minute lock wait between observing a port free and binding it. 5/5 in 6.4 s warm, 48 s cold.
   One review finding was acted on and then reversed by measurement: putting the new port fact in
   the e2e collection made a broken allocator fail it with the fixture's "Hosting failed to start"

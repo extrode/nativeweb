@@ -21,6 +21,12 @@ sections that apply; drop the empty ones rather than leaving them blank.
   127.0.0.1 and so can report a port free that Kestrel cannot take. The sign-in tier's allocator
   was corrected the same way.
 
+- Both e2e port allocators decide whether to probe `::1` by binding it once and remembering the
+  answer, rather than by reading `Socket.OSSupportsIPv6`. The flag reports that the machine has an
+  IPv6 stack, not that the loopback address can be bound: a machine with IPv6 disabled by policy
+  answers true and then refuses every bind, which spent all 32 attempts on one cause and threw an
+  error blaming port availability. Reported by justsmtp.com.
+
 - `nativeweb.signin.tests.e2e` binds ports the operating system allocates rather than the
   literals 5349 and 5350. Both are in this machine's Windows TCP exclusion ranges, on the IPv6
   list as well as the IPv4 one, so Kestrel was refused the bind with nothing listening and the
