@@ -25,6 +25,15 @@ sections that apply; drop the empty ones rather than leaving them blank.
   --configfile` against the runner's user-level config. `update source` could not be kept: with
   `--configfile` it throws a NullReferenceException when the target file does not already declare
   the source. Guarded by `Workflow_WritesFeedCredentialsOutsideTheWorkspace`.
+- All four credential steps create the user-level config before writing to it. `dotnet nuget add
+  source --configfile` does not create the file it is given: it exits 1 with "File '...' does not
+  exist", so a runner image without a user-level config failed every credential step. Verified by
+  running both shells' forms against a scratch `HOME` and `APPDATA`: exit 1 before, exit 0 after.
+- The guard over those steps banned one spelling of the path and no more, so
+  `--configfile NuGet.Config` passed it while resolving into the workspace on a case-insensitive
+  filesystem, and deleting a whole credential step left the suite green. It now reads job blocks
+  rather than splitting on step boundaries: the path must be rooted at `$HOME` or `$env:APPDATA`,
+  the job must create it, and every job that runs the SDK must authenticate.
 
 ### Changed
 - **R16's acceptance criterion was amended before the drill, because it could not fail.** It
