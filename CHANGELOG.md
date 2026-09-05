@@ -11,6 +11,22 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ## [Unreleased]
 
+### Added
+- Spec 011 T15 executed on real hosts, 2026-09-05: the first successful backup this project has
+  ever taken (1 s, 10,359 bytes), a restore drill into a scratch database (1 s) verified by
+  serving a row that existed at backup time while a row written after it 404s, and a
+  disaster-recovery rebuild of a new guest from repository plus backup in 345 s. Spec 011 is
+  `done`; R15 is still unmet and the bucket is not yet offsite, both recorded in the runbook.
+
+### Changed
+- **R16's acceptance criterion was amended before the drill, because it could not fail.** It
+  required signing in as an account that existed at backup time; `apps/sample` keeps no accounts
+  in the database, so it passed against an empty database and against no restore at all. It now
+  requires serving a pre-backup row and not serving a post-backup one.
+- The disaster-recovery procedure gained steps 3a-3d, all found by running it: the new host needs
+  its own bucket credentials, `age` and the AWS CLI, an allowance at the object store, and the app
+  role's password set by hand, since `pg_dump -Fc` carries no roles.
+
 ### Changed
 
 - Every e2e fixture asks the operating system for its port instead of naming one. Five fixtures

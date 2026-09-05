@@ -347,14 +347,30 @@ sudo /opt/nativeweb/scripts/restore.sh --target nativeweb_drill --execute
 
 `pg_restore` exiting 0 means the rows loaded, not that the application works
 against them. The drill is not finished until you have pointed a NativeWeb
-instance at the restored database and **signed in as an account that existed when
-the backup was taken**.
+instance at the restored database and **served a row that existed when the backup
+was taken, while a row written after it is absent**.
+
+> **That criterion replaced "signed in as an account that existed when the backup
+> was taken" on 2026-09-05.** `apps/sample` keeps no accounts in the database --
+> its only sign-in is a passphrase read from `secrets.env` -- so the old wording
+> passed against the drill database, against an empty database, and against no
+> restore at all. It tested nothing. The replacement is falsifiable: write a
+> marker row *after* the backup, and the restored database must not have it.
+
+Drill of 2026-09-05, on `nativeweb-dev`, against MinIO on the same fleet host:
+`drill-pre-20260905` was written before the backup and `drill-post-20260905`
+after it. The restored database held the first and not the second, and the
+current release served `/articles/restore-drill-pre` 200 and
+`/articles/restore-drill-post` 404 against it.
 
 | Measure | Value |
 |---|---|
-| Time to download and restore | `NOT YET MEASURED` |
-| Time to a verified sign-in against restored data | `NOT YET MEASURED` |
-| Date of the last successful drill | `NEVER RUN` |
+| Time to download and restore | **1 s** (10,359-byte dump, 8 MB database) |
+| Time to a verified serve against restored data | **1 s** |
+| Date of the last successful drill | **2026-09-05** |
+
+The dump is small because the database is nearly empty; these figures are a
+floor, not a capacity measurement.
 
 ## Disaster recovery
 
@@ -364,6 +380,15 @@ whole way back, from nothing but this repository and the backup bucket:
 1. Provision a new host: **Provisioning a host**, above.
 2. Restore the `age` private key from wherever the off-host copy lives. Without
    it, stop — the bucket is noise.
+3a. Install `age` and the AWS CLI if the image does not carry them, and make sure the
+   backup bucket accepts connections from the new host's address.
+3b. Fill `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`, `AWS_ACCESS_KEY_ID` and
+   `AWS_SECRET_ACCESS_KEY` in the **new** host's `/etc/nativeweb/backup.env`.
+   `provision.sh` seeds them empty and `restore.sh` dies on the first of them.
+3c. Carry `secrets.env` and `app.env` across from wherever they are kept.
+3d. Set the app role's password to match that `secrets.env`:
+   `sudo -u postgres psql -c "alter role nativeweb with password '...'"`. `pg_dump -Fc`
+   dumps one database, not roles, so the restore does not bring it.
 3. `restore.sh --target nativeweb --from-host <old-host> --overwrite-production --execute`.
    **`--from-host` is not optional here if the new machine has a different name.**
    `backup.sh` writes under the *writing* host's short name, and `restore.sh`
@@ -375,17 +400,41 @@ whole way back, from nothing but this repository and the backup bucket:
 
 | Measure | Value |
 |---|---|
-| Total time, bare host to serving | `NOT YET MEASURED` |
-| Date last exercised | `NEVER RUN` |
+| Total time, bare host to serving | **345 s** (5 m 45 s) |
+| Date last exercised | **2026-09-05** |
+
+Measured 2026-09-05 rebuilding `nativeweb-dr` on `incus-host`: guest created,
+`provision.sh --edge 10.0.0.1` (26 s), age key installed from the operator's
+off-host copy, `restore.sh --target nativeweb --from-host nativeweb-dev
+--overwrite-production --execute`, `deploy.sh --incus`, then `/healthz` 200,
+`/readyz` 200 and the pre-backup article served. **Four caveats on that number:**
+
+- The artifact was **not rebuilt**. `build.sh` needs the JauntyQ feed credential
+  (see the gap table below), so the running release was repackaged from
+  `nativeweb-dev` with `tar --zstd`, the same shape `build.sh` emits. A real
+  rebuild adds however long a publish takes to the 345 s.
+- The bucket is MinIO **on the same physical host**. Losing `incus-host`
+  loses the guest, the replacement guest, the bucket and the key together, so this
+  exercises the mechanics of R17 and nothing about the offsite property.
+- Four preconditions the numbered list above did not state were found by running
+  it: the DR host needs the bucket, endpoint and both AWS keys in its own
+  `backup.env` (`provision.sh` seeds them empty and `restore.sh` dies on the
+  first), `age` and the AWS CLI must be installed, the object storage must allow
+  the new host's address, and the app role's password must be set to match the
+  carried `secrets.env` -- `pg_dump -Fc` dumps one database, not roles. They are
+  now steps 3a-3d.
+- `provision.sh` must run **inside the guest**. On the fleet host it would
+  overwrite `/etc/caddy/Caddyfile`, which serves every site on the machine, and
+  its nftables ruleset opens with `flush ruleset`.
 
 ## Known gaps
 
 | Gap | Status |
 |---|---|
 | ~~Provisioning has never been run on a real host~~ | **Closed 2026-09-01** — provisioned and deployed to on `nativeweb-dev`. R1 met |
-| The restore drill has never been run | T15, outstanding — R16 unmet |
-| Disaster recovery has never been exercised | T15, outstanding — R17 unmet |
-| The nightly backup fails on `nativeweb-dev` | `BACKUP_S3_BUCKET` and its credentials are unset in `/etc/nativeweb/backup.env`, so the 03:17 timer fails daily. An operator's key, not a script defect |
+| ~~The restore drill has never been run~~ | **Closed 2026-09-05** — drilled on `nativeweb-dev`, R16 met under the amended criterion above |
+| ~~Disaster recovery has never been exercised~~ | **Closed 2026-09-05** — `nativeweb-dr` rebuilt from repo plus backup in 345 s, R17 met with the four caveats above |
+| ~~The nightly backup fails on `nativeweb-dev`~~ | **Closed 2026-09-05** — bucket, endpoint and credentials filled in, first successful backup taken. The bucket is MinIO on the same fleet host, so this is not yet an offsite backup |
 | `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
 | `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it |
 | The build host needs a JauntyQ feed credential | `build.sh` pins **package** mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints the `dotnet nuget update source` command; an operator runs it once per shell |
