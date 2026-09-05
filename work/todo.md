@@ -2036,10 +2036,12 @@ an answer different from the one the audit assumed.
   that child. `JauntyQUsePackages=true dotnet test <e2e project>` works, because MSBuild reads
   environment variables as properties. Worth a line in the fixture or the quick-start; found on the
   024 branch, out of its scope.
-- **Port 5348 was held by `justsmtp.web.exe` on 2026-09-03**, so `JauntySampleFixture` could not
-  bind and all 31 scaffold e2e facts failed at fixture init. Nothing to do with the suite: the
-  tier picks fixed ports (5347, 5348, 5351) and has no fallback. A port that is already listening
-  should fail with the name of the process holding it rather than a 60-second readiness timeout.
+- ~~**Port 5348 was held by `justsmtp.web.exe` on 2026-09-03**, so `JauntySampleFixture` could not
+  bind and all 31 scaffold e2e facts failed at fixture init.~~ **CLOSED 2026-09-05** on
+  `fix/scaffold-e2e-os-allocated-ports`. No fixture names a port now; the five that did (5347,
+  5348, 5351, 5352, 5353) all ask the operating system. 32/32 with justsmtp still listening on
+  5348. The readiness loop also checks `HasExited` first, so a process that died answers with its
+  exit code and log tail rather than a 60-second timeout.
 - **`tests/nativeweb.signin.tests.aot` now gates two libraries, and its name says one.** Spec 024
   T19 added the permission layer to `probe-host` rather than standing up a second AOT tier,
   because a NativeAOT publish is ~21 s of link per tier and one host covers both. The tier wants
@@ -2119,10 +2121,11 @@ an answer different from the one the audit assumed.
   `fix/signin-e2e-excluded-port`. Both 5349 and 5350 are in the excluded ranges, on the IPv6 list
   as well as the IPv4 one, so the bind was refused with nothing listening. The fixture asks the
   operating system for two ports instead of naming any, which the OS never allocates out of an
-  excluded range. The tier runs 5/5. **The scaffold e2e tier still hardcodes 5348 and 5351** and
-  hit the same class of failure during that work -- 31/31 failing on `address already in use`,
-  because `justsmtp.web.exe` from another repository was listening on 5348. Nothing in this
-  repository can hold that port free; the same fix applies there and has not been made.
+  excluded range. The tier runs 5/5. The scaffold, forms and permissions tiers got the same fix on
+  `fix/scaffold-e2e-os-allocated-ports` the same day, and it corrected this one: both allocators
+  probed `TcpListener.Create(0)`, the dual-stack wildcard, which on Windows coexists with a
+  listener already on 127.0.0.1 -- so the OS could hand out a port Kestrel then could not bind.
+  Both probe the two loopback addresses now.
 - `libs/nativeweb.signin.testing` carries `[Fact]`-bearing conformance suites and sits under
   `libs/`, outside the xUnit1051 suppression the two `tests/Directory.Build.props` files added. It
   builds clean today, so nothing is broken; the first call site there that takes a

@@ -6,6 +6,24 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **No e2e fixture names a port any more, and the sign-in tier's allocator was wrong. Done on
+  `fix/scaffold-e2e-os-allocated-ports`, 2026-09-05.** Five fixtures across three tiers held
+  literals -- 5347, 5348, 5351 in scaffold, 5352 in permissions, 5353 in forms -- all through one
+  linked base class, so one change closed all five. The scaffold tier had been failing 31/31 on
+  `address already in use` because `justsmtp.web.exe` from another repository was listening on
+  5348; it runs 32/32 now with that process still up. The review earned its cost twice. It caught
+  that `TcpListener.Create(0)` is the wrong probe: it binds the dual-stack wildcard, and a
+  deliberate break returning an occupied 5348 was **accepted** by the wildcard and refused by the
+  loopback pair, so the OS can report free a port Kestrel cannot bind. Yesterday's sign-in
+  allocator had that defect and is fixed too. It also caught that three fixtures draw
+  concurrently -- this file's own `PublishedExe` remarks record that xUnit does not serialize a
+  collection's fixtures -- so a process-wide record of handed-out ports guards the window between
+  the probe closing and Kestrel binding. **One test was written and then deleted for lying**: with
+  the dedup guard removed, sixteen sequential draws stayed distinct, because Windows cycles the
+  ephemeral range rather than reissuing what was just released. The guard stays, documented as
+  unproven, rather than carrying a green test that cannot fail. Falsified four ways that do fail:
+  an occupied port, an excluded port, port 0, and an excluded port through the new allocator.
+
 - **The sign-in e2e tier is green for the first time on this workstation. Done on
   `fix/signin-e2e-excluded-port`, 2026-09-05.** It failed 4/4 with "An attempt was made to access
   a socket in a way forbidden by its access permissions" and had done since before the xunit v3
