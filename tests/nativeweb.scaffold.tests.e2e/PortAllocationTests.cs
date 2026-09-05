@@ -15,6 +15,13 @@ namespace NativeWeb.Scaffold.Tests.E2e;
 /// else in the assembly, so this class and a fixture's lifetime never overlap. The sign-in tier
 /// tried the other arrangement and it made the fact worse -- a broken allocator failed with the
 /// fixture's "Hosting failed to start" instead of the assertion that names the defect.
+/// <para>
+/// The two loopback addresses specifically, not <c>IPv6Any</c> with <c>DualMode</c>. The first
+/// shape of this test bound the wildcard and passed while <c>FreePort</c> was hardcoded to
+/// return an occupied 5348: Windows lets a wildcard bind coexist with a listener already on
+/// 127.0.0.1. Kestrel is given <c>localhost</c>, which resolves to 127.0.0.1 and ::1 and binds
+/// each, so binding the wildcard asserted something the fixture never does.
+/// </para>
 /// </remarks>
 public sealed class PortAllocationTests
 {
@@ -25,8 +32,10 @@ public sealed class PortAllocationTests
 
         Assert.NotEqual(0, port);
 
-        using TcpListener listener = new(IPAddress.IPv6Any, port) { Server = { DualMode = true } };
+        using TcpListener v4 = new(IPAddress.Loopback, port);
+        using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
 
-        listener.Start();
+        v4.Start();
+        v6.Start();
     }
 }
