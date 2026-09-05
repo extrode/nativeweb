@@ -26,10 +26,19 @@ public sealed class PortAllocationTests
 
         Assert.NotEqual(front, back);
 
-        using TcpListener first = new(IPAddress.IPv6Any, front) { Server = { DualMode = true } };
-        using TcpListener second = new(IPAddress.IPv6Any, back) { Server = { DualMode = true } };
+        using TcpListener first = new(IPAddress.Loopback, front);
+        using TcpListener second = new(IPAddress.Loopback, back);
 
         first.Start();
         second.Start();
+
+        if (Socket.OSSupportsIPv6)
+        {
+            using TcpListener firstV6 = new(IPAddress.IPv6Loopback, front);
+            using TcpListener secondV6 = new(IPAddress.IPv6Loopback, back);
+
+            firstV6.Start();
+            secondV6.Start();
+        }
     }
 }

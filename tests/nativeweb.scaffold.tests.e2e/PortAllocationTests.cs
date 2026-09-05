@@ -6,7 +6,8 @@ using Xunit;
 namespace NativeWeb.Scaffold.Tests.E2e;
 
 /// <summary>
-/// The port every fixture in this tier binds, without a fixture: no publish, no browser.
+/// The allocator every fixture in this tier draws from, without a fixture: no publish,
+/// no browser.
 /// </summary>
 /// <remarks>
 /// Outside the e2e collection on purpose, so this costs milliseconds rather than waiting on a
@@ -20,7 +21,13 @@ namespace NativeWeb.Scaffold.Tests.E2e;
 /// shape of this test bound the wildcard and passed while <c>FreePort</c> was hardcoded to
 /// return an occupied 5348: Windows lets a wildcard bind coexist with a listener already on
 /// 127.0.0.1. Kestrel is given <c>localhost</c>, which resolves to 127.0.0.1 and ::1 and binds
-/// each, so binding the wildcard asserted something the fixture never does.
+/// each, so binding the wildcard asserted something the fixture never does. The same
+/// measurement is why <c>FreePort</c> itself probes the pair.
+/// </para>
+/// <para>
+/// ::1 is gated on <see cref="Socket.OSSupportsIPv6"/>, the same gate the allocator uses. Held
+/// unconditionally this would fail on a machine with IPv6 off while every fixture in the tier
+/// still worked, which is a test stricter than the thing it stands in for.
 /// </para>
 /// </remarks>
 public sealed class PortAllocationTests
@@ -33,9 +40,22 @@ public sealed class PortAllocationTests
         Assert.NotEqual(0, port);
 
         using TcpListener v4 = new(IPAddress.Loopback, port);
-        using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
 
         v4.Start();
-        v6.Start();
+
+        if (Socket.OSSupportsIPv6)
+        {
+            using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
+
+            v6.Start();
+        }
+    }
+
+    [Fact]
+    public void FreePort_NeverHandsOutTheSamePortTwice()
+    {
+        int[] ports = [.. Enumerable.Range(0, 16).Select(_ => SampleProcessFixture.FreePort())];
+
+        Assert.Equal(ports.Length, ports.Distinct().Count());
     }
 }

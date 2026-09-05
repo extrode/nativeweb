@@ -234,6 +234,19 @@ public abstract class SampleProcessFixture : IAsyncLifetime
             DateTime deadline = DateTime.UtcNow.AddSeconds(60);
             while (DateTime.UtcNow < deadline)
             {
+                // Before the request, not after it. The port is now the operating system's
+                // choice rather than this tier's literal, so a second instance of the same
+                // binary can in principle be reached on it -- and /healthz from the wrong
+                // process is indistinguishable from /healthz from this one, since every
+                // fixture here launches the same exe. A process that has exited cannot be
+                // the one answering, and that is the cheap half of the question.
+                if (_process.HasExited)
+                {
+                    throw new InvalidOperationException(
+                        $"apps/sample exited with {_process.ExitCode} before answering "
+                        + $"{BaseUrl}/healthz. Log tail:{Environment.NewLine}{LogTail}");
+                }
+
                 try
                 {
                     using HttpResponseMessage response =
@@ -390,39 +403,89 @@ public abstract class SampleProcessFixture : IAsyncLifetime
         }
     }
 
-    /// <summary>A port the operating system says is free.</summary>
+    /// <summary>Ports already handed out in this process, so none is handed out twice.</summary>
+    private static readonly HashSet<int> Handed = [];
+
+    /// <summary>A port the operating system says is free on both loopback addresses.</summary>
     /// <remarks>
     /// <para>
-    /// Each fixture named a literal until 2026-09-05 -- 5347, 5348, 5351, 5352, 5353 -- and
-    /// two ways of losing were measured on this workstation. `JauntySampleFixture` on 5348
-    /// failed 31/31 with "Failed to bind to address http://127.0.0.1:5348: address already in
-    /// use" because another repository's preview app was listening. The sign-in tier lost the
-    /// other way on 5349 and 5350: `netsh interface ipv4 show excludedportrange protocol=tcp`
-    /// lists both as excluded, and a bind inside an excluded range is refused whether or not
-    /// anything is listening. Asking for port 0 answers both, and the second is the one a
+    /// Each fixture named a literal until 2026-09-05 -- 5347, 5348, 5351, 5352, 5353 -- and two
+    /// ways of losing were measured on this workstation. `JauntySampleFixture` on 5348 failed
+    /// 31/31 with "Failed to bind to address http://127.0.0.1:5348: address already in use"
+    /// because another repository's preview app was listening. The sign-in tier lost the other
+    /// way on 5349 and 5350: `netsh interface ipv4 show excludedportrange protocol=tcp` lists
+    /// both as excluded, and a bind inside an excluded range is refused whether or not anything
+    /// is listening. Asking the operating system answers both, and the second is the one a
     /// different literal could not have fixed -- the exclusions are dynamic reservations that
     /// move at boot, so which numbers are safe is a property of the machine.
     /// </para>
     /// <para>
-    /// <see cref="TcpListener.Create(int)"/> rather than a loopback listener, because it binds
-    /// dual-stack and the app is given `localhost`, which resolves to both 127.0.0.1 and ::1.
-    /// The two exclusion lists are separate -- `netsh interface ipv6 show excludedportrange` is
-    /// its own -- so an IPv4-only probe passes on a machine where they agree and leaves the gap
-    /// open on one where they do not.
+    /// The two loopback addresses specifically, not <c>TcpListener.Create(0)</c>. That binds the
+    /// dual-stack wildcard, which was the first shape of this and is measurably wrong: on
+    /// Windows a wildcard bind coexists with a listener already on 127.0.0.1, so the operating
+    /// system will hand out a port the wildcard can take and Kestrel cannot. Kestrel is given
+    /// `localhost`, which resolves to 127.0.0.1 and ::1 and binds each, so the probe has to
+    /// prove the same pair rather than something weaker. Confirmed by the deliberate break that
+    /// hardcoded an occupied 5348: the wildcard probe accepted it, the loopback pair did not.
     /// </para>
     /// <para>
-    /// One port, not a pair: each fixture launches one process binding one endpoint. The
-    /// sign-in tier needs two at once and holds both listeners open to get them, for the reason
-    /// `SignInProcessFixture.FreePorts` gives.
+    /// <see cref="Handed"/> exists because holding the listener open cannot help here. This
+    /// class's own <see cref="PublishedExe"/> remarks record that xUnit initializes a
+    /// collection's fixtures concurrently, and three fixtures in this tier each call this. One
+    /// closing its probe while another is choosing lets the second be handed the first's port,
+    /// and the loser then binds a port its sibling is about to take. The sign-in tier holds two
+    /// listeners open at once for the same reason, which works only because both ports are
+    /// chosen in one call; across independent fixtures nothing composes but a shared record.
+    /// </para>
+    /// <para>
+    /// The residual window -- between this returning and Kestrel binding -- is real and cannot
+    /// be closed from here, since the port has to be free for the child process to take it. It
+    /// is a trade rather than a strict win: the old literals sat below the dynamic range where
+    /// nothing would take them by accident, and this draws from the ephemeral range. An
+    /// excluded or occupied literal is a permanently red tier; this is a rare loud one.
     /// </para>
     /// </remarks>
     internal static int FreePort()
     {
-        using var listener = TcpListener.Create(0);
+        lock (Handed)
+        {
+            for (int attempt = 0; attempt < 32; attempt++)
+            {
+                using TcpListener v4 = new(IPAddress.Loopback, 0);
 
-        listener.Start();
+                v4.Start();
 
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
+                int port = ((IPEndPoint)v4.LocalEndpoint).Port;
+
+                if (Handed.Contains(port))
+                {
+                    continue;
+                }
+
+                // Kestrel binds ::1 as well and fails if it cannot, unless the machine has no
+                // IPv6 at all -- in which case it never attempts it and neither should this.
+                if (Socket.OSSupportsIPv6)
+                {
+                    try
+                    {
+                        using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
+
+                        v6.Start();
+                    }
+                    catch (SocketException)
+                    {
+                        continue;
+                    }
+                }
+
+                Handed.Add(port);
+
+                return port;
+            }
+
+            throw new InvalidOperationException(
+                "No port free on both loopback addresses after 32 attempts.");
+        }
     }
 
     /// <summary>
