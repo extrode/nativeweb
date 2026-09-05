@@ -403,8 +403,24 @@ public sealed class DeployTargetTests
         int end = build.IndexOf("\n\tfi\n", start, StringComparison.Ordinal);
         Assert.True(end > start, "the restore-failure branch has no closing fi.");
 
-        Assert.Contains("dotnet nuget update source $JAUNTYQ_FEED_SOURCE", build[start..end], StringComparison.Ordinal);
-        Assert.Contains("read:packages", build[start..end], StringComparison.Ordinal);
+        // `add ... --configfile "$JAUNTYQ_USER_CONFIG"`, not `update source`. The remedy printed
+        // here used to be `update source` with no --configfile, which writes to the nearest
+        // config declaring the source -- in a checkout of this repository, the committed
+        // nuget.config. The script told the operator their token was under $HOME while putting
+        // it in their working tree.
+        string remedy = build[start..end];
+        Assert.Contains("dotnet nuget add source $JAUNTYQ_FEED_URL", remedy, StringComparison.Ordinal);
+        Assert.Contains("--name $JAUNTYQ_FEED_SOURCE", remedy, StringComparison.Ordinal);
+        Assert.Contains("--configfile", remedy, StringComparison.Ordinal);
+        Assert.Contains("$JAUNTYQ_USER_CONFIG", remedy, StringComparison.Ordinal);
+        Assert.DoesNotContain("nuget update source", remedy, StringComparison.Ordinal);
+        Assert.Contains("read:packages", remedy, StringComparison.Ordinal);
+
+        // The path it names has to be the user config, or the paragraph above is decoration.
+        Assert.Contains(
+            "JAUNTYQ_USER_CONFIG=\"$HOME/.nuget/NuGet/NuGet.Config\"",
+            build,
+            StringComparison.Ordinal);
     }
 
     // A single invocation, from its command up to the last line of a backslash

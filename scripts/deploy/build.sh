@@ -212,6 +212,12 @@ fi
 # compares it against that mapping: rename the source in NuGet.config alone and
 # the remedy would tell an operator to credential a source that does not exist.
 JAUNTYQ_FEED_SOURCE="jauntyq-github"
+JAUNTYQ_FEED_URL="https://nuget.pkg.github.com/extrode/index.json"
+# The user-level config, and the reason the hint below names it. `update source` with no
+# --configfile writes to the nearest config that declares the source, which in a checkout of this
+# repository is the committed nuget.config -- so the advice this script used to print put the
+# operator's token in the working tree while telling them it was under $HOME.
+JAUNTYQ_USER_CONFIG="$HOME/.nuget/NuGet/NuGet.Config"
 
 # Restore before the publish, not inside it, for the same reason zstd is checked
 # above: so the failure names its own fix.
@@ -258,14 +264,19 @@ if ! dotnet restore "$PROJECT" -r "$RUNTIME_ID" -p:JauntyQUsePackages=true --nol
 		echo "          shell has its own NuGet profile -- a credential added on Windows does" >&2
 		echo "          not reach it. Once, in THIS shell:" >&2
 		echo "" >&2
-		echo "            dotnet nuget update source $JAUNTYQ_FEED_SOURCE \\" >&2
+		echo "            mkdir -p \"$(dirname "$JAUNTYQ_USER_CONFIG")\"" >&2
+		echo "            [ -f \"$JAUNTYQ_USER_CONFIG\" ] || printf '%s' '<configuration />' > \"$JAUNTYQ_USER_CONFIG\"" >&2
+		echo "            dotnet nuget add source $JAUNTYQ_FEED_URL \\" >&2
+		echo "              --name $JAUNTYQ_FEED_SOURCE \\" >&2
 		echo "              --username <your-github-account> --password <token> \\" >&2
-		echo "              --store-password-in-clear-text" >&2
+		echo "              --store-password-in-clear-text \\" >&2
+		echo "              --configfile \"$JAUNTYQ_USER_CONFIG\"" >&2
 		echo "" >&2
 		echo "          The token needs read:packages. A gh OAuth token works:" >&2
 		echo "          gh auth refresh -h github.com -s read:packages && gh auth token" >&2
-		echo "          It is stored in plain text under \$HOME, so use a token scoped to" >&2
-		echo "          reading packages and nothing else." >&2
+		echo "          It is stored in plain text in that file, under \$HOME and never in" >&2
+		echo "          this checkout, so use a token scoped to reading packages and" >&2
+		echo "          nothing else." >&2
 	fi
 	rm -f "$RESTORE_LOG"
 	exit 1

@@ -204,7 +204,11 @@ public sealed partial class SkeletonFrameworkResolutionTests
         foreach (Match match in ShellVariablePattern().Matches(workflow))
         {
             string name = match.Groups[1].Value;
-            if (name.StartsWith("PG", StringComparison.Ordinal) || name == "out")
+
+            // HOME is the runner's, not the workflow's, and it is the whole point of the
+            // credential step: the token is written under it precisely so it does not land in
+            // the checkout. A workflow that defined HOME itself would be the defect.
+            if (name.StartsWith("PG", StringComparison.Ordinal) || name is "out" or "HOME")
             {
                 continue;
             }
@@ -348,14 +352,34 @@ public sealed partial class SkeletonFrameworkResolutionTests
             bool restores = body.Contains("dotnet restore", StringComparison.Ordinal)
                 || body.Contains("dotnet publish", StringComparison.Ordinal);
 
-            bool credentials = body.Contains(
-                $"dotnet nuget update source {source}",
-                StringComparison.Ordinal);
+            bool credentials = body.Contains($"--name {source}", StringComparison.Ordinal)
+                && body.Contains("dotnet nuget add source", StringComparison.Ordinal);
 
             if (restores && !credentials)
             {
                 uncredentialed.Add(name);
             }
+
+            if (!credentials)
+            {
+                continue;
+            }
+
+            // The stamped product's token is a PAT with read:packages, not the job's automatic
+            // GITHUB_TOKEN, so leaving it in the workspace is worse here than it was in this
+            // repository's own ci.yml. `update source` with no --configfile does exactly that:
+            // it writes to the nearest config declaring the source, which is the product's
+            // committed nuget.config. Creation is asserted because `add source --configfile`
+            // exits 1 rather than creating the file it is given.
+            Assert.DoesNotContain("nuget update source", body, StringComparison.Ordinal);
+            Assert.Contains(
+                "--configfile \"$HOME/.nuget/NuGet/NuGet.Config\"",
+                body,
+                StringComparison.Ordinal);
+            Assert.Contains(
+                "> \"$HOME/.nuget/NuGet/NuGet.Config\"",
+                body,
+                StringComparison.Ordinal);
         }
 
         Assert.True(

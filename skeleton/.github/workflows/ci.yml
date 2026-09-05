@@ -174,12 +174,27 @@ jobs:
       # scoped THERE and cannot read extrode's packages whatever its permissions
       # block says. The secret must therefore carry `read:packages` alongside the
       # repository read it already needs for the framework checkout above.
+      # The credential goes to the runner's OWN user-level config, never to the
+      # checked-out nuget.config. `update source` with no --configfile writes to
+      # the nearest config that declares the source, which in a checkout is the
+      # committed one -- and this token is a PAT carrying read:packages, so it is
+      # longer-lived than the automatic GITHUB_TOKEN and worse to leave sitting in
+      # a workspace. `add` rather than `update`, because `update source
+      # --configfile` throws "Object reference not set to an instance of an
+      # object" against a file that does not already declare the source. The file
+      # is created first because `add source --configfile` does not create it: it
+      # exits 1 with "File '...' does not exist."
       - name: Authenticate to GitHub Packages
-        run: >
-          dotnet nuget update source framework-github
-          --username ${{ github.actor }}
-          --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
-          --store-password-in-clear-text
+        run: |
+          mkdir -p "$HOME/.nuget/NuGet"
+          [ -f "$HOME/.nuget/NuGet/NuGet.Config" ] \
+            || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
+          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
+            --name framework-github \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }} \
+            --store-password-in-clear-text \
+            --configfile "$HOME/.nuget/NuGet/NuGet.Config"
 
       - name: Restore
         run: dotnet restore
@@ -282,12 +297,27 @@ jobs:
       # scoped THERE and cannot read extrode's packages whatever its permissions
       # block says. The secret must therefore carry `read:packages` alongside the
       # repository read it already needs for the framework checkout above.
+      # The credential goes to the runner's OWN user-level config, never to the
+      # checked-out nuget.config. `update source` with no --configfile writes to
+      # the nearest config that declares the source, which in a checkout is the
+      # committed one -- and this token is a PAT carrying read:packages, so it is
+      # longer-lived than the automatic GITHUB_TOKEN and worse to leave sitting in
+      # a workspace. `add` rather than `update`, because `update source
+      # --configfile` throws "Object reference not set to an instance of an
+      # object" against a file that does not already declare the source. The file
+      # is created first because `add source --configfile` does not create it: it
+      # exits 1 with "File '...' does not exist."
       - name: Authenticate to GitHub Packages
-        run: >
-          dotnet nuget update source framework-github
-          --username ${{ github.actor }}
-          --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
-          --store-password-in-clear-text
+        run: |
+          mkdir -p "$HOME/.nuget/NuGet"
+          [ -f "$HOME/.nuget/NuGet/NuGet.Config" ] \
+            || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
+          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
+            --name framework-github \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }} \
+            --store-password-in-clear-text \
+            --configfile "$HOME/.nuget/NuGet/NuGet.Config"
 
       - name: Publish (NativeAOT)
         run: dotnet publish apps/__product__/__product__.csproj -c Release
