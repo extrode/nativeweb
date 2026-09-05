@@ -379,7 +379,7 @@ public sealed class DeployTargetTests
     {
         string build = Read("scripts", "deploy", "build.sh");
 
-        string? source = XDocument.Parse(Read("NuGet.config"))
+        string? source = XDocument.Parse(Read("nuget.config"))
             .Descendants("packageSource")
             .Where(e => e.Elements("package")
                 .Any(pkg => (string?)pkg.Attribute("pattern") == "JauntyQ.*"))

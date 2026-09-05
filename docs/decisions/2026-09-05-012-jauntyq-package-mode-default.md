@@ -119,9 +119,18 @@ Nothing was refuted. Repo tier after the fixes: **190**, 0 failed, 0 skipped.
 - **Package mode restores from the machine's NuGet cache, not a reachable feed.** 0.4.0 is present
   in `~/.nuget/packages`; a clean machine gets `NU1101`. Pre-existing and documented in
   `NuGet.config`'s own comment — but the default path depends on it now, which is a real widening
-  of an existing hole. `scripts/deploy/build.sh` is the sharp end: it credentials nothing and no
-  caller does it for the script, so a release from a cold host fails mid-publish. Left ungated
-  here because the alternative it replaced could not restore at all.
+  of an existing hole. `scripts/deploy/build.sh` was the sharp end, and
+  **measurement on 2026-09-05 made it sharper than this said**: not a cold host, this one. The feed
+  is credentialed in the Windows user-level `NuGet.Config` under the key `jauntyq-github`, and a
+  restore into an empty package folder on Windows succeeds in 11.6 s. `build.sh` runs in WSL, a
+  separate user profile whose `~/.nuget/NuGet/NuGet.Config` holds no `packageSourceCredentials` and
+  whose 255 cached packages include no JauntyQ, so a release from this workstation died `NU1301` /
+  `401 (Unauthorized)` behind twelve identical authentication warnings. **Addressed 2026-09-05 on
+  `fix/build-sh-jauntyq-credential`**: the script preflights the restore and, on an auth failure,
+  prints the one `dotnet nuget update source` command that fixes it. It carries no token and writes
+  no config -- a `%VAR%` credential block in `nuget.config` would override the working Windows
+  credential when the variable is unset, and having the script run `dotnet nuget update source`
+  itself would leave a plaintext token under `$HOME` as a silent side effect.
 - **The build-time trust boundary moved, and nothing pins it.** `JauntyQ.Generator` runs inside
   `csc`. On the default path it now arrives from a mutable private feed rather than a readable
   sibling checkout, on every machine, with no `packages.lock.json` anywhere in the repo
