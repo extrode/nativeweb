@@ -4,8 +4,8 @@
 > (`../decisions/2026-08-31-007-idp-leaves-nativeweb.md`). `scripts/deploy/` was retargeted the
 > same day: `build.sh` publishes `apps/sample` by default and takes `PROJECT=<csproj>` for a
 > stamped product's own app, and it installs the executable under the fixed name `nativeweb`, so
-> nothing downstream — `deploy.sh`, `nativeweb@.service`, Caddy — names the project. The warning
-> below still stands: nothing here has been run on a real host.
+> nothing downstream — `deploy.sh`, `nativeweb@.service`, Caddy — names the project. Since
+> 2026-09-05 all of it has been run on a real host; what has not is below.
 
 Spec: `../specs/011-production-deployment/011-spec.md`
 Scripts: `../../scripts/deploy/`
@@ -14,14 +14,21 @@ The one document for provisioning, releasing, rolling back, backing up and
 recovering a NativeWeb production host. Everything here is a command to run or a
 decision with a stated default.
 
-> **Releasing has now been executed for real; restoring and disaster recovery
-> have not.** On 2026-09-01 a `linux-x64` artifact built by `build.sh` was
-> deployed by `deploy.sh` to `nativeweb-dev` (10.0.0.30, Debian 12, an Incus
-> guest on `incus-host`) and promoted to blue, and the result is public at
-> `https://nw-dev.example.com`. That closes R1. **R16 and R17 remain unmet** —
-> nobody has restored a backup taken by `backup.sh`, and the elapsed times in
-> **Restoring** and **Disaster recovery** below still read `NOT YET MEASURED`
-> because they are literal.
+> **Releasing, restoring and disaster recovery have all now been executed for
+> real. What has never been rehearsed is losing the machine.** On 2026-09-01 a
+> `linux-x64` artifact built by `build.sh` was deployed by `deploy.sh` to
+> `nativeweb-dev` (10.0.0.30, Debian 12, an Incus guest on `incus-host`)
+> and promoted to blue, and the result is public at `https://nw-dev.example.com`;
+> that closes R1. On 2026-09-05 a backup was taken, restored into a scratch
+> database and served from, and `nativeweb-dr` was rebuilt from repository plus
+> backup in 345 s. That closes R16 and R17a, and every elapsed time below is now
+> a measured number rather than `NOT YET MEASURED`.
+>
+> **R14 and R17b are unmet, and they are the ones that matter most.** The backup
+> bucket is a MinIO container on `incus-host`, the machine being backed up,
+> so losing that machine loses the guest, the replacement, the bucket and the key
+> together. The drill rehearsed recovering a broken guest. R15 is unmet too:
+> `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is unnoticed.
 >
 > **Three attempts were needed and two of them were defects in these scripts,**
 > which is what a first real run is for. Both are fixed and both now have a test:
@@ -380,23 +387,23 @@ whole way back, from nothing but this repository and the backup bucket:
 1. Provision a new host: **Provisioning a host**, above.
 2. Restore the `age` private key from wherever the off-host copy lives. Without
    it, stop — the bucket is noise.
-3a. Install `age` and the AWS CLI if the image does not carry them, and make sure the
+3. Install `age` and the AWS CLI if the image does not carry them, and make sure the
    backup bucket accepts connections from the new host's address.
-3b. Fill `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`, `AWS_ACCESS_KEY_ID` and
+4. Fill `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`, `AWS_ACCESS_KEY_ID` and
    `AWS_SECRET_ACCESS_KEY` in the **new** host's `/etc/nativeweb/backup.env`.
    `provision.sh` seeds them empty and `restore.sh` dies on the first of them.
-3c. Carry `secrets.env` and `app.env` across from wherever they are kept.
-3d. Set the app role's password to match that `secrets.env`:
+5. Carry `secrets.env` and `app.env` across from wherever they are kept.
+6. Set the app role's password to match that `secrets.env`:
    `sudo -u postgres psql -c "alter role nativeweb with password '...'"`. `pg_dump -Fc`
    dumps one database, not roles, so the restore does not bring it.
-3. `restore.sh --target nativeweb --from-host <old-host> --overwrite-production --execute`.
+7. `restore.sh --target nativeweb --from-host <old-host> --overwrite-production --execute`.
    **`--from-host` is not optional here if the new machine has a different name.**
    `backup.sh` writes under the *writing* host's short name, and `restore.sh`
    derives the same prefix from the host it is running on — so a rebuilt machine
    reports "no backups found" against a bucket that is full of them. Omit the flag
    only when the replacement carries the old hostname.
-4. Build and deploy the last known-good release: **Releasing**, above.
-5. Point DNS at the new host and wait for Caddy to obtain a certificate.
+8. Build and deploy the last known-good release: **Releasing**, above.
+9. Point DNS at the new host and wait for Caddy to obtain a certificate.
 
 | Measure | Value |
 |---|---|
@@ -415,14 +422,14 @@ off-host copy, `restore.sh --target nativeweb --from-host nativeweb-dev
   rebuild adds however long a publish takes to the 345 s.
 - The bucket is MinIO **on the same physical host**. Losing `incus-host`
   loses the guest, the replacement guest, the bucket and the key together, so this
-  exercises the mechanics of R17 and nothing about the offsite property.
+  exercises R17a and leaves R17b and R14 exactly where they were.
 - Four preconditions the numbered list above did not state were found by running
   it: the DR host needs the bucket, endpoint and both AWS keys in its own
   `backup.env` (`provision.sh` seeds them empty and `restore.sh` dies on the
   first), `age` and the AWS CLI must be installed, the object storage must allow
   the new host's address, and the app role's password must be set to match the
   carried `secrets.env` -- `pg_dump -Fc` dumps one database, not roles. They are
-  now steps 3a-3d.
+  now steps 3 to 6.
 - `provision.sh` must run **inside the guest**. On the fleet host it would
   overwrite `/etc/caddy/Caddyfile`, which serves every site on the machine, and
   its nftables ruleset opens with `flush ruleset`.
@@ -433,11 +440,12 @@ off-host copy, `restore.sh --target nativeweb --from-host nativeweb-dev
 |---|---|
 | ~~Provisioning has never been run on a real host~~ | **Closed 2026-09-01** — provisioned and deployed to on `nativeweb-dev`. R1 met |
 | ~~The restore drill has never been run~~ | **Closed 2026-09-05** — drilled on `nativeweb-dev`, R16 met under the amended criterion above |
-| ~~Disaster recovery has never been exercised~~ | **Closed 2026-09-05** — `nativeweb-dr` rebuilt from repo plus backup in 345 s, R17 met with the four caveats above |
+| ~~Disaster recovery has never been exercised~~ | **Closed 2026-09-05** — `nativeweb-dr` rebuilt from repo plus backup in 345 s, R17a met with the four caveats above |
+| No backup is offsite | **R14 and R17b unmet.** The bucket is MinIO on the host being backed up, so a loss of `incus-host` is unrecoverable. One `backup.env` pointing at storage elsewhere closes both |
 | ~~The nightly backup fails on `nativeweb-dev`~~ | **Closed 2026-09-05** — bucket, endpoint and credentials filled in, first successful backup taken. The bucket is MinIO on the same fleet host, so this is not yet an offsite backup |
 | `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
 | `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it |
-| The build host needs a JauntyQ feed credential | `build.sh` pins **package** mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints the `dotnet nuget update source` command; an operator runs it once per shell |
+| The build host needs a JauntyQ feed credential | `build.sh` pins **package** mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints a `dotnet nuget add source --configfile "$HOME/.nuget/NuGet/NuGet.Config"` command; an operator runs it once per shell. It printed `update source` with no `--configfile` until 2026-09-06, which writes the token into the checked-out `nuget.config` |
 | ~~The epass.io cutover scope decision~~ | **Closed 2026-08-31, and not a NativeWeb concern at all** — `../decisions/2026-08-31-008-epass-cutover-closed.md`. Nothing in this runbook is gated on it. |
 
 **On `MemoryDenyWriteExecute`.** Measured 2026-08-27, Debian 12 under WSL2: the

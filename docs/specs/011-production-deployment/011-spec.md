@@ -1,10 +1,11 @@
 # 011 — Production deployment of `apps/web`
 
-Status: done — built and merged; R1 met on a real host 2026-09-01, R16 and R17 met by the drill of
-2026-09-05 on `nativeweb-dev` and `nativeweb-dr`. R15 remains unmet on that host:
-`BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running silently is still unnoticed, and
-the bucket is MinIO on the same physical host, so no copy is offsite yet. Both are operator
-settings, recorded in the runbook's gap table rather than left implicit
+Status: done — built and merged; R1 met on a real host 2026-09-01, R16 and R17a met by the drill
+of 2026-09-05 on `nativeweb-dev` and `nativeweb-dr`. **Three requirements are unmet on that host
+and none of them is code.** R14 and R17b: the bucket is a MinIO container on `incus-host`,
+the machine it backs up, so losing that machine loses every backup with it. R15:
+`BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is unnoticed until it is needed.
+All three are operator settings, carried in the runbook's gap table rather than left implicit
 Created: 2026-08-27
 
 ## Problem
@@ -190,8 +191,17 @@ Configuration and secrets
   in `secrets.env` -- so that criterion passed against the restored database, an empty database and
   no restore alike. The replacement can fail, and did fail on the first attempt: the older release
   running on the idle colour had no `/articles/{slug}` route and answered 404 for both rows.
-- **R17** — Given only this repository and offsite backups, when the disaster recovery procedure
-  is followed, then a serving host exists, and the document states how long that took.
+- **R17a** — Given only this repository and a backup reachable over the object-store protocol,
+  when the disaster recovery procedure is followed, then a serving host exists, and the document
+  states how long that took.
+- **R17b** — Given the host being backed up is lost entirely, when the disaster recovery
+  procedure is followed, then the backup it restores from is still readable.
+  **Split from R17 on 2026-09-06.** R17 read "Given only this repository and offsite backups",
+  and the drill of 2026-09-05 had no offsite backup: the bucket was a MinIO container on
+  `incus-host`, the same physical host as the guest being restored. What the drill proved is
+  R17a, and reporting that as R17 claimed survival of a loss that was never rehearsed. R17b is
+  R14 measured on a real host rather than a second requirement -- close R14 and R17b closes with
+  it.
 - **R18** — Given the repository at any commit, when it is searched for production secret values,
   then none are found. Given a non-privileged account on the host, when it attempts to read the
   secret material, then it is denied.
@@ -295,6 +305,34 @@ Four caveats that survive the ticks:
 - **R19 needed no work.** `StartupConfigGuards` already exits 78 naming the missing value; this
   spec added `NativeWeb:CanonicalBaseUrl` to the same guard and `RestartPreventExitStatus=78` to
   the unit, so a config error is not restarted into a loop.
+
+## Acceptance addendum — 2026-09-05, amended 2026-09-06
+
+**R16 and R17a are met. R14, R15 and R17b are not, and the first two were being reported as met
+before this addendum.** The drill ran on `incus-host`: backup **1 s** (10,359 bytes, the
+first successful backup this project has taken), restore into a scratch database **1 s**, verified
+serve against restored data **1 s**, bare guest to serving **345 s**. `nw-dev.example.com` served
+200 throughout and its live colour never changed.
+
+| Requirement | Verdict | On what evidence |
+| --- | --- | --- |
+| R16 | met | A real backup restored into `nativeweb_drill`, verified by serving a row that existed at backup time and 404ing one written after it |
+| R17a | met | `nativeweb-dr` built from repository plus backup, bare guest to serving in 345 s |
+| R14 | **unmet** | The bucket is a MinIO container on the host being backed up. Nothing is on a different machine or provider, which is what R14 asks for |
+| R17b | **unmet** | Follows from R14. The drill rehearsed recovering a broken guest, not losing the box |
+| R15 | unmet | `BACKUP_HEARTBEAT_URL` unset, unchanged by the drill |
+
+**Two things the drill did not prove, beyond R14.** The release artifact was repackaged from the
+surviving host rather than built from source, because `build.sh` needs the JauntyQ feed credential
+CI is still blocked on -- so the rebuild leaned on the machine it was meant to survive. And the
+procedure gained steps 3 to 6 only by being run: the new host needs its own bucket credentials,
+`age` and the AWS CLI, an allowance at the object store, and the app role's password set by hand,
+since `pg_dump -Fc` carries no roles.
+
+**The amendment.** This addendum first recorded R17 as met. R17's criterion said "Given only this
+repository and offsite backups" and there were no offsite backups, so it was split into R17a and
+R17b on 2026-09-06 and R14 was corrected from met to unmet. Found by a review of the branch that
+recorded the drill.
 
 ## Open questions
 

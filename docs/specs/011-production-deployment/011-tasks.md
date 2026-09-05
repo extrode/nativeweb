@@ -127,19 +127,22 @@ for itself.
   — **done 2026-09-05.** The restore drill and the disaster-recovery rebuild both ran: backup 1 s,
   restore 1 s, verified serve 1 s, bare guest to serving 345 s, all written into the runbook with
   their caveats. R16 was amended first, because the criterion as written could not fail. Four
-  preconditions missing from the DR procedure were found by running it and are now steps 3a-3d.
+  preconditions missing from the DR procedure were found by running it and are now steps 3 to 6 of the procedure.
+  **R14 and R17b are not closed by this task and never could have been:** the bucket is a MinIO
+  container on the host being backed up, so no copy is offsite. R17 was split on 2026-09-06 for
+  that reason, and the drill's result is recorded against R17a.
   — **one third done, 2026-09-01.** `nativeweb-dev` was provisioned and deployed to for real,
-  and `https://nw-dev.example.com` serves `apps/sample`: **R1 is met**, and the measured release
-  time is in the runbook. R16 and R17 are untouched — no backup has been restored and no host has
-  been rebuilt — so this box stays unchecked. The run took four attempts and found two defects in
-  the deploy scripts, both fixed with tests on `fix/deploy-unit-section`; the runbook's opening
-  note names them.
-  — files: `docs/02-reference/deployment.md` — covers: R1, R16, R17 — done when: a person has
+  and `https://nw-dev.example.com` serves `apps/sample`: **R1 was met** at that point, with the
+  measured release time in the runbook. The run took four attempts and found two defects in the
+  deploy scripts, both fixed with tests on `fix/deploy-unit-section`; the runbook's opening note
+  names them.
+  — files: `docs/02-reference/deployment.md` — covers: R1, R16, R17a — done when: a person has
   followed the provisioning document start to finish on a real host, restored a real backup onto a
-  clean database and signed in as an account that existed at backup time, and rebuilt a serving host
-  from repo plus backup — with the three elapsed times written into the runbook as measured values.
-  **This task is the user's to run; it cannot be completed from this session and the spec does not
-  reach `done` without it.**
+  clean database and served a row that existed when the backup was taken while not serving one
+  written after it, and rebuilt a serving host from repo plus backup — with the three elapsed times
+  written into the runbook as measured values.
+  **This task was the user's to run; it could not be completed from a session, and the spec did
+  not reach `done` without it.**
 
 - [x] **T16 Records** — files: `work/status/`, `work/tasklist.md`, `work/todo.md`, `CHANGELOG.md`,
   `011-spec.md` — covers: none directly — done when: the status rotation reflects this work, the
@@ -156,7 +159,7 @@ for itself.
 | R3 | T6, T14 | R14 | T11, T13 |
 | R4 | T7 | R15 | T11 |
 | R5 | T7, T8 | R16 | T12, T15 |
-| R6 | T7, T8 | R17 | T12, T13, T15 |
+| R6 | T7, T8 | R17a, R17b | T12, T13, T15 |
 | R7 | T8, T13 | R18 | T6, T8 |
 | R8 | T9 | R19 | **met by shipped code** — `StartupConfigGuards`; T16 records it, no build task |
 | R9 | T9 | R20 | T1, T2, T3, T4 |
@@ -168,5 +171,7 @@ requirement.** R19 is the one requirement with no build task, because `apps/web`
 naming the missing value; T16 records that rather than leaving a blank row.
 
 **Two known-conditional outcomes, carried forward rather than hidden:** R15 is met only if the
-operator sets a heartbeat URL (T11 makes the script say so when it is unset), and R1/R16/R17 are
-only fully met once T15 has been executed by a person.
+operator sets a heartbeat URL (T11 makes the script say so when it is unset), and R1/R16/R17a were
+only fully met once T15 had been executed by a person -- which it was, on 2026-09-05. R14 and
+R17b stay open after it: no task here puts a backup on another machine, because the storage is an
+operator decision rather than a change to this repository.

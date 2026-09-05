@@ -2053,13 +2053,21 @@ an answer different from the one the audit assumed.
 - **`AccessAdmin` resolves one group by scanning `GroupsAsync()`.** Every group screen reads every
   group to find one. `IPermissionStore` has no `GroupAsync(long)` and adding one changes the seam,
   which is why the 024 review left it: a fourteenth method on a shipped interface is a decision.
+- **`CHANGELOG.md`'s `[Unreleased]` section carries 34 `###` headings for 6 kinds.** Every merge
+  appends its own `### Fixed` / `### Added` block rather than joining the existing one, so the
+  section runs 1,800 lines with the same heading repeated a dozen times. Two adjacent `### Changed`
+  headings were merged on 2026-09-06; the rest is a restructure nobody has asked for. Only worth
+  doing when `dev` next merges to `main`, where the section becomes a version and has to be read.
 - **`FormValueAsync` joins repeated form fields with a comma.** Posting `permission` twice yields
   `a,b`, which fails catalog validation rather than being rejected as malformed. Harmless today
   because the catalog check catches it; a wrong message for the wrong reason.
 - ~~**The GitHub Packages credential is written into the checked-out `nuget.config` in clear text.**~~
-  **Fixed 2026-09-05** on `fix/ci-credential-outside-workspace`: all four jobs write to the
-  runner's user-level config with `add source --configfile`, and a test fails if any of them
-  stops. Original note follows.
+  **Fixed 2026-09-05** on `fix/ci-credential-outside-workspace`, and the fix was itself broken
+  until 2026-09-06 on `fix/ci-credential-config-file`: `add source --configfile` does not create
+  the file it is given, so every credential step would have exited 1 on a runner with no
+  user-level config. The guard was weaker than this note claimed, too -- it accepted a relative
+  `NuGet.Config` and stayed green with a whole step deleted. Nine mutations are red on it now.
+  Original note follows.
 - **The GitHub Packages credential is written into the checked-out `nuget.config` in clear text.**
   `dotnet nuget update source jauntyq-github --store-password-in-clear-text` with no `--configfile`
   writes to the nearest config declaring that source, which is the committed one, so the token sits
