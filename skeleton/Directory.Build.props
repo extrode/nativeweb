@@ -52,21 +52,38 @@
     <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\jauntyq</JauntyQRoot>
   </PropertyGroup>
 
-  <!-- Dual-mode JauntyQ resolution (mirrors justsmtp.com):
-       - local checkout (the default) => ProjectReference for co-development;
-       - -p:JauntyQUsePackages=true => the pinned JauntyQ.* packages
-         (versions in Directory.Packages.props).
-       Package mode is opt-in ONLY: the probe above always assigns a root, so
-       an automatic fallback can never fire — CI must pass the flag. -->
+  <!-- Dual-mode JauntyQ resolution:
+       - the default => the pinned JauntyQ.* packages (versions in
+         Directory.Packages.props);
+       - -p:JauntyQUsePackages=false => ProjectReference into a local checkout.
+
+       Checkout mode is the opt-in, and it was the default until 2026-09-05.
+       JauntyQ split its generator and runtime out to a public core repository,
+       so a sibling jauntyq/ no longer carries the two csproj paths referenced
+       below and a stamped product could not build at all without the flag. The
+       package IDs did not change, so package mode is the path that kept working.
+       The framework repository made the same flip in the same change; its
+       Directory.Build.props carries the full reasoning.
+
+       NativeWebUsePackages below is NOT flipped with it: the NativeWeb.*
+       packages have never been published, so a stamped product still needs the
+       framework checkout. -->
+  <PropertyGroup>
+    <JauntyQUsePackages Condition="'$(JauntyQUsePackages)' == ''">true</JauntyQUsePackages>
+  </PropertyGroup>
 
   <!-- MSBuild only warns (MSB9008) and silently skips missing ProjectReferences,
        which turns an unresolved JauntyQRoot into downstream CS0246s. Fail fast —
        but only in checkout mode; package mode has no path to validate. The probe
        is a sentinel csproj, not the bare directory: an empty or unrelated dir
-       at the path would pass Exists() and still MSB9008-skip every reference. -->
+       at the path would pass Exists() and still MSB9008-skip every reference.
+
+       The sentinel names the pre-split path, unverified against the public core
+       for the same reason the framework's copy does: a probe pointing somewhere
+       nobody checked is worse than one that fails honestly. -->
   <Target Name="EnsureJauntyQRoot" BeforeTargets="BeforeBuild"
-          Condition="'$(JauntyQUsePackages)' != 'true' and !Exists('$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj')">
-    <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt; or build with -p:JauntyQUsePackages=true." />
+          Condition="'$(JauntyQUsePackages)' == 'false' and !Exists('$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj')">
+    <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt;, or drop -p:JauntyQUsePackages=false to build against the pinned packages." />
   </Target>
 
   <!-- Local checkout of NativeWeb (the framework libs: security, auth, render
@@ -112,8 +129,10 @@
              Text="NativeWeb: checkout mode ($(NativeWebRoot))" />
     <Message Importance="high" Condition="'$(NativeWebUsePackages)' == 'true'"
              Text="NativeWeb: PACKAGE mode (pinned NativeWeb.* packages, not a checkout)" />
-    <Message Importance="high" Condition="'$(JauntyQUsePackages)' == 'true'"
+    <Message Importance="high" Condition="'$(JauntyQUsePackages)' != 'false'"
              Text="JauntyQ: PACKAGE mode (pinned JauntyQ.* packages, not a checkout)" />
+    <Message Importance="high" Condition="'$(JauntyQUsePackages)' == 'false'"
+             Text="JauntyQ: checkout mode ($(JauntyQRoot))" />
   </Target>
 
 </Project>

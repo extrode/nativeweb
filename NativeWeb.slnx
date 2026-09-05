@@ -39,6 +39,4 @@
     <Project Path="tests/nativeweb.signin.tests.integration/nativeweb.signin.tests.integration.csproj" />
     <Project Path="tests/nativeweb.signin.tests.unit/nativeweb.signin.tests.unit.csproj" />
   </Folder>
-  <Project Path="../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj" />
-  <Project Path="../jauntyq/src/JauntyQ.Runtime/JauntyQ.Runtime.csproj" />
 </Solution>

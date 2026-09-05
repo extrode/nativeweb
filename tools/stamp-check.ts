@@ -90,8 +90,13 @@ export function stampEnvironment(repoRoot: string): Record<string, string> {
     // than replacing it, and MSBuild reads every one of these as a property, so
     // a shell that exports NativeWebUsePackages=true would flip this run to
     // published packages while the output still said it was testing this
-    // checkout. An empty value is false to `'$(X)' == 'true'`, which is the
-    // form both props files test.
+    // checkout. An empty value is false to `'$(X)' == 'true'`, which is the form
+    // the skeleton's props file tests for NativeWeb.
+    //
+    // JauntyQ is the other way round since 2026-09-05: package mode is the
+    // default there, so blanking would not select checkout mode -- only
+    // `-p:JauntyQUsePackages=false` does. JauntyQRoot is blanked anyway, so a
+    // shell exporting a root cannot make the resolved mode ambiguous in the log.
     NativeWebUsePackages: "",
     JauntyQRoot: "",
 

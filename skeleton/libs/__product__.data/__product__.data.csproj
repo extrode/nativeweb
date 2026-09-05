@@ -20,7 +20,7 @@
        checks jauntyq out as a SIBLING of this repository and builds in checkout
        mode. Sibling, not nested: nested, this repo's Directory.Packages.props
        reaches it and central package management fails its restore (NU1008). -->
-  <ItemGroup Condition="'$(JauntyQUsePackages)' != 'true'">
+  <ItemGroup Condition="'$(JauntyQUsePackages)' == 'false'">
     <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
@@ -28,7 +28,7 @@
     <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Runtime\JauntyQ.Runtime.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(JauntyQUsePackages)' == 'true'">
+  <ItemGroup Condition="'$(JauntyQUsePackages)' != 'false'">
     <!-- The package ships under analyzers/dotnet/cs; OutputItemType /
          ReferenceOutputAssembly are ProjectReference metadata and would be
          ignored here. PrivateAssets keeps the generator build-only. -->
