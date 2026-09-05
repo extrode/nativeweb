@@ -32,7 +32,7 @@ public sealed class PortAllocationTests
         first.Start();
         second.Start();
 
-        if (Socket.OSSupportsIPv6)
+        if (SignInProcessFixture.LoopbackV6Bindable)
         {
             using TcpListener firstV6 = new(IPAddress.IPv6Loopback, front);
             using TcpListener secondV6 = new(IPAddress.IPv6Loopback, back);
@@ -41,4 +41,40 @@ public sealed class PortAllocationTests
             secondV6.Start();
         }
     }
+
+    /// <remarks>
+    /// <para>
+    /// The direction this can prove on the machine it runs on. A host where ::1 is unbindable is
+    /// not available here, so the disabled-by-policy case the guard exists for cannot be
+    /// exercised; what can be is that the cached answer matches what a bind does right now, in
+    /// either direction. Reverting the helper to <c>Socket.OSSupportsIPv6</c> on a host where the
+    /// two disagree turns this red, which is the whole class of bug reported.
+    /// </para>
+    /// <para>
+    /// Falsified by returning a constant from the helper: <c>false</c> fails here, since ::1 does
+    /// bind on this machine. <c>true</c> does not fail here, and cannot -- that is the half no
+    /// test on this host can reach, and it is stated rather than papered over.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void LoopbackV6Bindable_MatchesWhatTheMachineDoes()
+    {
+        bool bound;
+
+        try
+        {
+            using TcpListener v6 = new(IPAddress.IPv6Loopback, 0);
+
+            v6.Start();
+
+            bound = true;
+        }
+        catch (SocketException)
+        {
+            bound = false;
+        }
+
+        Assert.Equal(bound, SignInProcessFixture.LoopbackV6Bindable);
+    }
+
 }

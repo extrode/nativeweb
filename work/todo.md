@@ -2125,7 +2125,9 @@ an answer different from the one the audit assumed.
   `fix/scaffold-e2e-os-allocated-ports` the same day, and it corrected this one: both allocators
   probed `TcpListener.Create(0)`, the dual-stack wildcard, which on Windows coexists with a
   listener already on 127.0.0.1 -- so the OS could hand out a port Kestrel then could not bind.
-  Both probe the two loopback addresses now.
+  Both probe the two loopback addresses now, and since 2026-09-05 they decide whether to probe
+  `::1` by binding it once rather than by reading `Socket.OSSupportsIPv6`, which reports the stack
+  and not the address -- justsmtp.com's finding, on `fix/ipv6-loopback-trial-bind`.
 - `libs/nativeweb.signin.testing` carries `[Fact]`-bearing conformance suites and sits under
   `libs/`, outside the xUnit1051 suppression the two `tests/Directory.Build.props` files added. It
   builds clean today, so nothing is broken; the first call site there that takes a
