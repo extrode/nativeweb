@@ -232,12 +232,24 @@ JAUNTYQ_FEED_SOURCE="jauntyq-github"
 # The flag is repeated from the publish below rather than shared through a
 # variable, so that both lines read as the mode they select; DeployTargetTests
 # asserts the two agree, because a preflight that validates a mode the publish
-# does not use proves nothing.
+# does not use proves nothing. The RID and configuration are repeated for a
+# sharper reason: a RID-less restore never asks for the NativeAOT ILCompiler
+# packs, so it can pass on a machine where the publish then fails on exactly the
+# error this block exists to intercept. The publish below keeps its own restore
+# rather than taking --no-restore -- ten seconds against a four-minute AOT
+# compile, in exchange for a publish that does not depend on this block having
+# run.
 RESTORE_LOG="$(mktemp)"
 echo "build.sh: restoring $PROJECT before the publish"
-if ! dotnet restore "$PROJECT" -p:JauntyQUsePackages=true --nologo >"$RESTORE_LOG" 2>&1; then
+if ! dotnet restore "$PROJECT" -c Release -r "$RUNTIME_ID" -p:JauntyQUsePackages=true --nologo >"$RESTORE_LOG" 2>&1; then
 	cat "$RESTORE_LOG" >&2
-	if grep -qE 'NU1301|NU1101|401 \(Unauthorized\)' "$RESTORE_LOG"; then
+	# Matched on the authentication signal itself, not on a NuGet error code. NU1301
+	# is the generic "could not retrieve information about" code: an offline shell, a
+	# proxy or a nuget.org outage raises it too, and telling someone whose network is
+	# down to go and fetch a token sends them the wrong way. Both strings below appear
+	# in the measured failure, twelve times each; the second comes from the server
+	# rather than the SDK, so it survives a non-English DOTNET_CLI_UI_LANGUAGE.
+	if grep -qiE '401 \(Unauthorized\)|could not be authenticated by the GitHub Packages service' "$RESTORE_LOG"; then
 		echo "" >&2
 		echo "build.sh: the restore above could not read the JauntyQ packages." >&2
 		echo "          They live on a private feed that needs a token even to READ, and this" >&2
