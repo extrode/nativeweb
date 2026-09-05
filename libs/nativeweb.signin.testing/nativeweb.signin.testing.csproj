@@ -16,12 +16,14 @@
     <!-- Test method names are sentences: TakeAsync_UnderConcurrency_TakesExactlyOnce.
          CA1707 is right about public API and wrong about this. -->
     <NoWarn>$(NoWarn);CA1707</NoWarn>
-    <!-- Referencing xunit is enough for `dotnet test NativeWeb.slnx` to try to run
-         this, and it fails with "Testhost process ... exited with error" because
-         there is no runner here and nothing to run: the conformance suites are
-         abstract base classes a CONSUMER derives from. The run stays green, so
-         this is one line of noise in every full-suite output rather than a
-         failure, which is worse, because it trains the reader past it. -->
+    <!-- Kept, though what it prevents changed with the runner. Under VSTest,
+         referencing xunit was enough for `dotnet test NativeWeb.slnx` to try to run
+         this and fail with "Testhost process ... exited with error". Microsoft.Testing
+         .Platform reaches a project through its own executable instead, and this one
+         has neither a runner nor OutputType=Exe, so it is skipped either way. The
+         property still says what is true - the conformance suites are abstract base
+         classes a CONSUMER derives from, and nothing here is a test to run - and it
+         is what the pack targets read. -->
     <IsTestProject>false</IsTestProject>
     <!-- xunit.v3.extensibility.core, not xunit.v3, and that is the whole reason
          it is pinned separately in Directory.Packages.props. xunit.v3 carries the

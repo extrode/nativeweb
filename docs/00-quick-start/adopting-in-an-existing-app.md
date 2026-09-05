@@ -154,8 +154,8 @@ from `MyProduct:`. Pass a third argument to `FromConfiguration` when they differ
 [`../02-reference/configuration.md`](../02-reference/configuration.md).
 
 Pass `typeof(Program).Assembly` rather than letting it default to the entry assembly: under a
-`WebApplicationFactory` test the entry assembly is `testhost`, and `/version` reports its version
-instead of yours.
+`WebApplicationFactory` test the entry assembly is the test assembly, not yours, so `/version`
+reports its version instead.
 
 `AddNativeWebWeb` is eleven registrations behind one call, and every one of them is a public
 method on `NativeWebPipeline`. If you need to sit between two of them, write the eleven out.
@@ -244,7 +244,7 @@ To assert them rather than eyeball them, reference `Microsoft.AspNetCore.Mvc.Tes
 project and drive the four through a `WebApplicationFactory<Program>`. Top-level statements make
 `Program` internal, so add `public partial class Program;` to the end of the file or the factory
 will not close over it — and this is where passing `typeof(Program).Assembly` earns its keep,
-because the entry assembly under a factory is `testhost`.
+because the entry assembly under a factory is the test assembly, not the product's.
 
 ## If you get stuck
 

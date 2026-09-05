@@ -119,6 +119,14 @@ Deno.test("testsRun answers zero for a filter that matched nothing", () => {
   assertEquals(testsRun(MTP_ZERO), 0);
 });
 
+Deno.test("testsRun falls back to the platform's words when it prints no count block", () => {
+  assertEquals(testsRun("x.dll (net10.0|x64) Zero tests ran (193ms)"), 0);
+});
+
+Deno.test("testsRun reads the last summary block, not the first", () => {
+  assertEquals(testsRun("  total: 3\n  failed: 0\n\nTest run summary\n  total: 17\n"), 17);
+});
+
 Deno.test("testsRun answers null for output that is not a test run", () => {
   assertEquals(testsRun("Build succeeded."), null);
 });

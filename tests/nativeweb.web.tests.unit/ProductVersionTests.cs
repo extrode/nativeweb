@@ -29,8 +29,8 @@ namespace NativeWeb.Web.Tests.Unit;
 /// <c>Assembly.Load(new AssemblyName(environment.ApplicationName))</c>, which
 /// resolves under NativeAOT (the assembly is already in the image) but answers a
 /// rename with a silent fallback instead of a compile error. These two facts are
-/// the pair: naming the assembly decides the answer, and omitting it falls back
-/// to the entry assembly, which under this runner is testhost.
+/// the pair: omitting the assembly falls back to whatever the entry assembly is,
+/// and naming one decides the answer.
 /// </para>
 /// </remarks>
 public sealed class ProductVersionTests

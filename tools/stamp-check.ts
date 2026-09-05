@@ -158,9 +158,12 @@ export function diagnosticsIn(output: string): string[] {
  *       skipped: 0
  */
 export function testsRun(output: string): number | null {
-  const summary = output.match(/^\s*total:\s*(\d+)\s*$/m);
+  // The last block, not the first. One step runs one project today, but the
+  // platform prints a block per test assembly before the aggregate, and reading
+  // the first would report one assembly's count as the run's.
+  const summaries = [...output.matchAll(/^\s*total:\s*(\d+)\s*$/gm)];
 
-  if (summary !== null) return Number(summary[1]);
+  if (summaries.length > 0) return Number(summaries.at(-1)![1]);
 
   return /Zero tests ran/.test(output) ? 0 : null;
 }
@@ -358,9 +361,14 @@ async function main(argv: string[]): Promise<number> {
 
   for (const step of steps) {
     const diagnostics = diagnosticsIn(step.output);
-    const ran = step.label.includes("tests") ? testsRun(step.output) : null;
+    const counts = step.label.includes("tests");
+    const ran = counts ? testsRun(step.output) : null;
     const empty = ran === 0;
-    const ok = step.code === 0 && diagnostics.length === 0 && !empty;
+    // A tier whose count cannot be read fails. The regex reads one shape of one
+    // platform's summary, so a reworded block or a quieter verbosity turns the
+    // count guard off -- and silently, because exit 0 alone would still say ok.
+    const unreadable = counts && ran === null;
+    const ok = step.code === 0 && diagnostics.length === 0 && !empty && !unreadable;
 
     const count = ran === null || ran === 0 ? "" : `, ${ran} tests`;
     console.log(`  ${ok ? "ok  " : "FAIL"} ${step.label} (${step.seconds.toFixed(1)} s${count})`);
@@ -373,6 +381,14 @@ async function main(argv: string[]): Promise<number> {
       console.error(
         `  ${step.label} ran no tests and exited 0. A filter that matches nothing does that, ` +
           "so the tier was never executed and this run proves nothing.",
+      );
+    }
+
+    if (unreadable) {
+      console.error(
+        `  ${step.label} exited ${step.code} and printed no count this script can read. ` +
+          "Either the test platform's summary changed shape or the step ran something other " +
+          "than a test run; the count guard is off until testsRun is re-taught.",
       );
     }
 

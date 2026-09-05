@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 using Xunit;
@@ -33,11 +34,22 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </remarks>
 public sealed class TestRunnerWiringTests
 {
-    /// <summary>The packages the v3 move dropped. None may come back.</summary>
+    /// <summary>
+    /// The packages the v3 move dropped. None may come back, under any of the names
+    /// xunit 2 ships under: <c>xunit</c> is a metapackage, and referencing
+    /// <c>xunit.core</c> and <c>xunit.assert</c> instead reintroduces the same v2
+    /// assemblies without ever spelling the name this guard was written against.
+    /// </summary>
     private static readonly string[] Departed =
     [
         "xunit",
+        "xunit.core",
+        "xunit.assert",
+        "xunit.extensibility.core",
+        "xunit.extensibility.execution",
+        "xunit.abstractions",
         "xunit.runner.visualstudio",
+        "xunit.runner.console",
         "Microsoft.NET.Test.Sdk",
     ];
 
@@ -58,16 +70,20 @@ public sealed class TestRunnerWiringTests
     }
 
     [Fact]
-    public void EveryProjectThatRunsTestsIsAnExecutableAndEveryOtherOneIsNot()
+    public void EveryProjectThatRunsTestsIsAnExecutableAndNoneOfThemIsPackable()
     {
         string[] runners = [.. Projects()
             .Where(p => PackageReferences(p).Contains("xunit.v3", StringComparer.OrdinalIgnoreCase))];
 
+        // 23: twenty under tests/ and three under skeleton/tests/. Twenty would
+        // pass with the whole skeleton dropped, which is the quiet regression the
+        // remarks above name.
         Assert.True(
-            runners.Length >= 20,
-            $"Found {runners.Length} projects referencing xunit.v3 and expected the whole test tree. "
-                + "The reference has been renamed or moved into a shared props file, and everything "
-                + "below is now asserting about a handful of projects rather than all of them.");
+            runners.Length >= 23,
+            $"Found {runners.Length} projects referencing xunit.v3 and expected the whole test tree, "
+                + "the skeleton's three included. The reference has been renamed or moved into a "
+                + "shared props file, and everything below is now asserting about a handful of "
+                + "projects rather than all of them.");
 
         string[] notExecutable = [.. runners
             .Where(p => Property(p, "OutputType") != "Exe")
@@ -81,16 +97,19 @@ public sealed class TestRunnerWiringTests
 
         // The other direction. xunit.v3 in a packable library is the mistake
         // libs/nativeweb.signin.testing is shaped to avoid, and it does not fail
-        // here - it fails in a consumer's restore, or worse, ships.
+        // here - it fails in a consumer's restore, or worse, ships. The explicit
+        // "false" is what is demanded, not merely the absence of "true": Property
+        // reads the project file alone, so a project that says nothing would be
+        // read as safe whatever a props file above it sets.
         string[] packableRunners = [.. runners
-            .Where(p => Property(p, "IsPackable") == "true")
+            .Where(p => Property(p, "IsPackable") != "false")
             .Select(Relative)
             .Order(StringComparer.Ordinal)];
 
         Assert.True(
             packableRunners.Length == 0,
-            "These are packable and reference xunit.v3, which makes them executables and puts a "
-                + "test runner in a consumer's package. The runner-less halves are "
+            "These reference xunit.v3 and do not set IsPackable=false, which risks putting a test "
+                + "runner in a consumer's package. The runner-less halves are "
                 + $"xunit.v3.extensibility.core and xunit.v3.assert: {string.Join(", ", packableRunners)}");
     }
 
@@ -140,7 +159,6 @@ public sealed class TestRunnerWiringTests
             "skeleton/README.md",
             "docs/00-quick-start/getting-started.md",
             "docs/00-quick-start/tutorial-first-feature.md",
-            "tools/stamp-check.ts",
         ];
 
         List<string> commands = [];
@@ -156,8 +174,9 @@ public sealed class TestRunnerWiringTests
 
             foreach (string line in File.ReadLines(full))
             {
-                // The literal command, not a prose mention: a backtick or a comma
-                // straight after "dotnet test" is someone writing about it.
+                // The trailing space is the whole filter: `dotnet test` in prose
+                // is followed by a backtick or a full stop, and a real invocation
+                // by an argument.
                 int at = line.IndexOf("dotnet test ", StringComparison.Ordinal);
 
                 if (at < 0) continue;
@@ -199,11 +218,51 @@ public sealed class TestRunnerWiringTests
     /// tested green here and failed on the stamped product, which is a failure only
     /// `tools/stamp-check.ts` runs late enough to catch.
     /// </remarks>
+    /// <summary>
+    /// `tools/stamp-check.ts` runs the stamped product's tiers, and its commands are
+    /// argv arrays rather than a line of shell.
+    /// </summary>
+    /// <remarks>
+    /// Read separately because the line scan above cannot see them: there is no
+    /// literal `dotnet test ` anywhere in the file, so listing it beside the
+    /// workflows would assert nothing about the one script the <c>--nologo</c>
+    /// regression would hurt most. It is the only place a stamped product's tiers
+    /// are run at all, and a step that runs no tests still reports the stamp green.
+    /// </remarks>
+    [Fact]
+    public void TheStampCheckRunsItsTiersWithTheNewCliShape()
+    {
+        string source = Path.Combine(RepoRoot(), "tools", "stamp-check.ts");
+        string text = File.ReadAllText(source);
+
+        string[] invocations = [.. Regex
+            .Matches(text, @"""dotnet"",\s*\[(?<args>[^\]]*)\]", RegexOptions.Singleline)
+            .Select(m => m.Groups["args"].Value)
+            .Where(a => Regex.IsMatch(a, @"^\s*""test""\s*,"))];
+
+        Assert.True(
+            invocations.Length >= 2,
+            $"Found {invocations.Length} `dotnet test` invocations in tools/stamp-check.ts and "
+                + "expected at least the unit and integration tiers. They have been rewritten into "
+                + "a shape this test cannot see, and it is now guarding nothing.");
+
+        string[] wrong = [.. invocations
+            .Where(a => !a.Contains(@"""--project""", StringComparison.Ordinal)
+                || a.Contains(@"""--nologo""", StringComparison.Ordinal))
+            .Select(a => Regex.Replace(a, @"\s+", " ").Trim())];
+
+        Assert.True(
+            wrong.Length == 0,
+            "Each of these either names its project without --project, which is fatal, or passes "
+                + "--nologo, which the platform forwards to the test executable, which rejects it "
+                + $"and runs no tests: {string.Join(" | ", wrong)}");
+    }
+
     [Fact]
     public void EveryPackageAProjectReferencesIsPinnedWhereThatProjectLooks()
     {
         string[] unpinned = [.. Projects()
-            .SelectMany(p => PackageReferences(p).Select(r => (Project: p, Package: r)))
+            .SelectMany(p => PackageReferences(p, pinnedInline: false).Select(r => (Project: p, Package: r)))
             .Where(x => !PinsFor(x.Project).Contains(x.Package, StringComparer.OrdinalIgnoreCase))
             .Select(x => $"{Relative(x.Project)} -> {x.Package}")
             .Order(StringComparer.Ordinal)];
@@ -243,11 +302,15 @@ public sealed class TestRunnerWiringTests
         return [];
     }
 
-    /// <summary>`tools/stamp-check.ts` is TypeScript, so its commands are quoted arguments.</summary>
-    private static string[] PackageReferences(string project) =>
+    /// <param name="pinnedInline">
+    /// Whether to include references carrying their own <c>VersionOverride</c>, which
+    /// central package management allows and which needs no PackageVersion of its own.
+    /// </param>
+    private static string[] PackageReferences(string project, bool pinnedInline = true) =>
         [.. XDocument.Load(project)
             .Descendants()
             .Where(e => e.Name.LocalName == "PackageReference")
+            .Where(e => pinnedInline || e.Attribute("VersionOverride") is null)
             .Select(e => (string?)e.Attribute("Include"))
             .Where(i => i is not null)
             .Select(i => i!)];
@@ -282,6 +345,8 @@ public sealed class TestRunnerWiringTests
         relative.StartsWith("tmp/", StringComparison.Ordinal)
         || relative.StartsWith(".worktrees/", StringComparison.Ordinal)
         || relative.StartsWith(".claude/", StringComparison.Ordinal)
+        || relative.StartsWith("bin/", StringComparison.Ordinal)
+        || relative.StartsWith("obj/", StringComparison.Ordinal)
         || relative.Contains("/bin/", StringComparison.Ordinal)
         || relative.Contains("/obj/", StringComparison.Ordinal);
 
