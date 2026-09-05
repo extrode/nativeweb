@@ -12,6 +12,15 @@ sections that apply; drop the empty ones rather than leaving them blank.
 ## [Unreleased]
 
 ### Changed
+- `scripts/deploy/build.sh` restores before it publishes, and an authentication failure on the
+  JauntyQ feed now prints the `dotnet nuget update source` command that fixes it. The script runs
+  in WSL, which has its own NuGet profile, so the credential a developer added on Windows does not
+  reach it: a release from this workstation died `NU1301` / `401 (Unauthorized)` behind twelve
+  identical warnings, none of which said the fix was one command in that shell. The script carries
+  no token and writes no config. The preflight passes the publish's `-r $RUNTIME_ID`, so it asks
+  the feed for the NativeAOT packs the publish will need rather than a RID-agnostic graph that can
+  pass where the publish then fails; it passes no `-c`, which the restore verb rejects with
+  MSB1001.
 - A stamped product's CI credentials the `framework-github` NuGet source in each job that restores.
   Package mode is JauntyQ's default now and `skeleton/nuget.config` maps `JauntyQ.*` there alone,
   so without it a stamped product died NU1301/401 on `JauntyQ.Generator` before compiling. Uses

@@ -6,6 +6,20 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **`build.sh` names its own remedy when the JauntyQ feed refuses it. Done on
+  `fix/build-sh-jauntyq-credential`, 2026-09-05.** The sharp end of the package-mode default, and
+  measurement moved it: this is not a cold-host risk, it is a release that could not run here. The
+  feed is credentialed in the Windows user-level `NuGet.Config`, so a restore into an empty package
+  folder succeeds on Windows in 11.6 s; `build.sh` runs in WSL, whose profile holds no
+  `packageSourceCredentials` and whose 255 cached packages include no JauntyQ, and a real run died
+  `NU1301` / `401 (Unauthorized)` at 9.57 s. The script now restores before it publishes and, on an
+  auth failure, prints the one `dotnet nuget update source` command that fixes it. It carries no
+  token: a `%VAR%` credential block in `nuget.config` would override the working Windows credential
+  whenever the variable is unset, and having the script credential the source itself would leave a
+  plaintext token under `$HOME` as a silent side effect. Two facts in `DeployTargetTests`, both
+  cross-referential rather than substring checks - the preflight and the publish select the same
+  JauntyQ mode, and the remedy names the source `nuget.config` maps `JauntyQ.*` to. Repo tier 192.
+
 - **JauntyQ package mode is the default. Done on `chore/jauntyq-package-default`, 2026-09-05 (reviewed, two lenses, 2 confirmed defects fixed).**
   JauntyQ split its generator and runtime out to a public core repository, so `../jauntyq` no
   longer carries either csproj this repository referenced. Six sites pointed at the half that

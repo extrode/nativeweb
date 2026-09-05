@@ -1,3 +1,6 @@
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+
 using Xunit;
 
 namespace NativeWeb.Repo.Tests.Unit;
@@ -352,6 +355,86 @@ public sealed class DeployTargetTests
         Assert.True(end > start, "the MIGRATIONS_DIR_SET branch has no closing fi.");
 
         Assert.Contains("sed -n 's/^migrations_dir=//p' \"$STAGE/RELEASE\"", deploy[start..end], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildScript_RestoresTheModeItPublishes()
+    {
+        string build = Read("scripts", "deploy", "build.sh");
+
+        string restore = Invocation(build, "dotnet restore \"$PROJECT\"");
+        string publish = Invocation(build, "dotnet publish \"$PROJECT\"");
+
+        Assert.Equal(JauntyQMode(publish, "publish"), JauntyQMode(restore, "restore"));
+
+        // The RID decides which assets restore asks the feed for, so a preflight without it
+        // can pass where the publish then fails on the very error the preflight exists to
+        // intercept. Only the RID: the restore verb takes no -c, and asserting on one
+        // would pin a command line that dies MSB1001 before it reaches the feed.
+        Assert.Contains("-r \"$RUNTIME_ID\"", restore, StringComparison.Ordinal);
+        Assert.Contains("-r \"$RUNTIME_ID\"", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain("-c Release", restore, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildScript_TellsTheOperatorToCredentialTheSourceJauntyQResolvesFrom()
+    {
+        string build = Read("scripts", "deploy", "build.sh");
+
+        var mapped = XDocument.Parse(Read("nuget.config"))
+            .Descendants("packageSource")
+            .Where(e => e.Elements("package")
+                .Any(pkg => (string?)pkg.Attribute("pattern") == "JauntyQ.*"))
+            .Select(e => (string?)e.Attribute("key"))
+            .ToList();
+
+        Assert.True(mapped.Count == 1, $"nuget.config maps {mapped.Count} sources for JauntyQ.*; build.sh names one.");
+        string source = mapped[0]!;
+
+        Assert.Contains($"JAUNTYQ_FEED_SOURCE=\"{source}\"", build, StringComparison.Ordinal);
+
+        // Inside the branch that prints it, not merely somewhere in the file: the remedy
+        // text survives in a comment when the branch itself is deleted, and a fact that
+        // stays green through that tests nothing an operator ever sees.
+        const string guard = "if grep -qiE '401";
+        int start = build.IndexOf(guard, StringComparison.Ordinal);
+        Assert.True(start >= 0, "build.sh no longer classifies the restore failure, so no remedy is reachable.");
+
+        int end = build.IndexOf("\n\tfi\n", start, StringComparison.Ordinal);
+        Assert.True(end > start, "the restore-failure branch has no closing fi.");
+
+        Assert.Contains("dotnet nuget update source $JAUNTYQ_FEED_SOURCE", build[start..end], StringComparison.Ordinal);
+        Assert.Contains("read:packages", build[start..end], StringComparison.Ordinal);
+    }
+
+    // A single invocation, from its command up to the last line of a backslash
+    // continuation. Scoping every assertion below to one of these is what stops a flag
+    // mentioned in a nearby comment from standing in for the flag actually passed.
+    private static string Invocation(string script, string command)
+    {
+        int start = script.IndexOf(command, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"scripts/deploy/build.sh does not run `{command}`.");
+
+        int end = start;
+        while (true)
+        {
+            int newline = script.IndexOf('\n', end);
+            Assert.True(newline > 0, $"`{command}` runs to the end of the file.");
+
+            if (!script[end..newline].TrimEnd().EndsWith('\\'))
+            {
+                return script[start..newline];
+            }
+
+            end = newline + 1;
+        }
+    }
+
+    private static string JauntyQMode(string invocation, string what)
+    {
+        Match match = Regex.Match(invocation, @"-p:JauntyQUsePackages=([A-Za-z]+)");
+        Assert.True(match.Success, $"the {what} in build.sh does not state a JauntyQ resolution mode.");
+        return match.Groups[1].Value;
     }
 
     private static string Defaulted(string script, string marker)
