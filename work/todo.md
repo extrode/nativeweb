@@ -2115,3 +2115,12 @@ an answer different from the one the audit assumed.
   `https://localhost:5349`, which `netsh interface ipv4 show excludedportrange protocol=tcp` lists
   in a Windows excluded range with PID 4 holding it. Verified identical on `dev` under the old
   xunit 2.9.3 / VSTest stack, so it predates the v3 move; the fix is a port choice, not a runner.
+- `libs/nativeweb.signin.testing` carries `[Fact]`-bearing conformance suites and sits under
+  `libs/`, outside the xUnit1051 suppression the two `tests/Directory.Build.props` files added. It
+  builds clean today, so nothing is broken; the first call site there that takes a
+  `CancellationToken` becomes a build error rather than a warning.
+- `tests/nativeweb.repo.tests.unit/PackageFeedConfigTests.cs:234` names `apps/web/nativeweb.web.csproj`
+  in a comment as the path its bounded regex must not swallow. That project left the repo; the
+  command it guards is `apps/sample/nativeweb.sample.csproj` now. The regex is right, the comment
+  misdirects.
+
