@@ -1,7 +1,7 @@
 # 010 — The Roslyn pin is a compatibility floor, and it stays at 4.12.0
 
 Date: 2026-09-05
-Status: accepted
+Status: superseded by `2026-09-05-011-roslyn-pin-raised-to-5-3.md`
 Supersedes: nothing. It writes down reasoning that lived only in a comment in
 `../../Directory.Packages.props`, and adds the measurements that comment asserted.
 
@@ -67,7 +67,8 @@ on whatever `dotnet` resolves, and .NET 9 SDKs shipping Roslyn 4.14.0 are instal
 machine. Against a 5.3.0 pin that consumer gets the worst of the three `CS9057` surfaces: a warning
 it will not read, plus a page of `CS0103: The name '...' does not exist` pointing at its own code.
 
-Two honest caveats, so this is not read as more settled than it is:
+Two honest caveats, so this is not read as more settled than it is. **The first of them was
+false**, and 011 records what `justsmtp.com` measured instead:
 
 - **That consumer does not build today for an unrelated reason.** Its `NativeWeb.*` pins read
   `0.1.0`, which its own comment says "resolve to nothing" — the gap `PackageVersionTests` exists

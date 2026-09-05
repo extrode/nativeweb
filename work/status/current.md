@@ -13,21 +13,26 @@ worth seeing here rather than hiding, but it is the exception.
   1.49 -> 1.62 is the largest jump and the scaffold e2e tier passes 31/31 on the installed
   chromium. Every tier re-run at its recorded baseline, repo 183 with the new drift guard.
 
-  **One of the twelve is held back, not two.** `Microsoft.CodeAnalysis.CSharp` stays at 4.12.0
-  because the SDK at `C:/home/lang/dotnet/sdk/10.0.203` ships Roslyn 5.3.0 and a generator built
-  against 5.9.0 is refused with CS9057; 5.3.0 would load but raises the compatibility floor for
-  consumers of the four published analyzer packages, which is the user's call, taken 2026-09-05.
+  **The twelfth was held back for a day and then moved.** `Microsoft.CodeAnalysis.CSharp` stayed
+  at 4.12.0 on 2026-09-05 because the version the four `IsRoslynComponent` projects compile against
+  is a floor on every consumer of the published analyzer packages, and `justsmtp.com` was under it:
+  it pins `NativeWeb.Render.Generator` and its `global.json` had no `sdk` section. That repository
+  pinned `10.0.100` / `latestFeature` the same day, the consumer set was re-checked here (nothing
+  else consumes a generator), and the pin moved to 5.3.0 on `chore/roslyn-csharp-5-3`. 5.9.0 is
+  still out of reach: our SDK runs Roslyn 5.3.0 and refuses a newer analyzer with CS9057. Every
+  generator-backed tier re-ran at baseline - render 219, forms 148, scaffold 268, permissions 151,
+  sample 231, repo 183 - and `apps/sample` builds 0 warnings, which under repo-wide
+  `TreatWarningsAsErrors` is what proves no generator stopped loading.
+
   The first telling of this lumped `.Analyzers` in with it, and that was wrong: it is
   `PrivateAssets="all"`, never reaches a consumer, and is a rule pack rather than a compiler API
-  surface, so neither argument touches it. All five combinations were measured against a throwaway
-  `IsRoslynComponent` project and the table is in `Directory.Packages.props`; `CSharp 5.3.0` with
-  `Analyzers 3.11.0` is NU1605, which is why the two can only ever move up together, never down.
-  A `qwen-review` audit reached the same conclusion independently and is what prompted the recheck;
-  a later `glm-think` pass over the same two files found the comment block's own account of CS9057
-  incomplete, and the corrected version is what is there now. What it missed: a consumer that
-  consumes generated symbols does not get a silent green build, it gets CS0103 on its own source
-  for every one of them. Both NU1605 bounds are quoted from the restore output rather than guessed
-  (CSharp 4.12.0 requires Analyzers >= 3.3.4, CSharp 5.3.0 requires >= 5.3.0-2.25625.1).
+  surface, so neither argument touches it. A `qwen-review` audit reached the same conclusion
+  independently; a later `glm-think` pass found the comment block's own account of CS9057
+  incomplete - a consumer that consumes generated symbols does not get a silent green build, it
+  gets CS0103 on its own source for every one of them. Both NU1605 bounds are quoted from the
+  restore output rather than guessed (CSharp 4.12.0 requires Analyzers >= 3.3.4, CSharp 5.3.0
+  requires >= 5.3.0-2.25625.1). Decisions 010 and 011 in `docs/decisions/`; 011 also records the
+  two things 010 got wrong about `justsmtp.com`, both corrected by measurement from that repository.
 
 - **xunit 2.9.3 -> xunit.v3 4.0.0. Done on `chore/xunit-v3`, 2026-09-05.** Not a pin bump: v3 is
   Microsoft.Testing.Platform, and the .NET 10 SDK will not run it through VSTest, so
