@@ -454,45 +454,14 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     /// excluded or occupied literal is a permanently red tier; this is a rare loud one.
     /// </para>
     /// </remarks>
-    /// <summary>Whether <c>::1</c> can be bound here, tried once and remembered.</summary>
-    /// <remarks>
-    /// <para>
-    /// Not <see cref="Socket.OSSupportsIPv6"/>, which is computed by creating an IPv6 socket and
-    /// so answers whether the stack exists, not whether the loopback address can be bound. A
-    /// machine with IPv6 switched off by policy answers true to the flag and then refuses every
-    /// bind: the loop below would spend all 32 attempts failing for one cause and throw a message
-    /// blaming port availability, sending whoever reads it after the exclusion ranges.
-    /// </para>
-    /// <para>
-    /// Reported by justsmtp.com on 2026-09-05, in the same exchange that corrected the wildcard
-    /// probe here. Tried once because the answer cannot change while the process runs, and a bind
-    /// per attempt would pay for it 32 times over.
-    /// </para>
-    /// </remarks>
-    internal static readonly bool LoopbackV6Bindable = ProbeLoopbackV6();
+    internal static int FreePort() => FreePort(LoopbackV6Bindable ? CanBindV6 : static _ => true);
 
-    private static bool ProbeLoopbackV6()
-    {
-        if (!Socket.OSSupportsIPv6)
-        {
-            return false;
-        }
-
-        try
-        {
-            using TcpListener v6 = new(IPAddress.IPv6Loopback, 0);
-
-            v6.Start();
-
-            return true;
-        }
-        catch (SocketException)
-        {
-            return false;
-        }
-    }
-
-    internal static int FreePort()
+    /// <inheritdoc cref="FreePort()"/>
+    /// <param name="v6Accepts">
+    /// Asked whether <c>::1</c> will take a candidate port. Always-true stands for a machine that
+    /// cannot bind <c>::1</c> at all, where the caller has already decided not to require it.
+    /// </param>
+    internal static int FreePort(Func<int, bool> v6Accepts)
     {
         lock (Handed)
         {
@@ -511,18 +480,9 @@ public abstract class SampleProcessFixture : IAsyncLifetime
 
                 // Kestrel binds ::1 as well and fails if it cannot, unless the machine cannot
                 // bind it at all -- in which case it never attempts it and neither should this.
-                if (LoopbackV6Bindable)
+                if (!v6Accepts(port))
                 {
-                    try
-                    {
-                        using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
-
-                        v6.Start();
-                    }
-                    catch (SocketException)
-                    {
-                        continue;
-                    }
+                    continue;
                 }
 
                 Handed.Add(port);
@@ -532,6 +492,48 @@ public abstract class SampleProcessFixture : IAsyncLifetime
 
             throw new InvalidOperationException(
                 "No port free on both loopback addresses after 32 attempts.");
+        }
+    }
+
+    /// <summary>Whether <c>::1</c> can be bound here, tried once and remembered.</summary>
+    /// <remarks>
+    /// <para>
+    /// Not <see cref="Socket.OSSupportsIPv6"/>, which is computed by creating an IPv6 socket and
+    /// so answers whether the stack exists, not whether the loopback address can be bound. A
+    /// machine with IPv6 switched off by policy answers true to the flag and then refuses every
+    /// bind: <c>FreePort()</c> would spend all 32 attempts failing for one cause and throw a message
+    /// blaming port availability, sending whoever reads it after the exclusion ranges.
+    /// </para>
+    /// <para>
+    /// Reported by justsmtp.com on 2026-09-05, in the same exchange that corrected the wildcard
+    /// probe here. Tried once because the answer cannot change while the process runs, and a bind
+    /// per attempt would pay for it 32 times over.
+    /// </para>
+    /// </remarks>
+    internal static readonly bool LoopbackV6Bindable = Socket.OSSupportsIPv6 && CanBindV6(0);
+
+    /// <summary>Whether <c>::1</c> accepts a bind on <paramref name="port"/> right now.</summary>
+    /// <remarks>
+    /// The <c>v6Accepts</c> parameter on <c>FreePort()</c> exists so a test can pass something else.
+    /// Until 2026-09-05 this decision was reachable only by running on a machine whose IPv6 was
+    /// switched off, which is a platform this repository does not have and cannot stand up -- so
+    /// the branch that the justsmtp.com finding is about went untested, and the gap was written
+    /// up as a property of the machine when it was a property of this code. It is a parameter
+    /// now, and both sides of it are asserted.
+    /// </remarks>
+    internal static bool CanBindV6(int port)
+    {
+        try
+        {
+            using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
+
+            v6.Start();
+
+            return true;
+        }
+        catch (SocketException)
+        {
+            return false;
         }
     }
 
