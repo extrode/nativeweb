@@ -18,7 +18,7 @@ namespace NativeWeb.Permissions.Tests.E2e;
 /// An in-memory store lives and dies with this process, so the mutation cannot
 /// reach anything else.
 /// </remarks>
-public sealed class PermissionSampleFixture() : SampleProcessFixture(5352, null);
+public sealed class PermissionSampleFixture() : SampleProcessFixture(null);
 
 /// <summary>One browser for this tier.</summary>
 public sealed class PermissionBrowserFixture : IAsyncLifetime

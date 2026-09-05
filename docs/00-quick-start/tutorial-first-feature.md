@@ -404,8 +404,9 @@ test. Re-run singly, each failed alone.
 
 **Read the failure, do not count it.** Adding `.RequireAuthorization()` failed the e2e guard test in
 96 ms, fast enough to suspect the host had never started. The message settled it —
-`Assert.EndsWith() Failure … String: "http://localhost:5348/admin"` — the browser really had
-followed `/articles` → `/signin` → `/admin`. A red test for the wrong reason is the same as a green
+`Assert.EndsWith() Failure … String: "http://localhost:<port>/admin"` — the browser really had
+followed `/articles` → `/signin` → `/admin`. The port is whatever the operating system handed the
+fixture, so yours will differ. A red test for the wrong reason is the same as a green
 test for the wrong reason.
 
 ## Run it all

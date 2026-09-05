@@ -98,11 +98,19 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     /// it has excluded.
     /// </para>
     /// <para>
-    /// <see cref="TcpListener.Create(int)"/> rather than a loopback listener, because it binds
-    /// dual-stack and the app is given `localhost`, which resolves to both 127.0.0.1 and ::1. The
-    /// two exclusion lists are separate -- `netsh interface ipv6 show excludedportrange` is its
-    /// own -- and they happen to agree on this machine, so an IPv4-only probe would have passed
-    /// here while leaving the gap open on a machine where they diverge.
+    /// Both loopback addresses, because the app is given `localhost`, which resolves to
+    /// 127.0.0.1 and ::1 and binds each. An IPv4-only probe would leave the ::1 half unchecked,
+    /// and the two exclusion lists are separate -- `netsh interface ipv6 show excludedportrange`
+    /// is its own -- so it would pass on this machine, where they agree, and miss the gap on one
+    /// where they diverge.
+    /// </para>
+    /// <para>
+    /// This was <c>TcpListener.Create(0)</c> until 2026-09-05, on the argument that dual-stack
+    /// was the faithful shape. It is not: that binds the wildcard, and on Windows a wildcard
+    /// bind coexists with a listener already on 127.0.0.1, so the operating system will hand out
+    /// a port the probe can take and Kestrel cannot. Measured in the scaffold tier, where a
+    /// deliberate break returning an occupied 5348 was accepted by a wildcard probe and refused
+    /// by the loopback pair.
     /// </para>
     /// <para>
     /// Both listeners are held open until both ports are known. Allocated one at a time, the
@@ -112,13 +120,48 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     /// </remarks>
     internal static (int Front, int Back) FreePorts()
     {
-        using var front = TcpListener.Create(0);
-        using var back = TcpListener.Create(0);
-
-        front.Start();
-        back.Start();
+        using TcpListener front = Probe();
+        using TcpListener back = Probe();
 
         return (((IPEndPoint)front.LocalEndpoint).Port, ((IPEndPoint)back.LocalEndpoint).Port);
+    }
+
+    /// <summary>
+    /// A started listener on a loopback port that ::1 will also accept, left open by the caller
+    /// until every port it needs is known.
+    /// </summary>
+    private static TcpListener Probe()
+    {
+        for (int attempt = 0; attempt < 32; attempt++)
+        {
+            TcpListener v4 = new(IPAddress.Loopback, 0);
+
+            v4.Start();
+
+            int port = ((IPEndPoint)v4.LocalEndpoint).Port;
+
+            if (!Socket.OSSupportsIPv6)
+            {
+                return v4;
+            }
+
+            try
+            {
+                using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
+
+                v6.Start();
+
+                return v4;
+            }
+            catch (SocketException)
+            {
+                v4.Stop();
+                v4.Dispose();
+            }
+        }
+
+        throw new InvalidOperationException(
+            "No port free on both loopback addresses after 32 attempts.");
     }
 
     /// <summary>The sample's most recent log lines, oldest first.</summary>

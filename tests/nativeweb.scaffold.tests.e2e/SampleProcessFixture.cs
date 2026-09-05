@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -104,10 +106,6 @@ public abstract class SampleProcessFixture : IAsyncLifetime
 
     private readonly bool _https;
 
-    /// <param name="port">
-    /// One port per store, because both run for the whole tier: the same published
-    /// binary launched twice, differing only in configuration.
-    /// </param>
     /// <param name="connectionString">
     /// Null selects the in-memory store, exactly as an unset key does in production.
     /// </param>
@@ -127,13 +125,11 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     /// Production instance has to be reached the way Caddy reaches it, over TLS.
     /// </param>
     protected SampleProcessFixture(
-        int port,
         string? connectionString,
         string environment = "Development",
         IReadOnlyDictionary<string, string>? extraEnvironment = null,
         bool https = false)
     {
-        BaseUrl = https ? $"https://localhost:{port}" : $"http://localhost:{port}";
         _connectionString = connectionString;
         _environment = environment;
         _extraEnvironment = extraEnvironment ?? new Dictionary<string, string>();
@@ -141,7 +137,12 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     }
 
     /// <summary>Where this instance of the sample is listening.</summary>
-    public string BaseUrl { get; }
+    /// <remarks>
+    /// Assigned in <see cref="InitializeAsync"/> rather than in the constructor. A
+    /// free port is only free until something takes it, and the constructor runs
+    /// before a publish that holds a cross-process lock and may wait minutes.
+    /// </remarks>
+    public string BaseUrl { get; private set; } = string.Empty;
 
     /// <summary>The sample's most recent log lines, oldest first.</summary>
     public string LogTail => _log.ToString();
@@ -150,6 +151,10 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         string exePath = await PublishedExe.Value.ConfigureAwait(false);
+
+        // After the publish, not before it: see BaseUrl.
+        int port = FreePort();
+        BaseUrl = _https ? $"https://localhost:{port}" : $"http://localhost:{port}";
 
         var startInfo = new ProcessStartInfo(exePath)
         {
@@ -201,9 +206,12 @@ public abstract class SampleProcessFixture : IAsyncLifetime
 
         // Everything after Process.Start is inside this try. xUnit does not call
         // DisposeAsync when InitializeAsync throws, so an escape from here leaves the
-        // sample holding port 5347 for every subsequent run — the same trap
+        // sample running with nothing holding a handle to it — the same trap
         // AppProcessFixture documents, and the reason the readiness loop below catches
-        // broadly rather than only HttpRequestException.
+        // broadly rather than only HttpRequestException. It used to also poison every
+        // subsequent run by keeping the tier's one literal port; since FreePort the
+        // leak is an orphan process rather than a permanently red tier, which makes it
+        // quieter and no less worth catching.
         try
         {
             // Redirecting a stream obliges someone to drain it: the OS pipe buffer is a
@@ -226,6 +234,19 @@ public abstract class SampleProcessFixture : IAsyncLifetime
             DateTime deadline = DateTime.UtcNow.AddSeconds(60);
             while (DateTime.UtcNow < deadline)
             {
+                // Before the request, not after it. The port is now the operating system's
+                // choice rather than this tier's literal, so a second instance of the same
+                // binary can in principle be reached on it -- and /healthz from the wrong
+                // process is indistinguishable from /healthz from this one, since every
+                // fixture here launches the same exe. A process that has exited cannot be
+                // the one answering, and that is the cheap half of the question.
+                if (_process.HasExited)
+                {
+                    throw new InvalidOperationException(
+                        $"apps/sample exited with {_process.ExitCode} before answering "
+                        + $"{BaseUrl}/healthz. Log tail:{Environment.NewLine}{LogTail}");
+                }
+
                 try
                 {
                     using HttpResponseMessage response =
@@ -379,6 +400,100 @@ public abstract class SampleProcessFixture : IAsyncLifetime
         {
             throw new InvalidOperationException(
                 $"`{file} {arguments}` exited {process.ExitCode}. Log tail:\n{tail}");
+        }
+    }
+
+    /// <summary>Ports already handed out in this process, so none is handed out twice.</summary>
+    private static readonly HashSet<int> Handed = [];
+
+    /// <summary>A port the operating system says is free on both loopback addresses.</summary>
+    /// <remarks>
+    /// <para>
+    /// Each fixture named a literal until 2026-09-05 -- 5347, 5348, 5351, 5352, 5353 -- and two
+    /// ways of losing were measured on this workstation. `JauntySampleFixture` on 5348 failed
+    /// 31/31 with "Failed to bind to address http://127.0.0.1:5348: address already in use"
+    /// because another repository's preview app was listening. The sign-in tier lost the other
+    /// way on 5349 and 5350: `netsh interface ipv4 show excludedportrange protocol=tcp` lists
+    /// both as excluded, and a bind inside an excluded range is refused whether or not anything
+    /// is listening. Asking the operating system answers both, and the second is the one a
+    /// different literal could not have fixed -- the exclusions are dynamic reservations that
+    /// move at boot, so which numbers are safe is a property of the machine.
+    /// </para>
+    /// <para>
+    /// The two loopback addresses specifically, not <c>TcpListener.Create(0)</c>. That binds the
+    /// dual-stack wildcard, which was the first shape of this and is measurably wrong: on
+    /// Windows a wildcard bind coexists with a listener already on 127.0.0.1, so the operating
+    /// system will hand out a port the wildcard can take and Kestrel cannot. Kestrel is given
+    /// `localhost`, which resolves to 127.0.0.1 and ::1 and binds each, so the probe has to
+    /// prove the same pair rather than something weaker. Confirmed by the deliberate break that
+    /// hardcoded an occupied 5348: the wildcard probe accepted it, the loopback pair did not.
+    /// </para>
+    /// <para>
+    /// <see cref="Handed"/> exists because holding the listener open cannot help here. This
+    /// class's own <see cref="PublishedExe"/> remarks record that xUnit initializes a
+    /// collection's fixtures concurrently, and three fixtures in this tier each call this. One
+    /// closing its probe while another is choosing lets the second be handed the first's port,
+    /// and the loser then binds a port its sibling is about to take. The sign-in tier holds two
+    /// listeners open at once for the same reason, which works only because both ports are
+    /// chosen in one call; across independent fixtures nothing composes but a shared record.
+    /// </para>
+    /// <para>
+    /// No test asserts <see cref="Handed"/>, and that is deliberate rather than an omission.
+    /// Removing the guard was tried: sixteen sequential draws stayed distinct, because Windows
+    /// cycles the ephemeral range rather than reissuing the port just released. A test over it
+    /// therefore passes whether the guard is present or absent, which asserts nothing. The
+    /// guard stays as cheap insurance against the window the concurrent-initialization comment
+    /// above describes, and it is honest to say it is unproven rather than to keep a green test
+    /// that cannot fail.
+    /// </para>
+    /// <para>
+    /// The residual window -- between this returning and Kestrel binding -- is real and cannot
+    /// be closed from here, since the port has to be free for the child process to take it. It
+    /// is a trade rather than a strict win: the old literals sat below the dynamic range where
+    /// nothing would take them by accident, and this draws from the ephemeral range. An
+    /// excluded or occupied literal is a permanently red tier; this is a rare loud one.
+    /// </para>
+    /// </remarks>
+    internal static int FreePort()
+    {
+        lock (Handed)
+        {
+            for (int attempt = 0; attempt < 32; attempt++)
+            {
+                using TcpListener v4 = new(IPAddress.Loopback, 0);
+
+                v4.Start();
+
+                int port = ((IPEndPoint)v4.LocalEndpoint).Port;
+
+                if (Handed.Contains(port))
+                {
+                    continue;
+                }
+
+                // Kestrel binds ::1 as well and fails if it cannot, unless the machine has no
+                // IPv6 at all -- in which case it never attempts it and neither should this.
+                if (Socket.OSSupportsIPv6)
+                {
+                    try
+                    {
+                        using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
+
+                        v6.Start();
+                    }
+                    catch (SocketException)
+                    {
+                        continue;
+                    }
+                }
+
+                Handed.Add(port);
+
+                return port;
+            }
+
+            throw new InvalidOperationException(
+                "No port free on both loopback addresses after 32 attempts.");
         }
     }
 

@@ -13,6 +13,14 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Changed
 
+- Every e2e fixture asks the operating system for its port instead of naming one. Five fixtures
+  across the scaffold, forms and permissions tiers held the literals 5347, 5348, 5351, 5352 and
+  5353; the scaffold tier had been failing 31/31 on `address already in use` because another
+  repository's dev server was listening on 5348. The probe binds the two loopback addresses
+  rather than the dual-stack wildcard, which on Windows coexists with a listener already on
+  127.0.0.1 and so can report a port free that Kestrel cannot take. The sign-in tier's allocator
+  was corrected the same way.
+
 - `nativeweb.signin.tests.e2e` binds ports the operating system allocates rather than the
   literals 5349 and 5350. Both are in this machine's Windows TCP exclusion ranges, on the IPv6
   list as well as the IPv4 one, so Kestrel was refused the bind with nothing listening and the
