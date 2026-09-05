@@ -118,10 +118,18 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     /// app would be told to bind one endpoint twice.
     /// </para>
     /// </remarks>
-    internal static (int Front, int Back) FreePorts()
+    internal static (int Front, int Back) FreePorts() =>
+        FreePorts(LoopbackV6Bindable ? CanBindV6 : static _ => true);
+
+    /// <inheritdoc cref="FreePorts()"/>
+    /// <param name="v6Accepts">
+    /// Asked whether <c>::1</c> will take a candidate port. Always-true stands for a machine that
+    /// cannot bind <c>::1</c> at all, where the caller has already decided not to require it.
+    /// </param>
+    internal static (int Front, int Back) FreePorts(Func<int, bool> v6Accepts)
     {
-        using TcpListener front = Probe();
-        using TcpListener back = Probe();
+        using TcpListener front = Probe(v6Accepts);
+        using TcpListener back = Probe(v6Accepts);
 
         return (((IPEndPoint)front.LocalEndpoint).Port, ((IPEndPoint)back.LocalEndpoint).Port);
     }
@@ -130,14 +138,35 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     /// A started listener on a loopback port that ::1 will also accept, left open by the caller
     /// until every port it needs is known.
     /// </summary>
+    private static TcpListener Probe(Func<int, bool> v6Accepts)
+    {
+        for (int attempt = 0; attempt < 32; attempt++)
+        {
+            TcpListener v4 = new(IPAddress.Loopback, 0);
+
+            v4.Start();
+
+            if (v6Accepts(((IPEndPoint)v4.LocalEndpoint).Port))
+            {
+                return v4;
+            }
+
+            v4.Stop();
+            v4.Dispose();
+        }
+
+        throw new InvalidOperationException(
+            "No port free on both loopback addresses after 32 attempts.");
+    }
+
     /// <summary>Whether <c>::1</c> can be bound here, tried once and remembered.</summary>
     /// <remarks>
     /// <para>
     /// Not <see cref="Socket.OSSupportsIPv6"/>, which is computed by creating an IPv6 socket and
     /// so answers whether the stack exists, not whether the loopback address can be bound. A
     /// machine with IPv6 switched off by policy answers true to the flag and then refuses every
-    /// bind: the loop below would spend all 32 attempts failing for one cause and throw a message
-    /// blaming port availability, sending whoever reads it after the exclusion ranges.
+    /// bind: <see cref="Probe"/> would spend all 32 attempts failing for one cause and throw a
+    /// message blaming port availability, sending whoever reads it after the exclusion ranges.
     /// </para>
     /// <para>
     /// Reported by justsmtp.com on 2026-09-05, in the same exchange that corrected the wildcard
@@ -145,18 +174,22 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     /// per attempt would pay for it 32 times over.
     /// </para>
     /// </remarks>
-    internal static readonly bool LoopbackV6Bindable = ProbeLoopbackV6();
+    internal static readonly bool LoopbackV6Bindable = Socket.OSSupportsIPv6 && CanBindV6(0);
 
-    private static bool ProbeLoopbackV6()
+    /// <summary>Whether <c>::1</c> accepts a bind on <paramref name="port"/> right now.</summary>
+    /// <remarks>
+    /// The <c>v6Accepts</c> parameter on <see cref="Probe"/> exists so a test can pass something
+    /// else. Until 2026-09-05 this decision was reachable only by running on a machine whose IPv6
+    /// was switched off, which is a platform this repository does not have and cannot stand up --
+    /// so the branch that the justsmtp.com finding is about went untested, and the gap was written
+    /// up as a property of the machine when it was a property of this code. It is a parameter now,
+    /// and both sides of it are asserted.
+    /// </remarks>
+    internal static bool CanBindV6(int port)
     {
-        if (!Socket.OSSupportsIPv6)
-        {
-            return false;
-        }
-
         try
         {
-            using TcpListener v6 = new(IPAddress.IPv6Loopback, 0);
+            using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
 
             v6.Start();
 
@@ -166,40 +199,6 @@ public sealed class SignInProcessFixture : IAsyncLifetime
         {
             return false;
         }
-    }
-
-    private static TcpListener Probe()
-    {
-        for (int attempt = 0; attempt < 32; attempt++)
-        {
-            TcpListener v4 = new(IPAddress.Loopback, 0);
-
-            v4.Start();
-
-            int port = ((IPEndPoint)v4.LocalEndpoint).Port;
-
-            if (!LoopbackV6Bindable)
-            {
-                return v4;
-            }
-
-            try
-            {
-                using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
-
-                v6.Start();
-
-                return v4;
-            }
-            catch (SocketException)
-            {
-                v4.Stop();
-                v4.Dispose();
-            }
-        }
-
-        throw new InvalidOperationException(
-            "No port free on both loopback addresses after 32 attempts.");
     }
 
     /// <summary>The sample's most recent log lines, oldest first.</summary>

@@ -88,4 +88,58 @@ public sealed class PortAllocationTests
     }
 
 
+
+    /// <summary>The half a machine with IPv6 cannot reach by running the code as configured.</summary>
+    /// <remarks>
+    /// This host binds <c>::1</c>, so <c>LoopbackV6Bindable</c> is true here and the branch the
+    /// justsmtp.com finding is about never executes on it. That was reported as untestable on
+    /// 2026-09-05 and it was not: the decision was hard-wired into the allocator, so the only way
+    /// in was a differently-configured machine. Passing the predicate makes both sides reachable
+    /// from a test, and this asserts the one that matters -- a predicate that never accepts must
+    /// exhaust the loop and say so, rather than returning a port the server cannot bind.
+    /// </remarks>
+    [Fact]
+    public void FreePort_WhenIPv6NeverAccepts_Throws()
+    {
+        InvalidOperationException thrown = Assert.Throws<InvalidOperationException>(
+            static () => SampleProcessFixture.FreePort(static _ => false));
+
+        Assert.Contains("32 attempts", thrown.Message);
+    }
+
+    /// <summary>The other side of the same predicate: no IPv6 requirement, still a real port.</summary>
+    /// <remarks>
+    /// What a machine that cannot bind <c>::1</c> at all runs. It must not throw, and what it
+    /// returns must still be bindable on 127.0.0.1 -- the whole point of the gate is that losing
+    /// IPv6 costs the tier its IPv6 check, not its ports.
+    /// </remarks>
+    [Fact]
+    public void FreePort_WithNoIPv6Requirement_ReturnsABindablePort()
+    {
+        int port = SampleProcessFixture.FreePort(static _ => true);
+
+        using TcpListener v4 = new(IPAddress.Loopback, port);
+
+        v4.Start();
+    }
+
+    /// <summary><c>CanBindV6</c> saying no, proved on a host where ::1 works.</summary>
+    /// <remarks>
+    /// The refusal path of the probe itself, reached by holding <c>::1</c> on a port and asking
+    /// about that port. No special machine needed: an occupied address refuses a bind for the
+    /// same reason a disabled one does, and this is what makes the <c>false</c> return something
+    /// other than dead code here.
+    /// </remarks>
+    [Fact]
+    public void CanBindV6_IsFalseWhenThatPortIsAlreadyHeldOnIPv6()
+    {
+        using TcpListener held = new(IPAddress.IPv6Loopback, 0);
+
+        held.Start();
+
+        int port = ((IPEndPoint)held.LocalEndpoint).Port;
+
+        Assert.False(SampleProcessFixture.CanBindV6(port));
+        Assert.True(SampleProcessFixture.CanBindV6(0));
+    }
 }
