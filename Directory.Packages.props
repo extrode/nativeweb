@@ -38,11 +38,40 @@
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
   </ItemGroup>
 
-  <!-- Roslyn, for libs/nativeweb.render.generator (netstandard2.0 analyzer).
-       Pins mirror JauntyQ.Generator (same machine, same SDK, proven in its CI). -->
+  <!-- Roslyn, for the four netstandard2.0 analyzer projects under libs/.
+       Pins mirror JauntyQ.Generator (same machine, same SDK, proven in its CI).
+
+       THE TWO LINES DO NOT MOVE TOGETHER, and each is held down for its own
+       reason. Measured on 2026-09-05 against a throwaway IsRoslynComponent
+       project consumed as an Analyzer, on SDK 10.0.203:
+
+         CSharp 4.12.0 + Analyzers 3.11.0   builds
+         CSharp 4.12.0 + Analyzers 5.9.0    builds        <- what is pinned now
+         CSharp 5.3.0  + Analyzers 3.11.0   NU1605        (CSharp depends on
+                                                           Analyzers >= 5.3.0)
+         CSharp 5.3.0  + Analyzers 5.9.0    builds
+         CSharp 5.9.0  + Analyzers 5.9.0    CS9057
+
+       CS9057 is the hard bound on Microsoft.CodeAnalysis.CSharp: the SDK's own
+       compiler is Roslyn 5.3.0, and a generator referencing a newer
+       Microsoft.CodeAnalysis than the compiler loading it is refused. Note it is
+       a WARNING - the build succeeds and the generator silently does not run.
+       Only TreatWarningsAsErrors, on repo-wide in Directory.Build.props, turns it
+       into a failure. Anything that relaxes that setting for these projects loses
+       the only thing making this visible.
+
+       4.12.0 rather than the 5.3.0 that would also load: these four pack as
+       analyzer packages for a private feed, so the pin is a compatibility floor
+       for a consumer's SDK, and no 5.x compiler API is called. Revisit when the
+       SDK moves.
+
+       Microsoft.CodeAnalysis.Analyzers is NOT bound by either argument. It is
+       PrivateAssets=all, build-time only, never in a consumer's closure, and it
+       is the RS* rules an analyzer author is checked against rather than a
+       compiler API surface. 5.9.0 introduced no new diagnostic these four fail. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
   </ItemGroup>
 
   <!-- Test-only packages. Referenced solely by tests/*, never by shipping code. -->

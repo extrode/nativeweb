@@ -16,11 +16,19 @@ sections that apply; drop the empty ones rather than leaving them blank.
 - **Ten NuGet pins bumped to current; Roslyn deliberately not.** AngleSharp 1.6.0 -> 1.7.3,
   Geralt 4.3.0 -> 4.4.0, `Microsoft.AspNetCore.Mvc.Testing` and `.TestHost` 10.0.7 -> 10.0.11,
   `Microsoft.Extensions.Logging.Abstractions` 10.0.0 -> 10.0.11, `Microsoft.Playwright`
-  1.49.0 -> 1.62.0, and the four OpenTelemetry packages 1.17.0 -> 1.18.0 in lockstep, in both
-  `Directory.Packages.props` files. `Microsoft.CodeAnalysis.CSharp` stays at 4.12.0 and
-  `.Analyzers` at 3.11.0: the four `IsRoslynComponent` generator projects here are loaded by the
-  SDK's own compiler, which is Roslyn 5.3.0, so 5.9.0 fails with CS9057, and an analyzer package
-  targets the lowest Roslyn it supports rather than the newest. `PackageVersionTests` gained
+  1.49.0 -> 1.62.0, the four OpenTelemetry packages 1.17.0 -> 1.18.0 in lockstep, and
+  `Microsoft.CodeAnalysis.Analyzers` 3.11.0 -> 5.9.0. `Microsoft.CodeAnalysis.CSharp` stays at
+  4.12.0, and it is the only one held back: the four `IsRoslynComponent` generator projects are
+  loaded by the SDK's own compiler, which is Roslyn 5.3.0, so a generator built against 5.9.0 is
+  refused with CS9057. That is a WARNING, and the build only fails because
+  `TreatWarningsAsErrors` is on repo-wide; a consumer without it gets a build that succeeds with
+  the generator silently not running, which is the durable fact rather than the error. 5.3.0 would
+  load but raises the compatibility floor for consumers of the four published analyzer packages,
+  buying an API surface none of them calls - proven by their compiling against 4.12.0 at all.
+  `.Analyzers` is bound by neither argument: it is `PrivateAssets="all"`, never in a consumer's
+  closure, and is the RS* rule set an analyzer author is checked against rather than a compiler
+  API surface. All five pin combinations were measured; the table is in
+  `Directory.Packages.props`. `PackageVersionTests` gained
   `EveryPackagePinnedInBothFilesCarriesOneVersion`, because seven third-party pins are duplicated
   between the framework and the skeleton and nothing asserted they agreed.
 - **The test suites run on xUnit v3 over Microsoft.Testing.Platform.** `xunit` 2.9.3,
