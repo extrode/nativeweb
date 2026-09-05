@@ -22,12 +22,12 @@ dotnet run --project apps/__product__
 The connection string lives in user-secrets locally
 (`__PRODUCT__:Db:ConnectionString`), not in `appsettings.json`.
 
-**Checkout mode.** The build resolves the NativeWeb framework libs and JauntyQ from sibling
-checkouts by default, so `../NativeWeb` and `../../extrode-legacy-org.com/jauntyq` must exist — or pass
-the paths explicitly:
+**Checkout mode, for NativeWeb only.** The build resolves the NativeWeb framework libs from a
+sibling checkout by default, so `../NativeWeb` must exist — or pass the path explicitly. JauntyQ
+resolves from packages and needs no sibling.
 
 ```
-dotnet run --project apps/__product__ -p:NativeWebRoot=<path> -p:JauntyQRoot=<path>
+dotnet run --project apps/__product__ -p:NativeWebRoot=<path>
 ```
 
 ## Build and test
@@ -55,7 +55,7 @@ running them rather than by reading anything:
   properties do not cross into a child process. Environment variables do:
 
   ```
-  export NativeWebRoot=/path/to/nativeweb JauntyQRoot=/path/to/jauntyq
+  export NativeWebRoot=/path/to/nativeweb
   ```
 
   The symptom is a publish failure inside the e2e fixture reading *"Skipping project … because it
@@ -88,10 +88,10 @@ Agent instructions are in `AGENTS.md`. `CLAUDE.md` is a one-line shim that impor
 
 ## How CI resolves the framework
 
-`.github/workflows/ci.yml` builds in **checkout mode**, the same mode a developer machine uses.
-A runner has no sibling checkout, so the workflow clones `extrode-legacy-org/NativeWeb` and `extrode-legacy-org/jauntyq`
-and points `NativeWebRoot` / `JauntyQRoot` at them. Both are workflow-level *environment*
-variables rather than `-p:` flags, because `dotnet list package` accepts no `-p:` and the e2e
+`.github/workflows/ci.yml` resolves NativeWeb in **checkout mode**, the same mode a developer
+machine uses, and JauntyQ from packages. A runner has no sibling checkout, so the workflow clones
+`extrode-legacy-org/NativeWeb` and points `NativeWebRoot` at it. That is a workflow-level *environment*
+variable rather than a `-p:` flag, because `dotnet list package` accepts no `-p:` and the e2e
 fixture's NativeAOT publish runs as a child process — MSBuild reads bare environment variables as
 properties, so one definition covers all of it.
 
@@ -101,27 +101,29 @@ The workspace is laid out as **siblings**, with this product in `product/`:
 $GITHUB_WORKSPACE/
   product/     <- this repository
   NativeWeb/
-  jauntyq/
 ```
 
-That is load-bearing, not tidiness. `Directory.Packages.props` discovery walks up from each
-project and does not stop at a repository boundary, so a framework clone placed *inside*
-`product/` inherits this repo's copy — which sets `ManagePackageVersionsCentrally=true`. jauntyq
-ships no `Directory.Packages.props` and its `PackageReference`s carry `Version` attributes, so
-central package management switches on underneath it and restore dies with NU1008 on both JauntyQ
-projects (measured 2026-08-17; siblings build clean). `defaults.run.working-directory: product` is
+That is required, not tidiness. `Directory.Packages.props` discovery walks up from each project
+and does not stop at a repository boundary, so a framework clone placed *inside* `product/`
+inherits this repo's copy — which sets `ManagePackageVersionsCentrally=true` over a repository
+that does not expect it. Measured 2026-08-17 against the jauntyq clone this workspace used to
+carry: NU1008 on both JauntyQ projects, where the sibling layout built clean. `defaults.run.working-directory: product` is
 what keeps every `run:` step pointed at this repository.
 
-**Set the `FRAMEWORK_CHECKOUT_TOKEN` repository secret** before the first run. The framework repos
-are private and the default `GITHUB_TOKEN` is scoped to this repository only, so without it the
+**Set the `FRAMEWORK_CHECKOUT_TOKEN` repository secret** before the first run. The NativeWeb repo
+is private and the default `GITHUB_TOKEN` is scoped to this repository only, so without it the
 checkout step fails with `Repository not found`.
 
-Package mode (`-p:NativeWebUsePackages=true -p:JauntyQUsePackages=true`) still exists and is still
-unusable: **the private NativeWeb/JauntyQ feed does not exist yet**, so a package-mode restore
-cannot succeed anywhere. CI used to force it and died at Restore on every run; it no longer
-depends on it. The packages are private-feed only in any case — the JauntyQ license limits
-generated output to self-hosted use, which is also why enabling this workflow in a repository
-outside those terms is not permitted.
+**NativeWeb package mode (`-p:NativeWebUsePackages=true`) still exists and is still unusable:**
+no `NativeWeb.*` package has published, so a package-mode restore of the framework cannot succeed
+anywhere. CI used to force it and died at Restore on every run; it no longer depends on it.
+
+**JauntyQ went the other way on 2026-09-05 and packages are its default.** It split its generator
+and runtime out to a public core repository, so a sibling `jauntyq/` no longer carries either
+project a product references and checkout mode cannot work; `-p:JauntyQUsePackages=false` selects
+it and fails. Nothing needs to be passed for the default. The packages are private-feed only —
+the JauntyQ license limits generated output to self-hosted use, which is also why enabling this
+workflow in a repository outside those terms is not permitted.
 
 ## Before shipping
 
@@ -140,8 +142,8 @@ The stamp leaves deliberate placeholders. Replace every one before the product f
 - `nuget.config` — the `framework-github` source points at `extrode-legacy-org`'s registry. Repoint it if
   your framework packages publish elsewhere; the `packageSourceMapping` beside it is what keeps
   `NativeWeb.*`/`JauntyQ.*` from ever resolving against nuget.org, so keep the two in step.
-- `.github/workflows/ci.yml` — the `extrode-legacy-org/NativeWeb` and `extrode-legacy-org/jauntyq` checkout targets,
-  and the `ref: dev` on each. Pin those to a tag once the framework publishes them.
+- `.github/workflows/ci.yml` — the `extrode-legacy-org/NativeWeb` checkout target and its `ref: dev`. Pin
+  that to a tag once the framework publishes one.
 
 ## Status
 

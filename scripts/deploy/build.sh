@@ -219,16 +219,21 @@ trap 'rm -rf "$PUBLISH_DIR"' EXIT
 
 echo "build.sh: publishing $PROJECT for $RUNTIME_ID at $SHORT_SHA ($DIRTY)"
 
-# JauntyQUsePackages=false is stated rather than left to the default. It IS the
-# default, but the alternative is a documented, still-unresolved gap -- no
-# reachable feed publishes the JauntyQ.* packages (work/todo.md) -- and a deploy
-# pipeline that inherited package mode by accident would fail to restore with an
-# error about a feed rather than about a mode. R22 asks for the build mode to be
-# documented rather than discovered; this is where it is documented.
+# JauntyQUsePackages=true is stated rather than left to the default. It IS the
+# default since 2026-09-05, and the alternative no longer exists in a form this
+# script could use: JauntyQ split its generator and runtime out to a public core
+# repository, so checkout mode has no sibling to reference and would fail at
+# EnsureJauntyQRoot. This line read =false until that day, which selected the
+# mode that cannot restore. R22 asks for the build mode to be documented rather
+# than discovered; this is where it is documented.
+#
+# Package mode still restores from whatever the machine's NuGet cache holds when
+# the jauntyq-github feed is uncredentialed -- a documented, still-unresolved gap
+# (work/todo.md, NuGet.config). A clean host gets NU1101 naming the feed.
 dotnet publish "$PROJECT" \
 	-c Release \
 	-r "$RUNTIME_ID" \
-	-p:JauntyQUsePackages=false \
+	-p:JauntyQUsePackages=true \
 	-o "$PUBLISH_DIR" \
 	--nologo
 

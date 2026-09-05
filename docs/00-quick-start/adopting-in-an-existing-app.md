@@ -19,20 +19,17 @@ its checkout is probed relative to the NativeWeb one:
 ```
 your-org/
   nativeweb/          <- this repository
-  jauntyq/            <- required: nativeweb.web, .render and .security all build against it
   your-product/       <- yours
 ```
 
-Without `jauntyq/` the first build stops at `JauntyQ checkout not found at
-'<...>\..\jauntyq'` before any of your own code compiles. `-p:JauntyQRoot=<path>` overrides the
-location. Do not reach for `-p:JauntyQUsePackages=true`: that path exists for this repository's
-CI and the packages are not available to you.
+No `jauntyq/` sibling is needed. NativeWeb resolves JauntyQ from the pinned `JauntyQ.*` packages
+by default since 2026-09-05, so the only JauntyQ prerequisite is being able to restore them.
 
-**JauntyQ is not public, and this is the step that stops an outside team.** It is licensed for
-self-hosted-SaaS use of its generated output; its source and binaries are not redistributable,
-so no link here would help you and none is given. If you do not already have a checkout, that is
-a licensing conversation to have before starting, not a step to work around. Everything below
-assumes you have one.
+**Those packages are private, and this is the step that stops an outside team.** JauntyQ is
+licensed for self-hosted-SaaS use of its generated output; its source and binaries are not
+redistributable, so the `jauntyq-github` feed is credentialed per organisation and no link here
+would help you. If you cannot restore `JauntyQ.Generator`, that is a licensing conversation to
+have before starting, not a step to work around. Everything below assumes you can.
 
 Then add to your product's `Directory.Build.props`. Both casings are probed because both are in
 the wild: the repository is `nativeweb` on disk, and `getting-started.md` has long told people

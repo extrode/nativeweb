@@ -11,9 +11,9 @@ NativeWeb is a template; you stamp a new product out of `skeleton/` and work in 
 
 ## Before you start
 
-Prerequisites, including the JauntyQ checkout the build cannot do without, are in the
-[README](../../README.md#prerequisites). Read that table now — the JauntyQ one is not optional and
-not obvious, and it is the only thing here that can stop you before you begin.
+Prerequisites are in the [README](../../README.md#prerequisites). Read that table now — the
+JauntyQ row is the only thing here that can stop you before you begin, and it is a feed credential
+rather than a checkout since 2026-09-05.
 
 ## 1. Clone
 
@@ -22,10 +22,8 @@ git clone <this repository> NativeWeb
 cd NativeWeb
 ```
 
-Put it beside your `jauntyq` checkout, as the README's diagram shows. That adjacency is the only
-layout requirement: the solution build needs it, and a per-project build probes for the same
-sibling (plus the deeper spot a worktree checkout sits at). Neither cares what the source root is
-called. If your JauntyQ checkout is somewhere else entirely, pass `-p:JauntyQRoot=<path>`.
+Anywhere you like. There is no layout requirement: JauntyQ resolves from packages, so nothing
+here probes for a sibling unless you ask for checkout mode with `-p:JauntyQUsePackages=false`.
 
 **On the name:** the command above clones into `NativeWeb`, and the repository itself is
 `nativeweb`. Both spellings work, and a stamped product probes for both, so nothing here depends
@@ -38,10 +36,10 @@ if you clone under something else on Linux, set `NativeWebRoot` rather than rely
 dotnet build
 ```
 
-Roughly a minute cold. If it fails immediately with two `error MSB3202` lines naming
-`../jauntyq/src/...`, your checkout is not beside `jauntyq` — that is the prerequisite above, and
-`-p:JauntyQUsePackages=true` will **not** work around it. Build one project instead
-(`dotnet build apps/sample`) while you sort the layout out.
+Roughly a minute cold, and it needs no `jauntyq` beside it: JauntyQ resolves from the pinned
+packages by default. If restore fails with `NU1101` naming `JauntyQ.Generator`, the
+`jauntyq-github` source in `nuget.config` has no credential yet — the prerequisite above says how
+to supply one.
 
 ## 3. Run it, with no database at all
 
@@ -187,8 +185,8 @@ deno run -A tools/stamp-check.ts
 ```
 
 **Put it beside your NativeWeb checkout**, as `../probe` above does. The stamped product resolves
-the framework libraries and JauntyQ from siblings by default, and step 4 below is much harder if
-you skip this.
+the framework libraries from that sibling by default, and step 4 below is much harder if you skip
+this. JauntyQ needs no such adjacency — it resolves from packages.
 
 **2. Create the role and database.** Substitute your slug for `probe` throughout.
 
@@ -222,13 +220,13 @@ dotnet test --project tests/probe.tests.e2e
 - **The integration tier needs `<Product>__Db__ConnectionString` in the environment.** Without it
   the tier still runs, but `/readyz` reports `ServiceUnavailable` and one fact fails. The
   double-underscore spelling is the environment form of `Probe:Db:ConnectionString`.
-- **If your product is *not* beside NativeWeb, set the roots as environment variables, not
-  `-p:` flags.** `-p:NativeWebRoot=... -p:JauntyQRoot=...` works for `dotnet build` and then fails
-  the e2e tier, because that tier's fixture shells out to its own `dotnet publish` and command-line
-  properties do not cross into a child process. Environment variables do:
+- **If your product is *not* beside NativeWeb, set the root as an environment variable, not a
+  `-p:` flag.** `-p:NativeWebRoot=...` works for `dotnet build` and then fails the e2e tier,
+  because that tier's fixture shells out to its own `dotnet publish` and command-line properties
+  do not cross into a child process. Environment variables do:
 
   ```
-  export NativeWebRoot=/path/to/NativeWeb JauntyQRoot=/path/to/jauntyq
+  export NativeWebRoot=/path/to/NativeWeb
   ```
 
   The symptom if you get this wrong is a publish failure inside the e2e fixture reading

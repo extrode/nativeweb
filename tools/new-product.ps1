@@ -108,7 +108,7 @@ foreach ($file in $files) {
 }
 
 Write-Host '-- 2. git init (main, initial commit, dev branch)'
-Write-Host "-- 3. reminder: set NativeWebRoot/JauntyQRoot or -p:NativeWebUsePackages=true; see the stamped README"
+Write-Host "-- 3. reminder: set NativeWebRoot or -p:NativeWebUsePackages=true; JauntyQ resolves from packages by default. See the stamped README"
 
 if (-not $Execute) {
     Write-Host 'Dry run complete; nothing written.'

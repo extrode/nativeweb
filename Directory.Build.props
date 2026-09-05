@@ -91,20 +91,29 @@
     <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\jauntyq</JauntyQRoot>
   </PropertyGroup>
 
-  <!-- Dual-mode JauntyQ resolution (mirrors justsmtp.com):
-       - local checkout present => ProjectReference for co-development;
-       - no checkout / CI => -p:JauntyQUsePackages=true pulls the pinned
-         JauntyQ.* packages (versions in Directory.Packages.props).
+  <!-- Dual-mode JauntyQ resolution:
+       - the default => PackageReference to the pinned JauntyQ.* packages
+         (versions in Directory.Packages.props);
+       - -p:JauntyQUsePackages=false => ProjectReference into a local checkout,
+         for co-development.
 
-       Package mode is opt-in ONLY. There used to be an auto-default here that
-       set it when JauntyQRoot was empty. The probe just above assigns JauntyQRoot
-       a path on every ordinary path, so the condition was all but dead — the one
-       way left to reach it was an explicit global -p:JauntyQRoot= (empty), which
-       a props file cannot reassign. That case now hits the fail-fast below, which
-       is the intent. CI passes the flag explicitly (see
-       .github/workflows/ci.yml), which is the only way package mode is ever
-       reached — deleted rather than repaired, because a silent fallback to
-       older pinned packages is worse than the fail-fast below. -->
+       CHECKOUT MODE IS THE OPT-IN, and it was the default until 2026-09-05.
+       JauntyQ split: the generator and runtime sources moved to a public core
+       repository, and ../jauntyq now holds only the premium half
+       (Extrode.JauntyQ.Registry, .Schema.Contract, .Explain, .Licensing and
+       .Cli.Premium). Both csproj paths this repository referenced are gone from
+       it, so the sentinel below matched nothing and EVERY build failed fast
+       until -p:JauntyQUsePackages=true was passed by hand. The package IDs are
+       unchanged by the split, so package mode kept working throughout, which is
+       why it is now the default rather than the exception.
+       docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md.
+
+       The probe block above is deliberately untouched. It is correct; it simply
+       stops firing on the default path, and it is what checkout mode needs the
+       day the public core is cloned as a sibling. -->
+  <PropertyGroup>
+    <JauntyQUsePackages Condition="'$(JauntyQUsePackages)' == ''">true</JauntyQUsePackages>
+  </PropertyGroup>
 
   <!-- MSBuild only warns (MSB9008) and silently skips missing ProjectReferences,
        which turns an unresolved JauntyQRoot into downstream CS0246s. Fail fast —
@@ -113,10 +122,29 @@
        Probe the generator csproj rather than the directory: an empty or
        partially-cloned jauntyq/ passes a bare Exists() and then fails as
        CS0246, which is the error this target exists to pre-empt. Sentinel-file
-       probe, same as skeleton/Directory.Build.props. -->
+       probe, same as skeleton/Directory.Build.props.
+
+       The sentinel still names the PRE-SPLIT path. Whoever clones the public
+       core updates it to that repository's real layout in the same commit; it is
+       not guessed here, because a probe pointing at a path nobody verified is
+       the extrode-legacy-org.com breakage JauntyQRootProbeTests exists to prevent. -->
   <Target Name="EnsureJauntyQRoot" BeforeTargets="BeforeBuild"
-          Condition="'$(JauntyQUsePackages)' != 'true' and !Exists('$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj')">
-    <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt; or build with -p:JauntyQUsePackages=true." />
+          Condition="'$(JauntyQUsePackages)' == 'false' and !Exists('$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj')">
+    <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt;, or drop -p:JauntyQUsePackages=false to build against the pinned packages." />
+  </Target>
+
+  <!-- Which mode resolved, in the build log rather than inferred from whether it
+       worked. Mirrors ReportFrameworkResolution in skeleton/Directory.Build.props;
+       MSBuild also reads bare environment variables as properties, so an ambient
+       JauntyQUsePackages flips the mode with nothing on the command line to show
+       for it. -->
+  <Target Name="ReportJauntyQResolution" BeforeTargets="BeforeBuild">
+    <Message Importance="high"
+             Condition="'$(JauntyQUsePackages)' != 'false'"
+             Text="JauntyQ: packages (pinned in Directory.Packages.props)." />
+    <Message Importance="high"
+             Condition="'$(JauntyQUsePackages)' == 'false'"
+             Text="JauntyQ: checkout at '$(JauntyQRoot)'." />
   </Target>
 
 </Project>

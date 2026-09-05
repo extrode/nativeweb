@@ -1259,9 +1259,14 @@ not executed. Read each note below for which half survives.**
   touch: `apps/web/SecurityTxtEndpoint.cs` still emits `security@epass.io` literally — out of
   011's scope, and correct only after the cutover.
 - **CI cannot restore in package mode.** Only `-p:JauntyQUsePackages=true` paths are affected, and
-  a deploy pipeline that assumes package mode will not build. **011 sidesteps rather than closes
-  it**: `build.sh` pins `-p:JauntyQUsePackages=false` and builds from the local checkout, which is
-  why the release build is a workstation task and not a CI one.
+  a deploy pipeline that assumes package mode will not build. ~~**011 sidesteps rather than closes
+  it**: `build.sh` pins `-p:JauntyQUsePackages=false` and builds from the local checkout~~ — **that
+  sidestep went on 2026-09-05**, because the checkout it named no longer exists to build from
+  (`docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md`). `build.sh` passes
+  `-p:JauntyQUsePackages=true` now, so the release path restores `JauntyQ.*` like everything else.
+  It contains no `dotnet nuget update source` step and neither does any caller, so it works off a
+  warm `~/.nuget/packages` and a clean release host gets `NU1101` naming `jauntyq-github`. The
+  release is still a workstation task, for that reason rather than the old one.
 
   **The premise changed on 2026-08-29 and the cause is now narrower.** "No reachable feed
   publishes `JauntyQ.*`" is no longer true: `JauntyQ.Runtime`, `JauntyQ.Generator` and
@@ -2119,14 +2124,26 @@ an answer different from the one the audit assumed.
   `libs/`, outside the xUnit1051 suppression the two `tests/Directory.Build.props` files added. It
   builds clean today, so nothing is broken; the first call site there that takes a
   `CancellationToken` becomes a build error rather than a warning.
-- `tests/nativeweb.repo.tests.unit/PackageFeedConfigTests.cs:234` names `apps/web/nativeweb.web.csproj`
-  in a comment as the path its bounded regex must not swallow. That project left the repo; the
-  command it guards is `apps/sample/nativeweb.sample.csproj` now. The regex is right, the comment
-  misdirects.
+- ~~`tests/nativeweb.repo.tests.unit/PackageFeedConfigTests.cs:234` names `apps/web/nativeweb.web.csproj`
+  in a comment as the path its bounded regex must not swallow.~~ **CLOSED 2026-09-05**: the regex
+  and its comment both went with `SolutionRemovePattern`, which existed only to check the
+  `dotnet sln remove` step that the JauntyQ split made unnecessary.
 
 
-- `Directory.Build.props:118` probes `$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj`,
-  but the jauntyq checkout has renamed its projects to `Extrode.JauntyQ.*` and has no
-  `JauntyQ.Generator` directory, so checkout mode fails fast on every build here. Package mode
-  (`JauntyQUsePackages=true`) is unaffected and is what the 2026-09-05 tier runs used. Found while
-  bumping the Roslyn pin; not fixed, because picking the new sentinel is a JauntyQ question.
+- ~~`Directory.Build.props:118` probes `$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj`,
+  but the jauntyq checkout has renamed its projects to `Extrode.JauntyQ.*`~~ **CLOSED 2026-09-05,
+  and the diagnosis above was wrong.** It is not a rename: JauntyQ **split**, moving its generator
+  and runtime to a public core repository that is not checked out here at all, so `../jauntyq`
+  carries only the premium half. Package mode is the default now
+  (`docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md`) and a bare `dotnet build`
+  works again.
+
+  **What is still open from it**, and both need a decision rather than work:
+  - The `EnsureJauntyQRoot` sentinel in `Directory.Build.props` and in
+    `skeleton/Directory.Build.props` still names the pre-split csproj. Whoever clones the public
+    core repoints both, along with the two `ProjectReference` pairs, in the same commit. Not
+    guessed here: a probe pointing at an unverified path is the `extrode-legacy-org.com` breakage
+    `JauntyQRootProbeTests` exists to prevent.
+  - `AGENTS.md` says "JauntyQ is used from a local checkout only." The default build resolves
+    packages now, so that no longer describes how we build. It is a licence statement, left
+    verbatim for the user to rule on.

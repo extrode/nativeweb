@@ -18,6 +18,12 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// probing for sibling checkouts a runner does not have. The fix is to provide the checkouts.
 /// </para>
 /// <para>
+/// Only NativeWeb's, since 2026-09-05. JauntyQ split its generator and runtime out to a public
+/// core repository, so cloning <c>extrode/jauntyq</c> stopped yielding either csproj a product
+/// references; it resolves from packages now, and the clone step and <c>JauntyQRoot</c> went
+/// with the change.
+/// </para>
+/// <para>
 /// What can rot, all of it silent on a developer machine and fatal on a runner: the roots
 /// and the clone paths drift apart, so <c>Ensure*Root</c> fails on a directory nothing
 /// filled; a job gains a build step without the checkout steps; the roots go back to being
@@ -51,15 +57,17 @@ public sealed partial class SkeletonFrameworkResolutionTests
     {
         string workflow = SkeletonWorkflow();
 
-        foreach (string name in new[] { "NativeWebRoot", "JauntyQRoot" })
-        {
-            string? value = WorkflowEnvValue(workflow, name);
-            Assert.True(
-                value is not null,
-                $"skeleton ci.yml declares no workflow-level {name}; either the framework will "
-                    + "not resolve, or it resolves for only one of the two jobs.");
-            Assert.StartsWith("${{ github.workspace }}/", value!, StringComparison.Ordinal);
-        }
+        string? root = WorkflowEnvValue(workflow, "NativeWebRoot");
+        Assert.True(
+            root is not null,
+            "skeleton ci.yml declares no workflow-level NativeWebRoot; either the framework will "
+                + "not resolve, or it resolves for only one of the two jobs.");
+        Assert.StartsWith("${{ github.workspace }}/", root!, StringComparison.Ordinal);
+
+        // JauntyQRoot is deliberately absent, and its absence is a fact worth pinning: JauntyQ
+        // resolves from packages by default since the 2026-09-05 split, so a root reintroduced
+        // here would point at a clone that no longer carries either referenced csproj.
+        Assert.Null(WorkflowEnvValue(workflow, "JauntyQRoot"));
     }
 
     /// <summary>
@@ -78,20 +86,17 @@ public sealed partial class SkeletonFrameworkResolutionTests
 
         Assert.True(checkouts.Count > 0, "skeleton ci.yml checks out no framework repository at all.");
 
-        foreach (string name in new[] { "NativeWebRoot", "JauntyQRoot" })
-        {
-            // Asserted rather than dereferenced: a missing root is the neighbouring test's
-            // finding, and a NullReferenceException here would report it as a crash.
-            string? value = WorkflowEnvValue(workflow, name);
-            Assert.True(value is not null, $"skeleton ci.yml declares no workflow-level {name}.");
+        // Asserted rather than dereferenced: a missing root is the neighbouring test's
+        // finding, and a NullReferenceException here would report it as a crash.
+        string? value = WorkflowEnvValue(workflow, "NativeWebRoot");
+        Assert.True(value is not null, "skeleton ci.yml declares no workflow-level NativeWebRoot.");
 
-            string relative = value!.Replace("${{ github.workspace }}/", string.Empty, StringComparison.Ordinal);
+        string relative = value!.Replace("${{ github.workspace }}/", string.Empty, StringComparison.Ordinal);
 
-            Assert.True(
-                checkouts.Any(c => string.Equals(c.Path, relative, StringComparison.Ordinal)),
-                $"{name} resolves to '{relative}', which no checkout step writes to. Cloned instead: "
-                    + string.Join(", ", checkouts.Select(c => c.Path)));
-        }
+        Assert.True(
+            checkouts.Any(c => string.Equals(c.Path, relative, StringComparison.Ordinal)),
+            $"NativeWebRoot resolves to '{relative}', which no checkout step writes to. Cloned instead: "
+                + string.Join(", ", checkouts.Select(c => c.Path)));
     }
 
     /// <summary>
@@ -99,8 +104,8 @@ public sealed partial class SkeletonFrameworkResolutionTests
     /// </summary>
     /// <remarks>
     /// <c>aot-publish</c> is the job this catches. It runs on a different runner with its own
-    /// step list, so it needs its own pair of checkout steps; the workflow-level env vars it
-    /// inherits point at a directory that would otherwise be empty.
+    /// step list, so it needs its own checkout step; the workflow-level env var it inherits
+    /// points at a directory that would otherwise be empty.
     /// </remarks>
     [Fact]
     public void EverySkeletonJobThatBuilds_ChecksOutTheFramework()
@@ -127,18 +132,19 @@ public sealed partial class SkeletonFrameworkResolutionTests
 
             var paths = FrameworkCheckouts(body).Select(c => c.Path).ToHashSet(StringComparer.Ordinal);
 
+            // One, not two: JauntyQ resolves from packages since the 2026-09-05 split and is
+            // not cloned at all.
             Assert.True(
-                paths.Count >= 2,
-                $"job '{job}' runs a dotnet build/publish/test but checks out "
-                    + $"{paths.Count} framework repositor{(paths.Count == 1 ? "y" : "ies")} "
-                    + $"({string.Join(", ", paths)}). It needs both, in its own step list.");
+                paths.Count >= 1,
+                $"job '{job}' runs a dotnet build/publish/test but checks out no framework "
+                    + "repository. It needs NativeWeb, in its own step list.");
         }
     }
 
-    /// <summary>Every framework checkout carries a token, because both repositories are private.</summary>
+    /// <summary>Every framework checkout carries a token, because the repository is private.</summary>
     /// <remarks>
     /// actions/checkout's default GITHUB_TOKEN is scoped to the repository running the
-    /// workflow, so it cannot read either framework repo. Omitting the token fails with
+    /// workflow, so it cannot read the framework repo. Omitting the token fails with
     /// "Repository not found", which names neither the token nor the scope.
     /// </remarks>
     [Fact]
@@ -147,8 +153,9 @@ public sealed partial class SkeletonFrameworkResolutionTests
         List<Checkout> checkouts = FrameworkCheckouts(SkeletonWorkflow());
 
         // A bare foreach over an empty list passes having asserted nothing -- the CRLF
-        // failure mode again. Two repositories, in each of the two jobs.
-        Assert.Equal(4, checkouts.Count);
+        // failure mode again. One repository, in each of the two jobs; it was two of each
+        // until JauntyQ stopped being cloned on 2026-09-05.
+        Assert.Equal(2, checkouts.Count);
 
         foreach (Checkout checkout in checkouts)
         {
@@ -295,12 +302,68 @@ public sealed partial class SkeletonFrameworkResolutionTests
     public void NoFrameworkCheckout_LeavesItsCredentialInTheWorkspace()
     {
         List<Checkout> checkouts = FrameworkCheckouts(SkeletonWorkflow());
-        Assert.Equal(4, checkouts.Count);
+        Assert.Equal(2, checkouts.Count);
 
         foreach (Checkout checkout in checkouts)
         {
             Assert.Equal("false", checkout.PersistCredentials);
         }
+    }
+
+    /// <summary>
+    /// Every job that restores credentials the source JauntyQ.* is mapped to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// JauntyQ resolves from packages by default since 2026-09-05, and
+    /// <c>skeleton/nuget.config</c> maps <c>JauntyQ.*</c> to <c>framework-github</c> alone --
+    /// GitHub Packages, which serves no read anonymously. A job that runs a restore without
+    /// this step dies NU1301/401 on JauntyQ.Generator before it compiles anything, which is
+    /// how this workflow shipped for the length of one review.
+    /// </para>
+    /// <para>
+    /// The credential is FRAMEWORK_CHECKOUT_TOKEN, not the automatic GITHUB_TOKEN: a stamped
+    /// product lives in its own repository, so the automatic token is scoped there and cannot
+    /// read the framework owner's packages at any permission level.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EverySkeletonJobThatRestores_CredentialsTheJauntyQSource()
+    {
+        string workflow = SkeletonWorkflow();
+        string mapped = File.ReadAllText(Path.Combine(RepoRoot(), "skeleton", "nuget.config"));
+
+        string? source = XDocument.Parse(mapped)
+            .Descendants("packageSource")
+            .Where(e => e.Elements("package")
+                .Any(p => (string?)p.Attribute("pattern") == "JauntyQ.*"))
+            .Select(e => (string?)e.Attribute("key"))
+            .SingleOrDefault();
+
+        Assert.False(string.IsNullOrEmpty(source), "skeleton/nuget.config maps no source for JauntyQ.*");
+
+        List<string> uncredentialed = [];
+        foreach ((string name, string body) in Jobs(workflow))
+        {
+            bool restores = body.Contains("dotnet restore", StringComparison.Ordinal)
+                || body.Contains("dotnet publish", StringComparison.Ordinal);
+
+            bool credentials = body.Contains(
+                $"dotnet nuget update source {source}",
+                StringComparison.Ordinal);
+
+            if (restores && !credentials)
+            {
+                uncredentialed.Add(name);
+            }
+        }
+
+        Assert.True(
+            uncredentialed.Count == 0,
+            $"skeleton job(s) restore without credentialing '{source}', which JauntyQ.* maps to: "
+                + string.Join(", ", uncredentialed));
+
+        Assert.DoesNotContain("secrets.GITHUB_TOKEN", workflow, StringComparison.Ordinal);
     }
 
     /// <summary>The skeleton ships a nuget.config, and its mapping is total.</summary>
