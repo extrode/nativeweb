@@ -12,6 +12,12 @@ sections that apply; drop the empty ones rather than leaving them blank.
 ## [Unreleased]
 
 ### Changed
+
+- `nativeweb.signin.tests.e2e` binds ports the operating system allocates rather than the
+  literals 5349 and 5350. Both are in this machine's Windows TCP exclusion ranges, on the IPv6
+  list as well as the IPv4 one, so Kestrel was refused the bind with nothing listening and the
+  tier failed 4/4. A port 0 request cannot land in an excluded range, so this closes the class
+  rather than the pair.
 - `scripts/deploy/build.sh` restores before it publishes, and an authentication failure on the
   JauntyQ feed now prints the `dotnet nuget update source` command that fixes it. The script runs
   in WSL, which has its own NuGet profile, so the credential a developer added on Windows does not
