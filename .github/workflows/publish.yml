@@ -91,12 +91,22 @@ jobs:
       # Same step ci.yml runs, and for the same reason: nuget.config declares
       # the jauntyq-github source and deliberately carries no credentials, so
       # without this the restore under `dotnet pack` fails 401.
+      # Written to the runner's user-level NuGet config, never to a file in the
+      # workspace. `dotnet nuget update source` with no --configfile writes to the
+      # nearest config that declares the source -- which is this repository's
+      # committed one -- so the token sat in the checkout for the rest of the job.
+      # It has to be `add`, not `update`: update with --configfile throws
+      # "Object reference not set to an instance of an object" when the target file
+      # does not already declare that source. Verified locally 2026-09-05.
       - name: Authenticate to GitHub Packages
-        run: >
-          dotnet nuget update source jauntyq-github
-          --username ${{ github.actor }}
-          --password ${{ secrets.GITHUB_TOKEN }}
-          --store-password-in-clear-text
+        run: |
+          mkdir -p "$HOME/.nuget/NuGet"
+          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
+            --name jauntyq-github \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.GITHUB_TOKEN }} \
+            --store-password-in-clear-text \
+            --configfile "$HOME/.nuget/NuGet/NuGet.Config"
 
       # The tag is the only gate on this workflow, and a tag can be placed on any
       # commit -- including one whose suite never went green. These two are the

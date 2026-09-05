@@ -2056,6 +2056,10 @@ an answer different from the one the audit assumed.
 - **`FormValueAsync` joins repeated form fields with a comma.** Posting `permission` twice yields
   `a,b`, which fails catalog validation rather than being rejected as malformed. Harmless today
   because the catalog check catches it; a wrong message for the wrong reason.
+- ~~**The GitHub Packages credential is written into the checked-out `nuget.config` in clear text.**~~
+  **Fixed 2026-09-05** on `fix/ci-credential-outside-workspace`: all four jobs write to the
+  runner's user-level config with `add source --configfile`, and a test fails if any of them
+  stops. Original note follows.
 - **The GitHub Packages credential is written into the checked-out `nuget.config` in clear text.**
   `dotnet nuget update source jauntyq-github --store-password-in-clear-text` with no `--configfile`
   writes to the nearest config declaring that source, which is the committed one, so the token sits

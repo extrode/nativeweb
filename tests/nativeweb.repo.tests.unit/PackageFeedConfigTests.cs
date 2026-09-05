@@ -119,10 +119,10 @@ public sealed partial class PackageFeedConfigTests
             .Select(k => k!)
             .ToHashSet(StringComparer.Ordinal);
 
-        MatchCollection authenticated = UpdateSourcePattern().Matches(workflow);
+        MatchCollection authenticated = AuthenticatedSourcePattern().Matches(workflow);
         Assert.True(
             authenticated.Count > 0,
-            "ci.yml no longer runs `dotnet nuget update source` — package-mode restore will 401.");
+            "ci.yml no longer authenticates any package source — package-mode restore will 401.");
 
         foreach (Match match in authenticated)
         {
@@ -187,14 +187,55 @@ public sealed partial class PackageFeedConfigTests
         Assert.DoesNotContain("git checkout -- NativeWeb.slnx", workflow, StringComparison.Ordinal);
     }
 
-    [GeneratedRegex(@"dotnet nuget update source\s+(\S+)")]
-    private static partial Regex UpdateSourcePattern();
+    // `add --name <source>`, not `update source <source>`: the credential moved out of the
+    // checked-out config on 2026-09-05, and update cannot target a file that does not already
+    // declare the source. The source name is still the thing being asserted.
+    [GeneratedRegex(@"--name\s+(\S+)")]
+    private static partial Regex AuthenticatedSourcePattern();
 
     [GeneratedRegex(@"<Project\s+Path=""([^""]+)""")]
     private static partial Regex SolutionProjectPattern();
 
     [GeneratedRegex(@"(?m)^\s*packages:\s*read\s*$")]
     private static partial Regex PackagesReadPattern();
+
+    /// <summary>
+    /// A feed credential must never be written to a file inside the checkout.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// `dotnet nuget update source` with no --configfile writes to the nearest config that
+    /// declares the source, which in this repository is the committed nuget.config. Three CI
+    /// jobs and publish.yml did that, so a GITHUB_TOKEN -- including publish.yml's, which holds
+    /// `packages: write` -- sat in the workspace in clear text for the rest of the job. Job
+    /// scoped and ephemeral, and still the wrong file. Found reviewing spec 028, fixed 2026-09-05.
+    /// </para>
+    /// <para>
+    /// It has to be `add` rather than `update`: `update source --configfile` on a file that does
+    /// not already declare the source throws "Object reference not set to an instance of an
+    /// object", which names nothing an operator could act on.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("ci.yml")]
+    [InlineData("publish.yml")]
+    public void Workflow_WritesFeedCredentialsOutsideTheWorkspace(string file)
+    {
+        string workflow = File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", file));
+
+        string[] steps = workflow.Split("      - name:", StringSplitOptions.RemoveEmptyEntries);
+        string[] credentialSteps = [.. steps.Where(s => s.Contains("--store-password-in-clear-text"))];
+
+        Assert.NotEmpty(credentialSteps);
+
+        foreach (string step in credentialSteps)
+        {
+            Assert.DoesNotContain("nuget update source", step);
+            Assert.Contains("--configfile", step);
+            Assert.Contains("NuGet.Config", step);
+            Assert.DoesNotContain("--configfile nuget.config", step);
+        }
+    }
 
     private static string RepoRoot()
     {
