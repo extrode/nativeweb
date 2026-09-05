@@ -235,13 +235,15 @@ JAUNTYQ_FEED_SOURCE="jauntyq-github"
 # does not use proves nothing. The RID and configuration are repeated for a
 # sharper reason: a RID-less restore never asks for the NativeAOT ILCompiler
 # packs, so it can pass on a machine where the publish then fails on exactly the
-# error this block exists to intercept. The publish below keeps its own restore
+# error this block exists to intercept. The configuration is NOT repeated: the
+# restore verb takes no -c, and passing it fails every run with MSB1001 "Unknown
+# switch" before a single package is asked for (measured 2026-09-05). The publish below keeps its own restore
 # rather than taking --no-restore -- ten seconds against a four-minute AOT
 # compile, in exchange for a publish that does not depend on this block having
 # run.
 RESTORE_LOG="$(mktemp)"
 echo "build.sh: restoring $PROJECT before the publish"
-if ! dotnet restore "$PROJECT" -c Release -r "$RUNTIME_ID" -p:JauntyQUsePackages=true --nologo >"$RESTORE_LOG" 2>&1; then
+if ! dotnet restore "$PROJECT" -r "$RUNTIME_ID" -p:JauntyQUsePackages=true --nologo >"$RESTORE_LOG" 2>&1; then
 	cat "$RESTORE_LOG" >&2
 	# Matched on the authentication signal itself, not on a NuGet error code. NU1301
 	# is the generic "could not retrieve information about" code: an offline shell, a

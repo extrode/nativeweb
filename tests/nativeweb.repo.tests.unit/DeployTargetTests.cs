@@ -367,14 +367,13 @@ public sealed class DeployTargetTests
 
         Assert.Equal(JauntyQMode(publish, "publish"), JauntyQMode(restore, "restore"));
 
-        // The RID and configuration decide which assets restore asks the feed for, so a
-        // preflight without them can pass where the publish then fails on the very error
-        // the preflight exists to intercept.
-        foreach (string flag in new[] { "-c Release", "-r \"$RUNTIME_ID\"" })
-        {
-            Assert.Contains(flag, restore, StringComparison.Ordinal);
-            Assert.Contains(flag, publish, StringComparison.Ordinal);
-        }
+        // The RID decides which assets restore asks the feed for, so a preflight without it
+        // can pass where the publish then fails on the very error the preflight exists to
+        // intercept. Only the RID: the restore verb takes no -c, and asserting on one
+        // would pin a command line that dies MSB1001 before it reaches the feed.
+        Assert.Contains("-r \"$RUNTIME_ID\"", restore, StringComparison.Ordinal);
+        Assert.Contains("-r \"$RUNTIME_ID\"", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain("-c Release", restore, StringComparison.Ordinal);
     }
 
     [Fact]
