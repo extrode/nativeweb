@@ -105,11 +105,13 @@ public sealed partial class PackageFeedConfigTests
     /// stay in scope, so authenticating a source neither declares is still a
     /// failure.
     /// </remarks>
-    [Fact]
-    public void Workflow_AuthenticatesTheSourceNameNuGetConfigActuallyDeclares()
+    [Theory]
+    [InlineData("ci.yml")]
+    [InlineData("publish.yml")]
+    public void Workflow_AuthenticatesTheSourceNameNuGetConfigActuallyDeclares(string file)
     {
         string root = RepoRoot();
-        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", file));
 
         var declared = new[] { Path.Combine(root, "nuget.config"), Path.Combine(root, "skeleton", "nuget.config") }
             .Select(XDocument.Load)
@@ -122,14 +124,14 @@ public sealed partial class PackageFeedConfigTests
         MatchCollection authenticated = AuthenticatedSourcePattern().Matches(workflow);
         Assert.True(
             authenticated.Count > 0,
-            "ci.yml no longer authenticates any package source — package-mode restore will 401.");
+            $"{file} no longer authenticates any package source — package-mode restore will 401.");
 
         foreach (Match match in authenticated)
         {
             string name = match.Groups[1].Value;
             Assert.True(
                 declared.Contains(name),
-                $"ci.yml authenticates package source '{name}', which nuget.config does not declare.");
+                $"{file} authenticates package source '{name}', which nuget.config does not declare.");
         }
     }
 
@@ -250,25 +252,44 @@ public sealed partial class PackageFeedConfigTests
             checkedJobs.Add(job);
             Assert.DoesNotContain("nuget update source", body, StringComparison.Ordinal);
 
-            string[] paths = [.. ConfigFilePattern().Matches(body).Select(m => m.Groups[1].Value)];
+            string[] commands = [.. AddSourceCommandPattern().Matches(body).Select(m => m.Value)];
             Assert.True(
-                paths.Length > 0,
-                $"{file} job '{job}' passes a feed credential with no --configfile, so it lands "
-                    + "in the nearest config that declares the source.");
+                commands.Length > 0,
+                $"{file} job '{job}' carries a feed credential that no `dotnet nuget add source` "
+                    + "invocation claims.");
 
-            foreach (string path in paths)
+            foreach (string command in commands)
             {
+                Match configfile = ConfigFilePattern().Match(command);
                 Assert.True(
-                    path.StartsWith("$HOME/", StringComparison.Ordinal)
-                        || path.StartsWith(@"$env:APPDATA\", StringComparison.Ordinal),
-                    $"{file} job '{job}' writes a credential to '{path}', which is not rooted "
-                        + "outside the workspace.");
+                    configfile.Success,
+                    $"{file} job '{job}' runs `dotnet nuget add source` with no --configfile, so "
+                        + "the credential lands in the nearest config that declares the source, "
+                        + "which in this repository is the committed one.");
+
+                string path = configfile.Groups[1].Value;
+                Assert.Contains(path, UserConfigPaths);
 
                 Assert.True(
-                    CreatesConfigFile(body, path),
+                    CreatesDirectory(body, ParentOf(path)),
+                    $"{file} job '{job}' writes '{path}' without creating its directory.");
+
+                string written = WrittenConfigContent(body, path);
+                Assert.True(
+                    written.Length > 0,
                     $"{file} job '{job}' passes --configfile '{path}' without creating it when "
                         + "absent; `dotnet nuget add source` exits 1 rather than creating it.");
+
+                var created = XDocument.Parse(written);
+                Assert.Equal("configuration", created.Root?.Name.LocalName);
             }
+
+            int credential = body.IndexOf("--store-password-in-clear-text", StringComparison.Ordinal);
+            Match firstSdkCommand = SdkCommandPattern().Match(body);
+            Assert.True(
+                firstSdkCommand.Success && credential < firstSdkCommand.Index,
+                $"{file} job '{job}' runs `{firstSdkCommand.Value}` before it authenticates the "
+                    + "feed, which is a 401 on the runner and nothing at all here.");
         }
 
         Assert.NotEmpty(checkedJobs);
@@ -292,7 +313,7 @@ public sealed partial class PackageFeedConfigTests
 
         foreach ((string job, string body) in Jobs(file))
         {
-            if (!body.Contains("dotnet ", StringComparison.Ordinal))
+            if (!SdkCommandPattern().IsMatch(body))
             {
                 continue;
             }
@@ -307,10 +328,53 @@ public sealed partial class PackageFeedConfigTests
         Assert.NotEmpty(sdkJobs);
     }
 
-    private static bool CreatesConfigFile(string job, string path)
+    /// <summary>
+    /// The two paths NuGet reads a user-level config from, and the only two a credential may
+    /// be written to.
+    /// </summary>
+    /// <remarks>
+    /// Named in full rather than checked by prefix. `$HOME/` was the first attempt and it is
+    /// not the property wanted: on ubuntu-latest the workspace is
+    /// `/home/runner/work/&lt;repo&gt;/&lt;repo&gt;`, so `$HOME/work/nativeweb/nativeweb/nuget.config`
+    /// passes a prefix check while naming the committed file this exists to protect.
+    /// </remarks>
+    private static readonly string[] UserConfigPaths =
+    [
+        "$HOME/.nuget/NuGet/NuGet.Config",
+        @"$env:APPDATA\NuGet\NuGet.Config",
+    ];
+
+    private static string ParentOf(string path) =>
+        path[..path.LastIndexOfAny(['/', '\\'])];
+
+    private static bool CreatesDirectory(string job, string directory) =>
+        job.Contains($"mkdir -p \"{directory}\"", StringComparison.Ordinal)
+            || job.Contains($"-Path \"{directory}\"", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The XML the job writes to <paramref name="path"/> when the file is absent, or empty if
+    /// it writes nothing.
+    /// </summary>
+    /// <remarks>
+    /// The content is returned rather than matched, so the caller can parse it. Asserting that
+    /// a redirect exists says nothing about what lands: `&lt;configuration&gt;` unclosed reads the
+    /// same to a text match and fails restore on the runner.
+    /// </remarks>
+    private static string WrittenConfigContent(string job, string path)
     {
         string escaped = Regex.Escape(path);
-        return Regex.IsMatch(job, "(>\\s*\"" + escaped + "\"|Set-Content[^\\r\\n]*\"" + escaped + "\")");
+
+        Match redirect = Regex.Match(job, @"printf\s+'([^']*)'\s*>\s*""" + escaped + @"""");
+        if (redirect.Success)
+        {
+            return redirect.Groups[1].Value.Replace(@"\n", "\n", StringComparison.Ordinal);
+        }
+
+        Match setContent = Regex.Match(
+            job,
+            @"Set-Content\s+-Path\s+""" + escaped + @"""\s+-Value\s+'([^']*)'");
+
+        return setContent.Success ? setContent.Groups[1].Value : string.Empty;
     }
 
     /// <summary>
@@ -326,10 +390,13 @@ public sealed partial class PackageFeedConfigTests
     {
         string workflow = File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", file));
 
-        int start = workflow.IndexOf("\njobs:\n", StringComparison.Ordinal);
-        Assert.True(start >= 0, $"{file} declares no jobs: block.");
+        // Matched rather than IndexOf'd on "\njobs:\n": a CRLF checkout, which is what git gives
+        // a Windows clone by default, has no such substring and would fail every theory here
+        // with "declares no jobs" rather than anything true.
+        Match jobsKey = JobsKeyPattern().Match(workflow);
+        Assert.True(jobsKey.Success, $"{file} declares no jobs: block.");
 
-        MatchCollection ids = JobIdPattern().Matches(workflow, start);
+        MatchCollection ids = JobIdPattern().Matches(workflow, jobsKey.Index);
         Assert.True(ids.Count > 0, $"{file} declares a jobs: block with no jobs in it.");
 
         var jobs = new List<(string, string)>();
@@ -357,8 +424,24 @@ public sealed partial class PackageFeedConfigTests
     [GeneratedRegex(@"(?m)^[ \t]*#.*$")]
     private static partial Regex CommentLinePattern();
 
-    [GeneratedRegex(@"(?m)^  ([A-Za-z0-9_-]+):$")]
+    [GeneratedRegex(@"(?m)^jobs:[ \t]*$")]
+    private static partial Regex JobsKeyPattern();
+
+    [GeneratedRegex(@"(?m)^  ([A-Za-z0-9_-]+):[ \t]*$")]
     private static partial Regex JobIdPattern();
+
+    // One `dotnet nuget add source` invocation, continuation lines and all -- bash joins with a
+    // trailing backslash, pwsh with a backtick. Matching the whole command is what ties
+    // --configfile to the invocation that uses it: collected job-wide, a --configfile moved onto
+    // `dotnet restore` satisfied the assertion while `add source` fell back to the config
+    // hierarchy in the workspace.
+    [GeneratedRegex(@"dotnet nuget add source(?:[^\n]*[\\`]\r?\n)*[^\n]*")]
+    private static partial Regex AddSourceCommandPattern();
+
+    // The SDK commands whose restore needs the feed. `dotnet nuget` is deliberately absent: it
+    // is the authentication itself, not something authentication has to precede.
+    [GeneratedRegex(@"dotnet (?:restore|build|publish|pack|test|run)\b")]
+    private static partial Regex SdkCommandPattern();
 
     [GeneratedRegex("--configfile\\s+\"?([^\"\\s]+)\"?")]
     private static partial Regex ConfigFilePattern();
