@@ -63,10 +63,18 @@
        them; NuGet imports build/$(PackageId).targets on its own, and a
        ProjectReference consumer imports the same file by path. build/ and
        wwwroot/ are siblings in the package exactly as they are here, so the one
-       relative path inside the .targets resolves in both modes. -->
+       relative path inside the .targets resolves in both modes.
+
+       templates/ joined them in spec 029, on the same argument one library
+       further in: the partials under it are markup this library's own code
+       renders, so a fix to them has to reach a product the way a fix to
+       Chrome.cs does. They are AdditionalFiles rather than Content, because the
+       render generator compiles them into the consumer's assembly, so nothing
+       is served or copied at runtime. -->
   <ItemGroup>
     <None Include="build\NativeWeb.Web.targets" Pack="true" PackagePath="build\" />
     <None Include="wwwroot\**\*" Pack="true" PackagePath="wwwroot\" />
+    <None Include="templates\**\*" Pack="true" PackagePath="templates\" />
   </ItemGroup>
 
   <!-- The Web SDK's implicit usings, restated. These sources were written under

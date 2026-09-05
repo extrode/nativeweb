@@ -2,7 +2,6 @@
   @layout layout/page
   @param string AntiforgeryFieldName
   @param string BotCanary
-  @param string Notice
   @param string Error
   @param string Name
   @param string Email
@@ -10,7 +9,6 @@
 -->
 <h1 class="page__title">{{t:contact.title}}</h1>
 <p class="page__lede">{{t:contact.lede}}</p>
-{{if Notice.Length != 0}}<p class="notice">{{Notice}}</p>{{/if}}
 {{if Error.Length != 0}}<p class="notice notice--error">{{Error}}</p>{{/if}}
 <form class="form" method="post" action="/contact">
 {{> shared/antiforgery FieldName=AntiforgeryFieldName Token=AntiforgeryToken}}

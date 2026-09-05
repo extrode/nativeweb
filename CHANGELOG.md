@@ -11,6 +11,32 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ## [Unreleased]
 
+### Changed
+
+- **Four shared templates are delivered by the framework instead of vendored into every product
+  (spec 029).** `shared/{antiforgery,bot-traps,banner-ok,banner-error}.html` moved to
+  `libs/nativeweb.web/templates/shared/` and are contributed as `AdditionalFiles` by
+  `NativeWeb.Web.targets`, the way that file already contributes `wwwroot/_nativeweb/`. No call
+  site changed: the render generator keys a template's name on the part after the last
+  `/templates/` segment of its physical path, so the logical names are what they were.
+  `bot-traps.html` is why it mattered — it spells five `BotTraps` field names as literal text, and
+  a renamed constant left every vendored copy rendering fields the inspector no longer reads, with
+  no compile error, no test failure and no runtime error. A product carrying its own copy now
+  declares `<NativeWebTemplateOverride>` or deletes it; leaving both is a build error naming the
+  file rather than the silent last-wins the generator would do.
+- **`apps/sample` renders flash banners, and its contact form is post-redirect-get.** The layout
+  takes `FlashOk`/`FlashError`, and every one of its eleven call sites takes the flash rather than
+  passing empty strings — which is what `Flash.cs` asks of a product, and what the skeleton already
+  did. A site that does not take it leaves the cookie set for its whole five-minute life, and
+  `PublicPageCache` reads that cookie to decide a response cannot be shared, so one unspent flash
+  takes its owner off the public output cache for every page they visit next. A sent message sets
+  the flash and answers 303 to `/contact`.
+- **`tools/pack.ts` checks what a package's loose files are laid out as.** Every file a
+  `<None … Pack="true">` glob claims is asserted present at the path the glob maps it to, and
+  `NativeWeb.Web` additionally has to carry its four templates and `boot.js` at exactly the paths a
+  consumer resolves them by — the generic check reads the csproj, so a wrong `PackagePath` moves
+  both sides together and passes.
+
 ### Fixed
 
 - **A Fable review of the two merged branches found twelve real gaps; all twelve are closed.**

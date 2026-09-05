@@ -1,6 +1,8 @@
 <!--#template
   @param string Title
   @param string AntiforgeryToken
+  @param string FlashOk
+  @param string FlashError
 -->
 <!DOCTYPE html>
 <html lang="{{locale.Lang}}" dir="{{locale.Dir}}">
@@ -35,6 +37,8 @@
 </nav>
 </header>
 <main class="page" id="main" tabindex="-1">
+{{if FlashOk.Length != 0}}{{> shared/banner-ok Message=FlashOk}}{{/if}}
+{{if FlashError.Length != 0}}{{> shared/banner-error Message=FlashError}}{{/if}}
 {{slot Main}}
 </main>
 <footer class="foot">{{t:chrome.footer}}</footer>

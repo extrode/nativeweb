@@ -93,7 +93,7 @@ internal static partial class PublicForms
     }
 
     private static Task<IResult> ContactPageAsync(HttpContext http, IAntiforgery antiforgery) =>
-        Task.FromResult(Contact(http, antiforgery, notice: "", error: "", name: "", email: "", message: ""));
+        Task.FromResult(Contact(http, antiforgery, error: "", name: "", email: "", message: ""));
 
     // The bot-trap contract (spec 019 R23): a tripped form takes the endpoint's
     // NORMAL-outcome path with no side effect. Telling the sender their message was
@@ -117,7 +117,6 @@ internal static partial class PublicForms
             return Contact(
                 http,
                 Antiforgery(http),
-                notice: "",
                 error: locale["contact.incomplete"],
                 name: form.Name ?? "",
                 email: form.Email ?? "",
@@ -154,7 +153,6 @@ internal static partial class PublicForms
             return Contact(
                 http,
                 Antiforgery(http),
-                notice: "",
                 error: locale["contact.unsent"],
                 name: form.Name ?? "",
                 email: form.Email ?? "",
@@ -265,11 +263,14 @@ internal static partial class PublicForms
     {
         CarriedAnswers carried = http.RequestServices.GetRequiredService<CarriedAnswers>();
         AntiforgeryTokenSet tokens = Antiforgery(http).GetAndStoreTokens(http);
+        (string Ok, string Error) flash = Flash.Take(http);
 
         return Templates.Forms.SurveyStepTwo.Result(
             locale: locale,
             Title: locale["survey.step2.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             AntiforgeryFieldName: tokens.FormFieldName,
             BotCanary: BotTraps.IssueCanary(http),
             Error: error,
@@ -330,11 +331,14 @@ internal static partial class PublicForms
         }
 
         int responses = http.RequestServices.GetRequiredService<SurveyResponses>().Record();
+        (string Ok, string Error) flash = Flash.Take(http);
 
         return Task.FromResult(Templates.Forms.SurveyDone.Result(
             locale: locale,
             Title: locale["survey.done.title"],
             AntiforgeryToken: "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             Role: role,
             Comment: form.Comment,
             Responses: responses));
@@ -344,24 +348,41 @@ internal static partial class PublicForms
     // person nothing they can check. It is the address they typed and the one a reply
     // would go to -- NOT where the message went, which is configuration and is not the
     // visitor's business to be told.
+    //
+    // Post-redirect-get (spec 029 R9). The confirmation rides in the flash cookie and
+    // is read back by the GET, so a reload of the confirmation re-requests /contact
+    // instead of the browser offering to re-send the message. It is also the only
+    // path in this application that produces a flash, which is what makes the
+    // framework's banner partials reachable through a real request.
+    //
+    // 303 and not the 302 Results.Redirect gives. RFC 9110 15.4.3 leaves a 302 to be
+    // answered with the SAME method, and every browser deviates from that by turning
+    // it into a GET -- which is the only reason post-redirect-get works at all. A
+    // client that honours the spec re-posts the message. 303 says "GET this instead"
+    // and has meant that since HTTP/1.1.
+    //
+    // PathBase, because the Location is absolute-path and the application may not be
+    // at the root. Rendering in place, as this did before, never had to know.
     private static IResult Sent(HttpContext http, string toAddress)
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
+        Flash.Set(http, FlashKind.Success, locale["contact.sent"] + " " + toAddress);
+        http.Response.Headers.Location = http.Request.PathBase.Add("/contact").Value;
 
-        return Contact(
-            http,
-            Antiforgery(http),
-            notice: locale["contact.sent"] + " " + toAddress,
-            error: "",
-            name: "",
-            email: "",
-            message: "");
+        return Results.StatusCode(StatusCodes.Status303SeeOther);
     }
 
+    // Taken here rather than in the endpoint because Take expires the cookie on the
+    // response it is given, so it has to run on the response that renders the message
+    // -- taking it and then returning a redirect would consume the message and show it
+    // to nobody. Every other full-page render site in this application does the same,
+    // which is what Flash.cs asks of a product: a site that does not Take leaves the
+    // cookie set for its whole five-minute life, and PublicPageCache reads that cookie
+    // to decide a response cannot be shared, so one unspent flash takes the visitor
+    // off the output cache for every public page they visit next.
     private static IResult Contact(
         HttpContext http,
         IAntiforgery antiforgery,
-        string notice,
         string error,
         string name,
         string email,
@@ -369,14 +390,16 @@ internal static partial class PublicForms
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
         AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
+        (string Ok, string Error) flash = Flash.Take(http);
 
         return Templates.Forms.Contact.Result(
             locale: locale,
             Title: locale["contact.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             AntiforgeryFieldName: tokens.FormFieldName,
             BotCanary: BotTraps.IssueCanary(http),
-            Notice: notice,
             Error: error,
             Name: name,
             Email: email,
@@ -393,11 +416,14 @@ internal static partial class PublicForms
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
         AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
+        (string Ok, string Error) flash = Flash.Take(http);
 
         return Templates.Forms.Upload.Result(
             locale: locale,
             Title: locale["upload.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             AntiforgeryFieldName: tokens.FormFieldName,
             BotCanary: BotTraps.IssueCanary(http),
             Error: error,
@@ -410,11 +436,14 @@ internal static partial class PublicForms
     {
         LocaleCatalog locale = Locales.Get(http.GetLocale());
         AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(http);
+        (string Ok, string Error) flash = Flash.Take(http);
 
         return Templates.Forms.Survey.Result(
             locale: locale,
             Title: locale["survey.title"],
             AntiforgeryToken: tokens.RequestToken ?? "",
+            FlashOk: flash.Ok,
+            FlashError: flash.Error,
             AntiforgeryFieldName: tokens.FormFieldName,
             BotCanary: BotTraps.IssueCanary(http),
             Error: error,

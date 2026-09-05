@@ -89,7 +89,8 @@ inline CSS, which is a different design language from `skeleton/`'s tokens. **A 
 reference application cannot show its own design system has no answer to "show me the UI".**
 
 **(b) `skeleton/` is absent from `NativeWeb.slnx`, and its text-parity guard is gone.**
-`SkeletonParityTests` (2026-08-30) was 384 lines and fifteen facts pinning the skeleton's text
+*Resolved 2026-09-05 — see the second correction at the end of this subsection; the guard is not
+missing, its subject is.* `SkeletonParityTests` (2026-08-30) was 384 lines and fifteen facts pinning the skeleton's text
 against its twin, and it left with the extraction. It lived at `tests/nativeweb.web.tests.unit/`,
 because the twin it compared against was `apps/web` (confirmed: present at tag
 `pre-idp-extraction`, absent at `HEAD`). Its comparand no longer exists, so it cannot be rehomed;
@@ -101,8 +102,21 @@ defines a `skeleton-stamp` job that runs `tools/new-product.ps1 -Execute` into a
 directory, then restores, builds and runs the stamped product's unit, integration and e2e tiers
 including the NativeAOT publish (ci.yml:375-433). The accurate statement is narrower: the skeleton
 is not in `NativeWeb.slnx`, so a local `dotnet build` never touches it, and the CI job that does
-runs in package mode (`JauntyQUsePackages: "true"`, ci.yml:340). `work/milestones.md:21` carries
-the same stale wording and needs the same correction.
+runs in package mode (`JauntyQUsePackages: "true"`, ci.yml:340). `work/milestones.md:21` carried
+the same stale wording and was corrected with it.
+
+**Second correction, 2026-09-05: the replacement exists and this section asked for the wrong
+thing.** "`SkeletonParityTests` still does not exist" was read as work outstanding for two weeks
+after it stopped being work at all. That suite asserted that twenty C# files copied into
+`skeleton/` still matched their twin in `apps/web`. Spec 015 moved those twenty files into
+`libs/nativeweb.web`, so there is one copy and nothing to compare; `apps/web` left with the
+identity provider, so there is no comparand either. The invariant is vacuous by construction, and
+a suite reasserting it would pass without executing anything. What replaced it is eleven test
+classes in `tests/nativeweb.web.tests.unit` asserting those files' behaviour, which is the gap
+the paragraph below actually names, plus `tools/stamp-check.ts` proving a stamped product builds
+and passes its own tiers here rather than only in CI. Spec 029 closed the last unguarded copy —
+four HTML partials under `templates/shared/`, which are delivered by the framework now and
+guarded by `FrameworkTemplateTests` and a build error, not by a parity assertion.
 
 What is uncovered is behaviour, not compilation. **No test in `tests/` references
 `SecurityHeadersMiddleware`, `PublicPageCache` or `ErrorPageMiddleware`** -- the fable review

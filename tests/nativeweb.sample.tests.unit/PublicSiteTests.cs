@@ -75,6 +75,8 @@ public sealed class PublicSiteTests
             locale: Locales.En,
             Title: "Latest articles",
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Articles: [Listed("one")]);
 
         Assert.Contains("<!DOCTYPE html>", page, StringComparison.Ordinal);
@@ -89,7 +91,7 @@ public sealed class PublicSiteTests
     public void Layout_BrandLinksHomeAndTheNavReachesTags()
     {
         string page = Templates.Site.Home.ToHtmlString(
-            locale: Locales.En, Title: "t", AntiforgeryToken: "", Articles: []);
+            locale: Locales.En, Title: "t", AntiforgeryToken: "", FlashOk: "", FlashError: "", Articles: []);
 
         Assert.Contains("""<a class="topbar__brand" href="/">""", page, StringComparison.Ordinal);
         Assert.Contains("""<a href="/tags">Tags</a>""", page, StringComparison.Ordinal);
@@ -105,6 +107,8 @@ public sealed class PublicSiteTests
             locale: Locales.En,
             Title: detail.Title,
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Article: detail,
             Paragraphs: ["first", "second"]);
 
@@ -127,6 +131,8 @@ public sealed class PublicSiteTests
             locale: Locales.En,
             Title: detail.Title,
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Article: detail,
             Paragraphs: ["first"]);
 
@@ -144,6 +150,8 @@ public sealed class PublicSiteTests
             locale: Locales.En,
             Title: "t",
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Article: detail,
             Paragraphs: ["<script>alert(1)</script>"]);
 
@@ -159,6 +167,8 @@ public sealed class PublicSiteTests
             locale: Locales.En,
             Title: "Tags",
             AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
             Tags: [new TagSummary("aot", "NativeAOT", 2), new TagSummary("postgres", "PostgreSQL", 0)]);
 
         Assert.Contains("""<a class="tag" href="/tags/aot">NativeAOT</a>""", page, StringComparison.Ordinal);
@@ -171,7 +181,7 @@ public sealed class PublicSiteTests
     public void TagsIndex_WithNoTags_SaysSo()
     {
         string page = Templates.Tags.Index.ToHtmlString(
-            locale: Locales.En, Title: "Tags", AntiforgeryToken: "", Tags: []);
+            locale: Locales.En, Title: "Tags", AntiforgeryToken: "", FlashOk: "", FlashError: "", Tags: []);
 
         Assert.Contains("No tags yet.", page, StringComparison.Ordinal);
         Assert.DoesNotContain("<ul", page, StringComparison.Ordinal);
@@ -181,7 +191,13 @@ public sealed class PublicSiteTests
     public void TagShow_HeadsWithTheNameAndSaysWhenThereAreNoArticles()
     {
         string page = Templates.Tags.Show.ToHtmlString(
-            locale: Locales.En, Title: "PostgreSQL", AntiforgeryToken: "", Name: "PostgreSQL", Articles: []);
+            locale: Locales.En,
+            Title: "PostgreSQL",
+            AntiforgeryToken: "",
+            FlashOk: "",
+            FlashError: "",
+            Name: "PostgreSQL",
+            Articles: []);
 
         Assert.Contains("<h1 class=\"page__title\">PostgreSQL</h1>", page, StringComparison.Ordinal);
         Assert.Contains("No published articles yet.", page, StringComparison.Ordinal);

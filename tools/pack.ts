@@ -424,6 +424,121 @@ export async function strayPackages(out: string, expected: string[]): Promise<st
   return stray.sort();
 }
 
+/**
+ * Every `<None Include="dir\**\*" Pack="true" PackagePath="target\" />` in a
+ * csproj, as the project-relative directory and the path it packs to.
+ *
+ * The two that exist today are `wwwroot` and `templates` in `NativeWeb.Web`, and
+ * they are the whole of what a consumer receives that is not an assembly.
+ */
+export function packedDirectories(xml: string): { directory: string; packagePath: string }[] {
+  const found: { directory: string; packagePath: string }[] = [];
+
+  for (const element of xml.match(/<None\b[^>]*\/>/g) ?? []) {
+    if (!/\bPack\s*=\s*"true"/i.test(element)) continue;
+
+    const include = element.match(/\bInclude\s*=\s*"([^"]+)"/i)?.[1];
+    const packagePath = element.match(/\bPackagePath\s*=\s*"([^"]+)"/i)?.[1];
+
+    if (include === undefined || packagePath === undefined) continue;
+
+    // Only the recursive globs. A single named file is already proved by the
+    // checks above it, and a glob is where a wrong PackagePath goes unnoticed.
+    const directory = include.match(/^(.+?)[\\/]\*\*[\\/]\*(\.[^\\/]+)?$/)?.[1];
+
+    if (directory === undefined) continue;
+
+    found.push({
+      directory: directory.replaceAll("\\", "/"),
+      packagePath: packagePath.replaceAll("\\", "/").replace(/\/?$/, "/"),
+    });
+  }
+
+  return found;
+}
+
+/** Every file under `directory`, as paths relative to it, forward-slashed. */
+async function* filesUnder(directory: string, prefix = ""): AsyncGenerator<string> {
+  for await (const entry of Deno.readDir(directory)) {
+    const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+
+    if (entry.isDirectory) {
+      yield* filesUnder(join(directory, entry.name), relative);
+    } else if (entry.isFile) {
+      yield relative;
+    }
+  }
+}
+
+/**
+ * Every file a `<None>` glob claims to pack is in the package, at the path the
+ * glob maps it to. Null means they all are.
+ *
+ * This compares the package against the csproj's own declaration, so it catches
+ * a file that was dropped or flattened on the way in — a glob that stopped
+ * matching, an item MSBuild silently discarded — and NOT a `PackagePath` that is
+ * wrong, since a wrong one moves both sides together. `requiredPackagePaths`
+ * below is what pins the paths themselves.
+ */
+async function packedLayoutProblem(
+  project: PackableProject,
+  files: Map<string, Uint8Array>,
+): Promise<string | null> {
+  let xml: string;
+
+  try {
+    xml = await Deno.readTextFile(project.csproj);
+  } catch {
+    return null;
+  }
+
+  for (const { directory, packagePath } of packedDirectories(xml)) {
+    const onDisk = join(project.directory, ...directory.split("/"));
+
+    let relatives: string[];
+
+    try {
+      relatives = await Array.fromAsync(filesUnder(onDisk));
+    } catch {
+      continue;
+    }
+
+    const missing = relatives
+      .map((relative) => `${packagePath}${relative}`)
+      .filter((expected) => !files.has(expected))
+      .sort();
+
+    if (missing.length > 0) {
+      return `package is missing ${missing.length} file(s) the csproj packs from ` +
+        `${directory}/: ${missing.slice(0, 5).join(", ")}.`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Paths a package must carry at exactly that prefix, because something outside
+ * the package resolves them by name.
+ *
+ * `packedLayoutProblem` cannot see these: it reads the csproj, so a wrong
+ * `PackagePath` moves the expectation with the file and passes. The render
+ * generator names a template by the part after the LAST `templates/` segment of
+ * its path, so a package that put `shared/banner-ok.html` under `content/`
+ * yields a template named `banner-ok` and breaks every
+ * `{{> shared/banner-ok}}` call site in the consumer -- at their compile, from a
+ * package that verified clean here.
+ */
+const requiredPackagePaths: Record<string, string[]> = {
+  "NativeWeb.Web": [
+    "templates/shared/antiforgery.html",
+    "templates/shared/bot-traps.html",
+    "templates/shared/banner-ok.html",
+    "templates/shared/banner-error.html",
+    "wwwroot/_nativeweb/boot.js",
+  ],
+};
+
 /** Everything spec 028 asks a produced package to carry. Null means it does. */
 export async function verify(
   project: PackableProject,
@@ -499,6 +614,19 @@ export async function verify(
 
   if (assemblies.length === 0) {
     return "package contains no assembly under lib/, analyzers/, runtimes/ or tools/.";
+  }
+
+  const layout = await packedLayoutProblem(project, files);
+
+  if (layout !== null) return layout;
+
+  const required = (requiredPackagePaths[project.packageId] ?? [])
+    .filter((path) => !files.has(path))
+    .sort();
+
+  if (required.length > 0) {
+    return `package does not carry ${required.join(", ")}, which a consumer resolves by that ` +
+      "exact path (R2).";
   }
 
   if (project.hasReadme) {
