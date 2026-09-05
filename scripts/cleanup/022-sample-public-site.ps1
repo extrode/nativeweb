@@ -61,7 +61,7 @@ function Step([string]$label, [scriptblock]$act) {
 
 # 1. The rehearsal database
 $probeDb = 'nativeweb_sample_022probe'
-$exists = (psql -h localhost -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$probeDb'").Trim()
+$exists = "$(psql -h localhost -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$probeDb'")".Trim()
 if ($exists -ne '1') {
     Write-Host "skip:  database $probeDb no longer exists"
 }
