@@ -31,8 +31,14 @@
       tmp/ipv6-review.diff     the diff handed to the review worker
       tmp/ipv6-evidence.txt    the measured output handed to it alongside, since it has
                                no shell and could not produce those numbers itself
-      the branches fix/ipv6-loopback-trial-bind, fix/ipv6-gate-testable and
-      fix/ipv6-review-findings and docs/ipv6-gate-record, each only once merged into dev
+      the branches fix/ipv6-loopback-trial-bind, fix/ipv6-gate-testable,
+      fix/ipv6-review-findings, docs/ipv6-gate-record, chore/ipv6-cleanup-script-gaps
+      and chore/ipv6-cleanup-script-self, each only once merged into dev
+
+    The last two are the branches that fixed this script's own omissions -- the first
+    added two files and a branch it had missed, the second added both of those branch
+    names. A cleanup script that does not list the branch that repaired it leaves the
+    repair behind as litter.
 
     It does NOT touch tmp/sample-publish.lock. Two sibling scripts already claim that
     file -- signin-e2e-excluded-port.ps1 removes it unconditionally, and
@@ -96,6 +102,8 @@ $branches = @(
     'fix/ipv6-gate-testable'
     'fix/ipv6-review-findings'
     'docs/ipv6-gate-record'
+    'chore/ipv6-cleanup-script-gaps'
+    'chore/ipv6-cleanup-script-self'
 )
 
 $merged = & git -C $repo branch --merged dev --format='%(refname:short)'
