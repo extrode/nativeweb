@@ -78,7 +78,7 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     public string LogTail => _log.ToString();
 
     /// <inheritdoc/>
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         string exePath = await PublishAsync().ConfigureAwait(false);
 
@@ -156,10 +156,11 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     }
 
     /// <inheritdoc/>
-    public Task DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         StopAndReadLog();
-        return Task.CompletedTask;
+
+        return ValueTask.CompletedTask;
     }
 
     private string StopAndReadLog()

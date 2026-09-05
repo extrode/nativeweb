@@ -15,9 +15,9 @@ public sealed class PermissionHostFixture : IAsyncLifetime
 {
     internal PermissionHost Host { get; private set; } = null!;
 
-    public async Task InitializeAsync() => Host = await PermissionHost.StartAsync();
+    public async ValueTask InitializeAsync() => Host = await PermissionHost.StartAsync();
 
-    public async Task DisposeAsync() => await Host.DisposeAsync();
+    public async ValueTask DisposeAsync() => await Host.DisposeAsync();
 }
 
 [CollectionDefinition(Name)]

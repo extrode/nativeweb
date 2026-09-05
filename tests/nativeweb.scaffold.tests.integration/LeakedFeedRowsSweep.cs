@@ -8,7 +8,7 @@ namespace NativeWeb.Scaffold.Tests.Integration;
 /// </summary>
 public sealed class LeakedFeedRowsSweep : IAsyncLifetime
 {
-    public Task InitializeAsync() => SampleTestDatabase.SweepLeakedFeedRowsAsync();
+    public ValueTask InitializeAsync() => new(SampleTestDatabase.SweepLeakedFeedRowsAsync());
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

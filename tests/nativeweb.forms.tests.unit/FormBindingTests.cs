@@ -22,7 +22,7 @@ public sealed class FormBindingTests
     /// <summary>The ones that must be rejected, including the empty case.</summary>
     public static TheoryData<string?> NonFormContentTypes() => new()
     {
-        null,
+        (string?)null,
         "",
         "application/json",
         "text/plain",

@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Named, not defaulted. The assembly name is lower case, so without this
+         the entry point xunit.v3 generates lands in a namespace differing from
+         the test classes' only by case, which is CA1708 and so a build error. -->
+    <RootNamespace>__PRODUCT__.Tests.E2e</RootNamespace>
     <IsAotCompatible>false</IsAotCompatible>
     <IsPackable>false</IsPackable>
     <!-- CA1707 forbids underscores in identifiers; Method_Scenario_Expectation
@@ -9,9 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="Deque.AxeCore.Playwright" />
     <PackageReference Include="Microsoft.Playwright" />
     <!-- Direct DB cleanup of rows the browser flows create, once the product

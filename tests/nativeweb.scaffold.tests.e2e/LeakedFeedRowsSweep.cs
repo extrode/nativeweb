@@ -8,7 +8,7 @@ namespace NativeWeb.Scaffold.Tests.E2e;
 /// </summary>
 public sealed class LeakedFeedRowsSweep : IAsyncLifetime
 {
-    public Task InitializeAsync() => SampleE2eDatabase.SweepLeakedFeedRowsAsync();
+    public ValueTask InitializeAsync() => new(SampleE2eDatabase.SweepLeakedFeedRowsAsync());
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

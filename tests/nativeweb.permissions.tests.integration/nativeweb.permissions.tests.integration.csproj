@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <RootNamespace>NativeWeb.Permissions.Tests.Integration</RootNamespace>
     <IsAotCompatible>false</IsAotCompatible>
     <IsPackable>false</IsPackable>
@@ -22,9 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
     <!-- TestServer, so the filter is exercised as middleware rather than called. -->
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <!-- Side-channel reads of the nw_ tables, for asserting on what was written. -->

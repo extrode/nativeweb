@@ -23,6 +23,14 @@
          this is one line of noise in every full-suite output rather than a
          failure, which is worse, because it trains the reader past it. -->
     <IsTestProject>false</IsTestProject>
+    <!-- xunit.v3.extensibility.core, not xunit.v3, and that is the whole reason
+         it is pinned separately in Directory.Packages.props. xunit.v3 carries the
+         in-process runner and fails the build outright with "xUnit.net v3 test
+         projects must be executable ... If this is not a test project, reference
+         xunit.v3.extensibility.core instead", and a packable library cannot be
+         an executable. The extensibility package is the attributes and the
+         interfaces with no runner attached, which is what a base class a consumer
+         derives from needs. -->
     <IsPackable>true</IsPackable>
     <PackageId>NativeWeb.SignIn.Testing</PackageId>
     <!-- The property that keeps this out of an application's production closure,
@@ -40,7 +48,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <PackageReference Include="xunit.v3.assert" />
   </ItemGroup>
 
   <ItemGroup>

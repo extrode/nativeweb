@@ -10,13 +10,13 @@ public sealed class BrowserFixture : IAsyncLifetime
 
     public IBrowser Browser { get; private set; } = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _playwright = await Microsoft.Playwright.Playwright.CreateAsync().ConfigureAwait(false);
         Browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true }).ConfigureAwait(false);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await Browser.CloseAsync().ConfigureAwait(false);
         _playwright?.Dispose();

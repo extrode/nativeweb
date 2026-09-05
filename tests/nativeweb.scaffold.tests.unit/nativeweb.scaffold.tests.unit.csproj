@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <RootNamespace>NativeWeb.Scaffold.Tests.Unit</RootNamespace>
     <!-- Same test-project conventions as the sibling suites. -->
     <IsAotCompatible>false</IsAotCompatible>
@@ -14,9 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
     <!-- CSharpGeneratorDriver, to drive the scaffold generator directly. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <!-- Generators and shrinking for the cursor codec's property tests. -->

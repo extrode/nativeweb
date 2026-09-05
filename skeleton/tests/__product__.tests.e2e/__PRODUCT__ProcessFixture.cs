@@ -27,7 +27,7 @@ public sealed class __PRODUCT__ProcessFixture : IAsyncLifetime
 
     private string? _certPath;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         string repoRoot = FindRepoRoot();
         string csproj = Path.Combine(repoRoot, "apps", "__product__", "__product__.csproj");
@@ -109,7 +109,7 @@ public sealed class __PRODUCT__ProcessFixture : IAsyncLifetime
         throw new TimeoutException("apps/__product__ did not report healthy within 60 seconds.");
     }
 
-    public Task DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         if (_process is { HasExited: false })
         {
