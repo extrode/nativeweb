@@ -39,62 +39,51 @@
   </ItemGroup>
 
   <!-- Roslyn, for the four netstandard2.0 analyzer projects under libs/.
-       Pins mirror JauntyQ.Generator, on this machine and this SDK. Not "proven
-       in its CI": that CI has been red on a package-feed 403 since before these
-       pins were written, so the mirror is a local convention, not evidence.
+       Full reasoning and every measurement:
+       docs/decisions/2026-09-05-010-roslyn-pin-floor.md. The short version:
 
-       THE TWO LINES DO NOT MOVE TOGETHER. One has a ceiling, the other a floor,
-       and they are opposite ends of the same rule. Measured on 2026-09-05
-       against a throwaway IsRoslynComponent project consumed as an Analyzer by
-       a net10.0 app, on SDK 10.0.203, whose compiler is Roslyn 5.3.0:
+       THE TWO LINES DO NOT MOVE TOGETHER. CSharp has a ceiling and a floor;
+       Analyzers has neither.
 
-         CSharp 4.12.0 + Analyzers 3.11.0   builds
-         CSharp 4.12.0 + Analyzers 5.9.0    builds        <- what is pinned now
-         CSharp 5.3.0  + Analyzers 3.11.0   NU1605
-         CSharp 5.3.0  + Analyzers 5.9.0    builds
-         CSharp 5.9.0  + Analyzers 5.9.0    CS9057
+       An analyzer referencing a NEWER Microsoft.CodeAnalysis than the compiler
+       loading it is refused with CS9057. That one rule, at two compilers:
 
-       THE CEILING, on Microsoft.CodeAnalysis.CSharp. A generator referencing a
-       newer Microsoft.CodeAnalysis than the compiler loading it is refused with
-       CS9057, so 5.3.0 is the highest that loads here. The diagnostic is emitted
-       by the CONSUMING project's csc, never by these four - they build fine at
-       5.9.0, and nothing about them shows the problem.
+         ceiling  our SDK 10.0.203 runs Roslyn 5.3.0, so 5.9.0 cannot be used
+         floor    whatever these compile against is the OLDEST Roslyn a
+                  consumer of the four published packages may run
 
-       CS9057 is a warning. What it always means is that the generator does not
-       run; how that surfaces depends on the consumer, and only one of the three
-       is legible:
+       Measured 2026-09-05, generator pin against consumer SDK:
 
-         TreatWarningsAsErrors on   error CS9057, naming the analyzer assembly
-         off, output unused        warning, build succeeds, generator inert
-         off, output consumed      warning, plus CS0103/CS0246 in the consumer's
-                                   own source for every generated symbol
+         built against 4.12.0   SDK 9.0.313 (Roslyn 4.14.0)  runs
+                                SDK 10.0.203 (Roslyn 5.3.0)  runs
+         built against 5.3.0    SDK 9.0.313                  CS9057 + CS0103
+                                SDK 10.0.203                 runs
+         built against 5.9.0    SDK 10.0.203                 CS9057
 
-       The third is the one to fear, and it is what a consumer of the published
-       packages would hit: a wall of "the name does not exist" pointing at their
-       code, with the real cause one warning away. This repository only ever sees
-       the first, because Directory.Build.props sets TreatWarningsAsErrors
-       repo-wide. Relaxing it here trades a named error for that wall.
+       4.12.0 rather than the 5.3.0 that also loads here, because justsmtp.com
+       pins NativeWeb.Render.Generator and its global.json has no sdk section at
+       all. Raise the pin when a generator here needs a 5.x API, or when every
+       consumer pins an SDK new enough - NOT when this repository's SDK moves,
+       which only lifts the ceiling.
 
-       THE FLOOR, and why 4.12.0 rather than the 5.3.0 that also loads. The same
-       CS9057 rule runs on the consumer's side against THEIR compiler, so the
-       version these four compile against is the lowest Roslyn any consumer of
-       the published analyzer packages may run. These pack for a private feed, so
-       the pin is that floor. Note it is inferred from the rule, not measured: no
-       row above was taken on an older SDK. "No 5.x compiler API is called" is
-       true by construction, since they compile against 4.12.0 at all - it says
-       the floor is free, not that it is needed. Raise it when a newer compiler
-       API is wanted or older consumers are dropped, NOT merely because the SDK
-       moved: an SDK move only lifts the ceiling and makes 4.12.0 more
-       conservative.
+       CS9057 is a WARNING, emitted by the CONSUMING project's csc, never by
+       these four. It always means the generator did not run; what the consumer
+       sees depends on their settings, and only the first is legible:
 
-       Microsoft.CodeAnalysis.Analyzers is bound by neither of those. It is
+         TreatWarningsAsErrors on   error CS9057, naming the assembly
+         off, output unused         warning, green build, generator inert
+         off, output consumed       warning, plus CS0103 for every generated
+                                    symbol, pointing at their own source
+
+       This repository only ever sees the first, because Directory.Build.props
+       sets TreatWarningsAsErrors repo-wide. That setting is the guard here: a
+       generator that stops loading fails the build by name.
+
+       Microsoft.CodeAnalysis.Analyzers is exempt from both bounds. It is
        PrivateAssets=all, build-time only, never in a consumer's closure, and it
        is the RS* rules an analyzer author is checked against rather than a
-       compiler API surface. 5.9.0 introduced no new diagnostic these four fail.
-
-       It does have a restore-time floor, which is what the NU1605 row is: CSharp
-       depends on it, so it can never sit below what the CSharp pin drags in.
-       Measured, from the NU1605 text itself - CSharp 4.12.0 requires
+       compiler API surface. Its one constraint is a restore-time floor dragged
+       in by the CSharp pin, quoted from the NU1605 text: CSharp 4.12.0 requires
        >= 3.3.4, CSharp 5.3.0 requires >= 5.3.0-2.25625.1. That is why the two
        lines can only ever move up together, never down. -->
   <ItemGroup>

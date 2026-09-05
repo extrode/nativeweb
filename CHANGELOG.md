@@ -27,7 +27,9 @@ sections that apply; drop the empty ones rather than leaving them blank.
   consumes generated symbols, a wall of CS0103 in its own source with the real cause one warning
   away. 5.3.0 would load but raises the compatibility floor for consumers of the four published
   analyzer packages, buying an API surface none of them calls - proven by their compiling against
-  4.12.0 at all.
+  4.12.0 at all. Why that floor is real rather than hypothetical, and both `CS9057`
+  bounds measured against a .NET 9 and a .NET 10 SDK, are recorded in
+  `docs/decisions/2026-09-05-010-roslyn-pin-floor.md`.
   `.Analyzers` is bound by neither argument: it is `PrivateAssets="all"`, never in a consumer's
   closure, and is the RS* rule set an analyzer author is checked against rather than a compiler
   API surface. All five pin combinations were measured; the table is in
