@@ -18,6 +18,14 @@ sections that apply; drop the empty ones rather than leaving them blank.
   disaster-recovery rebuild of a new guest from repository plus backup in 345 s. Spec 011 is
   `done`; R15 is still unmet and the bucket is not yet offsite, both recorded in the runbook.
 
+### Fixed
+- CI no longer writes the GitHub Packages token into the checked-out `nuget.config`. All four
+  jobs that authenticate the feed -- ci.yml's `test`, `aot-publish` and `skeleton-stamp`, and
+  publish.yml's `publish`, which holds `packages: write` -- now use `dotnet nuget add source
+  --configfile` against the runner's user-level config. `update source` could not be kept: with
+  `--configfile` it throws a NullReferenceException when the target file does not already declare
+  the source. Guarded by `Workflow_WritesFeedCredentialsOutsideTheWorkspace`.
+
 ### Changed
 - **R16's acceptance criterion was amended before the drill, because it could not fail.** It
   required signing in as an account that existed at backup time; `apps/sample` keeps no accounts
