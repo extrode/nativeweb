@@ -22,7 +22,12 @@ worth seeing here rather than hiding, but it is the exception.
   surface, so neither argument touches it. All five combinations were measured against a throwaway
   `IsRoslynComponent` project and the table is in `Directory.Packages.props`; `CSharp 5.3.0` with
   `Analyzers 3.11.0` is NU1605, which is why the two can only ever move up together, never down.
-  A `qwen-review` audit reached the same conclusion independently and is what prompted the recheck.
+  A `qwen-review` audit reached the same conclusion independently and is what prompted the recheck;
+  a later `glm-think` pass over the same two files found the comment block's own account of CS9057
+  incomplete, and the corrected version is what is there now. What it missed: a consumer that
+  consumes generated symbols does not get a silent green build, it gets CS0103 on its own source
+  for every one of them. Both NU1605 bounds are quoted from the restore output rather than guessed
+  (CSharp 4.12.0 requires Analyzers >= 3.3.4, CSharp 5.3.0 requires >= 5.3.0-2.25625.1).
 
 - **xunit 2.9.3 -> xunit.v3 4.0.0. Done on `chore/xunit-v3`, 2026-09-05.** Not a pin bump: v3 is
   Microsoft.Testing.Platform, and the .NET 10 SDK will not run it through VSTest, so

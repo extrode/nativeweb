@@ -20,11 +20,14 @@ sections that apply; drop the empty ones rather than leaving them blank.
   `Microsoft.CodeAnalysis.Analyzers` 3.11.0 -> 5.9.0. `Microsoft.CodeAnalysis.CSharp` stays at
   4.12.0, and it is the only one held back: the four `IsRoslynComponent` generator projects are
   loaded by the SDK's own compiler, which is Roslyn 5.3.0, so a generator built against 5.9.0 is
-  refused with CS9057. That is a WARNING, and the build only fails because
-  `TreatWarningsAsErrors` is on repo-wide; a consumer without it gets a build that succeeds with
-  the generator silently not running, which is the durable fact rather than the error. 5.3.0 would
-  load but raises the compatibility floor for consumers of the four published analyzer packages,
-  buying an API surface none of them calls - proven by their compiling against 4.12.0 at all.
+  refused with CS9057. That is a WARNING, emitted by the consuming project's `csc` rather than by
+  the four, and what it always means is that the generator does not run. How that surfaces is the
+  consumer's choice: this repository sees `error CS9057` because `TreatWarningsAsErrors` is on
+  repo-wide, but a consumer without it gets either a green build with an inert generator or, if it
+  consumes generated symbols, a wall of CS0103 in its own source with the real cause one warning
+  away. 5.3.0 would load but raises the compatibility floor for consumers of the four published
+  analyzer packages, buying an API surface none of them calls - proven by their compiling against
+  4.12.0 at all.
   `.Analyzers` is bound by neither argument: it is `PrivateAssets="all"`, never in a consumer's
   closure, and is the RS* rule set an analyzer author is checked against rather than a compiler
   API surface. All five pin combinations were measured; the table is in
