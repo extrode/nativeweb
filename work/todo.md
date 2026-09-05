@@ -2161,3 +2161,8 @@ an answer different from the one the audit assumed.
   - `AGENTS.md` says "JauntyQ is used from a local checkout only." The default build resolves
     packages now, so that no longer describes how we build. It is a licence statement, left
     verbatim for the user to rule on.
+
+- **`tools/status-roll.js` moves bodies but not headings.** After a roll, `current.md` opens
+  `# Next` and the archived `work/done/<NNN>-*.md` opens `# Previous`, each carrying the
+  rotation boilerplate of the file it came from. Rewritten by hand on 2026-09-05; the tool lives
+  in `~/.claude/tools/`, so fixing it is config work, not a change to this repo.
