@@ -25,9 +25,10 @@ namespace NativeWeb.Scaffold.Tests.E2e;
 /// measurement is why <c>FreePort</c> itself probes the pair.
 /// </para>
 /// <para>
-/// ::1 is gated on <see cref="Socket.OSSupportsIPv6"/>, the same gate the allocator uses. Held
-/// unconditionally this would fail on a machine with IPv6 off while every fixture in the tier
-/// still worked, which is a test stricter than the thing it stands in for.
+/// ::1 is gated on <see cref="SampleProcessFixture.LoopbackV6Bindable"/>, the same gate the
+/// allocator uses, so the test cannot be stricter than the thing it stands in for. It was
+/// <c>Socket.OSSupportsIPv6</c> until 2026-09-05: that flag reports the stack, not whether ::1
+/// binds, and the fixture's own remarks record why the difference matters.
 /// </para>
 /// </remarks>
 public sealed class PortAllocationTests
@@ -43,12 +44,48 @@ public sealed class PortAllocationTests
 
         v4.Start();
 
-        if (Socket.OSSupportsIPv6)
+        if (SampleProcessFixture.LoopbackV6Bindable)
         {
             using TcpListener v6 = new(IPAddress.IPv6Loopback, port);
 
             v6.Start();
         }
     }
+
+    /// <remarks>
+    /// <para>
+    /// The direction this can prove on the machine it runs on. A host where ::1 is unbindable is
+    /// not available here, so the disabled-by-policy case the guard exists for cannot be
+    /// exercised; what can be is that the cached answer matches what a bind does right now, in
+    /// either direction. Reverting the helper to <c>Socket.OSSupportsIPv6</c> on a host where the
+    /// two disagree turns this red, which is the whole class of bug reported.
+    /// </para>
+    /// <para>
+    /// Falsified by returning a constant from the helper: <c>false</c> fails here, since ::1 does
+    /// bind on this machine. <c>true</c> does not fail here, and cannot -- that is the half no
+    /// test on this host can reach, and it is stated rather than papered over.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void LoopbackV6Bindable_MatchesWhatTheMachineDoes()
+    {
+        bool bound;
+
+        try
+        {
+            using TcpListener v6 = new(IPAddress.IPv6Loopback, 0);
+
+            v6.Start();
+
+            bound = true;
+        }
+        catch (SocketException)
+        {
+            bound = false;
+        }
+
+        Assert.Equal(bound, SampleProcessFixture.LoopbackV6Bindable);
+    }
+
 
 }

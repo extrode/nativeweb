@@ -454,6 +454,44 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     /// excluded or occupied literal is a permanently red tier; this is a rare loud one.
     /// </para>
     /// </remarks>
+    /// <summary>Whether <c>::1</c> can be bound here, tried once and remembered.</summary>
+    /// <remarks>
+    /// <para>
+    /// Not <see cref="Socket.OSSupportsIPv6"/>, which is computed by creating an IPv6 socket and
+    /// so answers whether the stack exists, not whether the loopback address can be bound. A
+    /// machine with IPv6 switched off by policy answers true to the flag and then refuses every
+    /// bind: the loop below would spend all 32 attempts failing for one cause and throw a message
+    /// blaming port availability, sending whoever reads it after the exclusion ranges.
+    /// </para>
+    /// <para>
+    /// Reported by justsmtp.com on 2026-09-05, in the same exchange that corrected the wildcard
+    /// probe here. Tried once because the answer cannot change while the process runs, and a bind
+    /// per attempt would pay for it 32 times over.
+    /// </para>
+    /// </remarks>
+    internal static readonly bool LoopbackV6Bindable = ProbeLoopbackV6();
+
+    private static bool ProbeLoopbackV6()
+    {
+        if (!Socket.OSSupportsIPv6)
+        {
+            return false;
+        }
+
+        try
+        {
+            using TcpListener v6 = new(IPAddress.IPv6Loopback, 0);
+
+            v6.Start();
+
+            return true;
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
+    }
+
     internal static int FreePort()
     {
         lock (Handed)
@@ -471,9 +509,9 @@ public abstract class SampleProcessFixture : IAsyncLifetime
                     continue;
                 }
 
-                // Kestrel binds ::1 as well and fails if it cannot, unless the machine has no
-                // IPv6 at all -- in which case it never attempts it and neither should this.
-                if (Socket.OSSupportsIPv6)
+                // Kestrel binds ::1 as well and fails if it cannot, unless the machine cannot
+                // bind it at all -- in which case it never attempts it and neither should this.
+                if (LoopbackV6Bindable)
                 {
                     try
                     {

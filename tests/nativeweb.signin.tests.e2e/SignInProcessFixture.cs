@@ -130,6 +130,44 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     /// A started listener on a loopback port that ::1 will also accept, left open by the caller
     /// until every port it needs is known.
     /// </summary>
+    /// <summary>Whether <c>::1</c> can be bound here, tried once and remembered.</summary>
+    /// <remarks>
+    /// <para>
+    /// Not <see cref="Socket.OSSupportsIPv6"/>, which is computed by creating an IPv6 socket and
+    /// so answers whether the stack exists, not whether the loopback address can be bound. A
+    /// machine with IPv6 switched off by policy answers true to the flag and then refuses every
+    /// bind: the loop below would spend all 32 attempts failing for one cause and throw a message
+    /// blaming port availability, sending whoever reads it after the exclusion ranges.
+    /// </para>
+    /// <para>
+    /// Reported by justsmtp.com on 2026-09-05, in the same exchange that corrected the wildcard
+    /// probe here. Tried once because the answer cannot change while the process runs, and a bind
+    /// per attempt would pay for it 32 times over.
+    /// </para>
+    /// </remarks>
+    internal static readonly bool LoopbackV6Bindable = ProbeLoopbackV6();
+
+    private static bool ProbeLoopbackV6()
+    {
+        if (!Socket.OSSupportsIPv6)
+        {
+            return false;
+        }
+
+        try
+        {
+            using TcpListener v6 = new(IPAddress.IPv6Loopback, 0);
+
+            v6.Start();
+
+            return true;
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
+    }
+
     private static TcpListener Probe()
     {
         for (int attempt = 0; attempt < 32; attempt++)
@@ -140,7 +178,7 @@ public sealed class SignInProcessFixture : IAsyncLifetime
 
             int port = ((IPEndPoint)v4.LocalEndpoint).Port;
 
-            if (!Socket.OSSupportsIPv6)
+            if (!LoopbackV6Bindable)
             {
                 return v4;
             }
