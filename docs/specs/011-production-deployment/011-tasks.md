@@ -123,7 +123,11 @@ for itself.
   **Caveat:** a `--user` unit on the WSL2 kernel, not a `--system` unit on the target host. Same
   seccomp filter, different kernel — recorded in the unit file and the runbook.
 
-- [ ] **T15 Operator-executed: provisioning walkthrough, restore drill, disaster recovery**
+- [x] **T15 Operator-executed: provisioning walkthrough, restore drill, disaster recovery**
+  — **done 2026-09-05.** The restore drill and the disaster-recovery rebuild both ran: backup 1 s,
+  restore 1 s, verified serve 1 s, bare guest to serving 345 s, all written into the runbook with
+  their caveats. R16 was amended first, because the criterion as written could not fail. Four
+  preconditions missing from the DR procedure were found by running it and are now steps 3a-3d.
   — **one third done, 2026-09-01.** `nativeweb-dev` was provisioned and deployed to for real,
   and `https://nw-dev.example.com` serves `apps/sample`: **R1 is met**, and the measured release
   time is in the runbook. R16 and R17 are untouched — no backup has been restored and no host has

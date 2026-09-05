@@ -2166,3 +2166,21 @@ an answer different from the one the audit assumed.
   `# Next` and the archived `work/done/<NNN>-*.md` opens `# Previous`, each carrying the
   rotation boilerplate of the file it came from. Rewritten by hand on 2026-09-05; the tool lives
   in `~/.claude/tools/`, so fixing it is config work, not a change to this repo.
+
+- **`backup.sh`'s dry run cannot distinguish an unreachable bucket from an empty one.** Line 111
+  pipes `aws s3 ls` into awk under `set -o pipefail`, so the `|| echo "(bucket not listable from
+  here)"` fires whenever the aws call exits non-zero -- which it does for a prefix that simply has
+  no objects yet. Measured 2026-09-05: the message printed both when the bucket was genuinely
+  unreachable and on the first-ever backup with the bucket listable and empty. The dry run exits 0
+  either way. Not fixed here: the deploy shell scripts have no test harness, and changing one
+  without a test that fails when the code is wrong is worse than the note.
+- **The NativeWeb backup bucket is not offsite.** It is MinIO in the `nw-drill-s3` container on
+  `incus-host`, the same physical host as `nativeweb-dev`. Losing that machine loses the host,
+  the backups and the age key together. Stood up 2026-09-05 for the restore drill; a real bucket
+  is an operator decision.
+- **`BACKUP_HEARTBEAT_URL` is still unset on `nativeweb-dev`**, so R15 is unmet: a backup that
+  stops running is invisible. `backup.sh` says so on every run.
+- **`nativeweb-dev`'s database holds two drill marker rows**, `drill-pre-20260905` and
+  `drill-post-20260905`. They are what made the restore drill falsifiable. Removing them is a
+  database delete, so it is in `scripts/cleanup/011-t15-restore-and-dr-drill.ps1` for you to run,
+  not done here.

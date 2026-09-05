@@ -1,7 +1,10 @@
 # 011 — Production deployment of `apps/web`
 
-Status: draft — built and merged; R1 met on a real host 2026-09-01, acceptance still blocked on
-T15's other two halves (R16 restore, R17 disaster recovery), which are executed by a person
+Status: done — built and merged; R1 met on a real host 2026-09-01, R16 and R17 met by the drill of
+2026-09-05 on `nativeweb-dev` and `nativeweb-dr`. R15 remains unmet on that host:
+`BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running silently is still unnoticed, and
+the bucket is MinIO on the same physical host, so no copy is offsite yet. Both are operator
+settings, recorded in the runbook's gap table rather than left implicit
 Created: 2026-08-27
 
 ## Problem
@@ -179,9 +182,14 @@ Configuration and secrets
   operator receives a signal saying so. Given the monitoring itself stops, then that is also
   visible.
 - **R16** — Given a backup file and a clean database, when the documented restore procedure is
-  followed, then the application starts against the restored data and serves an authenticated
-  session for an account that existed at backup time. The elapsed time is written into the
-  procedure as a measured value.
+  followed, then the application starts against the restored data, serves a row that existed when
+  the backup was taken, and does not serve a row written after it. The elapsed time is written into
+  the procedure as a measured value.
+  **Amended 2026-09-05.** It read "serves an authenticated session for an account that existed at
+  backup time". `apps/sample` keeps no accounts in the database -- its only sign-in is a passphrase
+  in `secrets.env` -- so that criterion passed against the restored database, an empty database and
+  no restore alike. The replacement can fail, and did fail on the first attempt: the older release
+  running on the idle colour had no `/articles/{slug}` route and answered 404 for both rows.
 - **R17** — Given only this repository and offsite backups, when the disaster recovery procedure
   is followed, then a serving host exists, and the document states how long that took.
 - **R18** — Given the repository at any commit, when it is searched for production secret values,
