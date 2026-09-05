@@ -1,12 +1,18 @@
 <#
 .SYNOPSIS
-Removes what the NuGet pin bumps left behind.
+Removes what the NuGet pin bumps and the Roslyn probe left behind.
 
 .DESCRIPTION
 Written 2026-09-05 at the end of chore/package-bumps. Bare invocation is a dry run: it lists what
 would go and changes nothing. Pass -Execute (-e) to act.
 
 Candidates, each checked at run time rather than asserted here:
+
+  tmp/roslyn-probe         A throwaway generator + consumer pair built to measure all five
+                           Microsoft.CodeAnalysis pin combinations for CS9057 and NU1605. The
+                           table it produced is in Directory.Packages.props, so the directory
+                           carries nothing that is not written down. Holds a restored package
+                           cache for three Roslyn versions.
 
   tmp/stamp-bumps          A stamped product from tools/stamp-check.ts, made to prove the skeleton
                            still builds and runs its tiers on the new pins (1 unit, 6 integration).
@@ -63,7 +69,7 @@ function Step([string]$label, [scriptblock]$act) {
 # @() is required, not defensive habit: Set-StrictMode -Version Latest makes .Count on a
 # bare string throw rather than answer 1.
 $scratch = @()
-foreach ($name in @('tmp/stamp-bumps')) {
+foreach ($name in @('tmp/stamp-bumps', 'tmp/roslyn-probe')) {
     $path = Join-Path $repo $name
     if (Test-Path $path) { $scratch += @(Get-Item -Path $path) }
 }
@@ -83,18 +89,19 @@ foreach ($item in $scratch) {
 
 Write-Host ''
 
-if (git -C $repo rev-parse --verify --quiet 'refs/heads/chore/package-bumps') {
+foreach ($b in @('chore/package-bumps', 'chore/analyzers-bump')) {
+if (git -C $repo rev-parse --verify --quiet "refs/heads/$b") {
     # `git branch -d` is NOT the merged check it looks like: git accepts a branch merged
     # to its own upstream, so a pushed branch whose commits never reached dev deletes
     # with a warning and exit 0. merge-base asks the question the script means to ask.
-    git -C $repo merge-base --is-ancestor 'chore/package-bumps' dev
+    git -C $repo merge-base --is-ancestor $b dev
     if ($LASTEXITCODE -ne 0) {
-        Write-Host 'skip:  chore/package-bumps is not merged into dev. Left alone.'
+        Write-Host "skip:  $b is not merged into dev. Left alone."
         $script:failed = $true
     }
     else {
-        Step 'git branch -d chore/package-bumps' {
-            git -C $repo branch -d 'chore/package-bumps'
+        Step "git branch -d $b" {
+            git -C $repo branch -d $b
             if ($LASTEXITCODE -ne 0) {
                 Write-Host '  refused: git would not delete it. Left alone.'
                 $script:failed = $true
@@ -103,7 +110,8 @@ if (git -C $repo rev-parse --verify --quiet 'refs/heads/chore/package-bumps') {
     }
 }
 else {
-    Write-Host 'skip:  chore/package-bumps no longer exists'
+    Write-Host "skip:  $b no longer exists"
+}
 }
 
 if (-not $Execute) {
