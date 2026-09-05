@@ -92,6 +92,15 @@ foreach ($branch in $branches) {
     if ($merged -contains $branch) {
         if ($Execute) {
             & git -C $repo branch -d $branch
+            # $ErrorActionPreference does not cover a native command's exit code, and git
+            # refuses -d for a branch that is checked out. Without this the file removals
+            # above have already happened and the script still reports success.
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "FAILED   branch $branch (git exit $LASTEXITCODE)"
+            }
+            else {
+                Write-Host "removed  branch $branch"
+            }
         }
         else {
             Write-Host "would remove  branch $branch (merged into dev)"

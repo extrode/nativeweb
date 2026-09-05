@@ -478,8 +478,11 @@ public abstract class SampleProcessFixture : IAsyncLifetime
                     continue;
                 }
 
-                // Kestrel binds ::1 as well and fails if it cannot, unless the machine cannot
-                // bind it at all -- in which case it never attempts it and neither should this.
+                // Kestrel, given localhost, binds both loopback addresses, so a port this hands
+                // out has to be free on both. Where ::1 cannot be bound at all the caller passes
+                // a predicate that requires nothing of it: what Kestrel does with an unbindable
+                // ::1 has not been measured here, and requiring less than the server does costs
+                // an IPv6 check, while requiring more costs every port.
                 if (!v6Accepts(port))
                 {
                     continue;
