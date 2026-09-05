@@ -22,14 +22,17 @@
       tmp/f-forms.log
       tmp/f-signin.log
       tmp/f-sample.log
-      tmp/ipv6-review.diff     the diff handed to the review worker, if it is still there
-      the branches fix/ipv6-loopback-trial-bind and fix/ipv6-gate-testable, each only
-      once merged into dev
+      tmp/ipv6-review.diff     the diff handed to the review worker
+      tmp/ipv6-evidence.txt    the measured output handed to it alongside, since it has
+                               no shell and could not produce those numbers itself
+      the branches fix/ipv6-loopback-trial-bind, fix/ipv6-gate-testable and
+      docs/ipv6-gate-record, each only once merged into dev
 
-    It does NOT touch tmp/sample-publish.lock. The sibling script for
-    fix/scaffold-e2e-os-allocated-ports already handles that file, with the held-by-a-
-    running-tier check it needs; two scripts racing to remove one lock is worse than
-    either doing it alone.
+    It does NOT touch tmp/sample-publish.lock. Two sibling scripts already claim that
+    file -- signin-e2e-excluded-port.ps1 removes it unconditionally, and
+    scaffold-e2e-os-allocated-ports.ps1 removes it only when nothing holds it. A third
+    claim would make it worse. That overlap is a real defect in the older pair and is
+    noted in work/todo.md rather than fixed from here.
 
     It does NOT revert the correction made to
     ~/.claude/handoffs/justsmtp.com/2026-09-05-localhost-tls-and-the-dev-cert-trap.md or
@@ -58,6 +61,7 @@ $files = @(
     'tmp/f-signin.log'
     'tmp/f-sample.log'
     'tmp/ipv6-review.diff'
+    'tmp/ipv6-evidence.txt'
 )
 
 foreach ($relative in $files) {
@@ -78,6 +82,7 @@ foreach ($relative in $files) {
 $branches = @(
     'fix/ipv6-loopback-trial-bind'
     'fix/ipv6-gate-testable'
+    'docs/ipv6-gate-record'
 )
 
 $merged = & git -C $repo branch --merged dev --format='%(refname:short)'
