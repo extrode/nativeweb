@@ -89,7 +89,7 @@ foreach ($item in $scratch) {
 
 Write-Host ''
 
-foreach ($b in @('chore/package-bumps', 'chore/analyzers-bump', 'chore/cleanup-script-update', 'chore/cleanup-branch-list')) {
+foreach ($b in @('chore/package-bumps', 'chore/analyzers-bump', 'chore/cleanup-script-update', 'chore/cleanup-branch-list', 'docs/roslyn-pin-comment', 'chore/cleanup-add-doc-branch')) {
 if (git -C $repo rev-parse --verify --quiet "refs/heads/$b") {
     # `git branch -d` is NOT the merged check it looks like: git accepts a branch merged
     # to its own upstream, so a pushed branch whose commits never reached dev deletes
