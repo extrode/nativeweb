@@ -186,6 +186,63 @@ public sealed class TestRunnerWiringTests
                 + $"rejects it and runs no tests at all. {string.Join(" | ", wrong)}");
     }
 
+    /// <summary>
+    /// Every package a project references is pinned in the <c>Directory.Packages.props</c>
+    /// that governs it, and the skeleton has its own.
+    /// </summary>
+    /// <remarks>
+    /// Central package management turns a missing pin into NU1010 at restore, so this
+    /// looks redundant - and it is, for everything under <c>tests/</c>, which the suites
+    /// build. It is not redundant for <c>skeleton/</c>: nothing in this repository
+    /// restores those projects, because they are a template stamped into a new product
+    /// first. The skeleton going to xunit.v3 while its pins stayed on 2.9.3 built and
+    /// tested green here and failed on the stamped product, which is a failure only
+    /// `tools/stamp-check.ts` runs late enough to catch.
+    /// </remarks>
+    [Fact]
+    public void EveryPackageAProjectReferencesIsPinnedWhereThatProjectLooks()
+    {
+        string[] unpinned = [.. Projects()
+            .SelectMany(p => PackageReferences(p).Select(r => (Project: p, Package: r)))
+            .Where(x => !PinsFor(x.Project).Contains(x.Package, StringComparer.OrdinalIgnoreCase))
+            .Select(x => $"{Relative(x.Project)} -> {x.Package}")
+            .Order(StringComparer.Ordinal)];
+
+        Assert.True(
+            unpinned.Length == 0,
+            "Central package management requires a PackageVersion for every PackageReference, "
+                + "and the skeleton's props file is a separate one nothing in this repository "
+                + $"restores: {string.Join(", ", unpinned)}");
+    }
+
+    /// <summary>
+    /// The pin names from the nearest <c>Directory.Packages.props</c> at or above a
+    /// project, which is the one MSBuild imports: it stops at the first it finds.
+    /// </summary>
+    private static string[] PinsFor(string project)
+    {
+        DirectoryInfo? dir = new(Path.GetDirectoryName(project)!);
+
+        while (dir is not null)
+        {
+            string candidate = Path.Combine(dir.FullName, "Directory.Packages.props");
+
+            if (File.Exists(candidate))
+            {
+                return [.. XDocument.Load(candidate)
+                    .Descendants()
+                    .Where(e => e.Name.LocalName == "PackageVersion")
+                    .Select(e => (string?)e.Attribute("Include"))
+                    .Where(i => i is not null)
+                    .Select(i => i!)];
+            }
+
+            dir = dir.Parent;
+        }
+
+        return [];
+    }
+
     /// <summary>`tools/stamp-check.ts` is TypeScript, so its commands are quoted arguments.</summary>
     private static string[] PackageReferences(string project) =>
         [.. XDocument.Load(project)
