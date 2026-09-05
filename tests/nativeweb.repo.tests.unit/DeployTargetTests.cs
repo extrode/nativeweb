@@ -1,3 +1,6 @@
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+
 using Xunit;
 
 namespace NativeWeb.Repo.Tests.Unit;
@@ -352,6 +355,41 @@ public sealed class DeployTargetTests
         Assert.True(end > start, "the MIGRATIONS_DIR_SET branch has no closing fi.");
 
         Assert.Contains("sed -n 's/^migrations_dir=//p' \"$STAGE/RELEASE\"", deploy[start..end], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildScript_RestoresTheModeItPublishes()
+    {
+        string build = Read("scripts", "deploy", "build.sh");
+
+        string[] modes = Regex.Matches(build, @"-p:JauntyQUsePackages=(\S+)")
+            .Select(m => m.Groups[1].Value)
+            .ToArray();
+
+        Assert.True(
+            modes.Length >= 2,
+            $"build.sh names JauntyQUsePackages {modes.Length} time(s); the preflight restore and the "
+                + "publish should each select the mode they run in.");
+
+        Assert.Single(modes.Distinct());
+    }
+
+    [Fact]
+    public void BuildScript_TellsTheOperatorToCredentialTheSourceJauntyQResolvesFrom()
+    {
+        string build = Read("scripts", "deploy", "build.sh");
+
+        string? source = XDocument.Parse(Read("NuGet.config"))
+            .Descendants("packageSource")
+            .Where(e => e.Elements("package")
+                .Any(pkg => (string?)pkg.Attribute("pattern") == "JauntyQ.*"))
+            .Select(e => (string?)e.Attribute("key"))
+            .SingleOrDefault();
+
+        Assert.False(string.IsNullOrEmpty(source), "NuGet.config maps no source for JauntyQ.*");
+
+        Assert.Contains($"JAUNTYQ_FEED_SOURCE=\"{source}\"", build, StringComparison.Ordinal);
+        Assert.Contains("dotnet nuget update source $JAUNTYQ_FEED_SOURCE", build, StringComparison.Ordinal);
     }
 
     private static string Defaulted(string script, string marker)

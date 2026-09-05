@@ -207,6 +207,57 @@ if [[ -n "$(git status --porcelain)" ]]; then
 	echo "          The RELEASE stamp below will say so." >&2
 fi
 
+# The source key that NuGet.config maps JauntyQ.* to. Named here rather than
+# inlined into the message below because DeployTargetTests reads it back and
+# compares it against that mapping: rename the source in NuGet.config alone and
+# the remedy would tell an operator to credential a source that does not exist.
+JAUNTYQ_FEED_SOURCE="jauntyq-github"
+
+# Restore before the publish, not inside it, for the same reason zstd is checked
+# above: so the failure names its own fix.
+#
+# JauntyQ resolves from a private GitHub Packages feed by default since
+# 2026-09-05, and GitHub Packages needs auth even to READ. This script runs in
+# WSL, which is a different user profile from the Windows workstation the
+# repository sits on -- so the credential a developer added on Windows does not
+# apply here, and nothing in the repository can carry one. Measured 2026-09-05 on
+# this machine: WSL restored 255 packages and then died on
+#
+#   error NU1301: Failed to retrieve information about 'JauntyQ.Generator'
+#   error NU1301:   Response status code does not indicate success: 401 (Unauthorized).
+#
+# preceded by twelve identical "could not be authenticated" warnings, none of
+# which says that the fix is one command in this shell.
+#
+# The flag is repeated from the publish below rather than shared through a
+# variable, so that both lines read as the mode they select; DeployTargetTests
+# asserts the two agree, because a preflight that validates a mode the publish
+# does not use proves nothing.
+RESTORE_LOG="$(mktemp)"
+echo "build.sh: restoring $PROJECT before the publish"
+if ! dotnet restore "$PROJECT" -p:JauntyQUsePackages=true --nologo >"$RESTORE_LOG" 2>&1; then
+	cat "$RESTORE_LOG" >&2
+	if grep -qE 'NU1301|NU1101|401 \(Unauthorized\)' "$RESTORE_LOG"; then
+		echo "" >&2
+		echo "build.sh: the restore above could not read the JauntyQ packages." >&2
+		echo "          They live on a private feed that needs a token even to READ, and this" >&2
+		echo "          shell has its own NuGet profile -- a credential added on Windows does" >&2
+		echo "          not reach it. Once, in THIS shell:" >&2
+		echo "" >&2
+		echo "            dotnet nuget update source $JAUNTYQ_FEED_SOURCE \\" >&2
+		echo "              --username <your-github-account> --password <token> \\" >&2
+		echo "              --store-password-in-clear-text" >&2
+		echo "" >&2
+		echo "          The token needs read:packages. A gh OAuth token works:" >&2
+		echo "          gh auth refresh -h github.com -s read:packages && gh auth token" >&2
+		echo "          It is stored in plain text under \$HOME, so use a token scoped to" >&2
+		echo "          reading packages and nothing else." >&2
+	fi
+	rm -f "$RESTORE_LOG"
+	exit 1
+fi
+rm -f "$RESTORE_LOG"
+
 COMMIT="$(git rev-parse HEAD)"
 SHORT_SHA="$(git rev-parse --short HEAD)"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
