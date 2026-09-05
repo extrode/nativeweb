@@ -75,7 +75,7 @@ epass now.
 ```
 dotnet build                                    # solution; needs the sibling jauntyq checkout
 dotnet build apps/sample                        # one project; two-depth probe, no sibling needed
-dotnet test tests/nativeweb.render.tests.unit   # one tier; the full list is in getting-started
+dotnet test --project tests/nativeweb.render.tests.unit   # one tier; the full list is in getting-started
 ```
 
 Every command on this page was executed in the form written, from a fresh clone, on

@@ -411,9 +411,9 @@ test for the wrong reason.
 ## Run it all
 
 ```
-dotnet test tests/nativeweb.sample.tests.unit
-dotnet test tests/nativeweb.scaffold.tests.integration
-dotnet test tests/nativeweb.scaffold.tests.e2e
+dotnet test --project tests/nativeweb.sample.tests.unit
+dotnet test --project tests/nativeweb.scaffold.tests.integration
+dotnet test --project tests/nativeweb.scaffold.tests.e2e
 ```
 
 The integration and e2e tiers need `nativeweb_sample_test` — [`db/sample/README.md`](../../db/sample/README.md)

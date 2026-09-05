@@ -138,18 +138,31 @@ export function diagnosticsIn(output: string): string[] {
  * How many tests a `dotnet test` step actually ran. Null means its output
  * carries no summary line at all.
  *
- * Exit code is not enough. A `--filter` that matches nothing prints "No test
- * matches the given testcase filter" and exits 0 -- measured, not assumed -- so
- * a renamed test or a drifted filter would report the integration tier as `ok`
- * having booted nothing. That is the one outcome this whole script exists to
- * prevent, so the count is read and a zero is a failure.
+ * Exit code is not enough -- or rather, it was not. Under VSTest a `--filter`
+ * that matched nothing printed "No test matches the given testcase filter" and
+ * exited 0 -- measured, not assumed -- so a renamed test or a drifted filter
+ * reported the integration tier as `ok` having booted nothing. That is the one
+ * outcome this whole script exists to prevent.
+ *
+ * Microsoft.Testing.Platform closed that hole itself: a run that finds no test
+ * prints "Zero tests ran" and exits 8. The count is still read, because the
+ * number is what the step reports to a human, and because the two guards
+ * disagreeing is how a change in the platform's output would announce itself.
+ *
+ * The shape it reads is MTP's summary block rather than VSTest's one-liner:
+ *
+ *     Test run summary: Passed!
+ *       total: 148
+ *       failed: 0
+ *       succeeded: 148
+ *       skipped: 0
  */
 export function testsRun(output: string): number | null {
-  const summary = output.match(/\bPassed:\s*(\d+)/);
+  const summary = output.match(/^\s*total:\s*(\d+)\s*$/m);
 
   if (summary !== null) return Number(summary[1]);
 
-  return /\bTotal tests:\s*(\d+)/.test(output) || /No test matches/.test(output) ? 0 : null;
+  return /Zero tests ran/.test(output) ? 0 : null;
 }
 
 /** What is already in the destination. Empty means it is safe to stamp into. */
@@ -301,11 +314,11 @@ async function main(argv: string[]): Promise<number> {
     steps.push(
       await run("unit tests", "dotnet", [
         "test",
+        "--project",
         join("tests", `${options.slug}.tests.unit`),
         "--no-build",
         "-v",
         "q",
-        "--nologo",
       ], destination, env),
     );
   }
@@ -326,11 +339,11 @@ async function main(argv: string[]): Promise<number> {
         "dotnet",
         [
           "test",
+          "--project",
           join("tests", `${options.slug}.tests.integration`),
           "--no-build",
           "-v",
           "q",
-          "--nologo",
           ...(options.withDatabase ? [] : ["--filter", DATABASE_FREE_FILTER]),
         ],
         destination,

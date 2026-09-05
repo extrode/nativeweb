@@ -87,16 +87,48 @@ Deno.test("the database-free filter excludes exactly one test in the skeleton ti
   assertEquals(excluded, ["Readyz_ReportsReady"]);
 });
 
+// Verbatim from `dotnet test --project tests/nativeweb.sample.tests.unit`, not
+// paraphrased: the leading spaces and the lower-case keys are the whole reason
+// the VSTest regex this replaced no longer matches anything.
+const MTP_PASSING = [
+  "x.dll (net10.0|x64) passed (556ms)",
+  "",
+  "Test run summary: Passed!",
+  "  total: 148",
+  "  failed: 0",
+  "  succeeded: 148",
+  "  skipped: 0",
+  "  duration: 743ms",
+].join("\n");
+
+const MTP_ZERO = [
+  "x.dll (net10.0|x64) Zero tests ran (193ms)",
+  "",
+  "Test run summary: Zero tests ran",
+  "  total: 0",
+  "  failed: 0",
+  "  succeeded: 0",
+  "  skipped: 0",
+].join("\n");
+
 Deno.test("testsRun reads the count a passing tier reports", () => {
-  assertEquals(testsRun("Passed!  - Failed: 0, Passed: 148, Skipped: 0, Total: 148"), 148);
+  assertEquals(testsRun(MTP_PASSING), 148);
 });
 
 Deno.test("testsRun answers zero for a filter that matched nothing", () => {
-  assertEquals(testsRun("No test matches the given testcase filter in x.dll"), 0);
+  assertEquals(testsRun(MTP_ZERO), 0);
 });
 
 Deno.test("testsRun answers null for output that is not a test run", () => {
   assertEquals(testsRun("Build succeeded."), null);
+});
+
+// VSTest's summary is one line with capitalised keys and no `total:` of its own.
+// Reading it as a count would be worse than reading nothing: the old shape can
+// only reach this function if something has pinned the runner back, and a number
+// scraped out of it would report a tier as run when nothing under MTP ran it.
+Deno.test("testsRun does not read a VSTest summary as a count", () => {
+  assertEquals(testsRun("Passed!  - Failed: 0, Passed: 148, Skipped: 0, Total: 148"), null);
 });
 
 Deno.test("diagnosticsIn catches an MSBuild warning that carries no code", () => {

@@ -35,9 +35,9 @@ dotnet run --project apps/__product__ -p:NativeWebRoot=<path> -p:JauntyQRoot=<pa
 ```
 export __PRODUCT____Db__ConnectionString="Host=127.0.0.1;Database=__product___dev;Username=__product___app;Password=..."
 dotnet build
-dotnet test tests/__product__.tests.unit
-dotnet test tests/__product__.tests.integration
-dotnet test tests/__product__.tests.e2e
+dotnet test --project tests/__product__.tests.unit
+dotnet test --project tests/__product__.tests.integration
+dotnet test --project tests/__product__.tests.e2e
 ```
 
 Integration tests need a real PostgreSQL instance; e2e publishes the app and drives it with
