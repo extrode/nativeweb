@@ -27,6 +27,9 @@ sections that apply; drop the empty ones rather than leaving them blank.
   answers true and then refuses every bind, which spent all 32 attempts on one cause and threw an
   error blaming port availability. Reported by justsmtp.com.
 
+- Both e2e port allocators take the `::1` check as a parameter, so the branch a machine that
+  cannot bind `::1` would run is reachable from a test rather than only from such a machine.
+
 - `nativeweb.signin.tests.e2e` binds ports the operating system allocates rather than the
   literals 5349 and 5350. Both are in this machine's Windows TCP exclusion ranges, on the IPv6
   list as well as the IPv4 one, so Kestrel was refused the bind with nothing listening and the
