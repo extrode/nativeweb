@@ -23,8 +23,15 @@ worth seeing here rather than hiding, but it is the exception.
   both sides are asserted: a predicate that never accepts must exhaust the loop and say
   "32 attempts" rather than return a port, and `CanBindV6` returning false is proved by holding
   `::1` on a port and asking about that port, which needs no special host. A platform limit was
-  claimed where there was a design limit. Scaffold 36/36, sign-in 9/9, permissions 3/3, forms 7/7,
-  sample unit 231, solution build 0 warnings.
+  claimed where there was a design limit -- but only partly, and the fable review said so: the
+  ternary that picks the real probe or a no-op still runs one arm here, so the seam moved the
+  untestable part rather than removing it. The remarks say that now. Fable also killed the
+  always-true test (no mutation kills it that the other two miss) and caught the held-port test
+  binding `::1` in its own arrange step with no gate, which would have made it fail on the one
+  host class this whole change is for -- stricter than the allocator it stands in for, the exact
+  fault this file's remarks warn against. Both fixed; six findings, five acted on, one refuted in
+  part. Scaffold 35/35, sign-in 8/8, permissions 3/3, forms 7/7, sample unit 231, solution build
+  0 warnings, structure-audit 0 errors and the 3 pre-existing kebab-case warnings.
 
 - **No e2e fixture names a port any more, and the sign-in tier's allocator was wrong. Done on
   `fix/scaffold-e2e-os-allocated-ports`, 2026-09-05.** Five fixtures across three tiers held

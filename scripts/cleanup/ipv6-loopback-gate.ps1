@@ -22,11 +22,17 @@
       tmp/f-forms.log
       tmp/f-signin.log
       tmp/f-sample.log
+      tmp/r-scaffold.log       the tier runs taken after the fable review's findings
+      tmp/r-permissions.log
+      tmp/r-forms.log
+      tmp/r-signin.log
+      tmp/r-sample.log
+      tmp/r-b.log              the break that re-confirmed the gated held-port test
       tmp/ipv6-review.diff     the diff handed to the review worker
       tmp/ipv6-evidence.txt    the measured output handed to it alongside, since it has
                                no shell and could not produce those numbers itself
       the branches fix/ipv6-loopback-trial-bind, fix/ipv6-gate-testable and
-      docs/ipv6-gate-record, each only once merged into dev
+      fix/ipv6-review-findings and docs/ipv6-gate-record, each only once merged into dev
 
     It does NOT touch tmp/sample-publish.lock. Two sibling scripts already claim that
     file -- signin-e2e-excluded-port.ps1 removes it unconditionally, and
@@ -60,6 +66,12 @@ $files = @(
     'tmp/f-forms.log'
     'tmp/f-signin.log'
     'tmp/f-sample.log'
+    'tmp/r-scaffold.log'
+    'tmp/r-permissions.log'
+    'tmp/r-forms.log'
+    'tmp/r-signin.log'
+    'tmp/r-sample.log'
+    'tmp/r-b.log'
     'tmp/ipv6-review.diff'
     'tmp/ipv6-evidence.txt'
 )
@@ -82,6 +94,7 @@ foreach ($relative in $files) {
 $branches = @(
     'fix/ipv6-loopback-trial-bind'
     'fix/ipv6-gate-testable'
+    'fix/ipv6-review-findings'
     'docs/ipv6-gate-record'
 )
 
@@ -92,6 +105,15 @@ foreach ($branch in $branches) {
     if ($merged -contains $branch) {
         if ($Execute) {
             & git -C $repo branch -d $branch
+            # $ErrorActionPreference does not cover a native command's exit code, and git
+            # refuses -d for a branch that is checked out. Without this the file removals
+            # above have already happened and the script still reports success.
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "FAILED   branch $branch (git exit $LASTEXITCODE)"
+            }
+            else {
+                Write-Host "removed  branch $branch"
+            }
         }
         else {
             Write-Host "would remove  branch $branch (merged into dev)"
