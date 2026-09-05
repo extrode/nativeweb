@@ -2115,11 +2115,14 @@ an answer different from the one the audit assumed.
   `tests/Directory.Build.props` and `skeleton/tests/Directory.Build.props`. It wants
   `TestContext.Current.CancellationToken` on every call that takes one - 468 distinct sites here.
   Satisfying it changes what the tests do, not how they build, so it belongs in its own branch.
-- `nativeweb.signin.tests.e2e` fails 4/4 on this workstation with "An attempt was made to access a
-  socket in a way forbidden by its access permissions". `SignInProcessFixture` binds
-  `https://localhost:5349`, which `netsh interface ipv4 show excludedportrange protocol=tcp` lists
-  in a Windows excluded range with PID 4 holding it. Verified identical on `dev` under the old
-  xunit 2.9.3 / VSTest stack, so it predates the v3 move; the fix is a port choice, not a runner.
+- ~~`nativeweb.signin.tests.e2e` fails 4/4 on this workstation~~ **CLOSED 2026-09-05** on
+  `fix/signin-e2e-excluded-port`. Both 5349 and 5350 are in the excluded ranges, on the IPv6 list
+  as well as the IPv4 one, so the bind was refused with nothing listening. The fixture asks the
+  operating system for two ports instead of naming any, which the OS never allocates out of an
+  excluded range. The tier runs 5/5. **The scaffold e2e tier still hardcodes 5348 and 5351** and
+  hit the same class of failure during that work -- 31/31 failing on `address already in use`,
+  because `justsmtp.web.exe` from another repository was listening on 5348. Nothing in this
+  repository can hold that port free; the same fix applies there and has not been made.
 - `libs/nativeweb.signin.testing` carries `[Fact]`-bearing conformance suites and sits under
   `libs/`, outside the xUnit1051 suppression the two `tests/Directory.Build.props` files added. It
   builds clean today, so nothing is broken; the first call site there that takes a

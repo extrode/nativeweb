@@ -71,31 +71,38 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     private readonly LogTail _log = new();
 
     /// <summary>Where the browser goes: the origin the session cookie belongs to.</summary>
-    public string BaseUrl { get; }
+    /// <remarks>
+    /// Assigned in <see cref="InitializeAsync"/>, not in a constructor. A free port is only
+    /// free until something takes it, and the constructor runs before a publish that holds a
+    /// cross-process lock and can take half an hour -- so choosing there would leave the
+    /// widest possible window between the port being observed free and Kestrel binding it.
+    /// </remarks>
+    public string BaseUrl { get; private set; } = string.Empty;
 
     /// <summary>Where the app's own relying party calls the demo provider.</summary>
-    private readonly string _backChannel;
-
-    public SignInProcessFixture()
-    {
-        (int front, int back) = FreeLoopbackPorts();
-
-        BaseUrl = $"https://localhost:{front}";
-        _backChannel = $"http://localhost:{back}";
-    }
+    private string _backChannel = string.Empty;
 
     /// <summary>
-    /// Two loopback ports the operating system says are free, for the front and back channels.
+    /// Two ports the operating system says are free, for the front and back channels.
     /// </summary>
     /// <remarks>
     /// <para>
     /// These were the literals 5349 and 5350 until 2026-09-05, and on this workstation the tier
     /// failed 4/4 with "An attempt was made to access a socket in a way forbidden by its access
     /// permissions". Nothing held them: `netsh interface ipv4 show excludedportrange protocol=tcp`
-    /// lists both as excluded ranges, which is where Windows reserves the STUN and TURN ports, and
-    /// a bind inside one is refused whether or not anything is listening. Asking for port 0 fixes
-    /// the class rather than the pair -- the operating system does not allocate out of a range it
-    /// has excluded, so no literal here can be wrong on the next machine.
+    /// lists both as excluded ranges, and a bind inside one is refused whether or not anything is
+    /// listening. The exclusions are dynamic reservations rather than a deliberate registration of
+    /// those two numbers, so which ports they cover is a property of the machine and its Hyper-V
+    /// and WinNAT state, not something a literal here could be chosen to avoid. Asking for port 0
+    /// fixes the class rather than the pair: the operating system does not allocate out of a range
+    /// it has excluded.
+    /// </para>
+    /// <para>
+    /// <see cref="TcpListener.Create(int)"/> rather than a loopback listener, because it binds
+    /// dual-stack and the app is given `localhost`, which resolves to both 127.0.0.1 and ::1. The
+    /// two exclusion lists are separate -- `netsh interface ipv6 show excludedportrange` is its
+    /// own -- and they happen to agree on this machine, so an IPv4-only probe would have passed
+    /// here while leaving the gap open on a machine where they diverge.
     /// </para>
     /// <para>
     /// Both listeners are held open until both ports are known. Allocated one at a time, the
@@ -103,10 +110,10 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     /// app would be told to bind one endpoint twice.
     /// </para>
     /// </remarks>
-    internal static (int Front, int Back) FreeLoopbackPorts()
+    internal static (int Front, int Back) FreePorts()
     {
-        using var front = new TcpListener(IPAddress.Loopback, 0);
-        using var back = new TcpListener(IPAddress.Loopback, 0);
+        using var front = TcpListener.Create(0);
+        using var back = TcpListener.Create(0);
 
         front.Start();
         back.Start();
@@ -121,6 +128,11 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         string exePath = await PublishAsync().ConfigureAwait(false);
+
+        // After the publish, not before it: see BaseUrl.
+        (int front, int back) = FreePorts();
+        BaseUrl = $"https://localhost:{front}";
+        _backChannel = $"http://localhost:{back}";
 
         var startInfo = new ProcessStartInfo(exePath)
         {

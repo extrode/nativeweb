@@ -6,6 +6,23 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **The sign-in e2e tier is green for the first time on this workstation. Done on
+  `fix/signin-e2e-excluded-port`, 2026-09-05.** It failed 4/4 with "An attempt was made to access
+  a socket in a way forbidden by its access permissions" and had done since before the xunit v3
+  move. Nothing held the ports: `SignInProcessFixture` named 5349 and 5350, and both sit in this
+  machine's Windows TCP exclusion ranges - on the IPv6 list as well as the IPv4 one, which an
+  IPv4-only probe would have missed. The fixture asks for port 0 twice now, through
+  `TcpListener.Create` so the probe is dual-stack like the `localhost` binding it feeds, holding
+  both listeners open until both ports are known so the second call cannot be handed the first's
+  port back. Allocation moved out of the constructor and behind the publish, which had put a
+  30-minute lock wait between observing a port free and binding it. 5/5 in 6.4 s warm, 48 s cold.
+  One review finding was acted on and then reversed by measurement: putting the new port fact in
+  the e2e collection made a broken allocator fail it with the fixture's "Hosting failed to start"
+  rather than the assertion, and the collection already sets `DisableParallelization`, so nothing
+  ran in parallel with it to begin with. **The scaffold e2e tier is red for the same class of
+  reason and was not touched**: it hardcodes 5348, and `justsmtp.web.exe` from another repository
+  was listening on it, so 31/31 failed on `address already in use`. One line in `../todo.md`.
+
 - **`build.sh` names its own remedy when the JauntyQ feed refuses it. Done on
   `fix/build-sh-jauntyq-credential`, 2026-09-05.** The sharp end of the package-mode default, and
   measurement moved it: this is not a cold-host risk, it is a release that could not run here. The

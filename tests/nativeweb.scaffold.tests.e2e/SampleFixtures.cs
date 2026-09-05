@@ -29,8 +29,9 @@ public sealed class JauntySampleFixture() : SampleProcessFixture(5348, SampleE2e
 /// </summary>
 /// <remarks>
 /// Over https, for the reason the base constructor gives. Port 5351: the sign-in tier
-/// runs its own instance of the sample on 5349 and 5350, and <c>dotnet test</c> runs
-/// the two tiers' assemblies at the same time.
+/// runs its own instance of the sample, and <c>dotnet test</c> runs the two tiers'
+/// assemblies at the same time. That tier asks the operating system for its two ports
+/// rather than naming them, so it cannot collide with this one.
 /// </remarks>
 public sealed class PassphraseSampleFixture() : SampleProcessFixture(
     5351,
