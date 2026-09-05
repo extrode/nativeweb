@@ -40,7 +40,8 @@
 
   <!-- Roslyn, for the four netstandard2.0 analyzer projects under libs/.
        Full reasoning and every measurement:
-       docs/decisions/2026-09-05-010-roslyn-pin-floor.md. The short version:
+       docs/decisions/2026-09-05-011-roslyn-pin-raised-to-5-3.md, which
+       supersedes 010. The short version:
 
        THE TWO LINES DO NOT MOVE TOGETHER. CSharp has a ceiling and a floor;
        Analyzers has neither.
@@ -60,11 +61,19 @@
                                 SDK 10.0.203                 runs
          built against 5.9.0    SDK 10.0.203                 CS9057
 
-       4.12.0 rather than the 5.3.0 that also loads here, because justsmtp.com
-       pins NativeWeb.Render.Generator and its global.json has no sdk section at
-       all. Raise the pin when a generator here needs a 5.x API, or when every
-       consumer pins an SDK new enough - NOT when this repository's SDK moves,
-       which only lifts the ceiling.
+       5.3.0 is the ceiling, so it is also the highest this can go today. It was
+       4.12.0 until 2026-09-05, held there by justsmtp.com - the one consumer of
+       the four published packages, and its global.json had no sdk section, so it
+       built on whatever dotnet resolved. It pins 10.0.100 / latestFeature now,
+       and no other repository consumes these packages: epass.io project-
+       references nativeweb.render and nativeweb.security, neither of which
+       references a generator.
+
+       So the floor is a property of the CONSUMER SET, and it has to be
+       re-checked whenever that set grows. Raise the pin when a generator here
+       needs a newer API AND our SDK will load it, or when the consumer set
+       clears a higher floor - NOT when this repository's SDK moves, which only
+       lifts the ceiling.
 
        CS9057 is a WARNING, emitted by the CONSUMING project's csc, never by
        these four. It always means the generator did not run; what the consumer
@@ -87,7 +96,7 @@
        >= 3.3.4, CSharp 5.3.0 requires >= 5.3.0-2.25625.1. That is why the two
        lines can only ever move up together, never down. -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
   </ItemGroup>
 

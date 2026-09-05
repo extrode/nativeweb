@@ -13,23 +13,37 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Changed
 
-- **Ten NuGet pins bumped to current; Roslyn deliberately not.** AngleSharp 1.6.0 -> 1.7.3,
+- **Eleven NuGet pins bumped to current, the Roslyn one last and for a different reason.**
+  AngleSharp 1.6.0 -> 1.7.3,
   Geralt 4.3.0 -> 4.4.0, `Microsoft.AspNetCore.Mvc.Testing` and `.TestHost` 10.0.7 -> 10.0.11,
   `Microsoft.Extensions.Logging.Abstractions` 10.0.0 -> 10.0.11, `Microsoft.Playwright`
   1.49.0 -> 1.62.0, the four OpenTelemetry packages 1.17.0 -> 1.18.0 in lockstep, and
-  `Microsoft.CodeAnalysis.Analyzers` 3.11.0 -> 5.9.0. `Microsoft.CodeAnalysis.CSharp` stays at
-  4.12.0, and it is the only one held back: the four `IsRoslynComponent` generator projects are
-  loaded by the SDK's own compiler, which is Roslyn 5.3.0, so a generator built against 5.9.0 is
-  refused with CS9057. That is a WARNING, emitted by the consuming project's `csc` rather than by
+  `Microsoft.CodeAnalysis.Analyzers` 3.11.0 -> 5.9.0. `Microsoft.CodeAnalysis.CSharp` was
+  held at 4.12.0 for most of the day and moved to 5.3.0 once the one thing blocking it cleared;
+  both halves are below, because the reasoning is the reusable part.
+
+  5.9.0 is not reachable at all: the four `IsRoslynComponent` generator projects are loaded by the
+  SDK's own compiler, which is Roslyn 5.3.0, so a generator built against 5.9.0 is refused with
+  CS9057. That is a WARNING, emitted by the consuming project's `csc` rather than by
   the four, and what it always means is that the generator does not run. How that surfaces is the
   consumer's choice: this repository sees `error CS9057` because `TreatWarningsAsErrors` is on
   repo-wide, but a consumer without it gets either a green build with an inert generator or, if it
   consumes generated symbols, a wall of CS0103 in its own source with the real cause one warning
-  away. 5.3.0 would load but raises the compatibility floor for consumers of the four published
-  analyzer packages, buying an API surface none of them calls - proven by their compiling against
-  4.12.0 at all. Why that floor is real rather than hypothetical, and both `CS9057`
-  bounds measured against a .NET 9 and a .NET 10 SDK, are recorded in
-  `docs/decisions/2026-09-05-010-roslyn-pin-floor.md`.
+  away.
+
+  5.3.0 loads here but is a compatibility floor on every consumer of the four published analyzer
+  packages, and `justsmtp.com` was under it: it pins `NativeWeb.Render.Generator` and its
+  `global.json` had no `sdk` section, so it built on whatever `dotnet` resolved. That repository
+  pinned `10.0.100` / `latestFeature` the same day, which is the second of the two triggers
+  `docs/decisions/2026-09-05-010-roslyn-pin-floor.md` named. No other repository consumes these
+  packages - `epass.io` project-references `nativeweb.render` and `nativeweb.security`, neither of
+  which references a generator - so the pin moved. Every generator-backed tier re-ran at its
+  recorded baseline (render 219, forms 148, scaffold 268, permissions 151, sample 231, repo 183)
+  and `apps/sample` builds with 0 warnings, which under repo-wide `TreatWarningsAsErrors` is the
+  assertion that no generator stopped loading. The floor is a property of the consumer set and has
+  to be re-checked whenever that set grows; both decisions, and both `CS9057` bounds measured
+  against a .NET 9 and a .NET 10 SDK, are in
+  `docs/decisions/2026-09-05-011-roslyn-pin-raised-to-5-3.md`.
   `.Analyzers` is bound by neither argument: it is `PrivateAssets="all"`, never in a consumer's
   closure, and is the RS* rule set an analyzer author is checked against rather than a compiler
   API surface. All five pin combinations were measured; the table is in
