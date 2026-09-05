@@ -11,10 +11,10 @@
     <!-- Telemetry (spec 003 R33): metrics + traces, exported over OTLP, gated
          behind __PRODUCT__:Telemetry:Enabled=false. All four move in lockstep;
          bump together. -->
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
   </ItemGroup>
 
   <!-- Package mode for the source-generator/framework dependencies
@@ -55,15 +55,15 @@
     <PackageVersion Include="xunit.v3" Version="4.0.0" />
     <!-- Integration tests: WebApplicationFactory host. Matched to the
          AspNetCore 10.0.x line. -->
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
     <!-- A real HTML parser, so the public-page CSP lockstep can recompute the
          hash sources from the served response instead of comparing the header
          against the same build-time constants that produced it. Matches the
          version NativeWeb's own render tests pin. -->
-    <PackageVersion Include="AngleSharp" Version="1.6.0" />
+    <PackageVersion Include="AngleSharp" Version="1.7.3" />
     <!-- End-to-end browser tests. -->
     <PackageVersion Include="Deque.AxeCore.Playwright" Version="4.12.0" />
-    <PackageVersion Include="Microsoft.Playwright" Version="1.49.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.62.0" />
   </ItemGroup>
 
 </Project>
