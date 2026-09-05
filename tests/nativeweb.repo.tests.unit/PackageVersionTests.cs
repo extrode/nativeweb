@@ -97,6 +97,46 @@ public sealed class PackageVersionTests
                 + "never pushed, and the error it gets is NU1101 in its own repository.");
     }
 
+    [Fact]
+    public void EveryPackagePinnedInBothFilesCarriesOneVersion()
+    {
+        string root = RepoRoot();
+
+        Dictionary<string, string> framework = Pins(Path.Combine(root, "Directory.Packages.props"));
+        Dictionary<string, string> skeleton = Pins(Path.Combine(root, "skeleton", "Directory.Packages.props"));
+
+        string[] shared = [.. framework.Keys
+            .Where(skeleton.ContainsKey)
+            .Where(id => !id.StartsWith("NativeWeb.", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal)];
+
+        Assert.True(
+            shared.Length > 0,
+            "The two Directory.Packages.props files share no third-party pin. Either the skeleton "
+                + "stopped pinning anything the framework pins, or this test stopped finding them; "
+                + "both make it assert nothing.");
+
+        string[] disagreeing = [.. shared
+            .Where(id => framework[id] != skeleton[id])
+            .Select(id => $"{id}: framework {framework[id]}, skeleton {skeleton[id]}")];
+
+        Assert.True(
+            disagreeing.Length == 0,
+            $"{string.Join("; ", disagreeing)}. The skeleton's header says its pins are copied from "
+                + "this repository, and a stamped product is where the disagreement surfaces - "
+                + "against a version this repository never built or tested together.");
+    }
+
+    private static Dictionary<string, string> Pins(string propsFile) =>
+        XDocument.Load(propsFile)
+            .Descendants()
+            .Where(e => e.Name.LocalName == "PackageVersion")
+            .Where(e => e.Attribute("Include") is not null && e.Attribute("Version") is not null)
+            .ToDictionary(
+                e => e.Attribute("Include")!.Value,
+                e => e.Attribute("Version")!.Value,
+                StringComparer.OrdinalIgnoreCase);
+
     private static string[] VersionPrefixes(string root) =>
         [.. XDocument.Load(Path.Combine(root, "Directory.Build.props"))
             .Descendants()
