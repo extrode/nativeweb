@@ -147,77 +147,42 @@ public sealed partial class PackageFeedConfigTests
     }
 
     /// <summary>
-    /// The sibling projects ci.yml drops are exactly the ones the solution
-    /// declares.
+    /// Neither the solution nor the workflow carries the sibling-project workaround any more,
+    /// and they have to lose it together.
     /// </summary>
     /// <remarks>
-    /// NativeWeb.slnx lists the JauntyQ projects unconditionally, so that a
-    /// local checkout can co-develop them; Directory.Build.props's
-    /// ProjectReference is the conditional half, and the solution membership is
-    /// not. A solution-wide restore therefore loads them in package mode too,
-    /// which on a runner is MSB3202 before any of the feed wiring is reached.
-    /// ci.yml removes them from the runner's copy by path, and a path is
-    /// exactly the kind of thing that gets renamed on one side only.
+    /// <para>
+    /// NativeWeb.slnx listed JauntyQ's two projects unconditionally, so a solution-wide restore
+    /// loaded them even in package mode and a runner with no sibling checkout got MSB3202 before
+    /// package mode was consulted. ci.yml worked around it by editing the runner's copy: a
+    /// `dotnet sln remove` before restore and a `git checkout --` before the first test step,
+    /// because the test that guarded the pair read the file the first step had just emptied.
+    /// </para>
+    /// <para>
+    /// The 2026-09-05 split removed both members for real, which is what the removal step's own
+    /// comment said to do. What can rot now is the reverse: an external project reintroduced to
+    /// the solution without the surgery coming back, which is MSB3202 on a runner and nothing at
+    /// all here. So this asserts the pairing rather than either half.
+    /// </para>
     /// </remarks>
     [Fact]
-    public void Workflow_DropsExactlyTheSiblingProjectsTheSolutionDeclares()
+    public void Workflow_DoesNoSolutionSurgeryAndTheSolutionNeedsNone()
     {
         string root = RepoRoot();
         string solution = File.ReadAllText(Path.Combine(root, "NativeWeb.slnx"));
         string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
 
-        var declared = SolutionProjectPattern().Matches(solution)
+        string[] external = [.. SolutionProjectPattern().Matches(solution)
             .Select(m => Normalize(m.Groups[1].Value))
-            .Where(p => p.Contains("jauntyq/", StringComparison.OrdinalIgnoreCase))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .Where(p => p.StartsWith("..", StringComparison.Ordinal))];
 
         Assert.True(
-            declared.Count > 0,
-            "NativeWeb.slnx no longer lists the JauntyQ projects — the ci.yml removal step should go too.");
+            external.Length == 0,
+            "NativeWeb.slnx declares a project outside this repository, which a runner cannot "
+                + "restore: " + string.Join(", ", external));
 
-        Match removal = SolutionRemovePattern().Match(workflow);
-        Assert.True(removal.Success, "ci.yml no longer drops the JauntyQ projects from the solution.");
-
-        var removed = removal.Groups[1].Value
-            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-            .Where(t => t.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
-            .Select(Normalize)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        Assert.Equal(declared, removed);
-    }
-
-    /// <summary>
-    /// ci.yml puts NativeWeb.slnx back before the first test step.
-    /// </summary>
-    /// <remarks>
-    /// The removal step edits the runner's working copy, and the test above
-    /// reads that same file to check the solution and the workflow still name
-    /// the same projects. Without a restore it reads a solution the workflow
-    /// has just emptied, so it asserts the opposite of what it means and fails
-    /// on every run.
-    /// <para>
-    /// That is not hypothetical: it is what happened the first time CI got far
-    /// enough to run the unit tier at all. Every earlier run died at restore or
-    /// at compile, so the test had never once executed on a runner, and a test
-    /// that has never run is not a passing test.
-    /// </para>
-    /// </remarks>
-    [Fact]
-    public void Workflow_RestoresTheSolutionBeforeTheFirstTestStep()
-    {
-        string workflow = File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "ci.yml"));
-
-        int removal = workflow.IndexOf("dotnet sln NativeWeb.slnx remove", StringComparison.Ordinal);
-        int restore = workflow.IndexOf("git checkout -- NativeWeb.slnx", StringComparison.Ordinal);
-        int firstTest = workflow.IndexOf("dotnet test", StringComparison.Ordinal);
-
-        Assert.True(removal >= 0, "ci.yml no longer drops the JauntyQ projects from the solution.");
-        Assert.True(restore >= 0, "ci.yml empties NativeWeb.slnx of the JauntyQ projects and never puts it back.");
-        Assert.True(firstTest >= 0, "ci.yml no longer runs any tests.");
-
-        Assert.True(removal < restore, "ci.yml restores NativeWeb.slnx before the step that edits it.");
-        Assert.True(restore < firstTest, "ci.yml runs tests against a NativeWeb.slnx it has emptied of JauntyQ projects.");
+        Assert.DoesNotContain("dotnet sln NativeWeb.slnx remove", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("git checkout -- NativeWeb.slnx", workflow, StringComparison.Ordinal);
     }
 
     /// <summary>Compare paths, not separators: the solution writes them one way and the workflow the other.</summary>
@@ -228,13 +193,6 @@ public sealed partial class PackageFeedConfigTests
 
     [GeneratedRegex(@"<Project\s+Path=""([^""]+)""")]
     private static partial Regex SolutionProjectPattern();
-
-    // Bounded to the step's own continuation lines. An unanchored \s+\S+ runs
-    // straight past the blank line and swallows the publish command's
-    // apps/web/nativeweb.web.csproj, which then reads as a third project the
-    // workflow claims to remove.
-    [GeneratedRegex(@"dotnet sln NativeWeb\.slnx remove((?:\r?\n[ \t]+\S+)+)")]
-    private static partial Regex SolutionRemovePattern();
 
     [GeneratedRegex(@"(?m)^\s*packages:\s*read\s*$")]
     private static partial Regex PackagesReadPattern();

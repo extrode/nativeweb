@@ -30,7 +30,9 @@ permissions:
   packages: read
 
 env:
-  # No JauntyQ sibling checkout exists in CI -- package mode pulls the pinned
+  # No JauntyQ sibling checkout exists in CI, and since the 2026-09-05 split
+  # none exists anywhere: package mode is the default now, and this flag states
+  # it rather than selecting it. It pulls the pinned
   # JauntyQ.Generator/JauntyQ.Runtime versions from Directory.Packages.props
   # instead (see Directory.Build.props's dual-mode resolution).
   DOTNET_BUILD_ARGS: -p:JauntyQUsePackages=true
@@ -118,22 +120,6 @@ jobs:
               -f "$migration"
           done
 
-      # NativeWeb.slnx lists the two JauntyQ projects as solution members, so a
-      # local checkout can co-develop them. That listing is unconditional,
-      # unlike the ProjectReference in Directory.Build.props, so a
-      # solution-wide restore loads them even in package mode -- and on a runner
-      # with no sibling checkout that is MSB3202 ("project file was not found")
-      # raised before package mode is ever consulted. Dropping them from the
-      # runner's working copy is the whole fix; nothing commits or pushes it.
-      #
-      # If this step ever fails saying the projects are not in the solution,
-      # they have been removed for real and this step should be deleted too.
-      - name: Drop the JauntyQ sibling projects from the solution
-        run: >
-          dotnet sln NativeWeb.slnx remove
-          ../jauntyq/src/JauntyQ.Generator/JauntyQ.Generator.csproj
-          ../jauntyq/src/JauntyQ.Runtime/JauntyQ.Runtime.csproj
-
       # nuget.config declares the jauntyq-github source but deliberately carries
       # no credentials. Package source mapping means only JauntyQ.* is ever
       # looked up there, so this step is what makes package mode resolvable at
@@ -176,24 +162,6 @@ jobs:
             echo '::error::Vulnerability audit produced no per-project confirmation -- treating as failed.'
             exit 1
           fi
-
-      # Put NativeWeb.slnx back before any test runs. The removal step above
-      # edits the runner's working copy, and PackageFeedConfigTests reads that
-      # same file to assert the solution still declares the JauntyQ projects the
-      # removal step names -- a rename-on-one-side guard. Reading the mutated
-      # copy makes it assert the opposite of what it means and fail every time.
-      #
-      # This never showed up before because CI had never reached the test step:
-      # every earlier run died at restore (401/NU1101) or at compile (JNT8004
-      # from the 0.1.0 generator). The first green build was the first time this
-      # test ran on a runner at all.
-      #
-      # Everything solution-wide is finished by here -- restore, build, and the
-      # vulnerable gate, which resolves NativeWeb.slnx from the working dir. The
-      # test steps below all name a project path explicitly, so none of them
-      # reloads the solution and none needs the JauntyQ projects gone.
-      - name: Restore the solution file the removal step edited
-        run: git checkout -- NativeWeb.slnx
 
       # Deno is not preinstalled on a GitHub runner, and denoland/setup-deno is
       # a `uses:` step -- decision 2026-08-20-001 keeps this repository down to
