@@ -51,11 +51,4 @@ public sealed class PortAllocationTests
         }
     }
 
-    [Fact]
-    public void FreePort_NeverHandsOutTheSamePortTwice()
-    {
-        int[] ports = [.. Enumerable.Range(0, 16).Select(_ => SampleProcessFixture.FreePort())];
-
-        Assert.Equal(ports.Length, ports.Distinct().Count());
-    }
 }

@@ -438,6 +438,15 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     /// chosen in one call; across independent fixtures nothing composes but a shared record.
     /// </para>
     /// <para>
+    /// No test asserts <see cref="Handed"/>, and that is deliberate rather than an omission.
+    /// Removing the guard was tried: sixteen sequential draws stayed distinct, because Windows
+    /// cycles the ephemeral range rather than reissuing the port just released. A test over it
+    /// therefore passes whether the guard is present or absent, which asserts nothing. The
+    /// guard stays as cheap insurance against the window the concurrent-initialization comment
+    /// above describes, and it is honest to say it is unproven rather than to keep a green test
+    /// that cannot fail.
+    /// </para>
+    /// <para>
     /// The residual window -- between this returning and Kestrel binding -- is real and cannot
     /// be closed from here, since the port has to be free for the child process to take it. It
     /// is a trade rather than a strict win: the old literals sat below the dynamic range where
