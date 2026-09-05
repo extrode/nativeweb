@@ -6,6 +6,18 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
+- **xunit 2.9.3 -> xunit.v3 4.0.0. Done on `chore/xunit-v3`, 2026-09-05.** Not a pin bump: v3 is
+  Microsoft.Testing.Platform, and the .NET 10 SDK will not run it through VSTest, so
+  `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` are dropped and every `dotnet test` in
+  the repository changes shape. 23 test projects, 26 `IAsyncLifetime` signatures to `ValueTask`,
+  and 30 command lines in CI, the docs and `tools/stamp-check.ts`. Every tier green at its recorded
+  baseline (repo 181, web unit 177, sample unit 231, five integration tiers, four e2e tiers), and
+  `tools/stamp-check.ts` proves a stamped product builds and runs 1 unit and 6 integration tests
+  under the new platform. Two things it left: xUnit1051 is suppressed in the two test-tier
+  `Directory.Build.props` with the reason stated, and `nativeweb.signin.tests.e2e` fails 4/4 on a
+  Windows excluded port range, identically on `dev` under the old stack. Both in `../todo.md`.
+  Plan in `docs/plans/2026-09-05-010-xunit-v3.md`.
+
 - **Spec 029 - framework-owned templates. Done on `feat/029-framework-templates`, 2026-09-05.**
   Applies spec 015 R7's argument to the four HTML partials it stopped short of:
   `shared/{antiforgery,bot-traps,banner-ok,banner-error}.html` move into `libs/nativeweb.web` and
