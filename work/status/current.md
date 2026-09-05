@@ -17,7 +17,10 @@ worth seeing here rather than hiding, but it is the exception.
   error, no test failure and no runtime error. Also closes the gap that `apps/sample` cannot render
   a flash banner at all: the contact form is post-redirect-get now, and `ContactFlashTests` drives
   both banners through a real request. All eleven tasks done, R2's package half stated as
-  unproven. Spec, plan and tasks in `docs/specs/029-framework-owned-templates/`.
+  unproven. The one gap the run left open is closed on `chore/029-template-delivery-switch`:
+  `FrameworkTemplateDeliveryTests` runs `dotnet msbuild -getItem:AdditionalFiles` against a
+  throwaway project and pins what `NativeWebImportTemplates` delivers at each setting, which no
+  build in this repository does. Spec, plan and tasks in `docs/specs/029-framework-owned-templates/`.
 
 - **A Fable review of both merged branches, and the twelve fixes it produced.** Fable had not
   seen either branch: 028 and the stamp check both went to `review` (opus) on two lenses. Its

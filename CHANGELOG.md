@@ -36,6 +36,13 @@ sections that apply; drop the empty ones rather than leaving them blank.
   `NativeWeb.Web` additionally has to carry its four templates and `boot.js` at exactly the paths a
   consumer resolves them by — the generic check reads the csproj, so a wrong `PackagePath` moves
   both sides together and passes.
+- **`NativeWebImportTemplates` is exercised by MSBuild, not read off the targets file.** Four facts
+  in the repo tier stand up a throwaway project that imports `NativeWeb.Web.targets` and ask
+  `dotnet msbuild -getItem:AdditionalFiles` what it received: the switch delivers every framework
+  template by default, delivers none when set to `false`, leaves a product's own colliding copy
+  compiling when it is off, and errors on that same copy when it is on. Neither consumer in this
+  repository sets it, so nothing else here would notice the condition inverted or the property
+  renamed on one side of the file.
 
 ### Fixed
 
