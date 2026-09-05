@@ -32,8 +32,9 @@ public sealed class Program
         // becoming a silent default.
         var options = NativeWebOptions.FromConfiguration(builder.Configuration, "__PRODUCT__");
         // typeof(Program).Assembly is what /version and the telemetry service
-        // version read from. Under the integration tier the entry assembly is
-        // testhost, so naming this one is what keeps the stamped version honest.
+        // version read from. Under the integration tier the entry assembly is the
+        // test assembly, so naming this one is what keeps the stamped version
+        // honest.
         builder.AddNativeWebWeb(options, typeof(Program).Assembly);
 
         // Sign-in against an external provider (spec 016). Registered only when one

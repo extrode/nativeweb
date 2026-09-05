@@ -107,16 +107,16 @@ Then run a tier at a time. Naming a tier rather than globbing is deliberate: a s
 being discovered fails by name instead of vanishing from the run.
 
 ```
-dotnet test tests/nativeweb.repo.tests.unit
-dotnet test tests/nativeweb.render.tests.unit
-dotnet test tests/nativeweb.web.tests.unit
-dotnet test tests/nativeweb.forms.tests.unit
-dotnet test tests/nativeweb.security.tests.unit
-dotnet test tests/nativeweb.mail.tests.unit
-dotnet test tests/nativeweb.scaffold.tests.unit
-dotnet test tests/nativeweb.scaffold.tests.integration
-dotnet test tests/nativeweb.scaffold.tests.e2e
-dotnet test tests/nativeweb.sample.tests.unit
+dotnet test --project tests/nativeweb.repo.tests.unit
+dotnet test --project tests/nativeweb.render.tests.unit
+dotnet test --project tests/nativeweb.web.tests.unit
+dotnet test --project tests/nativeweb.forms.tests.unit
+dotnet test --project tests/nativeweb.security.tests.unit
+dotnet test --project tests/nativeweb.mail.tests.unit
+dotnet test --project tests/nativeweb.scaffold.tests.unit
+dotnet test --project tests/nativeweb.scaffold.tests.integration
+dotnet test --project tests/nativeweb.scaffold.tests.e2e
+dotnet test --project tests/nativeweb.sample.tests.unit
 ```
 
 The full set, and what each returned on the verification run:
@@ -214,9 +214,9 @@ than by reading it:
 ```
 export Probe__Db__ConnectionString="Host=127.0.0.1;Database=probe_dev;Username=probe_app;Password=..."
 dotnet build
-dotnet test tests/probe.tests.unit
-dotnet test tests/probe.tests.integration
-dotnet test tests/probe.tests.e2e
+dotnet test --project tests/probe.tests.unit
+dotnet test --project tests/probe.tests.integration
+dotnet test --project tests/probe.tests.e2e
 ```
 
 - **The integration tier needs `<Product>__Db__ConnectionString` in the environment.** Without it

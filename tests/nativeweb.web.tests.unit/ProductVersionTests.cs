@@ -12,18 +12,25 @@ namespace NativeWeb.Web.Tests.Unit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The two are the same in a published binary and different under every test
-/// runner, where the entry assembly is testhost. A stamped product's integration
-/// tier reported <c>18.7.0</c> — testhost's version — and the only thing that
-/// noticed was a regex expecting <c>Version+shortsha</c>.
+/// The two are the same in a published binary. A stamped product's integration
+/// tier reported <c>18.7.0</c> — the VSTest test host's version — and the only
+/// thing that noticed was a regex expecting <c>Version+shortsha</c>.
+/// </para>
+/// <para>
+/// Under xunit v3 the test assembly is itself the executable, so
+/// <see cref="Assembly.GetEntryAssembly"/> answers with this very assembly and the
+/// fallback can no longer be told apart by naming it. Every assembly built from
+/// this repository shares one informational version, so naming a sibling would not
+/// separate them either. The second fact below reaches outside the repository for
+/// an assembly whose version cannot coincide.
 /// </para>
 /// <para>
 /// The fix was a parameter rather than
 /// <c>Assembly.Load(new AssemblyName(environment.ApplicationName))</c>, which
 /// resolves under NativeAOT (the assembly is already in the image) but answers a
 /// rename with a silent fallback instead of a compile error. These two facts are
-/// the pair: naming the assembly decides the answer, and omitting it falls back
-/// to the entry assembly, which under this runner is testhost.
+/// the pair: omitting the assembly falls back to whatever the entry assembly is,
+/// and naming one decides the answer.
 /// </para>
 /// </remarks>
 public sealed class ProductVersionTests
@@ -91,13 +98,11 @@ public sealed class ProductVersionTests
 
         Assert.Equal(entry ?? "unknown", reported);
 
-        // The whole reason the parameter exists: under a test runner the fallback
-        // is not this assembly. If these ever match, the fallback has stopped
-        // being distinguishable and this pair of facts asserts nothing.
-        Assert.NotEqual(
-            typeof(ProductVersionTests).Assembly
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
-                .InformationalVersion,
-            reported);
+        // The whole reason the parameter exists. Naming an assembly has to change
+        // the answer, or the parameter is decorative and the fact above is just
+        // this assembly agreeing with itself. Corelib because it is the one
+        // assembly in reach whose informational version cannot collide with the
+        // repository's own.
+        Assert.NotEqual(reported, await VersionAsync(typeof(object).Assembly));
     }
 }

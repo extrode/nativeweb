@@ -147,7 +147,7 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     public string LogTail => _log.ToString();
 
     /// <inheritdoc/>
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         string exePath = await PublishedExe.Value.ConfigureAwait(false);
 
@@ -251,10 +251,12 @@ public abstract class SampleProcessFixture : IAsyncLifetime
     }
 
     /// <inheritdoc/>
-    public Task DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         StopAndReadLog();
-        return Task.CompletedTask;
+        GC.SuppressFinalize(this);
+
+        return ValueTask.CompletedTask;
     }
 
     private string StopAndReadLog()

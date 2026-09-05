@@ -46,8 +46,10 @@ public sealed class Program
         };
 
         // typeof(Program).Assembly, not the entry assembly: under the integration
-        // tier the entry assembly is testhost, and /version would report its
-        // version rather than this app's.
+        // tier the entry assembly is the test assembly, and /version would report
+        // its version rather than this app's. It was testhost's version until the
+        // suites moved to xunit.v3, which runs each test project as its own
+        // executable; the answer is still not this app's.
         builder.AddNativeWebWeb(options, typeof(Program).Assembly);
 
         // Antiforgery and authorization, which every scaffolded route needs.

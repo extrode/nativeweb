@@ -22,7 +22,7 @@ public sealed partial class NegotiatedEndpointsTests : IAsyncLifetime
     private static readonly string[] Ids = ["a1"];
     private int _handlerRuns;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
@@ -47,7 +47,7 @@ public sealed partial class NegotiatedEndpointsTests : IAsyncLifetime
         _client = _app.GetTestClient();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         _client.Dispose();
         await _app.StopAsync();

@@ -31,7 +31,7 @@ public sealed class NegotiatedCacheTests : IAsyncLifetime
     private int _renders;
     private bool _lie;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
@@ -72,7 +72,7 @@ public sealed class NegotiatedCacheTests : IAsyncLifetime
         _client.BaseAddress = new Uri("https://localhost/");
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         _client.Dispose();
         await _app.StopAsync();

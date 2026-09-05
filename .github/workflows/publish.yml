@@ -106,7 +106,7 @@ jobs:
       - name: The release guards
         run: |
           deno test -A tools/pack.test.ts
-          dotnet test tests/nativeweb.repo.tests.unit -v q --nologo $DOTNET_BUILD_ARGS
+          dotnet test --project tests/nativeweb.repo.tests.unit -v q $DOTNET_BUILD_ARGS
 
       # The guards above are the cheap ones, and they are not the suite. CI runs
       # the whole thing on every push and its result is attached to the commit,

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <RootNamespace>NativeWeb.Permissions.Tests.Unit</RootNamespace>
     <!-- Same test-project conventions as the sibling suites. -->
     <IsAotCompatible>false</IsAotCompatible>
@@ -14,9 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
     <!-- CSharpGeneratorDriver, to drive the permissions generator directly. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <!-- TestServer, so the access admin's routes are exercised as routes. -->

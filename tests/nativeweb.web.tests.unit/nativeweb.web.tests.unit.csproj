@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <!-- __PRODUCT__, not NativeWeb.Web.Tests.Unit, because the render generator
          emits Locales into build_property.RootNamespace and this tier needs a
          locale catalog the way a product has one: Chrome takes a LocaleCatalog
@@ -33,9 +34,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
   </ItemGroup>
 
   <!-- The subject under test.

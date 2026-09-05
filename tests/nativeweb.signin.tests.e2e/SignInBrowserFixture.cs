@@ -13,7 +13,7 @@ public sealed class SignInBrowserFixture : IAsyncLifetime
     public IBrowser Browser { get; private set; } = null!;
 
     /// <inheritdoc/>
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _playwright = await Microsoft.Playwright.Playwright.CreateAsync().ConfigureAwait(false);
         Browser = await _playwright.Chromium
@@ -22,7 +22,7 @@ public sealed class SignInBrowserFixture : IAsyncLifetime
     }
 
     /// <inheritdoc/>
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await Browser.CloseAsync().ConfigureAwait(false);
         _playwright?.Dispose();

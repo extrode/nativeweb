@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <RootNamespace>NativeWeb.Sample.Tests.Unit</RootNamespace>
     <IsAotCompatible>false</IsAotCompatible>
     <IsPackable>false</IsPackable>
@@ -9,9 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
     <!-- Generators and shrinking for the paging seam's property tests. -->
     <PackageReference Include="CsCheck" />
   </ItemGroup>

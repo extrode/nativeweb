@@ -201,10 +201,10 @@ jobs:
         run: pwsh tests/__product__.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Unit tests
-        run: dotnet test tests/__product__.tests.unit --no-build
+        run: dotnet test --project tests/__product__.tests.unit --no-build
 
       - name: Integration tests
-        run: dotnet test tests/__product__.tests.integration --no-build
+        run: dotnet test --project tests/__product__.tests.integration --no-build
 
       - name: Install NativeAOT link prerequisites
         # The e2e fixture's inner publish does a full NativeAOT link on this
@@ -218,7 +218,7 @@ jobs:
         # NativeWebRoot / JauntyQRoot environment variables and resolves the
         # framework the same way -- which is precisely why those are environment
         # variables rather than -p: flags on the outer command.
-        run: dotnet test tests/__product__.tests.e2e --no-build
+        run: dotnet test --project tests/__product__.tests.e2e --no-build
 
   aot-publish:
     # The NativeAOT gate: MSVC's cl.exe/link.exe (via vcvars) are only

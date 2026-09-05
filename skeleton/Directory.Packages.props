@@ -45,9 +45,14 @@
 
   <!-- Test-only packages. Referenced solely by tests/*, never by shipping code. -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
-    <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- xUnit v3, which is Microsoft.Testing.Platform rather than VSTest: the v3
+         packages depend on Microsoft.Testing.Platform and the .NET 10 SDK refuses
+         to drive them through the VSTest target at all. So there is no
+         Microsoft.NET.Test.Sdk and no xunit.runner.visualstudio pin here any more
+         - both were dropped rather than bumped. Each test project sets
+         OutputType=Exe (v3 errors without it) and `dotnet test` reaches them via
+         the opt-in in global.json, which the stamp carries. -->
+    <PackageVersion Include="xunit.v3" Version="4.0.0" />
     <!-- Integration tests: WebApplicationFactory host. Matched to the
          AspNetCore 10.0.x line. -->
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.7" />

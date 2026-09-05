@@ -241,22 +241,22 @@ jobs:
       # action pinning, nuget.config, the solution, Directory.Build.props, .editorconfig, the pack
       # metadata and the skeleton's framework resolution -- none of which any other suite reads.
       - name: Repository guards
-        run: dotnet test tests/nativeweb.repo.tests.unit --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test --project tests/nativeweb.repo.tests.unit --no-build $DOTNET_BUILD_ARGS
 
       - name: Render unit tests
-        run: dotnet test tests/nativeweb.render.tests.unit --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test --project tests/nativeweb.render.tests.unit --no-build $DOTNET_BUILD_ARGS
 
       - name: Forms unit tests
-        run: dotnet test tests/nativeweb.forms.tests.unit --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test --project tests/nativeweb.forms.tests.unit --no-build $DOTNET_BUILD_ARGS
 
       - name: Scaffolding unit tests
-        run: dotnet test tests/nativeweb.scaffold.tests.unit --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test --project tests/nativeweb.scaffold.tests.unit --no-build $DOTNET_BUILD_ARGS
 
       - name: Sample unit tests
-        run: dotnet test tests/nativeweb.sample.tests.unit --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test --project tests/nativeweb.sample.tests.unit --no-build $DOTNET_BUILD_ARGS
 
       - name: Scaffolding integration tests
-        run: dotnet test tests/nativeweb.scaffold.tests.integration --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test --project tests/nativeweb.scaffold.tests.integration --no-build $DOTNET_BUILD_ARGS
 
       - name: Install NativeAOT link prerequisites
         # The e2e fixture's inner publish does a full NativeAOT link on this
@@ -272,7 +272,7 @@ jobs:
         # fails the tier on a runner that has no jauntyq sibling.
         env:
           JauntyQUsePackages: "true"
-        run: dotnet test tests/nativeweb.scaffold.tests.e2e --no-build $DOTNET_BUILD_ARGS
+        run: dotnet test --project tests/nativeweb.scaffold.tests.e2e --no-build $DOTNET_BUILD_ARGS
 
   aot-publish:
     # The NativeAOT gate: the native link needs MSVC's link.exe, which
@@ -460,15 +460,15 @@ jobs:
 
       - name: Unit tests
         working-directory: ciprobe
-        run: dotnet test tests/ciprobe.tests.unit --no-build
+        run: dotnet test --project tests/ciprobe.tests.unit --no-build
 
       - name: Integration tests
         working-directory: ciprobe
-        run: dotnet test tests/ciprobe.tests.integration --no-build
+        run: dotnet test --project tests/ciprobe.tests.integration --no-build
 
       - name: Install NativeAOT link prerequisites
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
       - name: E2E tests
         working-directory: ciprobe
-        run: dotnet test tests/ciprobe.tests.e2e --no-build
+        run: dotnet test --project tests/ciprobe.tests.e2e --no-build

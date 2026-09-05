@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <RootNamespace>NativeWeb.Forms.Tests.Integration</RootNamespace>
     <IsAotCompatible>false</IsAotCompatible>
     <IsPackable>false</IsPackable>
@@ -13,9 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
     <!-- TestServer rather than WebApplicationFactory: this tier composes its own
          two-route pipeline, so there is no entry-point assembly to host. -->
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />

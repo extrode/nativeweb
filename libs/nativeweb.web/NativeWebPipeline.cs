@@ -668,10 +668,12 @@ public static class NativeWebPipeline
     /// </param>
     /// <remarks>
     /// Takeable rather than always <see cref="Assembly.GetEntryAssembly"/>,
-    /// because under a test host the entry assembly is the test host: a stamped
+    /// because under a test the entry assembly is never the product: a stamped
     /// product's integration tier reported <c>/version</c> as <c>18.7.0</c>,
     /// testhost's own version, and the regex asserting <c>Version+shortsha</c>
-    /// was the only thing that noticed.
+    /// was the only thing that noticed. Under xunit.v3 the answer changed
+    /// without becoming right - each test project is its own executable now, so
+    /// the entry assembly is the test assembly rather than a shared host.
     /// <para>
     /// A product passes <c>typeof(Program).Assembly</c> — a static reference the
     /// compiler resolves, which is why this is a parameter and not a lookup. It

@@ -13,6 +13,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Changed
 
+- **The test suites run on xUnit v3 over Microsoft.Testing.Platform.** `xunit` 2.9.3,
+  `xunit.runner.visualstudio` and `Microsoft.NET.Test.Sdk` are gone rather than bumped: `xunit.v3`
+  4.0.0 depends on `Microsoft.Testing.Platform`, and the .NET 10 SDK refuses to drive it through
+  the VSTest target at all. `global.json` and `skeleton/global.json` carry the opt-in
+  (`"test": { "runner": "Microsoft.Testing.Platform" }`), every test project sets
+  `OutputType=Exe`, and `libs/nativeweb.signin.testing` takes `xunit.v3.extensibility.core` plus
+  `xunit.v3.assert` because a packable library cannot be an executable. All 30 `dotnet test`
+  invocations across CI, the docs and `tools/stamp-check.ts` become
+  `dotnet test --project <path>` with no `--nologo`, which the new CLI forwards to the test
+  executable, which rejects it and runs nothing while exiting 5. `TestRunnerWiringTests` guards
+  each of those facts, and `tools/stamp-check.ts` reads the platform's summary shape.
 - **Four shared templates are delivered by the framework instead of vendored into every product
   (spec 029).** `shared/{antiforgery,bot-traps,banner-ok,banner-error}.html` moved to
   `libs/nativeweb.web/templates/shared/` and are contributed as `AdditionalFiles` by
