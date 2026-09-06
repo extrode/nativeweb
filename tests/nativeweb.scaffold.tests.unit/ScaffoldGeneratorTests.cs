@@ -1236,4 +1236,42 @@ public sealed class ScaffoldGeneratorTests
         Assert.Contains("ArticleScaffold", emitted, StringComparison.Ordinal);
         Assert.Contains("BulletinScaffold", emitted, StringComparison.Ordinal);
     }
+
+    // The cross-model half of NWS007. A target carrying two keys is refused and
+    // never emitted, so a model referring to it would otherwise emit a control
+    // reading TargetScaffold.SortFields against a class that does not exist -- a
+    // CS0103 cascade beside the one diagnostic that names the real fault, which is
+    // the failure mode ScaffoldGenerator.Emit already refuses models to avoid.
+    [Fact]
+    public void AReferenceToATargetWithTwoKeys_IsRefusedAlongWithTheTarget()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Target
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    [ScaffoldKey] public string Sku { get; set; } = "";
+                }
+
+                [Scaffold]
+                public sealed class Holder
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    [ScaffoldReference(typeof(Target))] public string? TargetId { get; set; }
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Equal(
+            ["NWS003", "NWS007"],
+            diagnostics.Select(d => d.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray());
+        Assert.DoesNotContain("TargetScaffold", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("HolderScaffold", emitted, StringComparison.Ordinal);
+    }
 }

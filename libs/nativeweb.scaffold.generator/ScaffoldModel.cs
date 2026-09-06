@@ -24,7 +24,11 @@ internal sealed class ScaffoldModel
     /// silence, against the attribute's own promise of exactly one.
     public List<string> KeyProperties { get; set; } = [];
 
-    public string KeyProperty => KeyProperties.Count > 0 ? KeyProperties[0] : "";
+    /// The one key, or empty when there is no key or more than one. Empty for
+    /// both, because both are refused: a referring model reads this to resolve its
+    /// target, and a target carrying two keys is emitted no more than a target
+    /// carrying none, so a reference to it has to be refused the same way.
+    public string KeyProperty => KeyProperties.Count == 1 ? KeyProperties[0] : "";
 
     public AuthModel? Auth { get; set; }
 
