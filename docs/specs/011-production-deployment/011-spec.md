@@ -3,12 +3,14 @@
 Status: done — built and merged; R1 met on a real host 2026-09-01, R16 and R17a met by the drill
 of 2026-09-05 on `nativeweb-dev` and `nativeweb-dr`. **Three requirements are unmet on that host
 and none of them is code.** R14 and R17b: the bucket was a MinIO container on `incus-host`,
-the machine it backs up, so losing that machine lost every backup with it. R15:
+the machine it backs up, so a loss of that machine would have taken every backup with it. The
+bucket is gone as of 2026-09-06, deleted deliberately by the drill's own cleanup script rather
+than by any failure. R15:
 `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is unnoticed until it is needed.
 All three are operator settings, carried in the runbook's gap table rather than left implicit.
 **The second addendum of 2026-09-06 changes how all three will close** -- by moving this host onto
 the `incus-host` fleet backup rather than by configuring `backup.sh` -- and records that
-nothing is backing this host up in the meantime
+nothing is backing this host up in the meantime.
 Created: 2026-08-27
 
 ## Problem
@@ -353,11 +355,24 @@ offsite storage -- plus a weekly whole-instance export, a daily `backup-tool che
 together and better than one more `backup.env` would, and its own runbook says not to stand a
 second system beside it.
 
-`nativeweb-dev` was in neither of that system's VM lists, so this project was invisible to it.
-Adding it is two words in `ops/{db-dump.sh,vm-export.sh}`, committed on
-`chore/nativeweb-dev-into-host-backup` in the host's ops repository for its owners to review.
-That absence was also breaking their tier-3 coverage check, which fails the whole Sunday export
-when any instance on the host is in neither list.
+`nativeweb-dev` was in none of that system's three VM lists -- `TIER1_VMS`, `TIER3_VMS`,
+`TIER3_IGNORE` -- so this project was invisible to it. Adding it to the first two is two words in
+`ops/{db-dump.sh,vm-export.sh}`, committed on
+`chore/nativeweb-dev-into-host-backup` in the host's ops repository, **merged to their `dev` the
+same day**. Not in effect: `/opt/host-backup` on `incus-host` still runs the pre-review
+scripts, and redeploying it is a founder call, so nothing about this host's backups has changed on
+the fleet yet.
+
+**Two words may not be enough, and this is not knowable from a checkout.** Both lists are
+`${TIER1_VMS:-...}` defaults read after `load_env`, so a `/etc/host-backup/env` on the host that
+sets either variable makes the change a no-op there. Whether it does, and whether the units run
+the branch's copies, are host facts.
+
+That absence was also failing their tier-3 coverage check, which exits before the export loop and
+so fails the job for **every** instance on the host, not only for this one. Tier 3 runs Sundays
+06:00 CEST and 2026-09-06 is a Sunday, so this morning's run is likely to have already failed with
+three unlisted instances -- `nativeweb-dev`, and the `nativeweb-dr` and `nw-drill-s3` the drill
+cleanup removed later the same day. Whether it did is in the host's journal.
 
 | Requirement | Verdict | Changed by |
 | --- | --- | --- |
@@ -365,18 +380,47 @@ when any instance on the host is in neither list.
 | R17b | **unmet, closing** | Follows R14, and additionally needs a restore from one of those repositories to be drilled. Neither has happened |
 | R15 | **unmet, closing** | The fleet's freshness probe replaces `BACKUP_HEARTBEAT_URL` for this host. Its own runbook warns that a green marker means the job ran, not that this database was in it -- so the first run must be read, not assumed |
 
+**Four things here are host facts and none has been checked**, because a checkout cannot see them:
+whether `/etc/host-backup/env` overrides either VM list; whether the units execute the branch's
+copies of the scripts; whether the tier-3 unit has already failed on the unlisted instances; and
+whether `incus exec nativeweb-dev -- sudo -u postgres psql` answers, which tier 1 needs and which
+`db-dump.sh` treats as a **fleet-wide** failure rather than a per-VM one -- its `exit 1` on
+zero databases sits inside the loop, so a stopped `nativeweb-dev` aborts tier 1 for every sibling
+before backup-tool runs.
+
 **Nothing is backing up `nativeweb-dev` between these two addenda.** The MinIO container holding
 every backup taken since 2026-09-05 was deleted on 2026-09-06 by
 `scripts/cleanup/011-t15-restore-and-dr-drill.ps1 -RemoveBucket`, and the fleet has not yet run
-against this VM. The 03:17 timer is still enabled and fails nightly against an endpoint that no
-longer answers. Retiring that timer waits on a fleet run that demonstrably captured this
-database, so that the two states do not overlap in the wrong direction.
+against this VM.
 
-**One thing the fleet does not carry.** `/etc/nativeweb/{blue,green,backup}.env` and the `age`
-key live on the VM's filesystem and in no repository. Fleet tier 1 dumps Postgres only; the
-weekly tier-3 tar is the sole thing that captures them, and tier 3 writes to offsite object storage alone. The
-recovery point for the configuration that makes this host bootable is therefore **7 days on one
-provider**, against 1 day on two for the data.
+The 03:17 timer is still enabled and fails nightly against an endpoint that no longer answers.
+**It is inert, not a safety net**: every run dies at the upload and `backup.sh`'s `EXIT` trap
+removes the dump, so it contributes no recovery point and disabling it would widen no window. It
+stays enabled only because disabling it is a host action, batched with the retirement rather than
+done for its own sake.
+
+**What the fleet carries that `backup.sh` did not, and what neither carries well.**
+
+`provision.sh` seeds five files on the VM's filesystem and none is in any repository:
+`app.env`, `secrets.env`, `blue.env`, `green.env`, `backup.env`. The first two are the ones DR
+step 5 carries by hand. **`backup.sh` never backed up any of them** -- it ships `pg_dump` output
+and nothing else -- so on paper the fleet takes them from no backup at all to the weekly tier-3
+tar, on offsite object storage alone: 7 days on one provider, against 1 day on two for the data.
+
+**On the host, tier 3 has never produced a snapshot.** `incus list` returned 25 instances on
+2026-09-06 against 15 classified, and the coverage check exits before the first export, so the
+whole tier has never run. Ten instances need a founder call before it can. Until then the figure
+for these five files is not seven days -- it is no backup, and the fleet's own `work/todo.md`
+records it.
+
+The `age` key is not in this list: it has been in the operator's off-host store since 2026-09-06,
+and once the MinIO objects were deleted there is nothing left for it to decrypt.
+
+Gained: tier 1 runs `pg_dumpall --globals-only` per VM, which `backup.sh` does not. DR step 6 sets
+the app role's password by hand because `pg_dump -Fc` carries no roles; for this host `globals.sql`
+now carries it. The fleet runbook restores globals to a scratch directory and warns against
+applying it to a live cluster unread, so step 6 stays the default and `globals.sql` is the
+cross-check rather than the replacement.
 
 ## Open questions
 

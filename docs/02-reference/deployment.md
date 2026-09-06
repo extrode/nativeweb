@@ -319,10 +319,16 @@ verbatim.
 
 ## Backups
 
-> **`nw-dev.example.com` does not use this script any more.** Since 2026-09-06 its
-> database is backed up by the `incus-host` fleet backup, which does the same
-> `pg_dump -Fc` into two independent backup-tool repositories -- offsite object storage and a
-> offsite storage -- with a daily integrity check and a dead-man probe.
+> **`nw-dev.example.com` is being moved off this script, and nothing is backing it
+> up in the meantime.** The intended home is the `incus-host` fleet backup, which
+> does the same `pg_dump -Fc` into two independent backup-tool repositories -- offsite object storage
+> and a offsite storage -- with a daily integrity check and a dead-man probe. The
+> two-word change that puts this VM in its tier-1 and tier-3 lists is merged to that
+> repository's `dev`, but `/opt/host-backup` on `incus-host` still runs the
+> pre-review scripts, so **on the host nothing has changed yet**. Their tier 3 has
+> additionally never produced a snapshot at all: ten of the host's 25 instances are
+> unclassified and the coverage check exits before the first export. See the gap table
+> below.
 > `the host's ops runbook` is the operating document for it,
 > and restores for that host follow its **Restoring** section rather than the one
 > below.
@@ -492,10 +498,10 @@ been exercised), `restore.sh --target nativeweb --from-host nativeweb-dev
 | ~~The restore drill has never been run~~ | **Closed 2026-09-05** — drilled on `nativeweb-dev`, R16 met under the amended criterion above |
 | ~~Disaster recovery has never been exercised~~ | **Closed 2026-09-05** — `nativeweb-dr` rebuilt from repo plus backup in 345 s, R17a met with the four caveats above |
 | No backup is offsite | **R14 and R17b closing, not yet closed.** `nativeweb-dev` was added to the fleet backup's tier 1 and tier 3 on 2026-09-06, which puts the dumps on offsite object storage and a offsite storage, both off `incus-host`. Unmet until a fleet run has captured this VM and a restore from one of those repositories has been drilled; neither has happened yet |
-| Nothing is backing up `nativeweb-dev` right now | **Open, and the reason the row above is not closed.** The MinIO container this host's `backup.env` points at was deleted on 2026-09-06 with every backup in it, and the fleet has not yet run against this VM. The 03:17 timer is still enabled and now fails nightly against a dead endpoint |
-| ~~The nightly backup fails on `nativeweb-dev`~~ | **Closed 2026-09-05** — bucket, endpoint and credentials filled in, first successful backup taken. The bucket is MinIO on the same fleet host, so this is not yet an offsite backup |
+| Nothing is backing up `nativeweb-dev` right now | **Open, and the reason the row above is not closed.** The MinIO container this host's `backup.env` points at was deleted on 2026-09-06 with every backup in it, and the fleet has not yet run against this VM. The 03:17 timer is still enabled but inert: every run dies at the upload and the dump is removed by the `EXIT` trap, so disabling it would widen no window. It is left for a host pass, not as cover |
+| The nightly backup fails on `nativeweb-dev` | **Closed 2026-09-05, reopened 2026-09-06.** Bucket, endpoint and credentials were filled in and the first successful backup taken; the bucket was MinIO on the same fleet host, and was deleted on 2026-09-06 with everything in it. Folded into the row above — the timer is inert until it is disabled, since every run now dies at the upload and the `EXIT` trap removes the dump |
 | `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
-| `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it |
+| `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it, for any deployment running `backup.sh`. For `nw-dev.example.com` the fleet's own six-hourly probe is the intended answer instead — see **Backups**, above |
 | The build host needs a JauntyQ feed credential | `build.sh` pins **package** mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints a `dotnet nuget add source --configfile "$HOME/.nuget/NuGet/NuGet.Config"` command; an operator runs it once per WSL profile: the file it writes is the user-level
 NuGet config, which persists across shells. It printed `update source` with no `--configfile` until 2026-09-06, which writes the token into the checked-out `nuget.config` |
 | ~~The epass.io cutover scope decision~~ | **Closed 2026-08-31, and not a NativeWeb concern at all** — `../decisions/2026-08-31-008-epass-cutover-closed.md`. Nothing in this runbook is gated on it. |

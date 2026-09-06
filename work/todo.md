@@ -82,17 +82,26 @@ wish list; the value is in recording the ones nobody has got to yet.
 - **Spec 011's backup and restore drill — R16 and R17, parked here on 2026-09-01 at the user's
   request.** Spec 011 is `Status: draft` for this and nothing else: T15's first third ran for
   real (`nativeweb-dev` serves `apps/sample` at `nw-dev.example.com`, two blue/green releases at
-  1.774 s and 1.888 s), and the restore drill cannot start because no backup exists. Every key in
-  `/etc/nativeweb/backup.env` on that host is present and empty, so the 03:17 timer fails nightly
-  on `BACKUP_S3_BUCKET: set BACKUP_S3_BUCKET`.
+  1.774 s and 1.888 s), and the restore drill cannot start because no backup exists.
+
+  **The two sentences that used to follow are superseded and kept for the trail.** They said spec
+  011 was `Status: draft`, that `/etc/nativeweb/backup.env` was present and empty, and that the
+  timer failed on `BACKUP_S3_BUCKET: set BACKUP_S3_BUCKET`. The keys were filled and the first
+  backup taken on 2026-09-05, the drill ran the same day, and the spec is `Status: done`. The
+  timer does fail nightly again as of 2026-09-06, but on a deleted endpoint rather than an empty
+  variable.
 
   **The open question in front of this is answered, 2026-09-06: `pg_dump` earns its place.**
   Whole instances do leave `incus-host` -- `incus export` to offsite object storage -- but weekly, to
-  one provider, and untested: the fleet runbook records tier 3 as never rehearsed. The daily dump
-  runs to two independent providers and has a restore that has been drilled. Daily against weekly
-  and two providers against one is the whole difference, so the deliverable was a drill, not a
-  deletion. The work moved rather than disappearing: this host is joining the fleet's tier 1
-  instead of running its own `backup.sh`.
+  one provider, and unrehearsed: the fleet runbook records the tier-3 restore path as never
+  drilled. The daily dump runs to two independent providers. Daily against weekly and two
+  providers against one is the whole difference, so the deliverable was a drill, not a deletion.
+  The work moved rather than disappearing: this host is joining the fleet's tier 1 instead of
+  running its own `backup.sh`.
+
+  Neither restore has been drilled from where the bytes will actually live. `restore.sh` was
+  drilled on 2026-09-05 against MinIO, which is gone; the backup-tool restore has not been drilled at
+  all. That is what keeps R17b open rather than merely pending.
 
   Whatever the answer, the credentials step is the operator's: a bucket, its keys, and an age
   keypair from `age-keygen -o /etc/nativeweb/backup-age.key` run **on the host**. A session must
