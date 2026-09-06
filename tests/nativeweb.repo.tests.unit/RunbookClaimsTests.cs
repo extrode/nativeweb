@@ -109,21 +109,25 @@ public sealed partial class RunbookClaimsTests
         {
             foreach (string path in Directory.EnumerateFiles(Path.Combine(root, dir), "*.md", SearchOption.AllDirectories))
             {
-                foreach (string line in File.ReadAllLines(path))
+                // Scanned per paragraph, not per line. Both claims this was written for wrap:
+                // `003-framework-readiness.md` had "the deployment reference" ending one line and
+                // "reads `NOT YET MEASURED`" opening the next, so a line-at-a-time sweep reports
+                // a clean document and the guard asserts nothing.
+                foreach (string paragraph in Paragraphs(File.ReadAllText(path)))
                 {
                     bool namesTheRunbook =
-                        line.Contains("deployment.md", StringComparison.Ordinal)
-                        || line.Contains("deployment reference", StringComparison.Ordinal);
+                        paragraph.Contains("deployment.md", StringComparison.Ordinal)
+                        || paragraph.Contains("deployment reference", StringComparison.Ordinal);
 
                     // The placeholder's own name is not the defect -- a sentence reporting that it
                     // is gone has to be able to quote it, and both `deployment.md` and
                     // `milestones.md` do. The defect is a present-tense claim that the document
                     // still reads that way, so the reading verb is what this matches on.
                     if (namesTheRunbook
-                        && line.Contains("NOT YET MEASURED", StringComparison.Ordinal)
-                        && PresentTenseReading().IsMatch(line))
+                        && paragraph.Contains("NOT YET MEASURED", StringComparison.Ordinal)
+                        && PresentTenseReading().IsMatch(paragraph))
                     {
-                        stale.Add($"{Path.GetRelativePath(root, path).Replace('\\', '/')}: {line.Trim()}");
+                        stale.Add($"{Path.GetRelativePath(root, path).Replace('\\', '/')}: {Collapse(paragraph)}");
                     }
                 }
             }
@@ -131,6 +135,44 @@ public sealed partial class RunbookClaimsTests
 
         Assert.Empty(stale);
     }
+
+    /// <summary>
+    /// Blank-line separated blocks, with each bullet and each table row its own block.
+    /// </summary>
+    /// <remarks>
+    /// A list is not one paragraph and neither is a table: `work/milestones.md` is a single
+    /// unbroken table, so without the row break every milestone reads as one block and any
+    /// reading verb anywhere in it convicts every other row.
+    /// </remarks>
+    private static IEnumerable<string> Paragraphs(string document)
+    {
+        List<string> block = [];
+        foreach (string raw in document.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            bool breaks =
+                raw.Trim().Length == 0
+                || BulletStart().IsMatch(raw)
+                || raw.TrimStart().StartsWith('|');
+            if (breaks && block.Count > 0)
+            {
+                yield return string.Join('\n', block);
+                block.Clear();
+            }
+
+            if (raw.Trim().Length > 0)
+            {
+                block.Add(raw);
+            }
+        }
+
+        if (block.Count > 0)
+        {
+            yield return string.Join('\n', block);
+        }
+    }
+
+    private static string Collapse(string paragraph) =>
+        string.Join(' ', paragraph.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()));
 
     private static IEnumerable<string> GapTableRows(string runbook)
     {
@@ -186,6 +228,9 @@ public sealed partial class RunbookClaimsTests
 
     [GeneratedRegex(@"are met\.\s*(?<unmet>[^*]+?)\s*are not\.\*\*")]
     private static partial Regex SpecStatusLine();
+
+    [GeneratedRegex(@"^\s*([-*+]|\d+\.)\s")]
+    private static partial Regex BulletStart();
 
     [GeneratedRegex(@"\b(still )?(reads|read|says|shows|carries)\b")]
     private static partial Regex PresentTenseReading();
