@@ -147,15 +147,20 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                 continue;
             }
 
-            // A setter the generated file cannot reach is worse than no setter at
-            // all, and used to be skipped in the same silence: the emitted Build ends
-            // in `new() { ... }`, so a property missing from that initializer is left
-            // at its default and the store writes the default back over the stored
-            // value on every save. { get; private set; } lost its column's contents
-            // on each edit with nothing reported anywhere.
-            if (!CanAssign(property.SetMethod))
+            // An accessor the generated file cannot reach is worse than no accessor
+            // at all, and used to be skipped in the same silence: the emitted Build
+            // ends in `new() { ... }`, so a property missing from that initializer is
+            // left at its default and the store writes the default back over the
+            // stored value on every save. { get; private set; } lost its column's
+            // contents on each edit with nothing reported anywhere.
+            //
+            // The getter is asked the same question, because the emitter reads
+            // `existing.Name` and `row.Name` as well as assigning: `{ private get;
+            // set; }` and a set-only property are CS0271 and CS0154 inside generated
+            // source, which names the generated file and not the declaration.
+            if (property.GetMethod is null || !CanReach(property.GetMethod) || !CanReach(property.SetMethod))
             {
-                model.Uncarryable.Add(property.Name);
+                model.Unreachable.Add(property.Name);
                 continue;
             }
 
@@ -189,9 +194,14 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
 
             // internal and protected internal are reachable from the generated file
             // -- it is emitted into the same assembly -- so the value is carried from
-            // `existing` rather than lost. It is still never bound from the form: a
-            // setter the author kept off the public surface is not one a posted field
-            // should reach.
+            // `existing` rather than lost. Never bound from the form, though: what the
+            // author kept off the public surface is not what a posted field reaches.
+            //
+            // The setter alone answers for the property as well. C# permits an
+            // accessor modifier only where it is stricter than the declaration, so an
+            // internal property cannot have a public setter and asking both was a
+            // condition no input could tell apart -- which is how the mutation that
+            // dropped half of it stayed green.
             pm.ReadOnly = property.SetMethod.DeclaredAccessibility != Accessibility.Public;
 
             // Base declarations first, because this loop is last-writer-wins for the
@@ -292,7 +302,7 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             foreach (ISymbol member in current.GetMembers())
             {
                 if (member is IPropertySymbol property
-                    && property.DeclaredAccessibility == Accessibility.Public
+                    && CanReach(property)
                     && !property.IsStatic)
                 {
                     level.Add(property);
@@ -371,9 +381,7 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             return "it is not a class, and the emitted routes hold a row in a `Model?` that a value type reads as Nullable<T>";
         }
 
-        if (!type.InstanceConstructors.Any(static c =>
-                c.Parameters.Length == 0
-                && c.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal))
+        if (!type.InstanceConstructors.Any(static c => c.Parameters.Length == 0 && CanReach(c)))
         {
             return "it has no parameterless constructor the generated file can reach, and a row is built with `new()`. A positional record is the usual way to arrive here";
         }
@@ -382,10 +390,14 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
     }
 
     // Whether the generated file, emitted into the consumer's own assembly, can
-    // write through this setter. private, protected and private protected cannot
-    // be reached from an unrelated class in the same assembly; the rest can.
-    private static bool CanAssign(IMethodSymbol setter) =>
-        setter.DeclaredAccessibility is Accessibility.Public
+    // reach this symbol at all. private, protected and private protected cannot be
+    // reached from an unrelated class in the same assembly; the rest can.
+    //
+    // Asked of a property, an accessor and a constructor alike, because the answer
+    // is the same question in all three places and getting it different in one of
+    // them is how `protected internal` came to be assignable and not constructible.
+    private static bool CanReach(ISymbol symbol) =>
+        symbol.DeclaredAccessibility is Accessibility.Public
             or Accessibility.Internal
             or Accessibility.ProtectedOrInternal;
 
@@ -520,13 +532,13 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (model.Uncarryable.Count > 0)
+            if (model.Unreachable.Count > 0)
             {
                 spc.ReportDiagnostic(Diagnostic.Create(
-                    Diagnostics.UnassignableProperty,
+                    Diagnostics.UnreachableProperty,
                     Location.None,
                     model.TypeName,
-                    string.Join(", ", model.Uncarryable)));
+                    string.Join(", ", model.Unreachable)));
                 continue;
             }
 
@@ -725,10 +737,10 @@ internal static class Diagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
-    internal static readonly DiagnosticDescriptor UnassignableProperty = new(
+    internal static readonly DiagnosticDescriptor UnreachableProperty = new(
         id: "NWS010",
-        title: "Scaffolded model has a property the generated code cannot assign",
-        messageFormat: "'{0}' has a settable property the generated code cannot reach ({1}). Every row is rebuilt with `new()` on save, so a property missing from that initializer is written back as its default and whatever was stored is lost. Make the setter public or internal, or drop the setter so nothing stores it.",
+        title: "Scaffolded model has a property the generated code cannot reach",
+        messageFormat: "'{0}' has a settable property the generated code cannot read or assign ({1}). Every row is rebuilt with `new()` on save, so a property missing from that initializer is written back as its default and whatever was stored is lost. Make both accessors public or internal; where the declaration is not yours to change -- a base type in another assembly -- scaffold a type of your own instead.",
         category: "NativeWeb.Scaffold",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);

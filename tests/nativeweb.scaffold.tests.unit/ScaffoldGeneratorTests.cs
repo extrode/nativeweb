@@ -1820,4 +1820,211 @@ public sealed class ScaffoldGeneratorTests
         Assert.Contains("AlphaScaffold", emitted, StringComparison.Ordinal);
         Assert.Contains("BetaScaffold", emitted, StringComparison.Ordinal);
     }
+
+    // The reachability question, asked of every symbol the generated file has to
+    // touch. protected internal is internal-or-protected, so an unrelated class in
+    // the same assembly reaches it -- which the constructor check first got wrong
+    // while the setter check got it right, and a model that built yesterday was
+    // refused for it.
+    [Fact]
+    public void AProtectedInternalConstructor_IsReachedRatherThanRefused()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    protected internal Memo() { }
+
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AProtectedInternalSetter_IsCarriedAndNotEditable()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Owner { get; protected internal set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("Owner = existing is null ? default! : existing.Owner,", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("string? Owner", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void APrivateProtectedSetter_ReportsNws010()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Owner { get; private protected set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Equal("NWS010", Assert.Single(diagnostics).Id);
+        Assert.DoesNotContain("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // An internal property is invisible to the form and reachable from the generated
+    // file, so it is carried. It used to be dropped at the same place a private one
+    // is, which is the silent reset NWS010 exists to stop, one level up.
+    [Fact]
+    public void AnInternalProperty_IsCarriedAndNotEditable()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    internal string Tenant { get; set; } = "";
+                    public string Body { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("Tenant = existing is null ? default! : existing.Tenant,", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("string? Tenant", emitted, StringComparison.Ordinal);
+    }
+
+    // The line the refusal stops at. A private or protected property is reachable
+    // from nothing outside the type, the generated file included, so there is no
+    // value to lose and nothing to report -- and refusing it would refuse every
+    // model that keeps a private auto-property.
+    [Fact]
+    public void APrivateProperty_IsLeftOutWithoutADiagnostic()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    private string Cached { get; set; } = "";
+                    protected string Marker { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("MemoScaffold", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Cached", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Marker", emitted, StringComparison.Ordinal);
+    }
+
+    // The emitter reads `existing.Name` and `row.Name` as well as assigning, so an
+    // unreadable property is refused for the same reason an unassignable one is.
+    [Theory]
+    [InlineData("public string Owner { private get; set; } = \"\";")]
+    [InlineData("public string Owner { set { } }")]
+    public void APropertyTheGeneratedCodeCannotRead_ReportsNws010(string declaration)
+    {
+        string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    DECLARATION
+                }
+            }
+            """.Replace("DECLARATION", declaration, StringComparison.Ordinal);
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Equal("NWS010", Assert.Single(diagnostics).Id);
+        Assert.DoesNotContain("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // An init accessor is a setter an object initializer can use, which is what the
+    // emitted Build is, so it stays editable rather than being carried.
+    [Fact]
+    public void AnInitAccessor_IsEditable()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Body { get; init; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("string? Body", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Body = existing is null ? default! : existing.Body,", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AModelWithAnInitAccessorAndAnInternalProperty_EmitsCodeThatCompiles() =>
+        AssertGeneratedSourceCompiles("""
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    protected internal Memo() { }
+
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    internal string Tenant { get; set; } = "";
+                    public string Owner { get; protected internal set; } = "";
+                    public string Body { get; init; } = "";
+                }
+            }
+            """);
 }

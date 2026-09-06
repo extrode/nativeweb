@@ -44,10 +44,11 @@ internal sealed class ScaffoldModel
     /// transform stage and that stage has no diagnostic channel.
     public string? Unsupported { get; set; }
 
-    /// Properties with a setter the generated file cannot reach, in declaration
-    /// order. Refused at emit time: `new() { ... }` cannot assign them, so every
-    /// save would write the default back over whatever the row held.
-    public List<string> Uncarryable { get; set; } = [];
+    /// Settable properties with an accessor the generated file cannot reach, in
+    /// declaration order. Refused at emit time: `new() { ... }` cannot assign one,
+    /// so every save would write the default back over whatever the row held, and
+    /// the emitter reads `existing.Name` besides.
+    public List<string> Unreachable { get; set; } = [];
 
     public string FullyQualifiedName =>
         string.IsNullOrEmpty(Namespace) ? TypeName : Namespace + "." + TypeName;
@@ -63,7 +64,7 @@ internal sealed class ScaffoldModel
         && Equals(Auth, other.Auth)
         && HasPermissions == other.HasPermissions
         && Unsupported == other.Unsupported
-        && Uncarryable.SequenceEqual(other.Uncarryable)
+        && Unreachable.SequenceEqual(other.Unreachable)
         && Properties.SequenceEqual(other.Properties);
 
     public override int GetHashCode()
@@ -75,7 +76,7 @@ internal sealed class ScaffoldModel
             hash = (hash * 31) + TypeName.GetHashCode();
             hash = (hash * 31) + Route.GetHashCode();
             hash = (hash * 31) + (Unsupported?.GetHashCode() ?? 0);
-            hash = (hash * 31) + Uncarryable.Count;
+            hash = (hash * 31) + Unreachable.Count;
             foreach (PropertyModel p in Properties)
             {
                 hash = (hash * 31) + p.GetHashCode();
