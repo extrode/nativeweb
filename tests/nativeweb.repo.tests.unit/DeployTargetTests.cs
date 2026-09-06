@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
@@ -409,18 +410,75 @@ public sealed class DeployTargetTests
         // nuget.config. The script told the operator their token was under $HOME while putting
         // it in their working tree.
         string remedy = build[start..end];
-        Assert.Contains("dotnet nuget add source $JAUNTYQ_FEED_URL", remedy, StringComparison.Ordinal);
-        Assert.Contains("--name $JAUNTYQ_FEED_SOURCE", remedy, StringComparison.Ordinal);
-        Assert.Contains("--configfile", remedy, StringComparison.Ordinal);
-        Assert.Contains("$JAUNTYQ_USER_CONFIG", remedy, StringComparison.Ordinal);
         Assert.DoesNotContain("nuget update source", remedy, StringComparison.Ordinal);
         Assert.Contains("read:packages", remedy, StringComparison.Ordinal);
+
+        // Asserted against what the operator SEES, not against the file. Every remedy line is an
+        // `echo "..." >&2` and the command spans several of them with printed backslash
+        // continuations, so `--configfile` present somewhere in the branch says nothing about
+        // whether it is on the command being pasted -- it sits on the creation line too. Drop the
+        // continuation and the pasted `add source` runs without it while the test stays green.
+        string printed = PrintedLine(remedy);
+
+        Assert.Contains("> \"$JAUNTYQ_USER_CONFIG\"", printed, StringComparison.Ordinal);
+
+        int addAt = printed.IndexOf("dotnet nuget add source", StringComparison.Ordinal);
+        Assert.True(addAt >= 0, "build.sh's remedy no longer prints a `dotnet nuget add source`.");
+
+        string command = FirstCommand(printed[addAt..]);
+        Assert.Contains("$JAUNTYQ_FEED_URL", command, StringComparison.Ordinal);
+        Assert.Contains("--name $JAUNTYQ_FEED_SOURCE", command, StringComparison.Ordinal);
+        Assert.Contains("--store-password-in-clear-text", command, StringComparison.Ordinal);
+        Assert.Contains("--configfile \"$JAUNTYQ_USER_CONFIG\"", command, StringComparison.Ordinal);
 
         // The path it names has to be the user config, or the paragraph above is decoration.
         Assert.Contains(
             "JAUNTYQ_USER_CONFIG=\"$HOME/.nuget/NuGet/NuGet.Config\"",
             build,
             StringComparison.Ordinal);
+    }
+
+    // The text an `echo "..." >&2` block puts on the operator's terminal, with the shell's
+    // own escaping undone -- so \" reads as ", \\ as one backslash, and a printed
+    // continuation is a continuation rather than a literal pair.
+    private static string PrintedLine(string block)
+    {
+        StringBuilder printed = new();
+        foreach (Match line in Regex.Matches(block, "(?m)^[ \t]*echo \"(.*)\" >&2[ \t]*$"))
+        {
+            string text = line.Groups[1].Value;
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (text[i] == '\\' && i + 1 < text.Length)
+                {
+                    i++;
+                }
+
+                printed.Append(text[i]);
+            }
+
+            printed.Append('\n');
+        }
+
+        return printed.ToString();
+    }
+
+    // One command as pasted: its first line plus every line a trailing backslash carries on to.
+    private static string FirstCommand(string text)
+    {
+        StringBuilder command = new();
+        foreach (string line in text.Split('\n'))
+        {
+            string trimmed = line.TrimEnd();
+            bool continues = trimmed.EndsWith('\\');
+            command.Append(trimmed.TrimEnd('\\')).Append(' ');
+            if (!continues)
+            {
+                break;
+            }
+        }
+
+        return command.ToString();
     }
 
     // A single invocation, from its command up to the last line of a backslash

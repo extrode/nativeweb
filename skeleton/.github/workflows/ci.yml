@@ -307,17 +307,23 @@ jobs:
       # object" against a file that does not already declare the source. The file
       # is created first because `add source --configfile` does not create it: it
       # exits 1 with "File '...' does not exist."
+      # This job is windows-latest, where the default shell is pwsh and NuGet reads its
+      # user config from %APPDATA%\NuGet\NuGet.Config rather than ~/.nuget. A bash body
+      # here is a parse error before the first command runs, and a credential written
+      # under $HOME is written to a file the SDK never loads -- a publish that 401s with
+      # a green-looking authentication step above it.
       - name: Authenticate to GitHub Packages
         run: |
-          mkdir -p "$HOME/.nuget/NuGet"
-          [ -f "$HOME/.nuget/NuGet/NuGet.Config" ] \
-            || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
-          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
-            --name framework-github \
-            --username ${{ github.actor }} \
-            --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }} \
-            --store-password-in-clear-text \
-            --configfile "$HOME/.nuget/NuGet/NuGet.Config"
+          New-Item -ItemType Directory -Force -Path "$env:APPDATA\NuGet" | Out-Null
+          if (-not (Test-Path "$env:APPDATA\NuGet\NuGet.Config")) {
+            Set-Content -Path "$env:APPDATA\NuGet\NuGet.Config" -Value '<?xml version="1.0" encoding="utf-8"?><configuration />'
+          }
+          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json `
+            --name framework-github `
+            --username ${{ github.actor }} `
+            --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }} `
+            --store-password-in-clear-text `
+            --configfile "$env:APPDATA\NuGet\NuGet.Config"
 
       - name: Publish (NativeAOT)
         run: dotnet publish apps/__product__/__product__.csproj -c Release

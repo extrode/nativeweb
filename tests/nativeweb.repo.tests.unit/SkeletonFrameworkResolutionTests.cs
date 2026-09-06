@@ -207,8 +207,19 @@ public sealed partial class SkeletonFrameworkResolutionTests
 
             // HOME is the runner's, not the workflow's, and it is the whole point of the
             // credential step: the token is written under it precisely so it does not land in
-            // the checkout. A workflow that defined HOME itself would be the defect.
-            if (name.StartsWith("PG", StringComparison.Ordinal) || name is "out" or "HOME")
+            // the checkout. So the assertion inverts rather than being skipped -- a workflow
+            // that sets HOME itself could point it back inside the workspace, which is the
+            // defect this file exists to prevent, dressed as configuration.
+            if (name == "HOME")
+            {
+                Assert.True(
+                    EnvValue(workflow, name) is null,
+                    "skeleton ci.yml defines HOME itself, which can point the credential it "
+                        + "writes under $HOME back inside the checkout.");
+                continue;
+            }
+
+            if (name.StartsWith("PG", StringComparison.Ordinal) || name == "out")
             {
                 continue;
             }
@@ -365,21 +376,53 @@ public sealed partial class SkeletonFrameworkResolutionTests
                 continue;
             }
 
+            // Every assertion below reads the commands, not the comments above them: the step
+            // explains why `update source --configfile` is not used, and a regex over the raw
+            // body reads that sentence as the flag it is arguing against.
+            string code = WithoutComments(body);
+
             // The stamped product's token is a PAT with read:packages, not the job's automatic
             // GITHUB_TOKEN, so leaving it in the workspace is worse here than it was in this
             // repository's own ci.yml. `update source` with no --configfile does exactly that:
             // it writes to the nearest config declaring the source, which is the product's
-            // committed nuget.config. Creation is asserted because `add source --configfile`
-            // exits 1 rather than creating the file it is given.
-            Assert.DoesNotContain("nuget update source", body, StringComparison.Ordinal);
-            Assert.Contains(
-                "--configfile \"$HOME/.nuget/NuGet/NuGet.Config\"",
-                body,
-                StringComparison.Ordinal);
-            Assert.Contains(
-                "> \"$HOME/.nuget/NuGet/NuGet.Config\"",
-                body,
-                StringComparison.Ordinal);
+            // committed nuget.config.
+            Assert.DoesNotContain("nuget update source", code, StringComparison.Ordinal);
+
+            // The runner decides which of the two the job must use, and getting it wrong fails
+            // in a way that reads like success: a credential written under $HOME on
+            // windows-latest lands in a file the SDK never loads, so the step is green and the
+            // publish 401s. The shell follows the same split -- a bash body on windows-latest is
+            // a pwsh parse error before the first command runs.
+            string runner = Scalar(body, "runs-on") ?? "";
+            bool windows = runner.Contains("windows", StringComparison.OrdinalIgnoreCase);
+            string expected = windows
+                ? @"$env:APPDATA\NuGet\NuGet.Config"
+                : "$HOME/.nuget/NuGet/NuGet.Config";
+
+            Match configfile = ConfigFilePattern().Match(code);
+            Assert.True(
+                configfile.Success,
+                $"skeleton job '{name}' credentials the feed with no --configfile, so the token "
+                    + "lands in the stamped product's own nuget.config.");
+            Assert.Equal(expected, configfile.Groups[1].Value);
+
+            string written = WrittenConfigContent(code, expected);
+            Assert.True(
+                written.Length > 0,
+                $"skeleton job '{name}' passes --configfile '{expected}' without creating it when "
+                    + "absent; `dotnet nuget add source` exits 1 rather than creating it.");
+
+            // Parsed rather than matched: an unclosed <configuration> is the same substring and
+            // a different outcome on the runner.
+            var created = XDocument.Parse(written);
+            Assert.Equal("configuration", created.Root?.Name.LocalName);
+
+            int credential = code.IndexOf("--store-password-in-clear-text", StringComparison.Ordinal);
+            Match firstSdkCommand = SdkCommandPattern().Match(code);
+            Assert.True(
+                firstSdkCommand.Success && credential < firstSdkCommand.Index,
+                $"skeleton job '{name}' runs `{firstSdkCommand.Value}` before it authenticates "
+                    + "the feed, which is a 401 on the runner and nothing at all here.");
         }
 
         Assert.True(
@@ -511,6 +554,39 @@ public sealed partial class SkeletonFrameworkResolutionTests
             yield return (headers[i].Groups[1].Value, yaml[start..end]);
         }
     }
+
+    /// <summary>
+    /// The XML a job writes to <paramref name="path"/> when the file is absent, or empty if it
+    /// writes nothing. Bash writes it with a redirect, pwsh with Set-Content.
+    /// </summary>
+    private static string WithoutComments(string body) =>
+        CommentLinePattern().Replace(body, string.Empty);
+
+    private static string WrittenConfigContent(string job, string path)
+    {
+        string escaped = Regex.Escape(path);
+
+        Match redirect = Regex.Match(job, @"printf\s+'([^']*)'\s*>\s*""" + escaped + @"""");
+        if (redirect.Success)
+        {
+            return redirect.Groups[1].Value.Replace(@"\n", "\n", StringComparison.Ordinal);
+        }
+
+        Match setContent = Regex.Match(
+            job,
+            @"Set-Content\s+-Path\s+""" + escaped + @"""\s+-Value\s+'([^']*)'");
+
+        return setContent.Success ? setContent.Groups[1].Value : string.Empty;
+    }
+
+    [GeneratedRegex(@"(?m)^[ \t]*#.*$")]
+    private static partial Regex CommentLinePattern();
+
+    [GeneratedRegex("--configfile\\s+\"?([^\"\\s]+)\"?")]
+    private static partial Regex ConfigFilePattern();
+
+    [GeneratedRegex(@"dotnet (?:restore|build|publish|pack|test|run)\b")]
+    private static partial Regex SdkCommandPattern();
 
     private static string? Scalar(string block, string key) =>
         Regex.Match(block, $@"(?m)^\s*{Regex.Escape(key)}:\s*(\S.*?)\s*$") is { Success: true } m
