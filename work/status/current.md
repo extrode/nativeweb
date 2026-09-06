@@ -23,6 +23,8 @@ worth seeing here rather than hiding, but it is the exception.
   only in a MinIO container on the machine being backed up, so losing `incus-host` is still
   unrecoverable. R14 is about location alone and is untouched.
 
-  **The 2026-09-01 key should be treated as exposed** -- it was printed into a session and read
-  back out of that session's own output during the drill, so it lives in whatever transcript that
-  session left. Rotation is an operator call and is written up in the runbook.
+  **The 2026-09-01 key is not being rotated.** It was printed into a session and read back out of
+  that session's own output during the drill, so it lives in whatever transcript that session
+  left; the operator decided on 2026-09-06 that the reach is acceptable for `nativeweb-dev`. The
+  runbook records the decision, what would reopen it, and that it does not carry to a production
+  key.

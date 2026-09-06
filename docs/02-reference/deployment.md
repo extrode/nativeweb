@@ -152,13 +152,16 @@ nine keys nothing reads and passed on the two that mattered while they stayed un
    > store, off `incus-host`. Deliberately not named here -- this file is
    > in a public repository, and a runbook that names the vault holding the key
    > is half of the compromise. Ask the operator.
-   > **The `nativeweb-dev` key of 2026-09-01 should be treated as exposed.** It
-   > was printed into a terminal session and re-used from that session's own
-   > output during the 2026-09-05 drill, so it exists in whatever transcript,
-   > scrollback or shell history that session left behind. Rotating it means
-   > `age-keygen` afresh, a new `BACKUP_AGE_RECIPIENT`, and keeping the old
-   > private key for as long as objects encrypted to the old recipient are still
-   > inside the retention window.
+   > **The `nativeweb-dev` key of 2026-09-01 is not being rotated -- decided by
+   > the operator, 2026-09-06.** It was printed into a terminal session and read
+   > back from that session's own output during the 2026-09-05 drill, so it
+   > exists in whatever transcript, scrollback or shell history that session
+   > left behind. The operator judged that reach acceptable for `nativeweb-dev`.
+   > **Revisit it if that material ever leaves their own machines, and do not
+   > carry the decision to a production key.** Rotating would mean `age-keygen`
+   > afresh, a new `BACKUP_AGE_RECIPIENT`, and keeping the old private key for
+   > as long as objects encrypted to the old recipient are inside the retention
+   > window.
 
    Put the public half in `BACKUP_AGE_RECIPIENT` in `/etc/nativeweb/backup.env`,
    along with the bucket, endpoint and access keys.
