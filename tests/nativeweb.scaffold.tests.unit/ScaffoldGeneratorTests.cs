@@ -1026,4 +1026,214 @@ public sealed class ScaffoldGeneratorTests
 
         return count;
     }
+
+    // A model whose key, a list column and a plain editable property all live on a
+    // base class. Every one of them used to be invisible: ScaffoldGenerator.Build
+    // read type.GetMembers(), which returns declared members only.
+    //
+    // The key is on the base deliberately. It makes the first assertion below a
+    // property rather than a spelling -- NWS001 fires when no property carries
+    // [ScaffoldKey], so a generator that cannot see the base cannot find the key
+    // either, and the diagnostic is the failure rather than a missing string.
+    private const string InheritedModel = """
+        using NativeWeb.Scaffold;
+
+        namespace Demo
+        {
+            public abstract class Entity
+            {
+                [ScaffoldKey] public string Id { get; set; } = "";
+                [ScaffoldList] public string Owner { get; set; } = "";
+                public virtual string Note { get; set; } = "";
+            }
+
+            [Scaffold]
+            public sealed class Memo : Entity
+            {
+                [ScaffoldList][ScaffoldSearch] public string Title { get; set; } = "";
+                public override string Note { get; set; } = "";
+            }
+        }
+        """;
+
+    [Fact]
+    public void AnInheritedKey_IsFound()
+    {
+        (ImmutableArray<Diagnostic> diagnostics, _) = Run(Attributes, InheritedModel);
+
+        Assert.Empty(diagnostics);
+    }
+
+    // The defect this is written for lost data rather than failing: Build emits an
+    // object initializer over exactly the properties the model knows about, so an
+    // inherited property got no assignment and every save through the scaffold
+    // wrote its default over whatever the row held. Nothing reported it.
+    [Fact]
+    public void AnInheritedProperty_IsAssignedFromTheFormLikeADeclaredOne()
+    {
+        (_, string emitted) = Run(Attributes, InheritedModel);
+
+        Assert.Contains("Owner = ScaffoldValues.Text(form.Owner) ?? string.Empty,", emitted, StringComparison.Ordinal);
+        Assert.Contains("Title = ScaffoldValues.Text(form.Title) ?? string.Empty,", emitted, StringComparison.Ordinal);
+        Assert.Contains("Id = existing is null ? default! : existing.Id,", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnInheritedListColumn_IsRendered()
+    {
+        (_, string emitted) = Run(Attributes, InheritedModel);
+
+        Assert.Contains("ScaffoldLayout.Header(\"Owner\"", emitted, StringComparison.Ordinal);
+        Assert.Contains("row.Owner", emitted, StringComparison.Ordinal);
+    }
+
+    // An override is one property to the C# reader of Memo, and two symbols to
+    // Roslyn. Emitting both puts the same name twice in one object initializer,
+    // which is CS1912 in the consumer's build.
+    [Fact]
+    public void AnOverriddenProperty_IsEmittedOnce()
+    {
+        (_, string emitted) = Run(Attributes, InheritedModel);
+
+        Assert.Equal(1, Occurrences(emitted, "Note = ScaffoldValues.Text(form.Note) ?? string.Empty,"));
+        Assert.Equal(1, Occurrences(emitted, "string? Note"));
+    }
+
+    [Fact]
+    public void AModelWithAnInheritedKeyAndProperties_EmitsCodeThatCompiles() =>
+        AssertGeneratedSourceCompiles(RealAttributeInheritedModel);
+
+    // The same shape as InheritedModel against the real attributes, for the compile
+    // gate: two definitions of one attribute name would be ambiguous rather than
+    // convenient, so it cannot share the inline copies.
+    private const string RealAttributeInheritedModel = """
+        using NativeWeb.Scaffold;
+
+        namespace Demo
+        {
+            public abstract class Entity
+            {
+                [ScaffoldKey] public string Id { get; set; } = "";
+                [ScaffoldList] public string Owner { get; set; } = "";
+                public virtual string Note { get; set; } = "";
+                public System.DateTime CreatedAt { get; set; }
+            }
+
+            [Scaffold]
+            public sealed class Memo : Entity
+            {
+                [ScaffoldList][ScaffoldSearch] public string Title { get; set; } = "";
+                public override string Note { get; set; } = "";
+            }
+        }
+        """;
+
+    [Fact]
+    public void ASecondScaffoldKey_ReportsNws007()
+    {
+        const string twoKeys = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Widget
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    [ScaffoldKey] public string Sku { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, twoKeys);
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("NWS007", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+
+        // Both names, because which one silently won is the thing the author has to
+        // see to fix it. Sku won before this: the last [ScaffoldKey] overwrote the
+        // first, and the routes were keyed by it.
+        string message = diagnostic.GetMessage();
+        Assert.Contains("Id", message, StringComparison.Ordinal);
+        Assert.Contains("Sku", message, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("WidgetScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // Two [Scaffold] types with one short name collide twice: on the generator hint
+    // name, which throws inside the driver, and on the emitted class name, because
+    // every model is emitted into NativeWeb.Scaffold.Generated as TypeName +
+    // "Scaffold". Renaming the hint alone would move the crash to CS0101.
+    [Fact]
+    public void TwoModelsSharingAShortName_ReportNws008()
+    {
+        const string colliding = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo.Blog
+            {
+                [Scaffold]
+                public sealed class Article
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+
+            namespace Demo.News
+            {
+                [Scaffold]
+                public sealed class Article
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, colliding);
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("NWS008", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+
+        string message = diagnostic.GetMessage();
+        Assert.Contains("Demo.Blog.Article", message, StringComparison.Ordinal);
+        Assert.Contains("Demo.News.Article", message, StringComparison.Ordinal);
+
+        // Neither is emitted. Emitting the first and refusing the second would leave
+        // a build that half works and a diagnostic naming the type that did.
+        Assert.DoesNotContain("ArticleScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TwoModelsWithDistinctShortNames_ShareANamespaceWithoutComplaint()
+    {
+        const string distinct = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo.Blog
+            {
+                [Scaffold]
+                public sealed class Article
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+
+            namespace Demo.News
+            {
+                [Scaffold]
+                public sealed class Bulletin
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, distinct);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("ArticleScaffold", emitted, StringComparison.Ordinal);
+        Assert.Contains("BulletinScaffold", emitted, StringComparison.Ordinal);
+    }
 }
