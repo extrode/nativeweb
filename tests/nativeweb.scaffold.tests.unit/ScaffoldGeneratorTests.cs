@@ -1274,4 +1274,204 @@ public sealed class ScaffoldGeneratorTests
         Assert.DoesNotContain("TargetScaffold", emitted, StringComparison.Ordinal);
         Assert.DoesNotContain("HolderScaffold", emitted, StringComparison.Ordinal);
     }
+
+    // An override does not carry the base declaration's attributes: Roslyn does not
+    // copy them, and every scaffold attribute is Inherited = false. Reading the
+    // override alone dropped all of them.
+    //
+    // [ScaffoldReadOnly] is the one that matters. A base property marked read-only
+    // and overridden without restating the attribute became editable, which is the
+    // mass-assignment hole the attribute exists to close, reached in silence.
+    private const string OverriddenAttributesModel = """
+        using NativeWeb.Scaffold;
+
+        namespace Demo
+        {
+            public abstract class Entity
+            {
+                [ScaffoldKey] public virtual string Id { get; set; } = "";
+                [ScaffoldReadOnly] public virtual string Owner { get; set; } = "";
+                [ScaffoldList][ScaffoldSearch] public virtual string Title { get; set; } = "";
+            }
+
+            [Scaffold]
+            public sealed class Memo : Entity
+            {
+                public override string Id { get; set; } = "";
+                public override string Owner { get; set; } = "";
+                public override string Title { get; set; } = "";
+                public string Body { get; set; } = "";
+            }
+        }
+        """;
+
+    [Fact]
+    public void AnOverriddenKey_IsStillTheKey()
+    {
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, OverriddenAttributesModel);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("Id = existing is null ? default! : existing.Id,", emitted, StringComparison.Ordinal);
+        Assert.Contains("ScaffoldValues.Display(row.Id)", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnOverriddenReadOnlyProperty_StaysReadOnly()
+    {
+        (_, string emitted) = Run(Attributes, OverriddenAttributesModel);
+
+        Assert.Contains("Owner = existing is null ? default! : existing.Owner,", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("ScaffoldValues.Text(form.Owner)", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("string? Owner", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnOverriddenListAndSearchProperty_KeepsBoth()
+    {
+        (_, string emitted) = Run(Attributes, OverriddenAttributesModel);
+
+        Assert.Contains("ScaffoldLayout.Header(\"Title\"", emitted, StringComparison.Ordinal);
+        Assert.Contains("nws-search", emitted, StringComparison.Ordinal);
+
+        // Body carries nothing, so the only way it reaches a column is the
+        // first-four fallback -- which fires when no property is listed at all.
+        Assert.DoesNotContain("ScaffoldLayout.Header(\"Body\"", emitted, StringComparison.Ordinal);
+    }
+
+    // A restated attribute is read before the one it hides, so a derived Label wins.
+    [Fact]
+    public void ARestatedAttribute_WinsOverTheOneItHides()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                public abstract class Entity
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    [ScaffoldList(Label = "Base heading")] public virtual string Title { get; set; } = "";
+                }
+
+                [Scaffold]
+                public sealed class Memo : Entity
+                {
+                    [ScaffoldList(Label = "Derived heading")] public override string Title { get; set; } = "";
+                }
+            }
+            """;
+
+        (_, string emitted) = Run(Attributes, source);
+
+        Assert.Contains("ScaffoldLayout.Header(\"Derived heading\"", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Base heading", emitted, StringComparison.Ordinal);
+    }
+
+    // Property order is read by the emitter: the first four properties are the
+    // default columns when nothing carries [ScaffoldList], and the first listed
+    // string labels a reference dropdown. Overriding a base property must not move
+    // it past the derived ones, or overriding changes which columns appear.
+    [Fact]
+    public void AnOverriddenProperty_KeepsItsBasePosition()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                public abstract class Entity
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public virtual string Alpha { get; set; } = "";
+                }
+
+                [Scaffold]
+                public sealed class Memo : Entity
+                {
+                    public string Beta { get; set; } = "";
+                    public override string Alpha { get; set; } = "";
+                }
+            }
+            """;
+
+        (_, string emitted) = Run(Attributes, source);
+
+        Assert.True(
+            emitted.IndexOf("Header(\"Alpha\"", StringComparison.Ordinal)
+                < emitted.IndexOf("Header(\"Beta\"", StringComparison.Ordinal),
+            "Alpha is declared on the base and overridden; it must still come before Beta.");
+    }
+
+    // The cross-model half of NWS008, the same hole Count == 1 closed for NWS007. A
+    // collided model still has one key, so it resolved as a reference target while
+    // never being emitted, and the referrer's control read TargetScaffold.SortFields
+    // against a class that does not exist.
+    [Fact]
+    public void AReferenceToACollidedTarget_IsRefusedAlongWithTheTarget()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo.Blog
+            {
+                [Scaffold]
+                public sealed class Target
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+
+            namespace Demo.News
+            {
+                [Scaffold]
+                public sealed class Target
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Holder
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    [ScaffoldReference(typeof(Demo.Blog.Target))] public string? TargetId { get; set; }
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Equal(
+            ["NWS003", "NWS008"],
+            diagnostics.Select(d => d.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray());
+        Assert.DoesNotContain("TargetScaffold", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("HolderScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AModelWithOverriddenAttributedProperties_EmitsCodeThatCompiles() =>
+        AssertGeneratedSourceCompiles("""
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                public abstract class Entity
+                {
+                    [ScaffoldKey] public virtual string Id { get; set; } = "";
+                    [ScaffoldReadOnly] public virtual System.DateTime CreatedAt { get; set; }
+                    [ScaffoldList] public virtual string Title { get; set; } = "";
+                }
+
+                [Scaffold]
+                public sealed class Memo : Entity
+                {
+                    public override string Id { get; set; } = "";
+                    public override System.DateTime CreatedAt { get; set; }
+                    public override string Title { get; set; } = "";
+                    public string Body { get; set; } = "";
+                }
+            }
+            """);
 }

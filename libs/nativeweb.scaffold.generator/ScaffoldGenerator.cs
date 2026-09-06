@@ -133,8 +133,9 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             }
         }
 
-        foreach (IPropertySymbol property in PublicProperties(type))
+        foreach (List<IPropertySymbol> group in PropertyGroups(type))
         {
+            IPropertySymbol property = group[0];
             // An indexer has no name a form field could carry -- property.Name is
             // "this[]" -- and a property with no public setter cannot appear on the
             // left of the emitted object initializer at all. Both used to reach the
@@ -173,7 +174,11 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
 
             pm.Label = SpaceCamelCase(property.Name);
 
-            foreach (AttributeData attribute in property.GetAttributes())
+            // Base declarations first, because this loop is last-writer-wins for the
+            // values it reads -- [ScaffoldList(Label = ...)] restated on an override
+            // has to be the one that lands, and reading most-derived first made the
+            // hidden base label overwrite it.
+            foreach (AttributeData attribute in Enumerable.Reverse(group).SelectMany(static declaration => declaration.GetAttributes()))
             {
                 switch (attribute.AttributeClass?.ToDisplayString())
                 {
@@ -236,8 +241,9 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
         return model;
     }
 
-    // Every public instance property the model exposes, inherited ones included,
-    // base declarations first.
+    // Every public instance property the model exposes, inherited ones included, as
+    // one group per name: the most-derived declaration first, then every base
+    // declaration it overrides or hides. Groups come out in base-declaration order.
     //
     // type.GetMembers() returns only what the type itself declares, which made a
     // base class invisible to the whole generator: no column, no input, and --
@@ -245,13 +251,19 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
     // no assignment either, so every save through the scaffold reset an inherited
     // property to its default. Nothing reported it; the row just changed.
     //
-    // A name is taken once. An override or a `new` in a derived type wins over the
-    // base declaration it hides, which is what a reader of that type sees.
-    private static IEnumerable<IPropertySymbol> PublicProperties(INamedTypeSymbol type)
+    // A group rather than a winner, because the scaffold attributes are all
+    // Inherited = false and Roslyn does not copy them onto an override. Reading the
+    // winner alone would drop them: a base [ScaffoldReadOnly] property overridden
+    // without restating the attribute would become editable, which is the
+    // mass-assignment hole the attribute exists to close, arrived at silently.
+    //
+    // A group sits where its base declaration sits, not where the override does.
+    // The order is read by the emitter -- the first four properties are the default
+    // columns when nothing carries [ScaffoldList], and the first listed string
+    // labels a reference dropdown -- so overriding a property must not move it.
+    private static List<List<IPropertySymbol>> PropertyGroups(INamedTypeSymbol type)
     {
-        var seen = new HashSet<string>(System.StringComparer.Ordinal);
         var levels = new List<List<IPropertySymbol>>();
-
         for (INamedTypeSymbol? current = type;
              current is not null && current.SpecialType != SpecialType.System_Object;
              current = current.BaseType)
@@ -261,8 +273,7 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             {
                 if (member is IPropertySymbol property
                     && property.DeclaredAccessibility == Accessibility.Public
-                    && !property.IsStatic
-                    && seen.Add(property.Name))
+                    && !property.IsStatic)
                 {
                     level.Add(property);
                 }
@@ -271,8 +282,36 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             levels.Add(level);
         }
 
+        var byName = new Dictionary<string, List<IPropertySymbol>>(System.StringComparer.Ordinal);
+        foreach (List<IPropertySymbol> level in levels)
+        {
+            foreach (IPropertySymbol property in level)
+            {
+                if (!byName.TryGetValue(property.Name, out List<IPropertySymbol>? group))
+                {
+                    group = [];
+                    byName[property.Name] = group;
+                }
+
+                group.Add(property);
+            }
+        }
+
         levels.Reverse();
-        return levels.SelectMany(static level => level);
+        var emitted = new HashSet<string>(System.StringComparer.Ordinal);
+        var groups = new List<List<IPropertySymbol>>();
+        foreach (List<IPropertySymbol> level in levels)
+        {
+            foreach (IPropertySymbol property in level)
+            {
+                if (emitted.Add(property.Name))
+                {
+                    groups.Add(byName[property.Name]);
+                }
+            }
+        }
+
+        return groups;
     }
 
     // The typeof(...) argument of [ScaffoldReference] or [ScaffoldRelation], as the
@@ -358,12 +397,6 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             return;
         }
 
-        var byName = new Dictionary<string, ScaffoldModel>();
-        foreach (ScaffoldModel model in models)
-        {
-            byName[model.FullyQualifiedName] = model;
-        }
-
         // Everything is emitted into one namespace as TypeName + "Scaffold", so two
         // [Scaffold] types sharing a short name across namespaces collide twice
         // over: on the hint name, which throws inside the driver, and on the
@@ -379,6 +412,20 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             }
 
             sharing.Add(model.FullyQualifiedName);
+        }
+
+        // Built after the collision map and skipping what it condemns. A collided
+        // model has one key and would otherwise resolve as a reference target, so
+        // the referrer passed ChoicesResolve and emitted a control reading
+        // TargetScaffold.SortFields against a class that was never generated --
+        // CS0103 beside NWS008, which is the cascade this refuses models to avoid.
+        var byName = new Dictionary<string, ScaffoldModel>();
+        foreach (ScaffoldModel model in models)
+        {
+            if (byShortName[model.TypeName].Count == 1)
+            {
+                byName[model.FullyQualifiedName] = model;
+            }
         }
 
         var reportedCollision = new HashSet<string>();
@@ -502,7 +549,7 @@ internal static class Diagnostics
     internal static readonly DiagnosticDescriptor TargetNotScaffolded = new(
         id: "NWS003",
         title: "Reference or relation target is not scaffolded",
-        messageFormat: "'{0}' refers to '{1}', which is not a [Scaffold] model with a [ScaffoldKey] in this assembly. The choices are read through the target's own IScaffoldStore, so the target has to be scaffolded too.",
+        messageFormat: "'{0}' refers to '{1}', which this assembly does not emit a scaffold for -- it is not a [Scaffold] model, or it carries no [ScaffoldKey], or it carries more than one, or its short name collides with another model's. The choices are read through the target's own IScaffoldStore, so the target has to be scaffolded too.",
         category: "NativeWeb.Scaffold",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
