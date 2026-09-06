@@ -137,8 +137,9 @@ Carried from `work/todo.md` and `work/milestones.md`, not re-derived:
 - ~~**`scripts/deploy/` still names `apps/web`, and has never run against a real host**~~ --
   both closed. The 7 occurrences across 5 files counted by the glm review are down to one, a
   past-tense note in `build.sh`'s header explaining what the default used to be. Spec 011 T15
-  ran on real hosts on 2026-09-05 and every elapsed time in the deployment reference is a
-  measured number. Milestone 3 shipped on 2026-09-05; what it does not claim is R14, R17b and
+  ran on real hosts on 2026-09-05 and the elapsed times the deployment reference records are
+  measured numbers -- deploy, restore and rebuild, but not build, which the drill skipped by
+  repackaging a running release. Milestone 3 shipped on 2026-09-05; what it does not claim is R14, R17b and
   R15, all unmet on the host and all in the runbook's gap table.
 - ~~**`db/migrate.sh` and `db/test-run-lock.sh` are unreachable**~~ — retargeted at
   `db/sample/migrations/` on 2026-08-31 (plan 007 T12), with the extensions step made optional.

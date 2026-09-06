@@ -22,15 +22,18 @@ decision with a stated default.
 > that closes R1. On 2026-09-05 a backup was taken, restored into a scratch
 > database and served from, and `nativeweb-dr` was rebuilt from repository plus
 > backup in 345 s. That closes R16 and R17a, and every elapsed time below is now
-> a measured number rather than `NOT YET MEASURED`.
+> a measured number rather than a placeholder. Build time is the one it does not
+> record: the drill repackaged a running release rather than publishing one.
 >
 > **R14 and R17b are unmet, and they are the ones that matter most.** The backup
 > bucket is a MinIO container on `incus-host`, the machine being backed up,
 > so losing that machine loses the guest, the replacement and the bucket
-> together. The drill rehearsed recovering a broken guest. The `age` private key
-> is the one part of that set which now survives the host (stored off-fleet
-> 2026-09-06), which changes nothing about R14 or R17b: the bytes it decrypts are
-> still only on the machine being backed up. R15 is unmet too:
+> together. The drill rehearsed recovering a broken guest. The `age` private key is
+> the one part of that set which now survives the host, stored off-fleet 2026-09-06.
+> **R17b had two blockers and now has one.** Its criterion is that the backup is
+> still readable after the host is gone, and readable needs both the bytes and the
+> key; the key is off the fleet and the bytes are not. R14 is about location alone,
+> so it is untouched. Both stay unmet. R15 is unmet too:
 > `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is unnoticed.
 >
 > **Three attempts were needed and two of them were defects in these scripts,**
@@ -148,8 +151,14 @@ nine keys nothing reads and passed on the two that mattered while they stayed un
    > **Recorded 2026-09-06:** an off-host copy exists, in the operator's own
    > store, off `incus-host`. Deliberately not named here -- this file is
    > in a public repository, and a runbook that names the vault holding the key
-   > is half of the compromise. Ask the operator; there is no second copy to
-   > find without them.
+   > is half of the compromise. Ask the operator.
+   > **The `nativeweb-dev` key of 2026-09-01 should be treated as exposed.** It
+   > was printed into a terminal session and re-used from that session's own
+   > output during the 2026-09-05 drill, so it exists in whatever transcript,
+   > scrollback or shell history that session left behind. Rotating it means
+   > `age-keygen` afresh, a new `BACKUP_AGE_RECIPIENT`, and keeping the old
+   > private key for as long as objects encrypted to the old recipient are still
+   > inside the retention window.
 
    Put the public half in `BACKUP_AGE_RECIPIENT` in `/etc/nativeweb/backup.env`,
    along with the bucket, endpoint and access keys.
@@ -434,9 +443,9 @@ been exercised), `restore.sh --target nativeweb --from-host nativeweb-dev
   rebuild adds however long a publish takes to the 345 s.
 - The bucket is MinIO **on the same physical host**. Losing `incus-host`
   loses the guest, the replacement guest and the bucket together, so this
-  exercises R17a and leaves R17b and R14 exactly where they were. The key was in
-  that set on the day and is not any more, which moves neither requirement: both
-  are about where the dump lives, not where the key does.
+  exercises R17a and leaves R17b and R14 unmet. The key was in that set on the day
+  and is not any more, which removes one of R17b's two blockers -- readable needs
+  the key and the bytes -- and neither of R14's, which is about location alone.
 - Four preconditions the numbered list above did not state were found by running
   it: the DR host needs the bucket, endpoint and both AWS keys in its own
   `backup.env` (`provision.sh` seeds them empty and `restore.sh` dies on the
