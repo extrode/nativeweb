@@ -12,10 +12,20 @@ worth seeing here rather than hiding, but it is the exception.
   refusal reporting the outer fault before the inner one, which costs a second build and hides
   nothing.
 
-  **Three requirements are open on `nativeweb-dev` and none of them is code.** R14 and R17b: the
-  backup bucket is a MinIO container on `incus-host`, the machine being backed up, so losing
-  that machine loses every backup with it. One `backup.env` pointing at storage elsewhere closes
-  both. R15: `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is unnoticed.
+  **`nativeweb-dev` is moving onto the `incus-host` fleet backup**, which closes R14, R15 and
+  R17b together rather than one `backup.env` at a time: backup-tool, nightly `pg_dump -Fc` into
+  offsite object storage *and* a offsite storage, a daily integrity check and a six-hourly dead-man
+  probe. The two-word change is committed in the host's ops repository on
+  `chore/nativeweb-dev-into-host-backup` for its owners, since the fleet is theirs.
+
+  **Nothing is backing this host up until that runs.** The MinIO bucket went on 2026-09-06 with
+  every backup in it, and no fleet run has captured this VM yet; the 03:17 timer is still enabled
+  and now fails nightly against a dead endpoint. Retiring that timer waits on a fleet run that
+  demonstrably held this database, so the two never overlap the wrong way.
+
+  **`/etc/nativeweb/*.env` and the age key are in no backup but the weekly tier-3 tar**, which is
+  offsite-storage-only. Seven days on one provider for the config that makes the host bootable, against one day
+  on two for the data.
 
   **The age private key is off the fleet as of 2026-09-06**, in the operator's own store, which the
   runbook records without naming, because this repository is public. That closes one of R17b's two

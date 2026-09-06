@@ -86,12 +86,13 @@ wish list; the value is in recording the ones nobody has got to yet.
   `/etc/nativeweb/backup.env` on that host is present and empty, so the 03:17 timer fails nightly
   on `BACKUP_S3_BUCKET: set BACKUP_S3_BUCKET`.
 
-  **An open question sits in front of the work, and it may delete some of it.** The user asked
-  whether `pg_dump` earns its place given the VM is snapshotted, and is checking whether
-  incus-host's Incus/ZFS snapshots leave the box. If they do, the nightly dump is largely
-  redundant for disaster recovery and R16 is better restated as a snapshot-restore drill; if they
-  do not, an offsite encrypted dump does work no snapshot does. **Answer that before building
-  anything here** — it decides whether the deliverable is a drill or a deletion.
+  **The open question in front of this is answered, 2026-09-06: `pg_dump` earns its place.**
+  Whole instances do leave `incus-host` -- `incus export` to offsite object storage -- but weekly, to
+  one provider, and untested: the fleet runbook records tier 3 as never rehearsed. The daily dump
+  runs to two independent providers and has a restore that has been drilled. Daily against weekly
+  and two providers against one is the whole difference, so the deliverable was a drill, not a
+  deletion. The work moved rather than disappearing: this host is joining the fleet's tier 1
+  instead of running its own `backup.sh`.
 
   Whatever the answer, the credentials step is the operator's: a bucket, its keys, and an age
   keypair from `age-keygen -o /etc/nativeweb/backup-age.key` run **on the host**. A session must

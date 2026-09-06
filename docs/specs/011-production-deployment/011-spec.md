@@ -2,10 +2,13 @@
 
 Status: done — built and merged; R1 met on a real host 2026-09-01, R16 and R17a met by the drill
 of 2026-09-05 on `nativeweb-dev` and `nativeweb-dr`. **Three requirements are unmet on that host
-and none of them is code.** R14 and R17b: the bucket is a MinIO container on `incus-host`,
-the machine it backs up, so losing that machine loses every backup with it. R15:
+and none of them is code.** R14 and R17b: the bucket was a MinIO container on `incus-host`,
+the machine it backs up, so losing that machine lost every backup with it. R15:
 `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is unnoticed until it is needed.
-All three are operator settings, carried in the runbook's gap table rather than left implicit
+All three are operator settings, carried in the runbook's gap table rather than left implicit.
+**The second addendum of 2026-09-06 changes how all three will close** -- by moving this host onto
+the `incus-host` fleet backup rather than by configuring `backup.sh` -- and records that
+nothing is backing this host up in the meantime
 Created: 2026-08-27
 
 ## Problem
@@ -339,6 +342,41 @@ since `pg_dump -Fc` carries no roles.
 repository and offsite backups" and there were no offsite backups, so it was split into R17a and
 R17b on 2026-09-06 and R14 was corrected from met to unmet. Found by a review of the branch that
 recorded the drill.
+
+## Acceptance addendum — 2026-09-06, the fleet takes over
+
+**R14, R15 and R17b will not be closed by this project's own `backup.sh`.** `incus-host`
+grew a fleet backup of its own on 2026-09-06 (`the host's ops runbook`):
+backup-tool, `pg_dump -Fc` per VM nightly into **two** independent repositories -- offsite object storage and a
+offsite storage -- plus a weekly whole-instance export, a daily `backup-tool check
+--read-data-subset=10%`, and a dead-man probe every six hours. It answers R14, R15 and R17b
+together and better than one more `backup.env` would, and its own runbook says not to stand a
+second system beside it.
+
+`nativeweb-dev` was in neither of that system's VM lists, so this project was invisible to it.
+Adding it is two words in `ops/{db-dump.sh,vm-export.sh}`, committed on
+`chore/nativeweb-dev-into-host-backup` in the host's ops repository for its owners to review.
+That absence was also breaking their tier-3 coverage check, which fails the whole Sunday export
+when any instance on the host is in neither list.
+
+| Requirement | Verdict | Changed by |
+| --- | --- | --- |
+| R14 | **unmet, closing** | Fleet tier 1 puts the dumps on offsite object storage and a offsite storage, both off `incus-host`. Unmet until a fleet run has captured this VM |
+| R17b | **unmet, closing** | Follows R14, and additionally needs a restore from one of those repositories to be drilled. Neither has happened |
+| R15 | **unmet, closing** | The fleet's freshness probe replaces `BACKUP_HEARTBEAT_URL` for this host. Its own runbook warns that a green marker means the job ran, not that this database was in it -- so the first run must be read, not assumed |
+
+**Nothing is backing up `nativeweb-dev` between these two addenda.** The MinIO container holding
+every backup taken since 2026-09-05 was deleted on 2026-09-06 by
+`scripts/cleanup/011-t15-restore-and-dr-drill.ps1 -RemoveBucket`, and the fleet has not yet run
+against this VM. The 03:17 timer is still enabled and fails nightly against an endpoint that no
+longer answers. Retiring that timer waits on a fleet run that demonstrably captured this
+database, so that the two states do not overlap in the wrong direction.
+
+**One thing the fleet does not carry.** `/etc/nativeweb/{blue,green,backup}.env` and the `age`
+key live on the VM's filesystem and in no repository. Fleet tier 1 dumps Postgres only; the
+weekly tier-3 tar is the sole thing that captures them, and tier 3 writes to offsite object storage alone. The
+recovery point for the configuration that makes this host bootable is therefore **7 days on one
+provider**, against 1 day on two for the data.
 
 ## Open questions
 

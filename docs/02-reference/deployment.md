@@ -319,6 +319,18 @@ verbatim.
 
 ## Backups
 
+> **`nw-dev.example.com` does not use this script any more.** Since 2026-09-06 its
+> database is backed up by the `incus-host` fleet backup, which does the same
+> `pg_dump -Fc` into two independent backup-tool repositories -- offsite object storage and a
+> offsite storage -- with a daily integrity check and a dead-man probe.
+> `the host's ops runbook` is the operating document for it,
+> and restores for that host follow its **Restoring** section rather than the one
+> below.
+>
+> Everything in this section and the next stays the reference story for a NativeWeb
+> deployment that has no fleet behind it, which is most of them. `backup.sh` and
+> `restore.sh` are unchanged and still what `provision.sh` installs.
+
 Nightly at 03:17 UTC (plus up to 15 minutes of jitter), `Persistent=true` so a
 host that was off catches up rather than skipping a day silently.
 `pg_dump -Fc` piped straight into `age` — the plaintext dump never touches disk —
@@ -347,10 +359,15 @@ Two mechanisms, covering two different failures:
   `backup.sh` pings `BACKUP_HEARTBEAT_URL` on success, and the watcher alerts
   when the ping does not arrive.
 
-> **`BACKUP_HEARTBEAT_URL` is currently unset, so R15 is not met.** A backup that
-> silently stops running will not be noticed. Point it at an external check
-> (healthchecks.io or equivalent) to close this. `backup.sh` says so in its own
-> output on every run rather than letting the gap pass quietly.
+> **`BACKUP_HEARTBEAT_URL` is unset, so R15 is not met by this script.** A backup
+> that silently stops running will not be noticed. Point it at an external check
+> (healthchecks.io or equivalent) to close it. `backup.sh` says so in its own output
+> on every run rather than letting the gap pass quietly.
+>
+> For `nw-dev.example.com` the fleet's own dead-man probe covers this instead -- a
+> GitHub Actions workflow that alerts on a stale freshness marker every six hours.
+> Read its own caveat before trusting it: a green marker means the job ran, not that
+> your database was in the list it dumped.
 
 ## Restoring
 
@@ -401,7 +418,14 @@ floor, not a capacity measurement.
 ## Disaster recovery
 
 Losing the host is an outage, not a failover — one host, by decision. This is the
-whole way back, from nothing but this repository and the backup bucket:
+whole way back, from nothing but this repository and the backup bucket.
+
+> For `nw-dev.example.com` the bytes now come from the fleet's backup-tool repositories
+> rather than from a bucket this host writes to, so steps 3, 4 and 7 are replaced by
+> the fleet runbook's **Restoring** section: backup-tool restores the `.dump` files to a
+> scratch directory and `pg_restore` loads them. Steps 1, 2, 5, 6, 8 and 9 are
+> unchanged, and step 2 becomes the backup-tool password rather than the `age` key. The
+> sequence below remains the story for a deployment backing up with `backup.sh`.
 
 1. Provision a new host: **Provisioning a host**, above.
 2. Restore the `age` private key from the operator's off-host store. Without it,
@@ -467,7 +491,8 @@ been exercised), `restore.sh --target nativeweb --from-host nativeweb-dev
 | ~~Provisioning has never been run on a real host~~ | **Closed 2026-09-01** — provisioned and deployed to on `nativeweb-dev`. R1 met |
 | ~~The restore drill has never been run~~ | **Closed 2026-09-05** — drilled on `nativeweb-dev`, R16 met under the amended criterion above |
 | ~~Disaster recovery has never been exercised~~ | **Closed 2026-09-05** — `nativeweb-dr` rebuilt from repo plus backup in 345 s, R17a met with the four caveats above |
-| No backup is offsite | **R14 and R17b unmet.** The bucket is MinIO on the host being backed up, so a loss of `incus-host` is unrecoverable. One `backup.env` pointing at storage elsewhere closes both |
+| No backup is offsite | **R14 and R17b closing, not yet closed.** `nativeweb-dev` was added to the fleet backup's tier 1 and tier 3 on 2026-09-06, which puts the dumps on offsite object storage and a offsite storage, both off `incus-host`. Unmet until a fleet run has captured this VM and a restore from one of those repositories has been drilled; neither has happened yet |
+| Nothing is backing up `nativeweb-dev` right now | **Open, and the reason the row above is not closed.** The MinIO container this host's `backup.env` points at was deleted on 2026-09-06 with every backup in it, and the fleet has not yet run against this VM. The 03:17 timer is still enabled and now fails nightly against a dead endpoint |
 | ~~The nightly backup fails on `nativeweb-dev`~~ | **Closed 2026-09-05** — bucket, endpoint and credentials filled in, first successful backup taken. The bucket is MinIO on the same fleet host, so this is not yet an offsite backup |
 | `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
 | `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it |
