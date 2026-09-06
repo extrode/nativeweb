@@ -26,8 +26,11 @@ decision with a stated default.
 >
 > **R14 and R17b are unmet, and they are the ones that matter most.** The backup
 > bucket is a MinIO container on `incus-host`, the machine being backed up,
-> so losing that machine loses the guest, the replacement, the bucket and the key
-> together. The drill rehearsed recovering a broken guest. R15 is unmet too:
+> so losing that machine loses the guest, the replacement and the bucket
+> together. The drill rehearsed recovering a broken guest. The `age` private key
+> is the one part of that set which now survives the host (stored off-fleet
+> 2026-09-06), which changes nothing about R14 or R17b: the bytes it decrypts are
+> still only on the machine being backed up. R15 is unmet too:
 > `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is unnoticed.
 >
 > **Three attempts were needed and two of them were defects in these scripts,**
@@ -142,7 +145,11 @@ nine keys nothing reads and passed on the two that mattered while they stayed un
    > key and every object in the bucket is unreadable noise, and no amount of
    > working backups helps. A password manager, a second machine, a printed copy
    > in a safe — anywhere, as long as losing the host does not lose the key.
-   > `WHERE THE OFF-HOST COPY LIVES: NOT YET RECORDED`
+   > **Recorded 2026-09-06:** an off-host copy exists, in the operator's own
+   > store, off `incus-host`. Deliberately not named here -- this file is
+   > in a public repository, and a runbook that names the vault holding the key
+   > is half of the compromise. Ask the operator; there is no second copy to
+   > find without them.
 
    Put the public half in `BACKUP_AGE_RECIPIENT` in `/etc/nativeweb/backup.env`,
    along with the bucket, endpoint and access keys.
@@ -385,13 +392,11 @@ Losing the host is an outage, not a failover — one host, by decision. This is 
 whole way back, from nothing but this repository and the backup bucket:
 
 1. Provision a new host: **Provisioning a host**, above.
-2. Restore the `age` private key from the operator's own copy. Without it, stop
-   — the bucket is noise. **No off-host copy is known to exist.** The key was
-   printed once when `nativeweb-dev` was provisioned and has not been recorded
-   anywhere since; the drill below re-used the printed value from the session
-   that generated it. Until an operator stores it somewhere that survives
-   `incus-host`, this step has nothing to read and the procedure stops
-   here.
+2. Restore the `age` private key from the operator's off-host store. Without it,
+   stop — the bucket is noise. The key was printed once when `nativeweb-dev` was
+   provisioned; an off-host copy was made on 2026-09-06, so this step now has
+   something to read. It did not when the drill below was run, which re-used the
+   printed value from the session that generated it.
 3. Install `age` and the AWS CLI if the image does not carry them, and make sure the
    backup bucket accepts connections from the new host's address.
 4. Fill `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`, `AWS_ACCESS_KEY_ID` and
@@ -417,8 +422,9 @@ whole way back, from nothing but this repository and the backup bucket:
 
 Measured 2026-09-05 rebuilding `nativeweb-dr` on `incus-host`: guest created,
 `provision.sh --edge 10.0.0.1` (26 s), age key installed from the value
-printed when `nativeweb-dev` was provisioned (see step 2 above: no off-host copy
-exists, so this is not the step a real recovery would run), `restore.sh --target nativeweb --from-host nativeweb-dev
+printed when `nativeweb-dev` was provisioned (no off-host copy existed on the day
+of the drill; one was made 2026-09-06, so step 2 as written above has not itself
+been exercised), `restore.sh --target nativeweb --from-host nativeweb-dev
 --overwrite-production --execute`, `deploy.sh --incus`, then `/healthz` 200,
 `/readyz` 200 and the pre-backup article served. **Four caveats on that number:**
 
@@ -427,8 +433,10 @@ exists, so this is not the step a real recovery would run), `restore.sh --target
   `nativeweb-dev` with `tar --zstd`, the same shape `build.sh` emits. A real
   rebuild adds however long a publish takes to the 345 s.
 - The bucket is MinIO **on the same physical host**. Losing `incus-host`
-  loses the guest, the replacement guest, the bucket and the key together, so this
-  exercises R17a and leaves R17b and R14 exactly where they were.
+  loses the guest, the replacement guest and the bucket together, so this
+  exercises R17a and leaves R17b and R14 exactly where they were. The key was in
+  that set on the day and is not any more, which moves neither requirement: both
+  are about where the dump lives, not where the key does.
 - Four preconditions the numbered list above did not state were found by running
   it: the DR host needs the bucket, endpoint and both AWS keys in its own
   `backup.env` (`provision.sh` seeds them empty and `restore.sh` dies on the
