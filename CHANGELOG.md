@@ -13,6 +13,18 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Fixed
 
+- Scaffold generator: a property the generated code cannot reach is `NWS010` rather than silence.
+  A setter that is not public was skipped, so the property was missing from the object initializer
+  every row is rebuilt with on save and the store wrote its default back over the stored value.
+  `internal` and `protected internal` are reachable from the generated file and are carried from
+  the existing row instead, never bound from the form.
+- Scaffold generator: `NWS009` refuses a declaration the emitter cannot name or construct --
+  generic, nested, file-local, static, abstract, a value type, or any type with no parameterless
+  constructor to reach from `new()`, a positional record above all. Each of these used to be a
+  compiler error inside generated source that named the generated file and not the declaration.
+- Scaffold generator: a reference resolves against a lookup rebuilt to a fixpoint, so refusing a
+  model refuses the one that refers to it rather than leaving it to emit a control against a class
+  that was never generated.
 - Scaffold generator: inherited properties are seen. A `[Scaffold]` model with a base class
   got no column, no input and no assignment for anything the base declared, so every save
   through the scaffold reset those properties to their defaults with nothing reported. An

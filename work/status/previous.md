@@ -2,6 +2,55 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **The scaffold generator stopped emitting the shapes it cannot express. Done on
+  `fix/scaffold-generator-remaining`, 2026-09-06.**
+
+  The four findings the 2026-09-06 review left open, all pre-existing and all the same family as
+  the three fixed the same day: a silent wrong answer where a build error belonged.
+
+  **The one that cost data again: a property whose setter was not public was skipped.** The emitted
+  `Build` ends in `new() { ... }`, so a property missing from that initializer is left at its
+  default and the store writes the default back over whatever the row held --
+  `{ get; private set; }` lost its column's contents on every edit with nothing reported anywhere.
+  Reachability is now one question asked of the property, both accessors and the constructor
+  alike: `internal` and `protected internal` are reachable from the generated file, which is
+  emitted into the consumer's own assembly, so they are carried from `existing` and never bound
+  from the form; `private`, `protected` and `private protected` are `NWS010` and the model is
+  refused. A private or protected *property* is still skipped rather than refused -- nothing
+  outside the type can see it, so there is no stored value to lose, and refusing one would refuse
+  most models.
+
+  **`NWS009` refuses a declaration the emitter cannot name or construct.** Everything it writes
+  names the model as `Namespace.TypeName` and builds a row with `new()`, so a generic type lost
+  its type arguments (CS0305), a nested one lost its containing declaration (CS0246), and a
+  positional record had no parameterless constructor to reach (CS7036) -- each inside generated
+  source, and none of them naming the cause. Static, abstract, file-local and value types join
+  them. NWF005 is the same guard in the forms generator; the scaffold generator had inherited
+  neither half of it.
+
+  **References resolve against a lookup rebuilt to a fixpoint.** A model refused by its own
+  `ChoicesResolve` failure stayed in the lookup, so a referrer emitted a control against a class
+  that was never generated. Refusing one now refuses the one behind it, and the diagnostics are
+  reported afterwards against the set that survived rather than against a lookup still holding
+  names the compilation was about to drop.
+
+  **The review caught two regressions in the fix and one dead condition.** A `protected internal`
+  constructor is callable from any class in the same assembly, so refusing it broke a model that
+  built the day before; an `internal` property was dropped one level above where the setter fix
+  closed the hole, which is the same silent reset; and only the setter was asked about, so
+  `{ private get; set; }` and a set-only property were emitted and then read in generated source.
+  The dead condition came out of the falsification: `pm.ReadOnly` asked about the property and its
+  setter, and C# permits an accessor modifier only where it is stricter than the declaration, so
+  no input could tell the two halves apart. The mutation that dropped half of it stayed green
+  because it was an equivalent mutation, and the answer was to delete the redundancy rather than
+  to invent a test for an impossible input.
+
+  **Seventeen mutations, sixteen red on an assertion.** Four in round one, six in round two after
+  four of the first eight turned red on `CS0162` rather than on a test -- a compiler refusing the
+  mutation is not a test catching the behaviour -- and seven against the review fixes. Scaffold
+  unit 284 -> 307, integration 196 against a real PostgreSQL, every other tier at its recorded
+  baseline, solution build 0 warnings with `TreatWarningsAsErrors` on.
+
 - **The scaffold generator stopped losing inherited data. Done on
   `fix/scaffold-generator-defects`, 2026-09-06.**
 
