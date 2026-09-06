@@ -2,6 +2,41 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **The scaffold generator stopped losing inherited data. Done on
+  `fix/scaffold-generator-defects`, 2026-09-06.**
+
+  Three defects from the 2026-08-31 three-lens audit, each confirmed by reading before the branch
+  started. **The one that cost data: `ScaffoldGenerator.Build` read `type.GetMembers()`**, which
+  returns declared members only, so a `[Scaffold]` model with a base class got no column, no input
+  and -- because the emitter builds an object initializer over exactly that list -- no assignment
+  either. Every save through the scaffold wrote the default over whatever the row held, with
+  nothing reported anywhere. The other two were silent overwrites of a different kind: a second
+  `[ScaffoldKey]` overwrote the first with no diagnostic, against the attribute's own documented
+  promise of one, and two `[Scaffold]` types sharing a short name across namespaces collided on
+  both the hint name and the emitted class name, which is a driver throw and a CS0101 that name
+  nothing. Now `NWS007` and `NWS008`.
+
+  **The fix opened a hole the review caught before it merged.** Reading the most-derived
+  declaration alone drops the base declaration's attributes -- Roslyn does not copy them and every
+  scaffold attribute is `Inherited = false` -- so a base `[ScaffoldReadOnly]` property overridden
+  without restating the attribute would have become editable. That is the mass-assignment hole the
+  attribute exists to close, arrived at silently, and it would have shipped. Fable found it, plus a
+  second cross-model hole: a short-name-collided model still has one key, so it resolved as a
+  reference target while never being emitted, and the referrer emitted a control against a class
+  that does not exist. Both fixed by reading the whole override chain as a group, base declarations
+  first so a restated attribute is the one that lands, and by building the target lookup after the
+  collision map rather than before it.
+
+  **`Enumerable.Reverse` on that group is not a detail.** The attribute loop is last-writer-wins for
+  `[ScaffoldList(Label = ...)]`, so reading most-derived first let the hidden base label overwrite
+  the restated one. The test caught it on the first run; the comment claiming the other precedence
+  was wrong before the code was.
+
+  **Nine mutations, all red**, five against the original three fixes and four against the review
+  fixes, each applied alone and reverted with the tree clean afterwards. Scaffold unit 268 -> 284,
+  integration 196 against a real PostgreSQL, every other tier at its recorded baseline, solution
+  build 0 warnings with `TreatWarningsAsErrors` on.
+
 - **The age key went off-host, and three guards now hold the runbook's claims to the truth. Done
   on `docs/age-key-off-host` and `test/runbook-requirement-parity`, 2026-09-06.**
 

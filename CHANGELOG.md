@@ -11,6 +11,16 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ## [Unreleased]
 
+### Fixed
+
+- Scaffold generator: inherited properties are seen. A `[Scaffold]` model with a base class
+  got no column, no input and no assignment for anything the base declared, so every save
+  through the scaffold reset those properties to their defaults with nothing reported. An
+  override or `new` keeps the hidden base declaration's scaffold attributes and its position.
+- Scaffold generator: a second `[ScaffoldKey]` is `NWS007` rather than silently winning, and
+  two `[Scaffold]` types sharing a short name are `NWS008` rather than a driver throw and a
+  CS0101. A reference to a model refused for either reason is refused too.
+
 ### Added
 - Spec 011 T15 executed on real hosts, 2026-09-05: the first successful backup this project has
   ever taken (1 s, 10,359 bytes), a restore drill into a scratch database (1 s) verified by

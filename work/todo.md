@@ -9,6 +9,24 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **Scaffold generator: three findings left after the 2026-09-06 fix pass, all pre-existing.**
+  Found by Fable reviewing `fix/scaffold-generator-defects`, and each is a silent wrong answer of
+  the same family as the three that branch fixed, so they are worth a second pass together rather
+  than one at a time.
+  - `ScaffoldGenerator.cs:143` skips any property whose setter is not public, so
+    `{ get; protected set; }` and `{ get; private set; }` are neither bound nor carried through
+    `Build` -- **reset to default on every update**, on base and derived alike. The skip is right
+    for the form and wrong for the carry: the emitter's read-only branch assigns from `existing`
+    and would work here.
+  - A positional record has no parameterless constructor, so `ScaffoldEmitter.cs:732`'s
+    `new() { ... }` is CS7036 in the consumer's build. `[Scaffold]` on a positional record is a
+    shape the attribute permits and the emitter cannot produce code for.
+  - A generic `[Scaffold]` type emits its open name. NWF005 refuses generic and nested types in the
+    forms generator; the scaffold generator inherited neither guard.
+  - A reference target refused by its own `ChoicesResolve` failure is still in the lookup, so the
+    referrer emits against a class that was never generated. The same shape as the collision hole
+    fixed on 2026-09-06, and the remaining case of it.
+
 - **Forgetting a seeded sample subject re-grants it on a hand re-apply of `0006_permissions.sql`.**
   Spec 026's `ForgetSubjectAsync` deletes the `nw_subject` row, and the migration's bootstrap CTE
   reads a missing row as first sight, so forgetting `operator` or `demo` and then re-applying the
