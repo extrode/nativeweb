@@ -19,7 +19,16 @@ internal sealed class ScaffoldModel
 
     public string Route { get; set; } = "";
 
-    public string KeyProperty { get; set; } = "";
+    /// Every property carrying [ScaffoldKey], in declaration order. More than one
+    /// is refused at emit time rather than resolved: the last one used to win in
+    /// silence, against the attribute's own promise of exactly one.
+    public List<string> KeyProperties { get; set; } = [];
+
+    /// The one key, or empty when there is no key or more than one. Empty for
+    /// both, because both are refused: a referring model reads this to resolve its
+    /// target, and a target carrying two keys is emitted no more than a target
+    /// carrying none, so a reference to it has to be refused the same way.
+    public string KeyProperty => KeyProperties.Count == 1 ? KeyProperties[0] : "";
 
     public AuthModel? Auth { get; set; }
 
@@ -40,7 +49,7 @@ internal sealed class ScaffoldModel
         && Display == other.Display
         && Singular == other.Singular
         && Route == other.Route
-        && KeyProperty == other.KeyProperty
+        && KeyProperties.SequenceEqual(other.KeyProperties)
         && Equals(Auth, other.Auth)
         && HasPermissions == other.HasPermissions
         && Properties.SequenceEqual(other.Properties);
