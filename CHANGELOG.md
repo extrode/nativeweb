@@ -16,7 +16,9 @@ sections that apply; drop the empty ones rather than leaving them blank.
   ever taken (1 s, 10,359 bytes), a restore drill into a scratch database (1 s) verified by
   serving a row that existed at backup time while a row written after it 404s, and a
   disaster-recovery rebuild of a new guest from repository plus backup in 345 s. Spec 011 is
-  `done`; R15 is still unmet and the bucket is not yet offsite, both recorded in the runbook.
+  `done` on R16 and R17a. **R14, R17b and R15 are unmet on that host**: the bucket is a MinIO
+  container on the machine being backed up, so losing it loses every backup, and
+  `BACKUP_HEARTBEAT_URL` is unset. All three are in the runbook's gap table.
 
 ### Fixed
 - CI no longer writes the GitHub Packages token into the checked-out `nuget.config`. All four
@@ -33,18 +35,35 @@ sections that apply; drop the empty ones rather than leaving them blank.
   `--configfile NuGet.Config` passed it while resolving into the workspace on a case-insensitive
   filesystem, and deleting a whole credential step left the suite green. It now reads job blocks
   rather than splitting on step boundaries: the path must be rooted at `$HOME` or `$env:APPDATA`,
-  the job must create it, and every job that runs the SDK must authenticate.
+  the job must create it, and every job that runs the SDK must authenticate. A second review
+  found five more holes in that guard, each now closed and each with a mutation that is red on it:
+  `$HOME/` is not outside the workspace on ubuntu-latest, where the workspace is
+  `/home/runner/work/<repo>/<repo>`; `--configfile` was collected job-wide rather than from the
+  `add source` invocation; nothing asserted that authentication precedes the restore; the created
+  file was matched as text rather than parsed, so an unclosed `<configuration>` passed; and the
+  source-name check read ci.yml only, leaving publish.yml's unguarded.
+- The same credential defect is fixed in the two other places it was left.
+  `skeleton/.github/workflows/ci.yml` wrote `FRAMEWORK_CHECKOUT_TOKEN` -- a PAT carrying
+  `read:packages`, longer-lived than a job's automatic token -- into the stamped product's own
+  committed `nuget.config`, in both its jobs, so every product stamped from the skeleton inherited
+  it. `scripts/deploy/build.sh` printed the same `update source` command for an operator to run by
+  hand and then told them the token was stored under `$HOME`, when it lands in their checkout.
 
 ### Changed
 - **R16's acceptance criterion was amended before the drill, because it could not fail.** It
   required signing in as an account that existed at backup time; `apps/sample` keeps no accounts
   in the database, so it passed against an empty database and against no restore at all. It now
   requires serving a pre-backup row and not serving a post-backup one.
-- The disaster-recovery procedure gained steps 3a-3d, all found by running it: the new host needs
+- The disaster-recovery procedure gained four steps, all found by running it: the new host needs
   its own bucket credentials, `age` and the AWS CLI, an allowance at the object store, and the app
-  role's password set by hand, since `pg_dump -Fc` carries no roles.
-
-### Changed
+  role's password set by hand, since `pg_dump -Fc` carries no roles. They were written `3a.` to
+  `3d.`, which Markdown renders as four paragraphs and a restarted list; the procedure is now
+  numbered 1 to 9 straight through.
+- **R17 was split into R17a and R17b on 2026-09-06, and R14 corrected from met to unmet.** R17
+  read "Given only this repository and offsite backups", and the drill had no offsite backup. What
+  it proved is R17a, rebuilding from repository plus a reachable backup; R17b, that the backup
+  outlives the machine, was never rehearsed and follows from R14. Reporting the drill as R17 met
+  claimed survival of a loss nobody has tested. Found reviewing the branch that recorded the drill.
 
 - Every e2e fixture asks the operating system for its port instead of naming one. Five fixtures
   across the scaffold, forms and permissions tiers held the literals 5347, 5348, 5351, 5352 and

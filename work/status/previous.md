@@ -2,6 +2,46 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **A fable review of the T15 drill and the credential move found fourteen things, and the one it
+  could not check was a CI breaker. Done on `fix/ci-credential-config-file` and
+  `docs/011-r17-split-and-review-findings`, 2026-09-06.**
+
+  **The breaker:** `dotnet nuget add source --configfile <path>` does not create the file it is
+  given, it exits 1 with "File '...' does not exist." All four credential steps created the
+  directory and not the file, so a runner image with no user-level config would have failed every
+  one of them. Measured both shells against a scratch `HOME` and `APPDATA`: exit 1 before, exit 0
+  after. Fable had listed this as impossible to check without a shell; running it settled it.
+
+  **The guard was worse than the defect.** It banned one spelling of the path, so
+  `--configfile NuGet.Config` passed while resolving into the workspace on a case-insensitive
+  filesystem, and deleting a whole credential step left 194 tests green. Rebuilt around job blocks,
+  it then failed a second review on five more counts -- `$HOME/` is not outside the workspace on
+  ubuntu-latest, `--configfile` was collected job-wide rather than from the `add source`
+  invocation, order was unasserted, the created file was matched as text rather than parsed, and
+  the source-name check read ci.yml alone. **Nine** mutations of `ci.yml` and `publish.yml`
+  are red on it now, five of `skeleton/.github/workflows/ci.yml` on the skeleton guard, and
+  three of `build.sh`'s printed remedy on `DeployTargetTests`. Seventeen, each red on the
+  assertion that names it.
+
+  **The same defect was in two more places, both found by the tests binding to the old form.**
+  `skeleton/.github/workflows/ci.yml` wrote `FRAMEWORK_CHECKOUT_TOKEN` into the stamped product's
+  committed `nuget.config` in both jobs -- a PAT with `read:packages`, longer-lived than a job
+  token, inherited by every product stamped from the skeleton. `build.sh` printed the same command
+  for an operator and told them the token was under `$HOME` while it landed in their checkout.
+
+  **R17 was split and R14 corrected from met to unmet.** R17 read "Given only this repository and
+  offsite backups" and the drill had no offsite backup: the bucket was MinIO on the host being
+  restored. R17a is what the drill proved; R17b, that the backup outlives the machine, follows
+  from R14 and was never rehearsed. The runbook's opening callout still said R16 and R17 were
+  unmet and that the tables below read `NOT YET MEASURED`, 350 lines above tables holding real
+  numbers; the T15 entry was ticked with the pre-drill paragraph kept verbatim beneath it saying
+  the box stays unchecked; and the milestone claimed every `NOT YET MEASURED` was now a number.
+
+  **One process note, for the next time.** Falsification reverts with `git checkout --`, which
+  takes uncommitted work with it -- the skeleton and `build.sh` fixes were wiped mid-run and had
+  to be re-applied. The standing order is green, **commit**, break, revert, and the commit is the
+  part that matters.
+
 - **`Socket.OSSupportsIPv6` was the wrong gate, and justsmtp.com found it. Done on
   `fix/ipv6-loopback-trial-bind`, 2026-09-05.** Both port allocators skipped the `::1` probe when
   that flag was false. The flag is computed by creating an IPv6 socket, so it reports that the
