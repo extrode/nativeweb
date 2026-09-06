@@ -6,8 +6,11 @@ Exactly **one** task, the one being worked on right now. Not a list: the list is
 and this is a window onto one entry of it. If two things are genuinely in flight, that is a fact
 worth seeing here rather than hiding, but it is the exception.
 
-- **Nothing in flight.** The scaffold generator's three confirmed silent-wrong-answer defects are
-  fixed and merged; see `previous.md` for what the review added to them.
+- **Nothing in flight.** The scaffold generator's seven silent-wrong-answer defects are fixed and
+  merged, three on 2026-09-06 and the four the review of that branch left open on the same day;
+  see `previous.md`. What is left of that audit is one note in `../todo.md` about a cascaded
+  refusal reporting the outer fault before the inner one, which costs a second build and hides
+  nothing.
 
   **Three requirements are open on `nativeweb-dev` and none of them is code.** R14 and R17b: the
   backup bucket is a MinIO container on `incus-host`, the machine being backed up, so losing

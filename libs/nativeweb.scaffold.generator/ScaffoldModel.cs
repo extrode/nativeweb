@@ -39,6 +39,17 @@ internal sealed class ScaffoldModel
 
     public List<PropertyModel> Properties { get; set; } = [];
 
+    /// Why the declaration cannot be scaffolded at all, or null. Carried on the
+    /// model rather than reported where it is found, because Build runs in the
+    /// transform stage and that stage has no diagnostic channel.
+    public string? Unsupported { get; set; }
+
+    /// Settable properties with an accessor the generated file cannot reach, in
+    /// declaration order. Refused at emit time: `new() { ... }` cannot assign one,
+    /// so every save would write the default back over whatever the row held, and
+    /// the emitter reads `existing.Name` besides.
+    public List<string> Unreachable { get; set; } = [];
+
     public string FullyQualifiedName =>
         string.IsNullOrEmpty(Namespace) ? TypeName : Namespace + "." + TypeName;
 
@@ -52,6 +63,8 @@ internal sealed class ScaffoldModel
         && KeyProperties.SequenceEqual(other.KeyProperties)
         && Equals(Auth, other.Auth)
         && HasPermissions == other.HasPermissions
+        && Unsupported == other.Unsupported
+        && Unreachable.SequenceEqual(other.Unreachable)
         && Properties.SequenceEqual(other.Properties);
 
     public override int GetHashCode()
@@ -62,6 +75,8 @@ internal sealed class ScaffoldModel
             hash = (hash * 31) + Namespace.GetHashCode();
             hash = (hash * 31) + TypeName.GetHashCode();
             hash = (hash * 31) + Route.GetHashCode();
+            hash = (hash * 31) + (Unsupported?.GetHashCode() ?? 0);
+            hash = (hash * 31) + Unreachable.Count;
             foreach (PropertyModel p in Properties)
             {
                 hash = (hash * 31) + p.GetHashCode();

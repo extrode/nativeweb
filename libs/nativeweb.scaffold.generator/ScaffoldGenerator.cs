@@ -103,6 +103,7 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             TypeName = type.Name,
         };
 
+        model.Unsupported = UnsupportedReason(type);
         model.Display = NamedArg(scaffold, "Display") ?? Pluralize(SpaceCamelCase(type.Name));
         model.Singular = SpaceCamelCase(type.Name);
         model.Route = NamedArg(scaffold, "Route") ?? Pluralize(type.Name.ToLowerInvariant());
@@ -137,12 +138,29 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
         {
             IPropertySymbol property = group[0];
             // An indexer has no name a form field could carry -- property.Name is
-            // "this[]" -- and a property with no public setter cannot appear on the
-            // left of the emitted object initializer at all. Both used to reach the
-            // emitter: a model with `public string Summary => Title + "..."` got
+            // "this[]" -- and a property with no setter at all cannot appear on the
+            // left of the emitted object initializer. Both used to reach the emitter:
+            // a model with `public string Summary => Title + "..."` got
             // `Summary = ...` emitted against it, CS0200 in the consumer's build.
-            if (property.IsIndexer || property.SetMethod is null || property.SetMethod.DeclaredAccessibility != Accessibility.Public)
+            if (property.IsIndexer || property.SetMethod is null)
             {
+                continue;
+            }
+
+            // An accessor the generated file cannot reach is worse than no accessor
+            // at all, and used to be skipped in the same silence: the emitted Build
+            // ends in `new() { ... }`, so a property missing from that initializer is
+            // left at its default and the store writes the default back over the
+            // stored value on every save. { get; private set; } lost its column's
+            // contents on each edit with nothing reported anywhere.
+            //
+            // The getter is asked the same question, because the emitter reads
+            // `existing.Name` and `row.Name` as well as assigning: `{ private get;
+            // set; }` and a set-only property are CS0271 and CS0154 inside generated
+            // source, which names the generated file and not the declaration.
+            if (property.GetMethod is null || !CanReach(property.GetMethod) || !CanReach(property.SetMethod))
+            {
+                model.Unreachable.Add(property.Name);
                 continue;
             }
 
@@ -173,6 +191,18 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             }
 
             pm.Label = SpaceCamelCase(property.Name);
+
+            // internal and protected internal are reachable from the generated file
+            // -- it is emitted into the same assembly -- so the value is carried from
+            // `existing` rather than lost. Never bound from the form, though: what the
+            // author kept off the public surface is not what a posted field reaches.
+            //
+            // The setter alone answers for the property as well. C# permits an
+            // accessor modifier only where it is stricter than the declaration, so an
+            // internal property cannot have a public setter and asking both was a
+            // condition no input could tell apart -- which is how the mutation that
+            // dropped half of it stayed green.
+            pm.ReadOnly = property.SetMethod.DeclaredAccessibility != Accessibility.Public;
 
             // Base declarations first, because this loop is last-writer-wins for the
             // values it reads -- [ScaffoldList(Label = ...)] restated on an override
@@ -272,7 +302,7 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             foreach (ISymbol member in current.GetMembers())
             {
                 if (member is IPropertySymbol property
-                    && property.DeclaredAccessibility == Accessibility.Public
+                    && CanReach(property)
                     && !property.IsStatic)
                 {
                     level.Add(property);
@@ -313,6 +343,63 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
 
         return groups;
     }
+
+    // Why the model cannot be emitted as declared, or null.
+    //
+    // Everything the emitter writes names the model as Namespace.TypeName and
+    // builds a row with `new()`, so a declaration neither of those can express is
+    // refused here rather than emitted as source that does not compile. A generic
+    // type loses its type arguments in that name and a nested one loses its
+    // containing declaration -- CS0305 and CS0246 -- and a type with no reachable
+    // parameterless constructor is CS7036 at `new()`, which is what [Scaffold] on
+    // a positional record used to produce. All of them named the generated file
+    // and none of them named the cause.
+    private static string? UnsupportedReason(INamedTypeSymbol type)
+    {
+        if (type.IsGenericType)
+        {
+            return "it is generic, and the emitted routes name the model without its type arguments";
+        }
+
+        if (type.ContainingType is not null)
+        {
+            return "it is nested, and the emitted routes name the model by its namespace and short name alone";
+        }
+
+        if (type.IsFileLocal)
+        {
+            return "it is file-local, and the generated routes are emitted from another file";
+        }
+
+        if (type.IsStatic || type.IsAbstract)
+        {
+            return "it is static or abstract, and a row is built with `new()`";
+        }
+
+        if (type.TypeKind != TypeKind.Class)
+        {
+            return "it is not a class, and the emitted routes hold a row in a `Model?` that a value type reads as Nullable<T>";
+        }
+
+        if (!type.InstanceConstructors.Any(static c => c.Parameters.Length == 0 && CanReach(c)))
+        {
+            return "it has no parameterless constructor the generated file can reach, and a row is built with `new()`. A positional record is the usual way to arrive here";
+        }
+
+        return null;
+    }
+
+    // Whether the generated file, emitted into the consumer's own assembly, can
+    // reach this symbol at all. private, protected and private protected cannot be
+    // reached from an unrelated class in the same assembly; the rest can.
+    //
+    // Asked of a property, an accessor and a constructor alike, because the answer
+    // is the same question in all three places and getting it different in one of
+    // them is how `protected internal` came to be assignable and not constructible.
+    private static bool CanReach(ISymbol symbol) =>
+        symbol.DeclaredAccessibility is Accessibility.Public
+            or Accessibility.Internal
+            or Accessibility.ProtectedOrInternal;
 
     // The typeof(...) argument of [ScaffoldReference] or [ScaffoldRelation], as the
     // same fully qualified name ScaffoldModel.FullyQualifiedName builds, so the two
@@ -414,22 +501,13 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             sharing.Add(model.FullyQualifiedName);
         }
 
-        // Built after the collision map and skipping what it condemns. A collided
-        // model has one key and would otherwise resolve as a reference target, so
-        // the referrer passed ChoicesResolve and emitted a control reading
-        // TargetScaffold.SortFields against a class that was never generated --
-        // CS0103 beside NWS008, which is the cascade this refuses models to avoid.
-        var byName = new Dictionary<string, ScaffoldModel>();
-        foreach (ScaffoldModel model in models)
-        {
-            if (byShortName[model.TypeName].Count == 1)
-            {
-                byName[model.FullyQualifiedName] = model;
-            }
-        }
-
+        // Everything a model can be refused for on its own, decided before anything
+        // is resolved against it. A refused model is not a reference target either:
+        // the referrer would otherwise pass ChoicesResolve and emit a control
+        // reading TargetScaffold.SortFields against a class that was never
+        // generated -- CS0103 beside the one diagnostic that names the real fault.
         var reportedCollision = new HashSet<string>();
-        var emitted = new List<ScaffoldModel>();
+        var candidates = new List<ScaffoldModel>();
         foreach (ScaffoldModel model in models)
         {
             List<string> sharing = byShortName[model.TypeName];
@@ -444,6 +522,23 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                         string.Join(", ", sharing.OrderBy(static n => n, System.StringComparer.Ordinal))));
                 }
 
+                continue;
+            }
+
+            if (model.Unsupported is not null)
+            {
+                spc.ReportDiagnostic(Diagnostic.Create(
+                    Diagnostics.UnsupportedDeclaration, Location.None, model.TypeName, model.Unsupported));
+                continue;
+            }
+
+            if (model.Unreachable.Count > 0)
+            {
+                spc.ReportDiagnostic(Diagnostic.Create(
+                    Diagnostics.UnreachableProperty,
+                    Location.None,
+                    model.TypeName,
+                    string.Join(", ", model.Unreachable)));
                 continue;
             }
 
@@ -463,11 +558,47 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (!ChoicesResolve(spc, model, byName))
-            {
-                continue;
-            }
+            candidates.Add(model);
+        }
 
+        // Refusing a model can refuse the one that refers to it, and that one can
+        // refuse a third, so this runs to a fixpoint rather than once. Silently:
+        // the diagnostics come afterwards, against the set that survived, so a
+        // model is reported once and a cascaded refusal is reported against what
+        // the compilation really ends up emitting rather than against a lookup
+        // still holding names that were about to be dropped.
+        var survivors = new List<ScaffoldModel>(candidates);
+        var byName = new Dictionary<string, ScaffoldModel>();
+        foreach (ScaffoldModel model in survivors)
+        {
+            byName[model.FullyQualifiedName] = model;
+        }
+
+        for (bool dropped = true; dropped;)
+        {
+            dropped = false;
+            foreach (ScaffoldModel model in survivors.ToList())
+            {
+                if (!ChoicesResolve(spc, model, byName, report: false))
+                {
+                    survivors.Remove(model);
+                    byName.Remove(model.FullyQualifiedName);
+                    dropped = true;
+                }
+            }
+        }
+
+        foreach (ScaffoldModel model in candidates)
+        {
+            if (!byName.ContainsKey(model.FullyQualifiedName))
+            {
+                ChoicesResolve(spc, model, byName, report: true);
+            }
+        }
+
+        var emitted = new List<ScaffoldModel>();
+        foreach (ScaffoldModel model in survivors)
+        {
             spc.AddSource(
                 model.TypeName + ".Scaffold.g.cs",
                 SourceText.From(ScaffoldEmitter.Emit(model, root, byName), Encoding.UTF8));
@@ -486,7 +617,11 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
     // this compilation scaffolds, keyed by a string, on a property of the one type
     // the control binds to. Reported here rather than in Build because the target
     // is another model, and only the collected set can say whether it exists.
-    private static bool ChoicesResolve(SourceProductionContext spc, ScaffoldModel model, Dictionary<string, ScaffoldModel> byName)
+    private static bool ChoicesResolve(
+        SourceProductionContext spc,
+        ScaffoldModel model,
+        Dictionary<string, ScaffoldModel> byName,
+        bool report)
     {
         bool ok = true;
         foreach (PropertyModel p in model.Properties)
@@ -500,31 +635,39 @@ public sealed class ScaffoldGenerator : IIncrementalGenerator
             string where = model.TypeName + "." + p.Name;
             if (!byName.TryGetValue(targetName, out ScaffoldModel? target) || target.KeyProperty.Length == 0)
             {
-                spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.TargetNotScaffolded, Location.None, where, targetName));
+                Report(spc, report, Diagnostics.TargetNotScaffolded, where, targetName);
                 ok = false;
                 continue;
             }
 
             if (target.Properties.First(t => t.Name == target.KeyProperty).TypeName != "string")
             {
-                spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.TargetKeyNotString, Location.None, where, targetName));
+                Report(spc, report, Diagnostics.TargetKeyNotString, where, targetName);
                 ok = false;
             }
 
             if (p.Reference is not null && !(p.TypeName == "string" && p.IsNullable))
             {
-                spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.ReferenceNotNullableString, Location.None, where, p.TypeName));
+                Report(spc, report, Diagnostics.ReferenceNotNullableString, where, p.TypeName);
                 ok = false;
             }
 
             if (p.Relation is not null && p.TypeName != "System.Collections.Generic.IReadOnlyList<string>")
             {
-                spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.RelationNotKeyList, Location.None, where, p.TypeName));
+                Report(spc, report, Diagnostics.RelationNotKeyList, where, p.TypeName);
                 ok = false;
             }
         }
 
         return ok;
+    }
+
+    private static void Report(SourceProductionContext spc, bool report, DiagnosticDescriptor descriptor, string where, string what)
+    {
+        if (report)
+        {
+            spc.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None, where, what));
+        }
     }
 }
 
@@ -582,6 +725,22 @@ internal static class Diagnostics
         id: "NWS008",
         title: "Two scaffolded models share a short name",
         messageFormat: "'{0}' is the short name of more than one [Scaffold] model ({1}). The generated classes share one namespace, so the short names have to differ; rename one of the types.",
+        category: "NativeWeb.Scaffold",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor UnsupportedDeclaration = new(
+        id: "NWS009",
+        title: "Scaffolded model cannot be emitted as declared",
+        messageFormat: "'{0}' is decorated [Scaffold] but cannot be scaffolded: {1}. Declare it as a top-level, non-generic class with a parameterless constructor.",
+        category: "NativeWeb.Scaffold",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    internal static readonly DiagnosticDescriptor UnreachableProperty = new(
+        id: "NWS010",
+        title: "Scaffolded model has a property the generated code cannot reach",
+        messageFormat: "'{0}' has a settable property the generated code cannot read or assign ({1}). Every row is rebuilt with `new()` on save, so a property missing from that initializer is written back as its default and whatever was stored is lost. Make both accessors public or internal; where the declaration is not yours to change -- a base type in another assembly -- scaffold a type of your own instead.",
         category: "NativeWeb.Scaffold",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);

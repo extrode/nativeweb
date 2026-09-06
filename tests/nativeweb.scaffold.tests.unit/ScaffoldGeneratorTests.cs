@@ -185,7 +185,7 @@ public sealed class ScaffoldGeneratorTests
                 public System.TimeOnly Hour { get; set; }
                 public System.DateTimeOffset Moment { get; set; }
                 public System.TimeSpan Duration { get; set; }
-                public string Locked { get; private set; } = "";
+                public string Locked { get; internal set; } = "";
                 public string this[int i] => Title;
             }
         }
@@ -196,7 +196,7 @@ public sealed class ScaffoldGeneratorTests
         AssertGeneratedSourceCompiles(EveryTypeModel);
 
     [Fact]
-    public void TypesWithNoConversion_AndPropertiesWithNoReachableSetter_EmitCodeThatCompiles() =>
+    public void TypesWithNoConversion_AndPropertiesTheFormCannotBind_EmitCodeThatCompiles() =>
         AssertGeneratedSourceCompiles(AwkwardModel);
 
     // The version this repository and every consumer of it build at. Directory.Build.props
@@ -228,7 +228,7 @@ public sealed class ScaffoldGeneratorTests
         Assert.Contains("Hour = existing is null ? default! : existing.Hour,", emitted, StringComparison.Ordinal);
         Assert.Contains("Grade = ScaffoldValues.EnumValue<Demo.Rank>(form.Grade, default(Demo.Rank)),", emitted, StringComparison.Ordinal);
         Assert.DoesNotContain("Summary =", emitted, StringComparison.Ordinal);
-        Assert.DoesNotContain("Locked =", emitted, StringComparison.Ordinal);
+        Assert.Contains("Locked = existing is null ? default! : existing.Locked,", emitted, StringComparison.Ordinal);
         Assert.DoesNotContain("this[]", emitted, StringComparison.Ordinal);
     }
 
@@ -1471,6 +1471,559 @@ public sealed class ScaffoldGeneratorTests
                     public override System.DateTime CreatedAt { get; set; }
                     public override string Title { get; set; } = "";
                     public string Body { get; set; } = "";
+                }
+            }
+            """);
+
+    [Fact]
+    public void APropertyWithAPrivateSetter_ReportsNws010()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Owner { get; private set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Diagnostic reported = Assert.Single(diagnostics);
+        Assert.Equal("NWS010", reported.Id);
+        Assert.Contains("Owner", reported.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnInheritedPropertyWithAProtectedSetter_ReportsNws010()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                public abstract class Entity
+                {
+                    public System.DateTime CreatedAt { get; protected set; }
+                }
+
+                [Scaffold]
+                public sealed class Memo : Entity
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Equal("NWS010", Assert.Single(diagnostics).Id);
+        Assert.DoesNotContain("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // internal is reachable from the generated file, which is emitted into the same
+    // assembly, so the value is carried rather than the model refused. It is still
+    // never bound: a setter kept off the public surface is not one a posted field
+    // reaches.
+    [Fact]
+    public void APropertyWithAnInternalSetter_IsCarriedAndNotEditable()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Owner { get; internal set; } = "";
+                    public string Body { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("Owner = existing is null ? default! : existing.Owner,", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("string? Owner", emitted, StringComparison.Ordinal);
+        Assert.Contains("string? Body", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AModelWithAnInternalSetter_EmitsCodeThatCompiles() =>
+        AssertGeneratedSourceCompiles("""
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Owner { get; internal set; } = "";
+                    public string Body { get; set; } = "";
+                }
+            }
+            """);
+
+    // A property with no setter at all stores nothing, so nothing is lost by
+    // leaving it out and there is nothing to refuse. Separated from the setter the
+    // generated file cannot reach, which is refused, because the two used to be
+    // one condition and one of them was silent data loss.
+    [Fact]
+    public void AComputedProperty_IsLeftOutWithoutADiagnostic()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Body { get; set; } = "";
+                    public string Summary => Body + "...";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("MemoScaffold", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Summary", emitted, StringComparison.Ordinal);
+    }
+
+    // The emitted Build ends in `new() { ... }`, so a positional record is CS7036
+    // in the consumer's build -- inside generated source the author never wrote.
+    // [Scaffold]'s own AttributeUsage permits the shape, so the refusal has to be
+    // here.
+    [Fact]
+    public void APositionalRecord_ReportsNws009()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed record Memo([property: ScaffoldKey] string Id, string Body);
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Diagnostic reported = Assert.Single(diagnostics);
+        Assert.Equal("NWS009", reported.Id);
+        Assert.Contains("parameterless constructor", reported.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AClassWithOnlyAParameterisedConstructor_ReportsNws009()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    public Memo(string id) => Id = id;
+
+                    [ScaffoldKey] public string Id { get; set; }
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Equal("NWS009", Assert.Single(diagnostics).Id);
+        Assert.DoesNotContain("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // A record without positional parameters has the implicit parameterless
+    // constructor `new()` needs, so the refusal above is about the shape and not
+    // about the keyword.
+    [Fact]
+    public void ARecordWithNoPositionalParameters_IsScaffolded()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed record Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Body { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // Everything the emitter writes names the model as Namespace.TypeName, which
+    // carries neither type arguments nor a containing declaration. A generic model
+    // emitted its open name (CS0305) and a nested one emitted a name that resolves
+    // to nothing (CS0246), both inside generated source and neither naming the
+    // cause. NWF005 refuses both in the forms generator; this is the same guard.
+    [Theory]
+    [InlineData("""
+        namespace Demo
+        {
+            [Scaffold]
+            public sealed class Box<T>
+            {
+                [ScaffoldKey] public string Id { get; set; } = "";
+            }
+        }
+        """)]
+    [InlineData("""
+        namespace Demo
+        {
+            public static class Outer
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+        }
+        """)]
+    [InlineData("""
+        namespace Demo
+        {
+            [Scaffold]
+            public abstract class Memo
+            {
+                [ScaffoldKey] public string Id { get; set; } = "";
+            }
+        }
+        """)]
+    [InlineData("""
+        namespace Demo
+        {
+            [Scaffold]
+            public struct Memo
+            {
+                [ScaffoldKey] public string Id { get; set; }
+            }
+        }
+        """)]
+    public void AShapeTheEmitterCannotName_ReportsNws009(string declaration)
+    {
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(
+            Attributes, "using NativeWeb.Scaffold;" + System.Environment.NewLine + declaration);
+
+        Assert.Equal("NWS009", Assert.Single(diagnostics).Id);
+        Assert.DoesNotContain("BoxScaffold", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // Refusing a model refuses the one that refers to it, and that one refuses a
+    // third: the lookup used to be built once and hold names the compilation was
+    // about to drop, so the referrer emitted a control reading TargetScaffold
+    // against a class that was never generated -- CS0103 beside the one diagnostic
+    // that named the real fault.
+    [Fact]
+    public void AReferenceToATargetRefusedByItsOwnReference_IsRefusedTooAndSoIsTheOneBehindIt()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Alpha
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    [ScaffoldReference(typeof(Beta))] public string? BetaId { get; set; }
+                }
+
+                [Scaffold]
+                public sealed class Beta
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    [ScaffoldReference(typeof(Gamma))] public string? GammaId { get; set; }
+                }
+
+                [Scaffold]
+                public sealed class Gamma
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    [ScaffoldReference(typeof(Delta))] public string? DeltaId { get; set; }
+                }
+
+                public sealed class Delta
+                {
+                    public string Id { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Equal(
+            ["NWS003", "NWS003", "NWS003"],
+            diagnostics.Select(d => d.Id).ToArray());
+        Assert.DoesNotContain("AlphaScaffold", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("BetaScaffold", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("GammaScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // The other half of the same fact: a chain whose end resolves is emitted whole,
+    // so the fixpoint drops what is broken rather than everything that participates.
+    [Fact]
+    public void AReferenceChainThatResolves_IsEmittedWhole()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Alpha
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    [ScaffoldReference(typeof(Beta))] public string? BetaId { get; set; }
+                }
+
+                [Scaffold]
+                public sealed class Beta
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Name { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("AlphaScaffold", emitted, StringComparison.Ordinal);
+        Assert.Contains("BetaScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // The reachability question, asked of every symbol the generated file has to
+    // touch. protected internal is internal-or-protected, so an unrelated class in
+    // the same assembly reaches it -- which the constructor check first got wrong
+    // while the setter check got it right, and a model that built yesterday was
+    // refused for it.
+    [Fact]
+    public void AProtectedInternalConstructor_IsReachedRatherThanRefused()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    protected internal Memo() { }
+
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AProtectedInternalSetter_IsCarriedAndNotEditable()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Owner { get; protected internal set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("Owner = existing is null ? default! : existing.Owner,", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("string? Owner", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void APrivateProtectedSetter_ReportsNws010()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Owner { get; private protected set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Equal("NWS010", Assert.Single(diagnostics).Id);
+        Assert.DoesNotContain("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // An internal property is invisible to the form and reachable from the generated
+    // file, so it is carried. It used to be dropped at the same place a private one
+    // is, which is the silent reset NWS010 exists to stop, one level up.
+    [Fact]
+    public void AnInternalProperty_IsCarriedAndNotEditable()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    internal string Tenant { get; set; } = "";
+                    public string Body { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("Tenant = existing is null ? default! : existing.Tenant,", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("string? Tenant", emitted, StringComparison.Ordinal);
+    }
+
+    // The line the refusal stops at. A private or protected property is reachable
+    // from nothing outside the type, the generated file included, so there is no
+    // value to lose and nothing to report -- and refusing it would refuse every
+    // model that keeps a private auto-property.
+    [Fact]
+    public void APrivateProperty_IsLeftOutWithoutADiagnostic()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    private string Cached { get; set; } = "";
+                    protected string Marker { get; set; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("MemoScaffold", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Cached", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Marker", emitted, StringComparison.Ordinal);
+    }
+
+    // The emitter reads `existing.Name` and `row.Name` as well as assigning, so an
+    // unreadable property is refused for the same reason an unassignable one is.
+    [Theory]
+    [InlineData("public string Owner { private get; set; } = \"\";")]
+    [InlineData("public string Owner { set { } }")]
+    public void APropertyTheGeneratedCodeCannotRead_ReportsNws010(string declaration)
+    {
+        string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    DECLARATION
+                }
+            }
+            """.Replace("DECLARATION", declaration, StringComparison.Ordinal);
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Equal("NWS010", Assert.Single(diagnostics).Id);
+        Assert.DoesNotContain("MemoScaffold", emitted, StringComparison.Ordinal);
+    }
+
+    // An init accessor is a setter an object initializer can use, which is what the
+    // emitted Build is, so it stays editable rather than being carried.
+    [Fact]
+    public void AnInitAccessor_IsEditable()
+    {
+        const string source = """
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public sealed class Memo
+                {
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    public string Body { get; init; } = "";
+                }
+            }
+            """;
+
+        (ImmutableArray<Diagnostic> diagnostics, string emitted) = Run(Attributes, source);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("string? Body", emitted, StringComparison.Ordinal);
+        Assert.DoesNotContain("Body = existing is null ? default! : existing.Body,", emitted, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AModelWithAnInitAccessorAndAnInternalProperty_EmitsCodeThatCompiles() =>
+        AssertGeneratedSourceCompiles("""
+            using NativeWeb.Scaffold;
+
+            namespace Demo
+            {
+                [Scaffold]
+                public class Memo
+                {
+                    protected internal Memo() { }
+
+                    [ScaffoldKey] public string Id { get; set; } = "";
+                    internal string Tenant { get; set; } = "";
+                    public string Owner { get; protected internal set; } = "";
+                    public string Body { get; init; } = "";
                 }
             }
             """);
