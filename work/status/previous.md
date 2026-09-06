@@ -2,6 +2,44 @@
 
 The task completed most recently, kept for one rotation so the next one has context.
 
+- **The age key went off-host, and three guards now hold the runbook's claims to the truth. Done
+  on `docs/age-key-off-host` and `test/runbook-requirement-parity`, 2026-09-06.**
+
+  The operator stored the `age` private key off `incus-host`. Four places in the runbook said
+  no such copy existed and one was a literal `WHERE THE OFF-HOST COPY LIVES: NOT YET RECORDED`
+  placeholder. **It closes one of R17b's two blockers, not R17b:** the criterion is that the backup
+  is still readable once the host is gone, readable needs the key and the bytes, and the bytes are
+  still in a MinIO container on the machine being backed up. R14 is location-only and untouched.
+
+  **`RunbookClaimsTests` is the new guard**, three facts: the runbook's gap table and the spec's
+  acceptance addendum name the same unmet requirements; every measured table reports a value
+  carrying a digit; and no markdown in the repository asserts the deployment reference is still
+  unmeasured. The third found two live stale claims when it was first run --
+  `performance.md` and `003-framework-readiness.md` both still said every elapsed time was a
+  placeholder, four days after T15 measured them.
+
+  **Fable's review found seven, and four were defects in the tests themselves.** The parity test
+  read the *first* status line rather than the only one, so a superseded addendum would agree with
+  a stale runbook and pass; the measured-table test asserted the absence of one placeholder
+  spelling rather than the presence of a number, so `TBD`, an em dash, an empty cell and a deleted
+  row all passed; the paragraph splitter never split block quotes, making the runbook's own 37-line
+  opening one block; and the stale-claim sweep was scoped to `docs/` and `work/` with a verb list
+  narrow enough to miss "the runbook still shows". Fixed, and it also caught that
+  `current.md` reported the single point of failure closed while the runbook still said a host
+  loss was unrecoverable.
+
+  **Thirteen mutations, twelve red and one green on purpose.** The negative control is a true
+  past-tense sentence -- "the deployment reference read `NOT YET MEASURED` until 2026-09-05" --
+  which the guard must not convict; `read` is absent from the verb list for that reason. An earlier
+  version of the third test was committed and then rewritten: scanning line by line, it passed a
+  mutation wrapping the stale claim across two lines, which is the exact shape of one of the two
+  real defects it was written for. Tier green at 200.
+
+  **The 2026-09-01 key should be treated as exposed.** It was printed into a terminal session and
+  read back out of that session's own output during the drill, so it lives in whatever transcript
+  that session left behind. Rotation is an operator call; the runbook now says so and says what
+  rotating costs.
+
 - **A fable review of the T15 drill and the credential move found fourteen things, and the one it
   could not check was a CI breaker. Done on `fix/ci-credential-config-file` and
   `docs/011-r17-split-and-review-findings`, 2026-09-06.**

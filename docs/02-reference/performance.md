@@ -167,6 +167,8 @@ exactly the traffic the cache exists for.
 - **Under load with PostgreSQL.** Every row here runs against the in-memory store, so the
   measurement is the render path and the pipeline, not the query path. A JauntyQ-backed run is a
   different harness and a different baseline.
-- **On the deployment target.** `docs/02-reference/deployment.md` still reads `NOT YET MEASURED`
-  for every elapsed time, and spec 011's T15 has never run on a real host.
+- **On the deployment target.** Every row here was taken on this workstation. Spec 011's T15
+  ran on real hosts on 2026-09-05 and the deployment reference now carries measured numbers,
+  but what it measured is deploy, restore and rebuild elapsed time. No render or throughput
+  figure has ever been taken on a deployed host.
 - **Concurrency other than 16.** The harness takes `--concurrency`; nothing has used it.
