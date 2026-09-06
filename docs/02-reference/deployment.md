@@ -385,8 +385,13 @@ Losing the host is an outage, not a failover — one host, by decision. This is 
 whole way back, from nothing but this repository and the backup bucket:
 
 1. Provision a new host: **Provisioning a host**, above.
-2. Restore the `age` private key from wherever the off-host copy lives. Without
-   it, stop — the bucket is noise.
+2. Restore the `age` private key from the operator's own copy. Without it, stop
+   — the bucket is noise. **No off-host copy is known to exist.** The key was
+   printed once when `nativeweb-dev` was provisioned and has not been recorded
+   anywhere since; the drill below re-used the printed value from the session
+   that generated it. Until an operator stores it somewhere that survives
+   `incus-host`, this step has nothing to read and the procedure stops
+   here.
 3. Install `age` and the AWS CLI if the image does not carry them, and make sure the
    backup bucket accepts connections from the new host's address.
 4. Fill `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`, `AWS_ACCESS_KEY_ID` and
@@ -411,8 +416,9 @@ whole way back, from nothing but this repository and the backup bucket:
 | Date last exercised | **2026-09-05** |
 
 Measured 2026-09-05 rebuilding `nativeweb-dr` on `incus-host`: guest created,
-`provision.sh --edge 10.0.0.1` (26 s), age key installed from the operator's
-off-host copy, `restore.sh --target nativeweb --from-host nativeweb-dev
+`provision.sh --edge 10.0.0.1` (26 s), age key installed from the value
+printed when `nativeweb-dev` was provisioned (see step 2 above: no off-host copy
+exists, so this is not the step a real recovery would run), `restore.sh --target nativeweb --from-host nativeweb-dev
 --overwrite-production --execute`, `deploy.sh --incus`, then `/healthz` 200,
 `/readyz` 200 and the pre-backup article served. **Four caveats on that number:**
 
@@ -445,7 +451,8 @@ off-host copy, `restore.sh --target nativeweb --from-host nativeweb-dev
 | ~~The nightly backup fails on `nativeweb-dev`~~ | **Closed 2026-09-05** — bucket, endpoint and credentials filled in, first successful backup taken. The bucket is MinIO on the same fleet host, so this is not yet an offsite backup |
 | `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
 | `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it |
-| The build host needs a JauntyQ feed credential | `build.sh` pins **package** mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints a `dotnet nuget add source --configfile "$HOME/.nuget/NuGet/NuGet.Config"` command; an operator runs it once per shell. It printed `update source` with no `--configfile` until 2026-09-06, which writes the token into the checked-out `nuget.config` |
+| The build host needs a JauntyQ feed credential | `build.sh` pins **package** mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints a `dotnet nuget add source --configfile "$HOME/.nuget/NuGet/NuGet.Config"` command; an operator runs it once per WSL profile: the file it writes is the user-level
+NuGet config, which persists across shells. It printed `update source` with no `--configfile` until 2026-09-06, which writes the token into the checked-out `nuget.config` |
 | ~~The epass.io cutover scope decision~~ | **Closed 2026-08-31, and not a NativeWeb concern at all** — `../decisions/2026-08-31-008-epass-cutover-closed.md`. Nothing in this runbook is gated on it. |
 
 **On `MemoryDenyWriteExecute`.** Measured 2026-08-27, Debian 12 under WSL2: the

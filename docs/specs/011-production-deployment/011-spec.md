@@ -132,8 +132,11 @@ Data durability
   receives. Absence of a signal never indicates success.
 - **R16** The restore procedure is documented and has been executed end to end against a
   non-production target, and the time it took is recorded as a measured number.
-- **R17** Rebuilding a working production host from this repo plus a backup is documented as a
-  single procedure, and the total time that takes is stated.
+- **R17a** Rebuilding a working production host from this repository plus a reachable backup
+  is documented as a single procedure, and the total time that takes is stated.
+- **R17b** The backup that rebuild reads survives the loss of the host it was taken from.
+  Split from R17 on 2026-09-06; the original wording assumed an offsite backup that does not
+  exist, so one requirement was being reported met on evidence for half of it.
 
 Configuration and secrets
 
@@ -194,8 +197,10 @@ Configuration and secrets
 - **R17a** — Given only this repository and a backup reachable over the object-store protocol,
   when the disaster recovery procedure is followed, then a serving host exists, and the document
   states how long that took.
-- **R17b** — Given the host being backed up is lost entirely, when the disaster recovery
-  procedure is followed, then the backup it restores from is still readable.
+- **R17b** — Given the host that took the backup is gone, when the backup is read from the
+  storage holding it, then it is still readable. No rehearsal of the disaster recovery
+  procedure is required to close this: what R17b asserts is where the bytes live, which is
+  what R14 asserts, and the DR run against them is R17a.
   **Split from R17 on 2026-09-06.** R17 read "Given only this repository and offsite backups",
   and the drill of 2026-09-05 had no offsite backup: the bucket was a MinIO container on
   `incus-host`, the same physical host as the guest being restored. What the drill proved is
@@ -219,7 +224,7 @@ Configuration and secrets
 
 - **Up to 24 hours of data can be lost.** Nightly backups are the decided recovery point; there is
   no continuous archiving. Stated here so it is a decision on record rather than a surprise.
-- **A host loss is an outage, not a failover.** Single host by decision. R17 bounds how long the
+- **A host loss is an outage, not a failover.** Single host by decision. R17a bounds how long the
   outage lasts; nothing shortens it to zero.
 - **The application and the database share a failure domain.** Same host by decision.
 
@@ -308,8 +313,9 @@ Four caveats that survive the ticks:
 
 ## Acceptance addendum — 2026-09-05, amended 2026-09-06
 
-**R16 and R17a are met. R14, R15 and R17b are not, and the first two were being reported as met
-before this addendum.** The drill ran on `incus-host`: backup **1 s** (10,359 bytes, the
+**R16 and R17a are met. R14, R15 and R17b are not.** R14 and the undivided R17 were being
+reported as met before this addendum; R15 was already on record as unmet, in the status line
+above and in the gap table of the runbook. The drill ran on `incus-host`: backup **1 s** (10,359 bytes, the
 first successful backup this project has taken), restore into a scratch database **1 s**, verified
 serve against restored data **1 s**, bare guest to serving **345 s**. `nw-dev.example.com` served
 200 throughout and its live colour never changed.

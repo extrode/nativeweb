@@ -97,7 +97,7 @@ for itself.
   the unset-heartbeat warning.
 
 - [x] **T12 `restore.sh`** — files: `scripts/deploy/restore.sh`,
-  `tests/nativeweb.web.tests.unit/` — covers: R16, R17 — done when: the script fetches a named or
+  `tests/nativeweb.web.tests.unit/` — covers: R16, R17a — done when: the script fetches a named or
   latest backup, decrypts it and restores into an explicitly named target; it refuses to target the
   production database without a second flag named for what it does; unit facts cover the
   latest-selection, the decryption path against a scratch database, and the production guard.
@@ -105,7 +105,7 @@ for itself.
 ## What a machine cannot assert
 
 - [x] **T13 `docs/02-reference/deployment.md` — the runbook** — files:
-  `docs/02-reference/deployment.md`, `docs/README.md` — covers: R1, R7, R14, R17, R21 — done when:
+  `docs/02-reference/deployment.md`, `docs/README.md` — covers: R1, R7, R14, R17a, R21 — done when:
   one document carries the provisioning walkthrough, the required-configuration checklist from the
   plan, the deploy and rollback commands, the backup and restore procedures, and the
   disaster-recovery procedure; the `age` key's off-host storage is its first destructive-consequence
@@ -127,7 +127,8 @@ for itself.
   — **done 2026-09-05.** The restore drill and the disaster-recovery rebuild both ran: backup 1 s,
   restore 1 s, verified serve 1 s, bare guest to serving 345 s, all written into the runbook with
   their caveats. R16 was amended first, because the criterion as written could not fail. Four
-  preconditions missing from the DR procedure were found by running it and are now steps 3 to 6 of the procedure.
+  preconditions missing from the DR procedure were found by running it, and are now steps 3 to 6
+  of that procedure.
   **R14 and R17b are not closed by this task and never could have been:** the bucket is a MinIO
   container on the host being backed up, so no copy is offsite. R17 was split on 2026-09-06 for
   that reason, and the drill's result is recorded against R17a.
@@ -159,7 +160,7 @@ for itself.
 | R3 | T6, T14 | R14 | T11, T13 |
 | R4 | T7 | R15 | T11 |
 | R5 | T7, T8 | R16 | T12, T15 |
-| R6 | T7, T8 | R17a, R17b | T12, T13, T15 |
+| R6 | T7, T8 | R17a | T12, T13, T15 |
 | R7 | T8, T13 | R18 | T6, T8 |
 | R8 | T9 | R19 | **met by shipped code** — `StartupConfigGuards`; T16 records it, no build task |
 | R9 | T9 | R20 | T1, T2, T3, T4 |
@@ -173,5 +174,5 @@ naming the missing value; T16 records that rather than leaving a blank row.
 **Two known-conditional outcomes, carried forward rather than hidden:** R15 is met only if the
 operator sets a heartbeat URL (T11 makes the script say so when it is unset), and R1/R16/R17a were
 only fully met once T15 had been executed by a person -- which it was, on 2026-09-05. R14 and
-R17b stay open after it: no task here puts a backup on another machine, because the storage is an
-operator decision rather than a change to this repository.
+R17b stay open after it, and no task in this spec maps to R17b -- none puts a backup on another
+machine, because the storage is an operator decision rather than a change to this repository.

@@ -18,7 +18,10 @@ The task completed most recently, kept for one rotation so the next one has cont
   it then failed a second review on five more counts -- `$HOME/` is not outside the workspace on
   ubuntu-latest, `--configfile` was collected job-wide rather than from the `add source`
   invocation, order was unasserted, the created file was matched as text rather than parsed, and
-  the source-name check read ci.yml alone. Thirteen mutations are red on it now.
+  the source-name check read ci.yml alone. **Nine** mutations of `ci.yml` and `publish.yml`
+  are red on it now, five of `skeleton/.github/workflows/ci.yml` on the skeleton guard, and
+  three of `build.sh`'s printed remedy on `DeployTargetTests`. Seventeen, each red on the
+  assertion that names it.
 
   **The same defect was in two more places, both found by the tests binding to the old form.**
   `skeleton/.github/workflows/ci.yml` wrote `FRAMEWORK_CHECKOUT_TOKEN` into the stamped product's
