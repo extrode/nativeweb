@@ -11,6 +11,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ## [Unreleased]
 
+### Changed
+
+- `nw-dev.example.com` is being moved onto the `incus-host` fleet backup rather than its own
+  `backup.sh`: nightly `pg_dump -Fc` into two independent backup-tool repositories, offsite object storage and a
+  offsite storage, with a daily integrity check and a six-hourly dead-man probe. This is how
+  spec 011's R14, R15 and R17b are meant to close; all three stay unmet until a fleet run has held
+  this database. The change that puts the VM in the fleet's lists is merged in the host's ops
+  repository but not yet deployed to the host. Documentation only on this side. `backup.sh` and `restore.sh` are
+  unchanged and remain the reference story for a deployment with no fleet behind it;
+  `provision.sh` still installs them.
+
 ### Fixed
 
 - Scaffold generator: a property the generated code cannot reach is `NWS010` rather than silence.
