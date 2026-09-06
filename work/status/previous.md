@@ -35,10 +35,10 @@ The task completed most recently, kept for one rotation so the next one has cont
   mutation wrapping the stale claim across two lines, which is the exact shape of one of the two
   real defects it was written for. Tier green at 200.
 
-  **The 2026-09-01 key should be treated as exposed.** It was printed into a terminal session and
-  read back out of that session's own output during the drill, so it lives in whatever transcript
-  that session left behind. Rotation is an operator call; the runbook now says so and says what
-  rotating costs.
+  **The 2026-09-01 key was printed into a terminal session** and read back out of that session's
+  own output during the drill, so it lives in whatever transcript that session left behind. Fable
+  raised it and the runbook records it; the operator decided on 2026-09-06 not to rotate, that
+  reach being acceptable for `nativeweb-dev`.
 
 - **A fable review of the T15 drill and the credential move found fourteen things, and the one it
   could not check was a CI breaker. Done on `fix/ci-credential-config-file` and
