@@ -369,6 +369,60 @@ public sealed class RoundTripTests
     }
 
     [Fact]
+    public async Task TokenHolder_AfterSignIn_HandsBackATokenTheProviderAccepts()
+    {
+        await using SignInHost host = await SignInHost.StartAsync();
+        host.Provider.Subject = "token-holder-subject";
+        using var browser = new Browser(host.Client());
+
+        await browser.GetAsync("/signin");
+        using HttpResponseMessage held = await browser.GetOnceAsync("/token-holder");
+        string token = await held.Content.ReadAsStringAsync();
+
+        Assert.NotEqual("none", token);
+
+        // The proof is the provider's, not ours: present what came back where the provider expects
+        // its own access token, and see the right subject come out.
+        using HttpClient direct = host.Client();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/stub/userinfo");
+        request.Headers.Add("Authorization", "Bearer " + token);
+        using HttpResponseMessage me = await direct.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, me.StatusCode);
+        Assert.Contains(
+            "token-holder-subject", await me.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TokenHolder_WithoutASession_HasNoToken()
+    {
+        await using SignInHost host = await SignInHost.StartAsync();
+        using var browser = new Browser(host.Client());
+
+        using HttpResponseMessage held = await browser.GetOnceAsync("/token-holder");
+
+        Assert.Equal("none", await held.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task TokenHolder_AfterSignOut_HasNoToken()
+    {
+        await using SignInHost host = await SignInHost.StartAsync();
+        using var browser = new Browser(host.Client());
+
+        await browser.GetAsync("/signin");
+        using HttpResponseMessage token = await browser.GetOnceAsync("/antiforgery");
+        await browser.PostAsync(
+            "/signout",
+            [new KeyValuePair<string, string>(
+                "__RequestVerificationToken", await token.Content.ReadAsStringAsync())]);
+
+        using HttpResponseMessage held = await browser.GetOnceAsync("/token-holder");
+
+        Assert.Equal("none", await held.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Host_ResolvesEverySchemeServiceAtStartup()
     {
         await using SignInHost host = await SignInHost.StartAsync();

@@ -447,6 +447,13 @@ public sealed partial class SessionManager(
     internal string CookieName => options.CookieName;
 
     /// <summary>
+    /// Whether this scheme keeps the provider's tokens at all, so
+    /// <see cref="ISessionTokens"/> can refuse a call that has nothing to return rather than
+    /// answering null for every visitor forever.
+    /// </summary>
+    internal bool RetainsTokens => options.RetainTokens;
+
+    /// <summary>
     /// The plaintext access token on a live session, or null when none is kept or the one held has
     /// expired.
     /// </summary>

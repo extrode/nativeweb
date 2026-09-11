@@ -99,6 +99,13 @@ public sealed class SignInHost : IAsyncDisposable
                         endpoints.MapGet("/api/whoami", (HttpContext http) => Results.Text("api"))
                             .RequireBearerToken();
 
+                        // ISessionTokens injected by type and named by nobody, which is the whole
+                        // point of the unkeyed registration for the first scheme.
+                        endpoints.MapGet("/token-holder", async (
+                            HttpContext http, ISessionTokens tokens, CancellationToken ct) =>
+                            Results.Text(await tokens.GetAccessTokenAsync(http, ct).ConfigureAwait(false)
+                                ?? "none"));
+
                         // The sign-out form's token pair, so a case can post a valid one.
                         endpoints.MapGet("/antiforgery", (HttpContext http, IAntiforgery antiforgery) =>
                             Results.Text(antiforgery.GetAndStoreTokens(http).RequestToken ?? ""));
