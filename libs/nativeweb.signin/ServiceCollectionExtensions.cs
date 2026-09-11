@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authentication;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace NativeWeb.SignIn;
 
@@ -112,13 +114,33 @@ public static class ServiceCollectionExtensions
 
         if (isTheFirstScheme)
         {
-            // Unkeyed as well, for the scheme that is also the host's authentication default a few
-            // lines below. Without it the ONE thing a single-provider product resolves from this
-            // library by hand would be the one thing it could not simply inject, and a constructor
-            // parameter carrying a scheme name it never chose is an invitation to hardcode the
-            // wrong one. A second AddSignIn adds no second unkeyed registration: with two providers
-            // the choice is the product's, exactly as it is for the default scheme itself.
-            services.AddScoped(sp => sp.GetRequiredKeyedService<ISessionTokens>(scheme));
+            // Unkeyed as well, so the ONE thing a single-provider product resolves from this
+            // library by hand is not also the one thing it cannot simply inject — a constructor
+            // parameter carrying a scheme name the product never chose is an invitation to
+            // hardcode the wrong one. Registered once, by the first AddSignIn.
+            //
+            // WHICH scheme it resolves is decided per request, not here. Registration order is
+            // what makes THIS call the host's authentication default a few lines below, but a
+            // product can move that default afterwards — AddAuthentication with a DefaultScheme of
+            // its own, or a policy scheme. Bound at registration, the unkeyed accessor would go on
+            // reading the first scheme's cookie and store while HttpContext.User came from the
+            // second: a token belonging to a different identity than the request is authenticated
+            // as, handed over with nothing thrown.
+            services.AddScoped<ISessionTokens>(sp =>
+            {
+                AuthenticationOptions authentication =
+                    sp.GetRequiredService<IOptions<AuthenticationOptions>>().Value;
+
+                string name = authentication.DefaultAuthenticateScheme
+                    ?? authentication.DefaultScheme
+                    ?? scheme;
+
+                return sp.GetKeyedService<ISessionTokens>(name)
+                    ?? throw new InvalidOperationException(
+                        $"The default authentication scheme is '{name}', which no AddSignIn call "
+                        + "registered, so there is no session to read a token from. Resolve "
+                        + $"{nameof(ISessionTokens)} by the key of the scheme you mean.");
+            });
         }
 
         services.AddKeyedSingleton(scheme, static (_, _) => new IntrospectionCache());

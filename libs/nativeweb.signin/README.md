@@ -160,8 +160,13 @@ is how a product reads the one in hand:
 ```csharp
 app.MapGet("/things", async (HttpContext http, ISessionTokens tokens, CancellationToken ct) =>
 {
+    if (http.User.Identity?.IsAuthenticated != true)
+    {
+        return Results.Challenge();
+    }
+
     string? token = await tokens.GetAccessTokenAsync(http, ct);
-    return token is null ? Results.Challenge() : await ThingsAsync(token, ct);
+    return token is null ? Results.StatusCode(503) : await ThingsAsync(token, ct);
 });
 ```
 
@@ -171,18 +176,29 @@ authentication handler uses, so two requests on one session call the provider on
 that revokes a reused refresh token is how a whole token family dies.
 
 **Null is the answer to every case you handle the same way** — no cookie, an unknown one, an
-expired session, `RetainTokens` off, a provider that issued no token, and a token that has expired
-with no refresh token behind it. In all of them the move is not to call the provider.
+expired session, a provider that issued no token, and a token that has expired with no refresh
+token behind it. In all of them the move is not to call the provider.
+
+**Null is not "sign in again", which is why the example challenges on `User` and not on the
+token.** A signed-in visitor gets null while the provider is unreachable and the token in hand has
+already expired; challenging on that redirects into the provider that is down, comes back, and
+asks again. Calling it with `RetainTokens` off does not return null either — it throws, because a
+scheme that keeps no tokens would otherwise answer null for every visitor forever.
 
 Two things it does that read like side effects because they are. A refresh the provider **refuses**
-ends the session and expires the cookie, so call it before the response has started. And each call
-reads the session store — ask once per request and pass the token down. Nothing is cached on the
-`HttpContext`, deliberately: a plaintext token in `HttpContext.Items` is readable by every
-component that runs after it.
+ends the session: the row goes, the cookie is expired, and `HttpContext.User` is reset to anonymous
+for the rest of that request. Expiring a cookie writes a header, so a refusal after the response has
+started **throws** — call it before you start streaming. And each call reads the session store: ask
+once per request and pass the token down. Nothing is cached on the `HttpContext`, deliberately — a
+plaintext token in `HttpContext.Items` is readable by every component that runs after it, and the
+context itself is pooled and reset when the response completes, so a background task holding one
+presents the *next* visitor's cookie. Capture the token, never the context.
 
-It is registered keyed on the scheme name like everything else, and unkeyed as well for the first
-scheme registered — the one that is also the host's authentication default. With [two
-schemes](#two-schemes-in-one-app), resolve the one you mean:
+It is registered keyed on the scheme name like everything else, and unkeyed as well by the first
+`AddSignIn` call. The unkeyed one resolves the host's **default authentication scheme at request
+time**, not the scheme that registered it, so it cannot drift from `HttpContext.User` when a
+product sets a default of its own. A default scheme that no `AddSignIn` registered throws, naming
+it. With [two schemes](#two-schemes-in-one-app), resolve the one you mean:
 `sp.GetRequiredKeyedService<ISessionTokens>(scheme)`.
 
 ## The seams

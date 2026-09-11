@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Claims;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -53,11 +54,57 @@ public sealed class SessionTokensTests
     }
 
     [Fact]
-    public async Task GetAccessTokenAsync_WithRetainTokensOff_IsNull()
+    public async Task GetAccessTokenAsync_WithRetainTokensOff_ThrowsNamingTheOption()
     {
         Fixture fixture = await Signed(new CountingProvider(), retainTokens: false);
 
-        Assert.Null(await fixture.Tokens.GetAccessTokenAsync(fixture.Request(), default));
+        InvalidOperationException refusal =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => fixture.Tokens.GetAccessTokenAsync(fixture.Request(), default));
+
+        Assert.Contains(nameof(SignInOptions.RetainTokens), refusal.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetAccessTokenAsync_WithRetainTokensOff_RefusesAnAnonymousRequestToo()
+    {
+        Fixture fixture = await Signed(new CountingProvider(), retainTokens: false);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => fixture.Tokens.GetAccessTokenAsync(new DefaultHttpContext(), default));
+    }
+
+    [Fact]
+    public async Task GetAccessTokenAsync_ProviderRefusesTheRefresh_LeavesTheRequestAnonymous()
+    {
+        var provider = new CountingProvider
+        {
+            Response = () => Json(HttpStatusCode.BadRequest, "{\"error\":\"invalid_grant\"}"),
+        };
+        Fixture fixture = await Signed(provider);
+        fixture.Clock.Now = Now.AddSeconds(1800);
+
+        DefaultHttpContext context = fixture.Request();
+        context.User = new ClaimsPrincipal(
+            new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "subject-1")], "TestScheme"));
+
+        await fixture.Tokens.GetAccessTokenAsync(context, default);
+
+        Assert.NotEqual(true, context.User.Identity?.IsAuthenticated);
+    }
+
+    [Fact]
+    public async Task GetAccessTokenAsync_WhenNothingEndedTheSession_LeavesTheUserAlone()
+    {
+        Fixture fixture = await Signed(new CountingProvider());
+        DefaultHttpContext context = fixture.Request();
+        var principal = new ClaimsPrincipal(
+            new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "subject-1")], "TestScheme"));
+        context.User = principal;
+
+        await fixture.Tokens.GetAccessTokenAsync(context, default);
+
+        Assert.Same(principal, context.User);
     }
 
     [Fact]

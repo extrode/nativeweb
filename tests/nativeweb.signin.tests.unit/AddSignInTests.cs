@@ -44,7 +44,7 @@ public sealed class AddSignInTests
     }
 
     [Fact]
-    public void AddSignIn_RegistersNothingUnkeyed()
+    public void AddSignIn_RegistersASchemesOwnServicesOnlyUnderItsKey()
     {
         using ServiceProvider provider = Built();
 
@@ -77,7 +77,7 @@ public sealed class AddSignInTests
     }
 
     [Fact]
-    public void AddSignIn_WithTwoSchemes_LeavesTheUnkeyedTokenAccessorOnTheFirst()
+    public void AddSignIn_WithTwoSchemes_LeavesTheUnkeyedTokenAccessorOnTheDefault()
     {
         using ServiceProvider provider = BuiltWithTwo();
         using IServiceScope scope = provider.CreateScope();
@@ -87,6 +87,48 @@ public sealed class AddSignInTests
             scope.ServiceProvider.GetRequiredKeyedService<ISessionTokens>(
                 SessionAuthenticationHandler.SchemeName),
             scope.ServiceProvider.GetRequiredService<ISessionTokens>());
+    }
+
+    [Fact]
+    public void AddSignIn_WhenTheProductMovesTheDefaultScheme_TheUnkeyedAccessorFollowsIt()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSignIn(Configure);
+        services.AddSignIn(Other, options =>
+        {
+            Configure(options);
+            options.CookieName = "__Host-other";
+        });
+
+        // After both calls, which is where a product would put it. Registration order made the
+        // FIRST scheme the default; this moves it, and the accessor has to move with it or it
+        // reads one scheme's session while HttpContext.User comes from the other's.
+        services.AddAuthentication(options => options.DefaultScheme = Other);
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope scope = provider.CreateScope();
+
+        Assert.Same(
+            scope.ServiceProvider.GetRequiredKeyedService<ISessionTokens>(Other),
+            scope.ServiceProvider.GetRequiredService<ISessionTokens>());
+    }
+
+    [Fact]
+    public void AddSignIn_WhenTheDefaultSchemeIsNotASignInScheme_TheUnkeyedAccessorRefuses()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSignIn(Configure);
+        services.AddAuthentication(options => options.DefaultScheme = "SomeCookieScheme");
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope scope = provider.CreateScope();
+
+        InvalidOperationException refusal = Assert.Throws<InvalidOperationException>(
+            scope.ServiceProvider.GetRequiredService<ISessionTokens>);
+
+        Assert.Contains("SomeCookieScheme", refusal.Message, StringComparison.Ordinal);
     }
 
     [Fact]
