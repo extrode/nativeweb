@@ -107,6 +107,20 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<ILogger<SessionManager>>()));
 
+        services.AddKeyedScoped<ISessionTokens>(scheme, (sp, _) => new SessionTokens(
+            sp.GetRequiredKeyedService<SessionManager>(scheme)));
+
+        if (isTheFirstScheme)
+        {
+            // Unkeyed as well, for the scheme that is also the host's authentication default a few
+            // lines below. Without it the ONE thing a single-provider product resolves from this
+            // library by hand would be the one thing it could not simply inject, and a constructor
+            // parameter carrying a scheme name it never chose is an invitation to hardcode the
+            // wrong one. A second AddSignIn adds no second unkeyed registration: with two providers
+            // the choice is the product's, exactly as it is for the default scheme itself.
+            services.AddScoped(sp => sp.GetRequiredKeyedService<ISessionTokens>(scheme));
+        }
+
         services.AddKeyedSingleton(scheme, static (_, _) => new IntrospectionCache());
 
         // The sign-out endpoint validates an antiforgery token explicitly rather than relying on the
@@ -225,6 +239,7 @@ internal sealed class SignInStartupCheck(IServiceScopeFactory scopes, string sch
         scope.ServiceProvider.GetRequiredKeyedService<ILoginFlowStore>(scheme);
         scope.ServiceProvider.GetRequiredKeyedService<ISessionStore>(scheme);
         scope.ServiceProvider.GetRequiredKeyedService<SessionManager>(scheme);
+        scope.ServiceProvider.GetRequiredKeyedService<ISessionTokens>(scheme);
 
         return Task.CompletedTask;
     }

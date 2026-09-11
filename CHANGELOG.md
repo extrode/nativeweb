@@ -11,6 +11,17 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ## [Unreleased]
 
+### Added
+
+- `nativeweb.signin`: `ISessionTokens.GetAccessTokenAsync(HttpContext, CancellationToken)`, the
+  read-only seam onto the access token a session is holding. With `RetainTokens` on the library
+  already kept and rotated the provider's tokens and nothing could read one, so a product calling
+  the provider's API on the visitor's behalf — the case the retention is for — had to obtain a
+  second token or decrypt the store row itself, and a second rotation path against a provider that
+  revokes a reused refresh token kills the whole token family. It refreshes through the same gated,
+  compare-and-swapped path the authentication handler uses. Registered keyed on the scheme name,
+  and unkeyed for the first scheme registered.
+
 ### Changed
 
 - `nw-dev.example.com` is being moved onto the `incus-host` fleet backup rather than its own

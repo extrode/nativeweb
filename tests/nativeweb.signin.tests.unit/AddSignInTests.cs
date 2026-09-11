@@ -64,6 +64,29 @@ public sealed class AddSignInTests
         Assert.NotNull(scope.ServiceProvider.GetKeyedService<ISessionStore>(scheme));
         Assert.NotNull(scope.ServiceProvider.GetKeyedService<SessionManager>(scheme));
         Assert.NotNull(scope.ServiceProvider.GetKeyedService<IntrospectionCache>(scheme));
+        Assert.NotNull(scope.ServiceProvider.GetKeyedService<ISessionTokens>(scheme));
+    }
+
+    [Fact]
+    public void AddSignIn_RegistersTheTokenAccessorUnkeyedForTheFirstScheme()
+    {
+        using ServiceProvider provider = Built();
+        using IServiceScope scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetService<ISessionTokens>());
+    }
+
+    [Fact]
+    public void AddSignIn_WithTwoSchemes_LeavesTheUnkeyedTokenAccessorOnTheFirst()
+    {
+        using ServiceProvider provider = BuiltWithTwo();
+        using IServiceScope scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetKeyedService<ISessionTokens>(Other));
+        Assert.Same(
+            scope.ServiceProvider.GetRequiredKeyedService<ISessionTokens>(
+                SessionAuthenticationHandler.SchemeName),
+            scope.ServiceProvider.GetRequiredService<ISessionTokens>());
     }
 
     [Fact]

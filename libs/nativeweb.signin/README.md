@@ -152,6 +152,39 @@ activates the filter by type from the container, and everything the filter needs
 keyed on the scheme name, so it fails at the first request with a message naming `OAuthClient`
 rather than the missing scheme.
 
+## Calling the provider on the visitor's behalf
+
+With `RetainTokens` on the library keeps the provider's tokens and refreshes them. `ISessionTokens`
+is how a product reads the one in hand:
+
+```csharp
+app.MapGet("/things", async (HttpContext http, ISessionTokens tokens, CancellationToken ct) =>
+{
+    string? token = await tokens.GetAccessTokenAsync(http, ct);
+    return token is null ? Results.Challenge() : await ThingsAsync(token, ct);
+});
+```
+
+It refreshes first when the token is inside `RefreshSkew`, through the same gated path the
+authentication handler uses, so two requests on one session call the provider once between them.
+**Do not read the store and decrypt the row yourself**: a second rotation path against a provider
+that revokes a reused refresh token is how a whole token family dies.
+
+**Null is the answer to every case you handle the same way** — no cookie, an unknown one, an
+expired session, `RetainTokens` off, a provider that issued no token, and a token that has expired
+with no refresh token behind it. In all of them the move is not to call the provider.
+
+Two things it does that read like side effects because they are. A refresh the provider **refuses**
+ends the session and expires the cookie, so call it before the response has started. And each call
+reads the session store — ask once per request and pass the token down. Nothing is cached on the
+`HttpContext`, deliberately: a plaintext token in `HttpContext.Items` is readable by every
+component that runs after it.
+
+It is registered keyed on the scheme name like everything else, and unkeyed as well for the first
+scheme registered — the one that is also the host's authentication default. With [two
+schemes](#two-schemes-in-one-app), resolve the one you mean:
+`sp.GetRequiredKeyedService<ISessionTokens>(scheme)`.
+
 ## The seams
 
 `AddSignIn` returns a builder. Every seam on it is optional, and a product that takes none gets
