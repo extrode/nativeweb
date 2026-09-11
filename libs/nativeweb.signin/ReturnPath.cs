@@ -57,7 +57,18 @@ public static class ReturnPath
             // the check that stays correct, where enumerating schemes (http:, javascript:,
             // data:, the next one) is where redirect filters go wrong. A relative path that
             // needs a literal colon can percent-encode it.
-            if (c is '\\' or ':' || char.IsControl(c))
+            //
+            // Outside printable ASCII, which is a range rather than char.IsControl because
+            // the range covers one more thing: a value this returns is written into a
+            // Location header, and Kestrel refuses a non-ASCII header value. Measured
+            // 2026-09-11 against a minimal Kestrel app - Results.Redirect("/café") answers
+            // 500 with "Invalid non-ASCII or control character in header: 0x00E9". On the
+            // callback path that 500 lands AFTER the flow is consumed and the session row
+            // minted, so the response carrying the cookie is discarded and the row is
+            // orphaned for its full lifetime. A legitimate path is percent-encoded by the
+            // time it is a URL, so it is ASCII already. The range also subsumes DEL and the
+            // C1 controls char.IsControl was there for.
+            if (c is < ' ' or > '~' or '\\' or ':')
             {
                 return false;
             }
