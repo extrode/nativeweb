@@ -19,8 +19,13 @@ sections that apply; drop the empty ones rather than leaving them blank.
   the provider's API on the visitor's behalf — the case the retention is for — had to obtain a
   second token or decrypt the store row itself, and a second rotation path against a provider that
   revokes a reused refresh token kills the whole token family. It refreshes through the same gated,
-  compare-and-swapped path the authentication handler uses. Registered keyed on the scheme name,
-  and unkeyed for the first scheme registered.
+  compare-and-swapped path the authentication handler uses, and a refresh the provider REFUSES
+  resets `HttpContext.User` to anonymous as well as expiring the cookie — without that the rest of
+  the request renders as signed in for a visitor who no longer is. `RetainTokens` off throws rather
+  than returning null, because null there is a wiring mistake that repeats for every visitor
+  forever. Registered keyed on the scheme name, plus one unkeyed registration made by the first
+  `AddSignIn` that resolves the host's DEFAULT authentication scheme at request time, so it cannot
+  drift from `HttpContext.User` when a product sets a default of its own.
 
 ### Changed
 
