@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -79,6 +80,46 @@ public sealed class StoreDataProtector
     // rows that predate its own encryption rollout, but it is now that product's decision
     // (allowLegacyPlaintext) rather than this library's default. Changed 2026-09-01: the
     // rows the old default existed for left with the identity provider.
+    /// <summary>
+    /// Reverses <see cref="Protect"/>, answering false instead of throwing when the value cannot
+    /// be read back.
+    /// </summary>
+    /// <remarks>
+    /// For a caller whose answer to an unreadable value is a DECISION rather than a fault: a
+    /// session under a retired key, a cookie from another host, a column written by a build with
+    /// different keys. Every rejection the protector makes arrives here as one answer, because
+    /// none of them is distinguishable from the others and a caller acting on the difference would
+    /// be acting on a guess.
+    /// <para>
+    /// <see cref="Unprotect"/> still throws, and callers that cannot continue without the
+    /// plaintext should keep using it. The distinction is whether an unreadable value is a
+    /// programming error (throw) or a state the caller handles (this).
+    /// </para>
+    /// </remarks>
+    /// <param name="stored">The value <see cref="Protect"/> produced.</param>
+    /// <param name="plain">The plaintext, or null when this returns false.</param>
+    /// <returns>Whether the value was read back.</returns>
+    public bool TryUnprotect(string stored, [NotNullWhen(true)] out string? plain)
+    {
+        ArgumentNullException.ThrowIfNull(stored);
+
+        try
+        {
+            plain = Unprotect(stored);
+            return true;
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException)
+        {
+            // AuthenticationTagMismatchException (a wrong key, or a changed byte) derives from
+            // CryptographicException, as do the prefix and length refusals above. FormatException
+            // is the payload that is not base64 at all, and catching it here is not tidiness: it
+            // is the same unreadable value arriving by a different route, and a caller that
+            // handles one and not the other still crashes on half its bad rows.
+            plain = null;
+            return false;
+        }
+    }
+
     public string Unprotect(string stored)
     {
         ArgumentNullException.ThrowIfNull(stored);

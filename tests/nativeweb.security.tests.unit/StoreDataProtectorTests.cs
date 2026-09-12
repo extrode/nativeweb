@@ -212,6 +212,55 @@ public sealed class StoreDataProtectorTests
     }
 
     [Fact]
+    public void TryUnprotect_ProtectedValue_RoundTripsAndReportsTrue()
+    {
+        Assert.True(_protector.TryUnprotect(_protector.Protect("attack at dawn"), out string? plain));
+        Assert.Equal("attack at dawn", plain);
+    }
+
+    [Fact]
+    public void TryUnprotect_ValueFromAnotherKey_IsFalseAndYieldsNothing()
+    {
+        string stored = new StoreDataProtector(RandomNumberGenerator.GetBytes(StoreDataProtector.KeyBytes))
+            .Protect("attack at dawn");
+
+        Assert.False(_protector.TryUnprotect(stored, out string? plain));
+        Assert.Null(plain);
+    }
+
+    [Fact]
+    public void TryUnprotect_FlippedTagBit_IsFalseRatherThanThrowing()
+    {
+        byte[] envelope = EnvelopeOf("attack at dawn");
+        envelope[^1] ^= 0x01;
+
+        Assert.False(_protector.TryUnprotect(ToStored(envelope), out string? plain));
+        Assert.Null(plain);
+    }
+
+    [Fact]
+    public void TryUnprotect_UnprefixedValue_IsFalseRatherThanThrowing()
+    {
+        Assert.False(_protector.TryUnprotect("attack at dawn", out string? plain));
+        Assert.Null(plain);
+    }
+
+    [Fact]
+    public void TryUnprotect_NonBase64AfterPrefix_IsFalseRatherThanThrowing()
+    {
+        // FormatException, not CryptographicException: the same unreadable value by another route.
+        Assert.False(_protector.TryUnprotect(StoreDataProtector.Prefix + "@@@@", out string? plain));
+        Assert.Null(plain);
+    }
+
+    [Fact]
+    public void TryUnprotect_NullStored_ThrowsArgumentNullException()
+    {
+        // Not a value that failed to decrypt. A null argument is the caller's bug and stays one.
+        Assert.Throws<ArgumentNullException>(() => _protector.TryUnprotect(null!, out _));
+    }
+
+    [Fact]
     public void Unprotect_NonBase64AfterPrefix_ThrowsFormatException()
     {
         Assert.Throws<FormatException>(

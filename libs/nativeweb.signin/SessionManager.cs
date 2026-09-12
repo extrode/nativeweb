@@ -195,10 +195,47 @@ public sealed partial class SessionManager(
             return SessionState.Unknown;
         }
 
-        return record.ExpiresAt <= clock.GetUtcNow()
-            ? new SessionState(SessionRead.Expired, null, null, keyHash)
-            : new SessionState(SessionRead.Valid, record.Subject, record, keyHash);
+        if (record.ExpiresAt <= clock.GetUtcNow())
+        {
+            return new SessionState(SessionRead.Expired, null, null, keyHash);
+        }
+
+        // A row this host can no longer decrypt is a session that is GONE, and saying so here is
+        // what keeps it from being said later by an exception. The tokens are unprotected at two
+        // points downstream -- the refresh, and AccessToken -- and neither is reached unless this
+        // returns Valid, so one check covers both.
+        //
+        // Found on 2026-09-12 by restarting a dev host with a stable Session:Secret after it had
+        // been running on an ephemeral key. Every request from an already-signed-in browser threw
+        // AuthenticationTagMismatchException out of the refresh, INCLUDING the requests for the
+        // error page's own stylesheet, so the 500 rendered unstyled; and because signing out is a
+        // request too, the only way out was clearing the cookie by hand. One key rotation would
+        // have done that to every signed-in visitor at once.
+        //
+        // Removed rather than left to the sweeper: the row cannot be read by anything, now or
+        // later, and leaving it means every request from that browser pays a store read to reach
+        // the same verdict.
+        if (!CanBeRead(record))
+        {
+            LogSessionUnreadable(logger, record.Subject);
+            await store.RemoveAsync(keyHash, ct).ConfigureAwait(false);
+            ClearCookie(context);
+            return SessionState.Unknown;
+        }
+
+        return new SessionState(SessionRead.Valid, record.Subject, record, keyHash);
     }
+
+    /// <summary>
+    /// Whether the tokens this record holds still decrypt under the key in hand.
+    /// </summary>
+    /// <remarks>
+    /// An empty field is not a failure: a provider that issues no refresh token, and a host with
+    /// <see cref="SignInOptions.RetainTokens"/> off, both leave these empty by design.
+    /// </remarks>
+    private bool CanBeRead(SessionRecord record) =>
+        (record.ProtectedAccessToken.Length == 0 || _protector.TryUnprotect(record.ProtectedAccessToken, out _))
+        && (record.ProtectedRefreshToken.Length == 0 || _protector.TryUnprotect(record.ProtectedRefreshToken, out _));
 
     /// <summary>
     /// Refreshes the session's access token when it is within <see cref="SignInOptions.RefreshSkew"/>
@@ -564,6 +601,9 @@ public sealed partial class SessionManager(
 
     [LoggerMessage(3, LogLevel.Warning, "Could not reach the provider to refresh {Subject}; keeping the session")]
     private static partial void LogRefreshUnavailable(ILogger logger, string subject);
+
+    [LoggerMessage(4, LogLevel.Warning, "The session for {Subject} no longer decrypts under the key in hand; it has been ended")]
+    private static partial void LogSessionUnreadable(ILogger logger, string subject);
 }
 
 /// <summary>What the session cookie on a request turned out to be worth.</summary>
