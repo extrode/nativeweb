@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using System.Security.Cryptography;
+
 using NativeWeb.Security;
 using NativeWeb.SignIn;
 
@@ -187,6 +189,60 @@ public sealed class SessionManagerTests
     }
 
     [Fact]
+    public async Task ReadAsync_TokensUnderARetiredKey_IsUnknownRatherThanThrowing()
+    {
+        var store = new RecordingStore();
+        (SessionManager minted, _, SignInOptions options) = Subject(sharedStore: store);
+        string cookieValue = await minted.MintAsync(Context(), User, Tokens, default);
+
+        (SessionManager rekeyed, _, SignInOptions rekeyedOptions) = Subject(
+            sharedStore: store, storeKey: RandomNumberGenerator.GetBytes(StoreDataProtector.KeyBytes));
+
+        SessionState state = await rekeyed.ReadAsync(Context(rekeyedOptions.CookieName, cookieValue), default);
+
+        Assert.Equal(SessionRead.Unknown, state.Read);
+        Assert.Null(state.Subject);
+    }
+
+    [Fact]
+    public async Task ReadAsync_TokensUnderARetiredKey_RemovesTheRowAndExpiresTheCookie()
+    {
+        var store = new RecordingStore();
+        (SessionManager minted, _, _) = Subject(sharedStore: store);
+        string cookieValue = await minted.MintAsync(Context(), User, Tokens, default);
+
+        (SessionManager rekeyed, _, SignInOptions options) = Subject(
+            sharedStore: store, storeKey: RandomNumberGenerator.GetBytes(StoreDataProtector.KeyBytes));
+        DefaultHttpContext context = Context(options.CookieName, cookieValue);
+
+        await rekeyed.ReadAsync(context, default);
+
+        Assert.Empty(store.Rows);
+        string setCookie = Assert.Single(context.Response.Headers.SetCookie!)!;
+        Assert.Contains("expires=Thu, 01 Jan 1970", setCookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ReadAsync_RetiredKeyButNoTokensRetained_IsStillValid()
+    {
+        var store = new RecordingStore();
+        (SessionManager minted, _, _) = Subject(retainTokens: false, sharedStore: store);
+        string cookieValue = await minted.MintAsync(Context(), User, Tokens, default);
+
+        (SessionManager rekeyed, _, SignInOptions options) = Subject(
+            retainTokens: false,
+            sharedStore: store,
+            storeKey: RandomNumberGenerator.GetBytes(StoreDataProtector.KeyBytes));
+
+        SessionState state = await rekeyed.ReadAsync(Context(options.CookieName, cookieValue), default);
+
+        // Who the visitor is was settled at sign-in and is not encrypted. A host that retains no
+        // tokens has nothing to fail to decrypt, so a key change must not sign everyone out.
+        Assert.Equal(SessionRead.Valid, state.Read);
+        Assert.Equal("subject-1", state.Subject);
+    }
+
+    [Fact]
     public async Task RevokeAsync_RemovesTheRowAndExpiresTheCookie()
     {
         (SessionManager manager, RecordingStore store, SignInOptions options) = Subject();
@@ -248,11 +304,22 @@ public sealed class SessionManagerTests
     }
 
     private static (SessionManager Manager, RecordingStore Store, SignInOptions Options) Subject(
-        bool retainTokens = true, MovableClock? clock = null)
+        bool retainTokens = true,
+        MovableClock? clock = null,
+        RecordingStore? sharedStore = null,
+        byte[]? storeKey = null)
     {
         SignInOptions options = OAuthClientFixtures.Options();
         options.RetainTokens = retainTokens;
-        var store = new RecordingStore();
+
+        if (storeKey is not null)
+        {
+            options.StoreEncryptionKey = storeKey;
+        }
+
+        // Supplied by the caller when a second manager has to see rows the first one wrote: that
+        // is the whole of a key change, one store read by two sets of keys.
+        RecordingStore store = sharedStore ?? new RecordingStore();
 
         return (
             new SessionManager(
