@@ -80,6 +80,32 @@ From `docs/brainstorms/001-framework-direction.md` §10, batched here as that do
   fluent query builder over JauntyQ (that would be rewriting the ORM, and SQL-first is JauntyQ's
   thesis), so if relationship loading is wanted it is JauntyQ's job or nobody's.
 
+**Resolved 2026-09-14, all three withdrawn.** NativeWeb built around each one rather than waiting,
+so none is a live ask any more:
+
+- **Scope predicates: no generator feature wanted.** `[ScopedBy]` was never built.
+  `docs/brainstorms/001-framework-direction.md` §8 downgraded it to "proposed" on four grounds
+  that held up: a generator can verify a query *declares* a scope parameter, never that the
+  `WHERE` uses it; scoping an INSERT is forcing a column, not a predicate; `nameof(OwnerUserId)`
+  cannot express membership-via-join. Row scope lives in the consumer's own SQL behind
+  `libs/nativeweb.scaffold/IScaffoldStore.cs`. RLS stays an optional deployment-time backstop, the
+  consumer's call, not a framework guarantee.
+- **Model-to-query naming: withdrawn, JauntyQ should not own one on NativeWeb's account.** The
+  scaffold generator never looks for queries; it emits against `IScaffoldStore<T>` and the product
+  implements it (`apps/sample/JauntyArticleStore.cs`, `JauntyCategoryStore.cs`,
+  `JauntyTagStore.cs`, `JauntyPermissionStore.cs`). An interface seam replaced the convention.
+- **Eager loading: not on NativeWeb's critical path.** Specs 023–026 shipped admin relations and
+  model permissions without it. Decide it on JauntyQ's own merits — no NativeWeb consumer is
+  blocked today.
+
+The structural reason all three dissolved: no packable NativeWeb library references JauntyQ.
+`publish.yml:77-87` enforces that as a licence guard, with the side effect that JauntyQ is a
+*product* dependency here (`apps/sample`), not a framework one.
+
+**One smaller ask in its place:** a diagnostic when a query declares a parameter it never binds —
+the "presence, not correctness" check JauntyQ can do, which would have caught the class of bug
+`[ScopedBy]` was reaching for. Not a blocker either.
+
 ## 6. Not a JauntyQ bug, listed so it is not mistaken for one
 
 `extrode/nativeweb` CI cannot restore `JauntyQ.Runtime`, `JauntyQ.Generator` or
