@@ -35,6 +35,13 @@ if (-not $ArchiveDir) {
     $ArchiveDir = Join-Path (Resolve-Path (Join-Path $RepoRoot "..")).Path "nativeweb-history-archive"
 }
 
+# A machine-wide reference-transaction hook (dotfiles/githooks) refuses any ref move that is not
+# a fast-forward, as general protection against an accidental force-reset. Every ref move this
+# script makes is exactly that, deliberately -- filter-repo rewrites every commit and moves every
+# branch/tag to point at its rewritten counterpart. Opt out for this process only; it does not
+# survive the session that ran it.
+$env:GIT_ALLOW_PROTECTED = "1"
+
 function Ok      { param($m) Write-Output "ok:    $m" }
 function SkipMsg { param($m) Write-Output "skip:  $m" }
 function Doing   { param($m) Write-Output "do:    $m" }

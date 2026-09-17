@@ -30,6 +30,13 @@ REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 ORIGIN_URL="https://github.com/extrode/nativeweb.git"
 DEFAULT_ARCHIVE_DIR="$(cd "$REPO_ROOT/.." && pwd)/nativeweb-history-archive"
 
+# A machine-wide reference-transaction hook (dotfiles/githooks) refuses any ref move that is not
+# a fast-forward, as general protection against an accidental force-reset. Every ref move this
+# script makes is exactly that, deliberately -- filter-repo rewrites every commit and moves every
+# branch/tag to point at its rewritten counterpart. Opt out for this script's own git commands
+# only; it is not set globally and does not survive the shell that ran it.
+export GIT_ALLOW_PROTECTED=1
+
 EXECUTE=0
 FORCE_PUSH=0
 ARCHIVE_DIR="$DEFAULT_ARCHIVE_DIR"
