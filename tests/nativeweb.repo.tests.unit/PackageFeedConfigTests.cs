@@ -446,6 +446,37 @@ public sealed partial class PackageFeedConfigTests
     [GeneratedRegex("--configfile\\s+\"?([^\"\\s]+)\"?")]
     private static partial Regex ConfigFilePattern();
 
+    /// <summary>
+    /// The two premium ids resolve from the same private source as JauntyQ.*, in both
+    /// config files, by exact id.
+    /// </summary>
+    /// <remarks>
+    /// Exact ids on purpose. The core Extrode.JauntyQ.* packages ship on nuget.org from
+    /// 0.5.0, so an "Extrode.JauntyQ.*" prefix here would drag every core package onto the
+    /// authenticated feed, where none of them exist, and restore would fail NU1101 on the
+    /// generator. An exact id outranks any prefix, so only these two leave the catch-all.
+    /// </remarks>
+    [Theory]
+    [InlineData("nuget.config")]
+    [InlineData("skeleton/nuget.config")]
+    public void NuGetConfig_MapsThePremiumIdsToTheSourceThatServesJauntyQ(string file)
+    {
+        var config = XDocument.Load(Path.Combine(RepoRoot(), file));
+
+        XElement jauntyQ = config.Descendants("packageSourceMapping")
+            .Elements("packageSource")
+            .Single(s => s.Elements("package").Any(p => (string?)p.Attribute("pattern") == "JauntyQ.*"));
+
+        string[] patterns = jauntyQ.Elements("package")
+            .Select(p => (string?)p.Attribute("pattern"))
+            .OfType<string>()
+            .ToArray();
+
+        Assert.Contains("Extrode.JauntyQ.Cli.Premium", patterns);
+        Assert.Contains("Extrode.JauntyQ.Schema.Contract", patterns);
+        Assert.DoesNotContain(patterns, p => p.StartsWith("Extrode.JauntyQ.", StringComparison.Ordinal) && p.EndsWith('*'));
+    }
+
     private static string RepoRoot()
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);
