@@ -191,9 +191,18 @@ if (-not $remoteDevLine) {
 }
 $remoteDevSha = ($remoteDevLine -split "\s+")[0]
 $localDevSha = (git rev-parse dev).Trim()
-if ($remoteDevSha -ne $localDevSha) {
-    Bad "local dev ($localDevSha) does not match origin/dev ($remoteDevSha)"
-    Bad "fetch and reconcile before rewriting -- the lease below would otherwise pin the wrong SHA"
+# Local dev is *expected* to be ahead of origin/dev here -- the normal shape of this whole
+# workflow is finish work on a branch, merge it into dev locally (AGENTS.md's own
+# merged-unpushed convention), then run this before ever pushing that merge. Requiring exact
+# equality would refuse the very case this script exists for. What must be refused is real
+# divergence: origin/dev holding a commit this local dev does not have, which the archive
+# bundles (built from local heads) would then silently miss.
+git fetch --quiet origin refs/heads/dev 2>$null
+git merge-base --is-ancestor $remoteDevSha $localDevSha 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Bad "origin/dev ($remoteDevSha) is not an ancestor of local dev ($localDevSha)"
+    Bad "origin has a commit this checkout does not; fetch and reconcile before rewriting --"
+    Bad "the archive is built from local heads and would silently miss it"
     exit 1
 }
 $otherRemoteRefs = $remoteRefs | Where-Object {
@@ -207,7 +216,7 @@ if ($otherRemoteRefs) {
     Bad "delete or account for each one first"
     exit 1
 }
-Ok "origin has exactly dev, matching local ($localDevSha)"
+Ok "origin has exactly dev, and it is an ancestor of local dev ($localDevSha)"
 
 $localTags = git tag -l
 if ($localTags) {

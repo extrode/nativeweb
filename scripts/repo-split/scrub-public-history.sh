@@ -161,9 +161,17 @@ if [[ -z "$REMOTE_DEV_SHA" ]]; then
   exit 1
 fi
 LOCAL_DEV_SHA="$(git rev-parse dev)"
-if [[ "$REMOTE_DEV_SHA" != "$LOCAL_DEV_SHA" ]]; then
-  bad "local dev ($LOCAL_DEV_SHA) does not match origin/dev ($REMOTE_DEV_SHA)"
-  bad "fetch and reconcile before rewriting -- the lease below would otherwise pin the wrong SHA"
+# Local dev is *expected* to be ahead of origin/dev here -- the normal shape of this whole
+# workflow is finish work on a branch, merge it into dev locally (AGENTS.md's own
+# merged-unpushed convention), then run this before ever pushing that merge. Requiring exact
+# equality would refuse the very case this script exists for. What must be refused is real
+# divergence: origin/dev holding a commit this local dev does not have, which the archive
+# bundles (built from local heads) would then silently miss.
+git fetch --quiet origin refs/heads/dev 2>/dev/null || true
+if ! git merge-base --is-ancestor "$REMOTE_DEV_SHA" "$LOCAL_DEV_SHA" 2>/dev/null; then
+  bad "origin/dev ($REMOTE_DEV_SHA) is not an ancestor of local dev ($LOCAL_DEV_SHA)"
+  bad "origin has a commit this checkout does not; fetch and reconcile before rewriting --"
+  bad "the archive is built from local heads and would silently miss it"
   exit 1
 fi
 OTHER_REMOTE_REFS="$(printf '%s\n' "$REMOTE_REFS" | awk '$2 != "HEAD" && $2 != "refs/heads/dev" {print}')"
@@ -174,7 +182,7 @@ if [[ -n "$OTHER_REMOTE_REFS" ]]; then
   bad "delete or account for each one first"
   exit 1
 fi
-ok "origin has exactly dev, matching local ($LOCAL_DEV_SHA)"
+ok "origin has exactly dev, and it is an ancestor of local dev ($LOCAL_DEV_SHA)"
 
 LOCAL_TAGS="$(git tag -l)"
 if [[ -n "$LOCAL_TAGS" ]]; then
