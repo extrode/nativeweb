@@ -36,10 +36,13 @@ written with. Before the first push the history was filtered with `git filter-re
 
 **Removed history was archived, not discarded.** `scripts/repo-split/scrub-public-history.sh`
 builds a full commit-history bundle of each removed product's paths — `nativeweb-idp-history.bundle`
-and `nativeweb-devmarks-history.bundle` — to a location **outside this repository** before the
-real repo is touched, and refuses to run the real rewrite if that archive is missing or fails to
-verify. Exact archive location is an operator decision made at run time, not committed anywhere
-in this repository.
+and `nativeweb-devmarks-history.bundle` — to a location **outside this repository's working
+tree** before the real repo is touched, and refuses to run the real rewrite if that archive is
+missing, stale, or fails to verify. The default is a fixed, documented sibling directory next to
+the repo, not a secret one — "outside the repository" describes where the bundles live on disk,
+not that the location is undisclosed. Overridable with `--archive-dir`/`-ArchiveDir`; the bundles
+themselves are never committed to this repository under either the default or an overridden
+location.
 
 ## Consequences
 

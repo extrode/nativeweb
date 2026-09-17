@@ -50,6 +50,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Resolved to absolute now, before any `cd`: a relative --archive-dir would otherwise resolve
+# against the scratch clone's own directory inside build_archive, then get deleted along with it.
+mkdir -p "$ARCHIVE_DIR"
+ARCHIVE_DIR="$(cd "$ARCHIVE_DIR" && pwd)"
+
 ok()    { printf 'ok:    %s\n' "$1"; }
 skip()  { printf 'skip:  %s\n' "$1"; }
 doing() { printf 'do:    %s\n' "$1"; }
@@ -81,9 +86,17 @@ build_archive() {
   local bundle="$ARCHIVE_DIR/nativeweb-${name}-history.bundle"
   local scratch="$REPO_ROOT/tmp/repo-split-archive-${name}"
 
+  # `git bundle verify` proves the bundle is intact, not that it is current: a bundle built
+  # before a later commit landed on dev would verify cleanly and be reused, silently missing
+  # that commit's changes under the archived paths. Compare its recorded dev tip to the real one.
   if [[ -f "$bundle" ]] && git bundle verify "$bundle" >/dev/null 2>&1; then
-    skip "$bundle already exists and verifies; not rebuilding"
-    return 0
+    local bundle_dev_sha
+    bundle_dev_sha="$(git bundle list-heads "$bundle" refs/heads/dev 2>/dev/null | awk '{print $1}')"
+    if [[ -n "$bundle_dev_sha" && "$bundle_dev_sha" == "$(git rev-parse dev)" ]]; then
+      skip "$bundle already exists, verifies, and matches dev's current tip; not rebuilding"
+      return 0
+    fi
+    doing "existing $bundle is stale (built from a different dev tip); rebuilding"
   fi
 
   doing "building ${name} archive (full history, not a snapshot) at $bundle"
@@ -136,14 +149,56 @@ for name in idp devmarks; do
 done
 ok "both archive bundles present and verified in $ARCHIVE_DIR"
 
-CURRENT_DEV_SHA="$(git rev-parse dev)"
+# A force-push of dev alone leaves every other ref on origin untouched -- other branches,
+# refs/pull/*, tags -- each keeping the old, unscrubbed graph fully reachable from GitHub even
+# after this succeeds. This whole approach's premise ("one moment before anyone clones") only
+# holds if dev is the only thing origin has. Refuse rather than silently leave that open.
+doing "checking origin has nothing but dev, and that it matches local before rewriting"
+REMOTE_REFS="$(git ls-remote origin 2>&1)" || { bad "could not reach origin: $REMOTE_REFS"; exit 1; }
+REMOTE_DEV_SHA="$(printf '%s\n' "$REMOTE_REFS" | awk '$2 == "refs/heads/dev" {print $1}')"
+if [[ -z "$REMOTE_DEV_SHA" ]]; then
+  bad "origin has no refs/heads/dev; refusing rather than guess what to push over"
+  exit 1
+fi
+LOCAL_DEV_SHA="$(git rev-parse dev)"
+if [[ "$REMOTE_DEV_SHA" != "$LOCAL_DEV_SHA" ]]; then
+  bad "local dev ($LOCAL_DEV_SHA) does not match origin/dev ($REMOTE_DEV_SHA)"
+  bad "fetch and reconcile before rewriting -- the lease below would otherwise pin the wrong SHA"
+  exit 1
+fi
+OTHER_REMOTE_REFS="$(printf '%s\n' "$REMOTE_REFS" | awk '$2 != "HEAD" && $2 != "refs/heads/dev" {print}')"
+if [[ -n "$OTHER_REMOTE_REFS" ]]; then
+  bad "origin has refs besides dev -- force-pushing dev alone will not remove these from GitHub,"
+  bad "so the history being scrubbed stays reachable through them:"
+  printf '%s\n' "$OTHER_REMOTE_REFS" >&2
+  bad "delete or account for each one first"
+  exit 1
+fi
+ok "origin has exactly dev, matching local ($LOCAL_DEV_SHA)"
+
+LOCAL_TAGS="$(git tag -l)"
+if [[ -n "$LOCAL_TAGS" ]]; then
+  doing "local tags exist and are not on origin, so they are not a push-time leak, but"
+  doing "filter-repo will remap each one to wherever its commit lands in the rewritten history:"
+  printf '%s\n' "$LOCAL_TAGS" >&2
+fi
+
+CURRENT_DEV_SHA="$LOCAL_DEV_SHA"
 ok "dev is at $CURRENT_DEV_SHA before rewrite (used to pin the force-push lease below)"
 
 mkdir -p "$REPO_ROOT/tmp"
-BACKUP="$REPO_ROOT/tmp/pre-scrub-backup-$(date +%Y%m%dT%H%M%S).bundle"
+STAMP="$(date +%Y%m%dT%H%M%S)"
+BACKUP="$REPO_ROOT/tmp/pre-scrub-backup-$STAMP.bundle"
 doing "backing up full history to $BACKUP before rewriting"
 git bundle create "$BACKUP" --all
 ok "backup written: $BACKUP"
+
+# Recorded even if this run does not also --force-push: without it, a later manual push has no
+# record of which SHA the lease should be pinned to, and re-deriving it means re-reading history
+# that this same command is about to rewrite out from under itself.
+SHA_RECORD="$REPO_ROOT/tmp/pre-scrub-dev-sha-$STAMP.txt"
+echo "$CURRENT_DEV_SHA" > "$SHA_RECORD"
+ok "pre-rewrite dev SHA recorded at $SHA_RECORD"
 
 doing "rewriting history (git filter-repo --force)"
 ALREADY_RAN="$REPO_ROOT/.git/filter-repo/already_ran"
