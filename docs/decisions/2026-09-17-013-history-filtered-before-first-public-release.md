@@ -30,9 +30,19 @@ written with. Before the first push the history was filtered with `git filter-re
 - **Remove DevMarks's source**, a bookmarks product spun out to manzil.my and removed from HEAD
   at `0760c7c`, the same pattern at smaller scale.
 - **Replace two real infrastructure IPs** with RFC 5737 documentation-range placeholders.
-- **Replace the pre-Extrode org identity, "extrode-legacy-org"**, in commit messages — the same category
-  JauntyQ redacted from its own history. Author and committer identity (the maintainer's own
+- **Replace the pre-Extrode org identity, "extrode-legacy-org"**, in commit messages and in tracked file
+  content (`--replace-message` and `--replace-text` respectively — the same string, two fast-export
+  sections neither flag alone reaches). Author and committer identity (the maintainer's own
   verified name and email) is untouched, matching JauntyQ's own carve-out; it is not a leak.
+- **Rename the two `scripts/cleanup/` scripts whose own filename names "extrode-legacy-org"**
+  (`relocate-nativeweb-to-extrode-legacy-org.ps1`, `stale-extrode-legacy-org-references.ps1`) to
+  `relocate-nativeweb-to-legacy-org.ps1` and `stale-legacy-org-references.ps1`, via
+  `--path-rename`. `--replace-text` rewrites blob content, never a path, so these two would
+  otherwise still name the org in a plain `git log`/`ls` of the public repo after every other
+  transform ran. Their content is left alone by this rename — it is already covered by the
+  `--replace-text` pass above, and rewriting it by hand pre-emptively was rejected once already,
+  in `chore/backlog-sweep` (2026-08-29): it would make each script contradict its own opening
+  paragraph before the one moment this history rewrite is designed to do that correctly.
 
 **Removed history was archived, not discarded.** `scripts/repo-split/scrub-public-history.sh`
 builds a full commit-history bundle of each removed product's paths — `nativeweb-idp-history.bundle`
