@@ -2,10 +2,15 @@
 # JauntyQ's own precedent of doing this before the first public push rather than after (see
 # docs/decisions/2026-09-17-013-history-filtered-before-first-public-release.md).
 #
-# Three transforms, one git-filter-repo pass over the real repo:
+# Four transforms, one git-filter-repo pass over the real repo:
 #   - path removal:     scrub-paths-idp.txt + scrub-paths-devmarks.txt (--invert-paths)
-#   - text replacement: scrub-text-rules.txt    (two real infrastructure IPs)
+#   - text replacement: scrub-text-rules.txt    (two real infrastructure IPs, "extrode-legacy-org" in blob
+#                        content -- catches every tracked file's content, including HEAD's)
 #   - message rewrite:  scrub-message-rules.txt (the pre-Extrode org identity, "extrode-legacy-org")
+#   - path rename:      the two scripts/cleanup/ scripts whose own FILENAME names "extrode-legacy-org" --
+#                        --replace-text only rewrites blob content, never a path, so these two
+#                        would otherwise still read "extrode-legacy-org" in a plain `git log`/`ls` of the
+#                        public repo even after every other transform runs
 #
 # Unlike JauntyQ's own scrub (pure text/message replacement, nothing removed), this one removes
 # whole directories from history -- the identity provider that left NativeWeb on 2026-08-31 and
@@ -101,6 +106,16 @@ $TextRules = Join-Path $Here "scrub-text-rules.txt"
 $MessageRules = Join-Path $Here "scrub-message-rules.txt"
 $AlreadyRan = Join-Path $RepoRoot ".git\filter-repo\already_ran"
 
+# --path-rename is not a selection filter (unlike --paths-from-file), so listing these here is
+# safe alongside --invert-paths over an unrelated path list above -- verified in a scratch repo:
+# the renamed file survives and lands under its new name while the --invert-paths exclusions are
+# still removed. Never put these in a --paths-from-file: that flag also acts as a --path filter,
+# and combined with --invert-paths would delete exactly the two files this is meant to keep.
+$PathRenames = @(
+    "--path-rename", "scripts/cleanup/relocate-nativeweb-to-extrode-legacy-org.ps1:scripts/cleanup/relocate-nativeweb-to-legacy-org.ps1",
+    "--path-rename", "scripts/cleanup/stale-extrode-legacy-org-references.ps1:scripts/cleanup/stale-legacy-org-references.ps1"
+)
+
 # --- Phase 1: build and verify the archive (always runs, read-only against this repo) --------
 
 function Build-Archive {
@@ -160,7 +175,8 @@ if (-not $Execute) {
         --paths-from-file $DevmarksPaths `
         --invert-paths `
         --replace-text $TextRules `
-        --replace-message $MessageRules
+        --replace-message $MessageRules `
+        @PathRenames
     Dry "review .git/filter-repo/ for the analysis; re-run with -Execute to apply"
     exit 0
 }
@@ -251,7 +267,8 @@ Invoke-GitFilterRepo --force `
     --paths-from-file $DevmarksPaths `
     --invert-paths `
     --replace-text $TextRules `
-    --replace-message $MessageRules
+    --replace-message $MessageRules `
+    @PathRenames
 Ok "history rewritten"
 
 Doing "re-adding origin remote (filter-repo removes it as a safety measure)"
