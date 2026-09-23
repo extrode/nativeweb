@@ -104,7 +104,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html" class="active" aria-current="page">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html" class="active" aria-current="page">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -430,8 +430,10 @@ exactly the traffic the cache exists for.</p>
 <li><strong>Under load with PostgreSQL.</strong> Every row here runs against the in-memory store, so the
 measurement is the render path and the pipeline, not the query path. A JauntyQ-backed run is a
 different harness and a different baseline.</li>
-<li><strong>On the deployment target.</strong> <code>docs/02-reference/deployment.md</code> still reads <code>NOT YET MEASURED</code>
-for every elapsed time, and spec 011's T15 has never run on a real host.</li>
+<li><strong>On the deployment target.</strong> Every row here was taken on this workstation. Spec 011's T15
+ran on real hosts on 2026-09-05 and the deployment reference now carries measured numbers,
+but what it measured is deploy, restore and rebuild elapsed time. No render or throughput
+figure has ever been taken on a deployed host.</li>
 <li><strong>Concurrency other than 16.</strong> The harness takes <code>--concurrency</code>; nothing has used it.</li>
 </ul>
 

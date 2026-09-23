@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Versioning and release — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Reference &#8250; Versioning and release</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Quick start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html" class="active" aria-current="page">Versioning and release</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#one-version-every-package">One version, every package</a><a class="toc-l2" href="#what-each-component-means">What each component means</a><a class="toc-l2" href="#what-counts-as-breaking">What counts as breaking</a><a class="toc-l2" href="#support-window">Support window</a><a class="toc-l2" href="#retiring-a-library">Retiring a library</a><a class="toc-l2" href="#where-the-packages-go-and-where-they-do-not">Where the packages go, and where they do not</a><a class="toc-l2" href="#cutting-a-release">Cutting a release</a><a class="toc-l2" href="#related">Related</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Versioning and release</nav>
+        <article>
+<h1 id="versioning-and-release">Versioning and release</h1>
+<p>What a <code>NativeWeb.*</code> version number promises, what breaks one, how long a released minor is
+supported, and how a library is retired. Written for spec 028 R8, which discharges obligation 2
+of decision 004: a release process
+for a library, which is not the same thing as a release process for an application.</p>
+<h2 id="one-version-every-package">One version, every package</h2>
+<p>Every <code>NativeWeb.*</code> package carries the same version, from a single <code>VersionPrefix</code> in
+<code>Directory.Build.props</code>. There is no per-library version and there will not be one.</p>
+<p>That is a deliberate loss of precision. <code>NativeWeb.Mail</code> changes far less often than
+<code>NativeWeb.Scaffold</code>, so lockstep versioning means it gets minor bumps that changed nothing in
+it. The alternative costs more: thirteen libraries that reference each other, versioned
+independently, produce a matrix where <code>NativeWeb.Web 0.4.0</code> and <code>NativeWeb.Render 0.2.0</code> restore
+together, compile, and were never built or tested together once. <code>PackageVersionTests</code> enforces
+the single version, and <code>tools/pack.ts</code> refuses to run when <code>Directory.Build.props</code> declares more
+than one.</p>
+<table>
+<thead>
+<tr>
+<th>version</th>
+<th>what it means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X.Y.Z</code></td>
+<td>a release. Built from a <code>vX.Y.Z</code> tag by <code>.github/workflows/publish.yml</code>, and the only thing ever pushed to the feed</td>
+</tr>
+<tr>
+<td><code>X.Y.Z-dev</code></td>
+<td>every other build. What a local <code>deno run -A tools/pack.ts</code> produces, and what CI packs on every push</td>
+</tr>
+</tbody>
+</table>
+<p>The suffix is opt-in in the safe direction: a release requires <code>IsReleaseBuild=true</code>, which only
+the publish workflow passes. An unmarked pack cannot produce something that looks like a release.</p>
+<h2 id="what-each-component-means">What each component means</h2>
+<p>Pre-1.0, and this framework is 0.x, semver's own rule is that anything may change in a minor.
+That is not a useful promise to a consumer, so the stricter reading below applies now and becomes
+the literal semver reading at 1.0.</p>
+<table>
+<thead>
+<tr>
+<th>bump</th>
+<th>means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>major</strong></td>
+<td>a seam changed shape. Consumer code stops compiling, or compiles and behaves differently. Pre-1.0 this is the <strong>minor</strong> position: <code>0.1.x</code> → <code>0.2.0</code></td>
+</tr>
+<tr>
+<td><strong>minor</strong></td>
+<td>new capability, nothing removed and nothing re-shaped. Pre-1.0 this shares the minor position, so a <code>0.x</code> minor bump may or may not break; the entry in <code>breaking-changes.md</code> is what says which</td>
+</tr>
+<tr>
+<td><strong>patch</strong></td>
+<td>a defect fixed or a behaviour corrected with no signature change. <code>0.1.0</code> → <code>0.1.1</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>The reliable answer is not the number, it is
+<a href="02-reference-breaking-changes.html"><code>breaking-changes.md</code></a>.</strong> Read it top-down from the version you are on and
+stop at the entry you have already taken. Every entry names the seam, the spec, what changed and
+the before/after a consumer edits by.</p>
+<h2 id="what-counts-as-breaking">What counts as breaking</h2>
+<p>A change is breaking when a consumer who upgrades and rebuilds gets a compile error, or gets a
+build that succeeds and does something else. Concretely, in this framework:</p>
+<ul>
+<li><strong>A public seam's signature changes.</strong> <code>IScaffoldStore&lt;T&gt;.ListAsync</code> gaining an ordering and a
+cursor on 2026-09-01 is the worked example — every hand-written store had to be edited, and
+nothing generated did.</li>
+<li><strong>A generator's diagnostic set gains a member that fires on code that used to build.</strong> <code>NWF006</code>
+is not breaking (nothing could declare a file field before it existed); a new <code>NWF00n</code> that
+rejects a model shape that used to compile is.</li>
+<li><strong>A configuration key changes name, default, or failure mode.</strong> Everything in
+<a href="02-reference-configuration.html"><code>configuration.md</code></a> is a seam, and the <strong>On a bad value</strong> column is the part
+of it a deployment depends on. Turning a silent fallback into a startup failure is breaking
+even though no code changed.</li>
+<li><strong>A library is removed</strong>, which is the case with the longest reach and is covered below.</li>
+</ul>
+<p>Not breaking: an added optional parameter with a default; a new type; a widened accepted input; a
+performance change; anything under <code>apps/sample</code>, <code>skeleton/</code> or <code>tests/</code>, none of which a
+consumer references.</p>
+<p><strong>A breaking change is not a defect</strong>, and this repository would rather break a seam than carry a
+shim that makes the wrong shape survivable. What is owed instead is the <code>breaking-changes.md</code>
+entry.</p>
+<h2 id="support-window">Support window</h2>
+<p><strong>The current minor, and the one before it.</strong> When <code>0.3.0</code> releases, <code>0.2.x</code> still receives
+security fixes and defect fixes that apply cleanly; <code>0.1.x</code> receives nothing.</p>
+<p>That is short on purpose. Every consumer is an Extrode product in a repository on the same
+machine, so the cost of an upgrade is a rebuild and a read of <code>breaking-changes.md</code>, not a
+procurement cycle. A longer window would buy a consumer time it does not need and would commit
+this repository to backporting into a shape it has already moved past. If a consumer outside that
+set ever exists, this section is the first thing that has to change.</p>
+<p>A fix to a supported older minor releases as a patch on that minor: <code>0.2.4</code> alongside <code>0.3.1</code>.
+<code>VersionPrefix</code> is bumped on a branch cut from that minor's tag, and the same tag-triggered
+publish runs.</p>
+<h2 id="retiring-a-library">Retiring a library</h2>
+<p>The path a departing library takes, and the one <code>nativeweb.signin.epass</code> did not:</p>
+<ol>
+<li><strong>Deprecate in place, in a minor.</strong> The library still ships and still works. Its <code>README.md</code>
+gains a line at the top naming what replaces it and the version it is expected to go in, and
+an entry lands in <code>breaking-changes.md</code> under the deprecation date.</li>
+<li><strong>Ship at least one release in that state</strong>, so a consumer that upgrades sees the notice before
+the library disappears rather than at the same moment.</li>
+<li><strong>Remove in the next breaking bump</strong>, with a second <code>breaking-changes.md</code> entry naming the
+removal and the migration.</li>
+</ol>
+<p><code>nativeweb.signin.epass</code> and <code>nativeweb.auth</code> left on 2026-08-31 with none of that
+(decision 007). Seven files in
+<code>justsmtp.com</code> carried <code>using NativeWeb.SignIn.Epass</code> and still do; the removal was recorded as a
+decision in this repository and reached no consumer. That is what steps 1 to 3 exist to prevent,
+and the structural half of the fix is the version pin itself: a consumer on <code>0.2.x</code> is not moved
+by a removal in <code>0.3.0</code> until it chooses to be.</p>
+<h2 id="where-the-packages-go-and-where-they-do-not">Where the packages go, and where they do not</h2>
+<p><strong>A private feed, always.</strong> <code>.github/workflows/publish.yml</code> pushes to
+<code>https://nuget.pkg.github.com/&lt;owner&gt;/index.json</code>, and there is no path in this repository to
+nuget.org.</p>
+<p>That is not a default anyone is free to change. <code>AGENTS.md</code> states it and
+<code>libs/nativeweb.security/nativeweb.security.csproj</code> repeats it at the point of use: the packages
+are proprietary, and a public feed publishes proprietary source.</p>
+<p><strong>No packable library carries JauntyQ-generated output</strong>, and that is worth stating because an
+earlier draft of this page claimed three of them did. <code>grep -rn -i jauntyq libs/ --include=*.csproj</code>
+finds comments only; the two projects that reference JauntyQ are <code>apps/sample</code> and the stamped
+product under <code>skeleton/</code>, neither of which is packable. <code>tools/pack.ts</code> still refuses a package
+containing a JauntyQ path, because that check is what keeps the claim true rather than assumed:
+a library that grows a JauntyQ reference would otherwise reach the feed and the licence bars it.</p>
+<h2 id="cutting-a-release">Cutting a release</h2>
+<ol>
+<li>Read the branch's <code>CHANGELOG.md</code> under <code>## [Unreleased]</code> and decide the number against
+<strong>What each component means</strong> above.</li>
+<li>Bump <code>VersionPrefix</code> in <code>Directory.Build.props</code> and the five <code>NativeWeb.*</code> pins in
+<code>skeleton/Directory.Packages.props</code> — <code>PackageVersionTests</code> fails if they disagree.</li>
+<li>Move the changelog's <code>## [Unreleased]</code> entries under a <code>## [X.Y.Z]</code> heading, dated.</li>
+<li>Merge <code>dev</code> into <code>main</code> with <code>--no-ff</code>, tag <code>vX.Y.Z</code>, and push the tag.</li>
+</ol>
+<p>The tag is what publishes. <code>publish.yml</code> refuses a tag that disagrees with <code>VersionPrefix</code> before
+it packs anything, so a mistyped tag costs a failed run rather than a burned version — and a
+version on GitHub Packages cannot be replaced, only deleted, which breaks any consumer that has
+already restored it.</p>
+<h2 id="related">Related</h2>
+<ul>
+<li><a href="02-reference-breaking-changes.html"><code>breaking-changes.md</code></a> — what changed at each seam, and the edit.</li>
+<li><a href="02-reference-configuration.html"><code>configuration.md</code></a> — the settings this document treats as seams.</li>
+<li><code>../decisions/2026-08-30-004-package-mode-for-consumers.md</code>
+— why consumers take packages rather than a checkout.</li>
+<li><code>tools/pack.ts</code> — the pack command, and what it verifies in each produced <code>.nupkg</code>.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="02-reference-template-diagnostics.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">NWT template diagnostics</span>
+</a><span></span></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>
