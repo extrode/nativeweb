@@ -104,7 +104,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html" class="active" aria-current="page">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html" class="active" aria-current="page">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -127,7 +127,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — IScaffoldStore&lt;T&gt;.ListAsync takes an ordering and a cursor</a><a class="toc-l3" href="#what-a-consumer-does">What a consumer does</a><a class="toc-l2" href="#2026-08-31--libsnativewebsigninepass-removed">2026-08-31 — libs/nativeweb.signin.epass removed</a><a class="toc-l2" href="#2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — libs/nativeweb.auth and libs/nativeweb.data removed</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</a><a class="toc-l2" href="#2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — IScaffoldStore&lt;T&gt;.ListAsync takes an ordering and a cursor</a><a class="toc-l3" href="#what-a-consumer-does">What a consumer does</a><a class="toc-l2" href="#2026-08-31--libsnativewebsigninepass-removed">2026-08-31 — libs/nativeweb.signin.epass removed</a><a class="toc-l2" href="#2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — libs/nativeweb.auth and libs/nativeweb.data removed</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Breaking changes</nav>
         <article>
@@ -135,14 +135,67 @@
 <p>Every change that makes a consumer's existing code stop compiling or stop behaving as it did,
 newest first. A consumer reads this file top-down from wherever they last upgraded and stops
 when they reach an entry they have already taken.</p>
-<p><strong>Entries are dated and identified by commit, not by version.</strong> NativeWeb is not packaged or
-versioned yet — consumers take it as a submodule or a project reference off <code>dev</code> — so a version
-number here would be a promise nothing enforces. When the libraries are packaged, the version
-each entry first shipped in gets added to it; the dates stay.</p>
+<p><strong>Entries are dated and identified by commit.</strong> Every entry below predates the first release, so
+none carries a version: consumers took the framework as a project reference off <code>dev</code>, where a
+version number would have been a promise nothing enforced. Spec 028 built the pack and the
+tag-triggered publish, so entries from the first <code>v*</code> tag onward name the version they first
+shipped in as well. The dates stay either way.</p>
+<p><strong>What a version promises is in <a href="02-reference-versioning.html"><code>versioning.md</code></a></strong> — what each component means,
+what counts as breaking, how long a released minor is supported, and the deprecation path a
+library takes before it is removed.</p>
 <p><strong>A breaking change is not a defect.</strong> This repository would rather break a seam than carry a
 shim that makes the wrong shape survivable, because a shim outlives the reason for it and the
 next reader cannot tell which of the two overloads is the one to write against. What is owed
 instead is this file: what changed, why, and the before/after a consumer edits by.</p>
+<hr />
+<h2 id="2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</h2>
+<p><strong>Seam:</strong> <code>NativeWeb.Web</code>'s MSBuild contribution — <code>libs/nativeweb.web/build/NativeWeb.Web.targets</code>.
+<strong>Spec:</strong> 029.
+<strong>Affects:</strong> every product carrying its own <code>templates/shared/antiforgery.html</code>,
+<code>bot-traps.html</code>, <code>banner-ok.html</code> or <code>banner-error.html</code>. A product carrying none of them
+takes this change by rebuilding and changes nothing.</p>
+<p>These four render framework markup from framework code: <code>Chrome.For</code> fills the antiforgery
+input and issues the bot-trap canary, and <code>Flash.Take</code> feeds the two banners. As per-product
+copies they were a fix that could not ship. <code>bot-traps.html</code> was the sharp end — it spells five
+<code>BotTraps</code> field names as literal text, and a renamed constant left every vendored copy
+rendering fields the inspector no longer reads, with no compile error, no test failure and no
+runtime error. Bot detection just stopped.</p>
+<p>They now live at <code>libs/nativeweb.web/templates/shared/</code> and are contributed as <code>AdditionalFiles</code>
+by <code>NativeWeb.Web.targets</code>. The logical names are unchanged — the render generator keys a
+template's name on the part after the last <code>/templates/</code> segment of its physical path — so
+<strong>no call site changes</strong>: <code>{{&gt; shared/bot-traps Canary=BotCanary}}</code> resolves as it always did.</p>
+<p><strong>Delete your copy.</strong> That is the whole upgrade:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">rm templates/shared/antiforgery.html templates/shared/bot-traps.html
+rm templates/shared/banner-ok.html templates/shared/banner-error.html
+</code></pre>
+</div>
+<p>Leaving one in place is a build error naming the file, not a silent last-wins — the generator
+keys its model dictionary on the logical path, so before this the second file to arrive replaced
+the first and which one that was depended on MSBuild item order.</p>
+<p>Two escape hatches, if deleting is not what you want:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-com">&lt;!-- keep your own copy of one, and say so --&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">NativeWebTemplateOverride</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;shared\bot-traps.html&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+
+<span class="tok-com">&lt;!-- take none of them --&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">NativeWebImportTemplates</span><span class="tok-punc">&gt;</span>false<span class="tok-punc">&lt;/</span><span class="tok-tag">NativeWebImportTemplates</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>An override logs a message naming what it replaced. Turning the import off entirely makes a call
+site to a framework template fail at compile time with NWT005, which is the right failure.</p>
 <hr />
 <h2 id="2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — <code>IScaffoldStore&lt;T&gt;.ListAsync</code> takes an ordering and a cursor</h2>
 <p><strong>Seam:</strong> <code>NativeWeb.Scaffold.IScaffoldStore&lt;T&gt;</code> — <code>libs/nativeweb.scaffold/IScaffoldStore.cs</code>.

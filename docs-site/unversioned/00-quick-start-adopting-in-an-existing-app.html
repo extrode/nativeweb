@@ -104,7 +104,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html" class="active" aria-current="page">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html" class="active" aria-current="page">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -151,18 +151,16 @@ its checkout is probed relative to the NativeWeb one:</p>
   </div>
   <pre data-lang="text"><code class="language-text">your-org/
   nativeweb/          &lt;- this repository
-  jauntyq/            &lt;- required: nativeweb.web, .render and .security all build against it
   your-product/       &lt;- yours
 </code></pre>
 </div>
-<p>Without <code>jauntyq/</code> the first build stops at <code>JauntyQ checkout not found at '&lt;...&gt;\..\jauntyq'</code> before any of your own code compiles. <code>-p:JauntyQRoot=&lt;path&gt;</code> overrides the
-location. Do not reach for <code>-p:JauntyQUsePackages=true</code>: that path exists for this repository's
-CI and the packages are not available to you.</p>
-<p><strong>JauntyQ is not public, and this is the step that stops an outside team.</strong> It is licensed for
-self-hosted-SaaS use of its generated output; its source and binaries are not redistributable,
-so no link here would help you and none is given. If you do not already have a checkout, that is
-a licensing conversation to have before starting, not a step to work around. Everything below
-assumes you have one.</p>
+<p>No <code>jauntyq/</code> sibling is needed. NativeWeb resolves JauntyQ from the pinned <code>JauntyQ.*</code> packages
+by default since 2026-09-05, so the only JauntyQ prerequisite is being able to restore them.</p>
+<p><strong>Those packages are private, and this is the step that stops an outside team.</strong> JauntyQ is
+licensed for self-hosted-SaaS use of its generated output; its source and binaries are not
+redistributable, so the <code>jauntyq-github</code> feed is credentialed per organisation and no link here
+would help you. If you cannot restore <code>JauntyQ.Generator</code>, that is a licensing conversation to
+have before starting, not a step to work around. Everything below assumes you can.</p>
 <p>Then add to your product's <code>Directory.Build.props</code>. Both casings are probed because both are in
 the wild: the repository is <code>nativeweb</code> on disk, and <code>getting-started.md</code> has long told people
 to clone it as <code>NativeWeb</code>.</p>
@@ -290,8 +288,8 @@ that takes the options, because it reads the security contact and the readiness 
 from <code>MyProduct:</code>. Pass a third argument to <code>FromConfiguration</code> when they differ. Every key is in
 <a href="02-reference-configuration.html"><code>../02-reference/configuration.md</code></a>.</p>
 <p>Pass <code>typeof(Program).Assembly</code> rather than letting it default to the entry assembly: under a
-<code>WebApplicationFactory</code> test the entry assembly is <code>testhost</code>, and <code>/version</code> reports its version
-instead of yours.</p>
+<code>WebApplicationFactory</code> test the entry assembly is the test assembly, not yours, so <code>/version</code>
+reports its version instead.</p>
 <p><code>AddNativeWebWeb</code> is eleven registrations behind one call, and every one of them is a public
 method on <code>NativeWebPipeline</code>. If you need to sit between two of them, write the eleven out.</p>
 <h3 id="two-things-that-stop-the-process-if-you-skip-them">Two things that stop the process if you skip them</h3>
@@ -423,7 +421,7 @@ your deployment has no such guard unless you write one.</p>
 project and drive the four through a <code>WebApplicationFactory&lt;Program&gt;</code>. Top-level statements make
 <code>Program</code> internal, so add <code>public partial class Program;</code> to the end of the file or the factory
 will not close over it — and this is where passing <code>typeof(Program).Assembly</code> earns its keep,
-because the entry assembly under a factory is <code>testhost</code>.</p>
+because the entry assembly under a factory is the test assembly, not the product's.</p>
 <h2 id="if-you-get-stuck">If you get stuck</h2>
 <ul>
 <li><code>../../libs/nativeweb.web/README.md</code> — the pipeline in
@@ -436,7 +434,7 @@ between the version you cloned and the one you pulled.</li>
 
         </article>
         <div class="page-nav" id="page-nav">
-          <div class="prev-next"><a class="pn-prev" href="00-quick-start-README.html">
+          <div class="prev-next"><a class="pn-prev" href="00-quick-start-readme.html">
   <span class="pn-label">&#8592; prev</span>
   <span class="pn-title">NativeWeb</span>
 </a><a class="pn-next" href="00-quick-start-getting-started.html">

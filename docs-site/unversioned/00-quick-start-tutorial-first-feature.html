@@ -104,7 +104,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html" class="active" aria-current="page">Tutorial — build your first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html" class="active" aria-current="page">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -602,8 +602,9 @@ twenty-row page. A perturbation that fails a test by an unintended route proves 
 test. Re-run singly, each failed alone.</p>
 <p><strong>Read the failure, do not count it.</strong> Adding <code>.RequireAuthorization()</code> failed the e2e guard test in
 96 ms, fast enough to suspect the host had never started. The message settled it —
-<code>Assert.EndsWith() Failure … String: &quot;http://localhost:5348/admin&quot;</code> — the browser really had
-followed <code>/articles</code> → <code>/signin</code> → <code>/admin</code>. A red test for the wrong reason is the same as a green
+<code>Assert.EndsWith() Failure … String: &quot;http://localhost:&lt;port&gt;/admin&quot;</code> — the browser really had
+followed <code>/articles</code> → <code>/signin</code> → <code>/admin</code>. The port is whatever the operating system handed the
+fixture, so yours will differ. A red test for the wrong reason is the same as a green
 test for the wrong reason.</p>
 <h2 id="run-it-all">Run it all</h2>
 <div class="code-block">
@@ -611,9 +612,9 @@ test for the wrong reason.</p>
     <span class="code-lang">text</span>
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="text"><code class="language-text">dotnet test tests/nativeweb.sample.tests.unit
-dotnet test tests/nativeweb.scaffold.tests.integration
-dotnet test tests/nativeweb.scaffold.tests.e2e
+  <pre data-lang="text"><code class="language-text">dotnet test --project tests/nativeweb.sample.tests.unit
+dotnet test --project tests/nativeweb.scaffold.tests.integration
+dotnet test --project tests/nativeweb.scaffold.tests.e2e
 </code></pre>
 </div>
 <p>The integration and e2e tiers need <code>nativeweb_sample_test</code> — <code>db/sample/README.md</code>

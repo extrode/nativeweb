@@ -104,7 +104,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Quick start</span>
   </div>
-  <div class="nav-group-items">  <a href="00-quick-start-README.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
 </div>
 <div class="nav-group" data-group>
   <div class="nav-group-header" onclick="toggleGroup(this)">
@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html" class="active" aria-current="page">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html" class="active" aria-current="page">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -137,8 +137,8 @@
 (<code>../decisions/2026-08-31-007-idp-leaves-nativeweb.md</code>). <code>scripts/deploy/</code> was retargeted the
 same day: <code>build.sh</code> publishes <code>apps/sample</code> by default and takes <code>PROJECT=&lt;csproj&gt;</code> for a
 stamped product's own app, and it installs the executable under the fixed name <code>nativeweb</code>, so
-nothing downstream — <code>deploy.sh</code>, <code>nativeweb@.service</code>, Caddy — names the project. The warning
-below still stands: nothing here has been run on a real host.</p>
+nothing downstream — <code>deploy.sh</code>, <code>nativeweb@.service</code>, Caddy — names the project. Since
+2026-09-05 all of it has been run on a real host; what has not is below.</p>
 </blockquote>
 <p>Spec: <code>../specs/011-production-deployment/011-spec.md</code>
 Scripts: <code>../../scripts/deploy/</code></p>
@@ -146,14 +146,26 @@ Scripts: <code>../../scripts/deploy/</code></p>
 recovering a NativeWeb production host. Everything here is a command to run or a
 decision with a stated default.</p>
 <blockquote>
-<p><strong>Releasing has now been executed for real; restoring and disaster recovery
-have not.</strong> On 2026-09-01 a <code>linux-x64</code> artifact built by <code>build.sh</code> was
-deployed by <code>deploy.sh</code> to <code>nativeweb-dev</code> (10.0.0.30, Debian 12, an Incus
-guest on <code>incus-host</code>) and promoted to blue, and the result is public at
-<code>https://nw-dev.example.com</code>. That closes R1. <strong>R16 and R17 remain unmet</strong> —
-nobody has restored a backup taken by <code>backup.sh</code>, and the elapsed times in
-<strong>Restoring</strong> and <strong>Disaster recovery</strong> below still read <code>NOT YET MEASURED</code>
-because they are literal.</p>
+<p><strong>Releasing, restoring and disaster recovery have all now been executed for
+real. What has never been rehearsed is losing the machine.</strong> On 2026-09-01 a
+<code>linux-x64</code> artifact built by <code>build.sh</code> was deployed by <code>deploy.sh</code> to
+<code>nativeweb-dev</code> (10.0.0.30, Debian 12, an Incus guest on <code>incus-host</code>)
+and promoted to blue, and the result is public at <code>https://nw-dev.example.com</code>;
+that closes R1. On 2026-09-05 a backup was taken, restored into a scratch
+database and served from, and <code>nativeweb-dr</code> was rebuilt from repository plus
+backup in 345 s. That closes R16 and R17a, and every elapsed time below is now
+a measured number rather than a placeholder. Build time is the one it does not
+record: the drill repackaged a running release rather than publishing one.</p>
+<p><strong>R14 and R17b are unmet, and they are the ones that matter most.</strong> The backup
+bucket is a MinIO container on <code>incus-host</code>, the machine being backed up,
+so losing that machine loses the guest, the replacement and the bucket
+together. The drill rehearsed recovering a broken guest. The <code>age</code> private key is
+the one part of that set which now survives the host, stored off-fleet 2026-09-06.
+<strong>R17b had two blockers and now has one.</strong> Its criterion is that the backup is
+still readable after the host is gone, and readable needs both the bytes and the
+key; the key is off the fleet and the bytes are not. R14 is about location alone,
+so it is untouched. Both stay unmet. R15 is unmet too:
+<code>BACKUP_HEARTBEAT_URL</code> is unset, so a backup that stops running is unnoticed.</p>
 <p><strong>Three attempts were needed and two of them were defects in these scripts,</strong>
 which is what a first real run is for. Both are fixed and both now have a test:
 <code>ConditionPathExists</code> sat in <code>[Service]</code>, where systemd logs &quot;Unknown key name&quot;
@@ -308,7 +320,20 @@ bucket.</strong> This is the single point of failure in the whole design: lose t
 key and every object in the bucket is unreadable noise, and no amount of
 working backups helps. A password manager, a second machine, a printed copy
 in a safe — anywhere, as long as losing the host does not lose the key.
-<code>WHERE THE OFF-HOST COPY LIVES: NOT YET RECORDED</code></p>
+<strong>Recorded 2026-09-06:</strong> an off-host copy exists, in the operator's own
+store, off <code>incus-host</code>. Deliberately not named here -- this file is
+in a public repository, and a runbook that names the vault holding the key
+is half of the compromise. Ask the operator.
+<strong>The <code>nativeweb-dev</code> key of 2026-09-01 is not being rotated -- decided by
+the operator, 2026-09-06.</strong> It was printed into a terminal session and read
+back from that session's own output during the 2026-09-05 drill, so it
+exists in whatever transcript, scrollback or shell history that session
+left behind. The operator judged that reach acceptable for <code>nativeweb-dev</code>.
+<strong>Revisit it if that material ever leaves their own machines, and do not
+carry the decision to a production key.</strong> Rotating would mean <code>age-keygen</code>
+afresh, a new <code>BACKUP_AGE_RECIPIENT</code>, and keeping the old private key for
+as long as objects encrypted to the old recipient are inside the retention
+window.</p>
 </blockquote>
 <p>Put the public half in <code>BACKUP_AGE_RECIPIENT</code> in <code>/etc/nativeweb/backup.env</code>,
 along with the bucket, endpoint and access keys.
@@ -527,6 +552,24 @@ behind an edge proxy needs a different one.</strong> <code>nativeweb-dev</code> 
 <code>trusted_proxies</code>, and the <code>/docs</code> block above is the only part the two share
 verbatim.</p>
 <h2 id="backups">Backups</h2>
+<blockquote>
+<p><strong><code>nw-dev.example.com</code> is being moved off this script, and nothing is backing it
+up in the meantime.</strong> The intended home is the <code>incus-host</code> fleet backup, which
+does the same <code>pg_dump -Fc</code> into two independent backup-tool repositories -- offsite object storage
+and a offsite storage -- with a daily integrity check and a dead-man probe. The
+two-word change that puts this VM in its tier-1 and tier-3 lists is merged to that
+repository's <code>dev</code>, but <code>/opt/host-backup</code> on <code>incus-host</code> still runs the
+pre-review scripts, so <strong>on the host nothing has changed yet</strong>. Their tier 3 has
+additionally never produced a snapshot at all: ten of the host's 25 instances are
+unclassified and the coverage check exits before the first export. See the gap table
+below.
+<code>the host's ops runbook</code> is the operating document for it,
+and restores for that host follow its <strong>Restoring</strong> section rather than the one
+below.</p>
+<p>Everything in this section and the next stays the reference story for a NativeWeb
+deployment that has no fleet behind it, which is most of them. <code>backup.sh</code> and
+<code>restore.sh</code> are unchanged and still what <code>provision.sh</code> installs.</p>
+</blockquote>
 <p>Nightly at 03:17 UTC (plus up to 15 minutes of jitter), <code>Persistent=true</code> so a
 host that was off catches up rather than skipping a day silently.
 <code>pg_dump -Fc</code> piped straight into <code>age</code> — the plaintext dump never touches disk —
@@ -557,10 +600,14 @@ because nothing happened. Only an external dead-man's-switch catches it:
 when the ping does not arrive.</li>
 </ul>
 <blockquote>
-<p><strong><code>BACKUP_HEARTBEAT_URL</code> is currently unset, so R15 is not met.</strong> A backup that
-silently stops running will not be noticed. Point it at an external check
-(healthchecks.io or equivalent) to close this. <code>backup.sh</code> says so in its own
-output on every run rather than letting the gap pass quietly.</p>
+<p><strong><code>BACKUP_HEARTBEAT_URL</code> is unset, so R15 is not met by this script.</strong> A backup
+that silently stops running will not be noticed. Point it at an external check
+(healthchecks.io or equivalent) to close it. <code>backup.sh</code> says so in its own output
+on every run rather than letting the gap pass quietly.</p>
+<p>For <code>nw-dev.example.com</code> the fleet's own dead-man probe covers this instead -- a
+GitHub Actions workflow that alerts on a stale freshness marker every six hours.
+Read its own caveat before trusting it: a green marker means the job ran, not that
+your database was in the list it dumped.</p>
 </blockquote>
 <h2 id="restoring">Restoring</h2>
 <p><strong>Drill against a scratch database. Never against production by accident</strong> — the
@@ -586,8 +633,21 @@ round for a guard whose whole argument is &quot;practise on the scratch copy&quo
 </blockquote>
 <p><code>pg_restore</code> exiting 0 means the rows loaded, not that the application works
 against them. The drill is not finished until you have pointed a NativeWeb
-instance at the restored database and <strong>signed in as an account that existed when
-the backup was taken</strong>.</p>
+instance at the restored database and <strong>served a row that existed when the backup
+was taken, while a row written after it is absent</strong>.</p>
+<blockquote>
+<p><strong>That criterion replaced &quot;signed in as an account that existed when the backup
+was taken&quot; on 2026-09-05.</strong> <code>apps/sample</code> keeps no accounts in the database --
+its only sign-in is a passphrase read from <code>secrets.env</code> -- so the old wording
+passed against the drill database, against an empty database, and against no
+restore at all. It tested nothing. The replacement is falsifiable: write a
+marker row <em>after</em> the backup, and the restored database must not have it.</p>
+</blockquote>
+<p>Drill of 2026-09-05, on <code>nativeweb-dev</code>, against MinIO on the same fleet host:
+<code>drill-pre-20260905</code> was written before the backup and <code>drill-post-20260905</code>
+after it. The restored database held the first and not the second, and the
+current release served <code>/articles/restore-drill-pre</code> 200 and
+<code>/articles/restore-drill-post</code> 404 against it.</p>
 <table>
 <thead>
 <tr>
@@ -598,25 +658,47 @@ the backup was taken</strong>.</p>
 <tbody>
 <tr>
 <td>Time to download and restore</td>
-<td><code>NOT YET MEASURED</code></td>
+<td><strong>1 s</strong> (10,359-byte dump, 8 MB database)</td>
 </tr>
 <tr>
-<td>Time to a verified sign-in against restored data</td>
-<td><code>NOT YET MEASURED</code></td>
+<td>Time to a verified serve against restored data</td>
+<td><strong>1 s</strong></td>
 </tr>
 <tr>
 <td>Date of the last successful drill</td>
-<td><code>NEVER RUN</code></td>
+<td><strong>2026-09-05</strong></td>
 </tr>
 </tbody>
 </table>
+<p>The dump is small because the database is nearly empty; these figures are a
+floor, not a capacity measurement.</p>
 <h2 id="disaster-recovery">Disaster recovery</h2>
 <p>Losing the host is an outage, not a failover — one host, by decision. This is the
-whole way back, from nothing but this repository and the backup bucket:</p>
+whole way back, from nothing but this repository and the backup bucket.</p>
+<blockquote>
+<p>For <code>nw-dev.example.com</code> the bytes now come from the fleet's backup-tool repositories
+rather than from a bucket this host writes to, so steps 3, 4 and 7 are replaced by
+the fleet runbook's <strong>Restoring</strong> section: backup-tool restores the <code>.dump</code> files to a
+scratch directory and <code>pg_restore</code> loads them. Steps 1, 2, 5, 6, 8 and 9 are
+unchanged, and step 2 becomes the backup-tool password rather than the <code>age</code> key. The
+sequence below remains the story for a deployment backing up with <code>backup.sh</code>.</p>
+</blockquote>
 <ol>
 <li>Provision a new host: <strong>Provisioning a host</strong>, above.</li>
-<li>Restore the <code>age</code> private key from wherever the off-host copy lives. Without
-it, stop — the bucket is noise.</li>
+<li>Restore the <code>age</code> private key from the operator's off-host store. Without it,
+stop — the bucket is noise. The key was printed once when <code>nativeweb-dev</code> was
+provisioned; an off-host copy was made on 2026-09-06, so this step now has
+something to read. It did not when the drill below was run, which re-used the
+printed value from the session that generated it.</li>
+<li>Install <code>age</code> and the AWS CLI if the image does not carry them, and make sure the
+backup bucket accepts connections from the new host's address.</li>
+<li>Fill <code>BACKUP_S3_BUCKET</code>, <code>BACKUP_S3_ENDPOINT</code>, <code>AWS_ACCESS_KEY_ID</code> and
+<code>AWS_SECRET_ACCESS_KEY</code> in the <strong>new</strong> host's <code>/etc/nativeweb/backup.env</code>.
+<code>provision.sh</code> seeds them empty and <code>restore.sh</code> dies on the first of them.</li>
+<li>Carry <code>secrets.env</code> and <code>app.env</code> across from wherever they are kept.</li>
+<li>Set the app role's password to match that <code>secrets.env</code>:
+<code>sudo -u postgres psql -c &quot;alter role nativeweb with password '...'&quot;</code>. <code>pg_dump -Fc</code>
+dumps one database, not roles, so the restore does not bring it.</li>
 <li><code>restore.sh --target nativeweb --from-host &lt;old-host&gt; --overwrite-production --execute</code>.
 <strong><code>--from-host</code> is not optional here if the new machine has a different name.</strong>
 <code>backup.sh</code> writes under the <em>writing</em> host's short name, and <code>restore.sh</code>
@@ -636,14 +718,41 @@ only when the replacement carries the old hostname.</li>
 <tbody>
 <tr>
 <td>Total time, bare host to serving</td>
-<td><code>NOT YET MEASURED</code></td>
+<td><strong>345 s</strong> (5 m 45 s)</td>
 </tr>
 <tr>
 <td>Date last exercised</td>
-<td><code>NEVER RUN</code></td>
+<td><strong>2026-09-05</strong></td>
 </tr>
 </tbody>
 </table>
+<p>Measured 2026-09-05 rebuilding <code>nativeweb-dr</code> on <code>incus-host</code>: guest created,
+<code>provision.sh --edge 10.0.0.1</code> (26 s), age key installed from the value
+printed when <code>nativeweb-dev</code> was provisioned (no off-host copy existed on the day
+of the drill; one was made 2026-09-06, so step 2 as written above has not itself
+been exercised), <code>restore.sh --target nativeweb --from-host nativeweb-dev --overwrite-production --execute</code>, <code>deploy.sh --incus</code>, then <code>/healthz</code> 200,
+<code>/readyz</code> 200 and the pre-backup article served. <strong>Four caveats on that number:</strong></p>
+<ul>
+<li>The artifact was <strong>not rebuilt</strong>. <code>build.sh</code> needs the JauntyQ feed credential
+(see the gap table below), so the running release was repackaged from
+<code>nativeweb-dev</code> with <code>tar --zstd</code>, the same shape <code>build.sh</code> emits. A real
+rebuild adds however long a publish takes to the 345 s.</li>
+<li>The bucket is MinIO <strong>on the same physical host</strong>. Losing <code>incus-host</code>
+loses the guest, the replacement guest and the bucket together, so this
+exercises R17a and leaves R17b and R14 unmet. The key was in that set on the day
+and is not any more, which removes one of R17b's two blockers -- readable needs
+the key and the bytes -- and neither of R14's, which is about location alone.</li>
+<li>Four preconditions the numbered list above did not state were found by running
+it: the DR host needs the bucket, endpoint and both AWS keys in its own
+<code>backup.env</code> (<code>provision.sh</code> seeds them empty and <code>restore.sh</code> dies on the
+first), <code>age</code> and the AWS CLI must be installed, the object storage must allow
+the new host's address, and the app role's password must be set to match the
+carried <code>secrets.env</code> -- <code>pg_dump -Fc</code> dumps one database, not roles. They are
+now steps 3 to 6.</li>
+<li><code>provision.sh</code> must run <strong>inside the guest</strong>. On the fleet host it would
+overwrite <code>/etc/caddy/Caddyfile</code>, which serves every site on the machine, and
+its nftables ruleset opens with <code>flush ruleset</code>.</li>
+</ul>
 <h2 id="known-gaps">Known gaps</h2>
 <table>
 <thead>
@@ -658,16 +767,24 @@ only when the replacement carries the old hostname.</li>
 <td><strong>Closed 2026-09-01</strong> — provisioned and deployed to on <code>nativeweb-dev</code>. R1 met</td>
 </tr>
 <tr>
-<td>The restore drill has never been run</td>
-<td>T15, outstanding — R16 unmet</td>
+<td><del>The restore drill has never been run</del></td>
+<td><strong>Closed 2026-09-05</strong> — drilled on <code>nativeweb-dev</code>, R16 met under the amended criterion above</td>
 </tr>
 <tr>
-<td>Disaster recovery has never been exercised</td>
-<td>T15, outstanding — R17 unmet</td>
+<td><del>Disaster recovery has never been exercised</del></td>
+<td><strong>Closed 2026-09-05</strong> — <code>nativeweb-dr</code> rebuilt from repo plus backup in 345 s, R17a met with the four caveats above</td>
+</tr>
+<tr>
+<td>No backup is offsite</td>
+<td><strong>R14 and R17b closing, not yet closed.</strong> <code>nativeweb-dev</code> was added to the fleet backup's tier 1 and tier 3 on 2026-09-06, which puts the dumps on offsite object storage and a offsite storage, both off <code>incus-host</code>. Unmet until a fleet run has captured this VM and a restore from one of those repositories has been drilled; neither has happened yet</td>
+</tr>
+<tr>
+<td>Nothing is backing up <code>nativeweb-dev</code> right now</td>
+<td><strong>Open, and the reason the row above is not closed.</strong> The MinIO container this host's <code>backup.env</code> points at was deleted on 2026-09-06 with every backup in it, and the fleet has not yet run against this VM. The 03:17 timer is still enabled but inert: every run dies at the upload and the dump is removed by the <code>EXIT</code> trap, so disabling it would widen no window. It is left for a host pass, not as cover</td>
 </tr>
 <tr>
 <td>The nightly backup fails on <code>nativeweb-dev</code></td>
-<td><code>BACKUP_S3_BUCKET</code> and its credentials are unset in <code>/etc/nativeweb/backup.env</code>, so the 03:17 timer fails daily. An operator's key, not a script defect</td>
+<td><strong>Closed 2026-09-05, reopened 2026-09-06.</strong> Bucket, endpoint and credentials were filled in and the first successful backup taken; the bucket was MinIO on the same fleet host, and was deleted on 2026-09-06 with everything in it. Folded into the row above — the timer is inert until it is disabled, since every run now dies at the upload and the <code>EXIT</code> trap removes the dump</td>
 </tr>
 <tr>
 <td><code>MemoryDenyWriteExecute=yes</code> verified on WSL2, not on the target host</td>
@@ -675,11 +792,15 @@ only when the replacement carries the old hostname.</li>
 </tr>
 <tr>
 <td><code>BACKUP_HEARTBEAT_URL</code> unset</td>
-<td>R15 unmet until an operator sets it</td>
+<td>R15 unmet until an operator sets it, for any deployment running <code>backup.sh</code>. For <code>nw-dev.example.com</code> the fleet's own six-hourly probe is the intended answer instead — see <strong>Backups</strong>, above</td>
 </tr>
 <tr>
-<td>CI cannot restore in package mode</td>
-<td>Deferred; <code>build.sh</code> pins checkout mode and says why</td>
+<td>The build host needs a JauntyQ feed credential</td>
+<td><code>build.sh</code> pins <strong>package</strong> mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints a <code>dotnet nuget add source --configfile &quot;$HOME/.nuget/NuGet/NuGet.Config&quot;</code> command; an operator runs it once per WSL profile: the file it writes is the user-level</td>
+</tr>
+<tr>
+<td>NuGet config, which persists across shells. It printed <code>update source</code> with no <code>--configfile</code> until 2026-09-06, which writes the token into the checked-out <code>nuget.config</code></td>
+<td></td>
 </tr>
 <tr>
 <td><del>The epass.io cutover scope decision</del></td>
