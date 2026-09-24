@@ -176,7 +176,7 @@ The `JNT` diagnostics are JauntyQ's own and are documented upstream, not in this
 belonging to the template engine, and do not apply here.
 
 **Every column, though the page shows three.** A whole-table projection makes the generated row type
-`JauntyQ.Generated.Article` — the same type `List.sql` already produces — so this query adds a
+`Extrode.JauntyQ.Generated.Article` — the same type `List.sql` already produces — so this query adds a
 method and not a second row shape to learn. Narrow it when row width costs something; on a demo
 table it buys nothing and costs a type.
 

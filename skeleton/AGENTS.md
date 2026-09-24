@@ -33,8 +33,8 @@ over PostgreSQL. It was stamped from the NativeWeb skeleton (spec 003).
 - The NativeWeb framework libs (security, render + render generator) resolve dual-mode:
   local checkout (`$(NativeWebRoot)`, probed in `Directory.Build.props`) for co-development, or
   pinned `NativeWeb.*` packages via `-p:NativeWebUsePackages=true`.
-- JauntyQ is the other way round: the pinned `JauntyQ.*` packages are the default, and a local
-  checkout (`$(JauntyQRoot)`) is the opt-in via `-p:JauntyQUsePackages=false`.
+- JauntyQ is the other way round: the pinned `Extrode.JauntyQ.*` packages on nuget.org are the
+  default, and a local checkout (`$(JauntyQRoot)`) is the opt-in via `-p:JauntyQUsePackages=false`.
 
 ## Tooling runtime: Deno, never Node
 Deno is a first-class citizen here and Node is not. Any new script that would have been

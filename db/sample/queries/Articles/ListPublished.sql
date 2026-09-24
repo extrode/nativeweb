@@ -20,9 +20,9 @@
 -- has nothing to infer from and reports JNT4003 instead of guessing.
 --
 -- Every column is selected even though the page shows three of them. A
--- whole-table projection makes the generated row type JauntyQ.Generated.Article,
--- the same type List.sql already produces, so this query adds a method and not a
--- second row shape to learn. Narrow it when the row count makes the width cost
+-- whole-table projection makes the generated row type
+-- Extrode.JauntyQ.Generated.Article, the same type List.sql already produces, so
+-- this query adds a method and not a second row shape to learn. Narrow it when the row count makes the width cost
 -- something; on a demo table it buys nothing and costs a type.
 --
 -- The order is the publication date, a row without one dated by its creation

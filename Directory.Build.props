@@ -59,7 +59,7 @@
   </PropertyGroup>
 
   <!-- Local checkout of JauntyQ (data-access source generator), referenced by
-       project until JauntyQ ships on NuGet — same wiring as epass.io / reader.
+       project in checkout mode only; the default is the nuget.org packages.
        Two probes, not one. The first is the ordinary checkout: jauntyq as a
        SIBLING of this repository. The second is two levels deeper, which is where
        a .worktrees/<branch> checkout sits — and without it EVERY worktree build in
@@ -92,7 +92,7 @@
   </PropertyGroup>
 
   <!-- Dual-mode JauntyQ resolution:
-       - the default => PackageReference to the pinned JauntyQ.* packages
+       - the default => PackageReference to the pinned Extrode.JauntyQ.* packages
          (versions in Directory.Packages.props);
        - -p:JauntyQUsePackages=false => ProjectReference into a local checkout,
          for co-development.

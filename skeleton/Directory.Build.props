@@ -29,7 +29,7 @@
   </PropertyGroup>
 
   <!-- Local checkout of JauntyQ (data-access source generator), referenced by
-       project until JauntyQ ships on NuGet.
+       project in checkout mode only; the default is the nuget.org packages.
        Probed as a SIBLING of the stamped product, exactly like NativeWebRoot
        below, and naming no parent directory. It used to hard-code an ancestor
        by name; that broke on 2026-08-26 when the org directory was renamed and
@@ -53,7 +53,7 @@
   </PropertyGroup>
 
   <!-- Dual-mode JauntyQ resolution:
-       - the default => the pinned JauntyQ.* packages (versions in
+       - the default => the pinned Extrode.JauntyQ.* packages (versions in
          Directory.Packages.props);
        - -p:JauntyQUsePackages=false => ProjectReference into a local checkout.
 
@@ -130,7 +130,7 @@
     <Message Importance="high" Condition="'$(NativeWebUsePackages)' == 'true'"
              Text="NativeWeb: PACKAGE mode (pinned NativeWeb.* packages, not a checkout)" />
     <Message Importance="high" Condition="'$(JauntyQUsePackages)' != 'false'"
-             Text="JauntyQ: PACKAGE mode (pinned JauntyQ.* packages, not a checkout)" />
+             Text="JauntyQ: PACKAGE mode (pinned Extrode.JauntyQ.* packages, not a checkout)" />
     <Message Importance="high" Condition="'$(JauntyQUsePackages)' == 'false'"
              Text="JauntyQ: checkout mode ($(JauntyQRoot))" />
   </Target>

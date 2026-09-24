@@ -17,9 +17,9 @@
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
   </ItemGroup>
 
-  <!-- Package pins for the source-generator/framework dependencies. The JauntyQ.*
-       pair is load-bearing on every build: package mode is JauntyQ's default since
-       2026-09-05. The NativeWeb.* five apply in package mode only
+  <!-- Package pins for the source-generator/framework dependencies. The
+       Extrode.JauntyQ.* pair applies to every build: package mode is JauntyQ's
+       default since 2026-09-05. The NativeWeb.* five apply in package mode only
        (-p:NativeWebUsePackages=true).
 
        THE NativeWeb.* PINS ARE NOT FREE TEXT. Directory.Build.props in the

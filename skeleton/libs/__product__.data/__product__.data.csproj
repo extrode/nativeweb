@@ -17,8 +17,8 @@
   <!-- JauntyQ: source generator (as analyzer) + runtime. The pinned NuGet packages
        are the default; a local checkout via ProjectReference is the opt-in for
        co-development (-p:JauntyQUsePackages=false), and it needs the post-split
-       public core repository rather than extrode/jauntyq. CI takes the default and
-       credentials the feed instead of cloning anything. If you do clone for
+       public core repository (github.com/extrode/jauntyq). CI takes the default and
+       restores from nuget.org instead of cloning anything. If you do clone for
        co-development, put it BESIDE this repository, never inside it: nested, this
        repo's Directory.Packages.props reaches it and central package management
        fails its restore (NU1008). -->

@@ -337,6 +337,11 @@ public sealed partial class SkeletonFrameworkResolutionTests
     /// how this workflow shipped for the length of one review.
     /// </para>
     /// <para>
+    /// Since 2026-09-24 the pins are <c>Extrode.JauntyQ.*</c> on nuget.org and no default
+    /// restore touches <c>framework-github</c>; the step now matters only for NativeWeb.*
+    /// package mode, and retiring it is a <c>work/todo.md</c> item.
+    /// </para>
+    /// <para>
     /// The credential is FRAMEWORK_CHECKOUT_TOKEN, not the automatic GITHUB_TOKEN: a stamped
     /// product lives in its own repository, so the automatic token is scoped there and cannot
     /// read the framework owner's packages at any permission level.
