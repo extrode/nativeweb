@@ -62,6 +62,7 @@ public sealed class VulnerableGateTests : IDisposable
         string bin = Directory.CreateDirectory(Path.Combine(_workspace, "bin")).FullName;
         File.WriteAllText(Path.Combine(bin, "dotnet"), """
             #!/bin/sh
+            echo "fake dotnet ran"
             [ -n "$FAKE_STDOUT" ] && printf '%s\n' "$FAKE_STDOUT"
             exit "$FAKE_EXIT"
             """.ReplaceLineEndings("\n"));
@@ -87,11 +88,6 @@ public sealed class VulnerableGateTests : IDisposable
         start.ArgumentList.Add("--norc");
         start.ArgumentList.Add("-e");
         start.ArgumentList.Add(script);
-        foreach (string key in start.Environment.Keys.Where(k => k.Equals("PATH", StringComparison.OrdinalIgnoreCase)).ToList())
-        {
-            start.Environment.Remove(key);
-        }
-
         start.Environment["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
         start.Environment["FAKE_STDOUT"] = stdout;
         start.Environment["FAKE_EXIT"] = exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -101,6 +97,8 @@ public sealed class VulnerableGateTests : IDisposable
 
         string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
         process.WaitForExit();
+
+        Assert.Contains("fake dotnet ran", output);
 
         return (process.ExitCode, output);
     }
