@@ -66,32 +66,49 @@ public sealed class AdminRelationsTests(InMemorySampleFixture app, BrowserFixtur
         IPage page = await SignedInPageAsync();
         (string title, string id) = await CreatePublishedAsync(page);
 
-        await page.CheckAsync("input[name=tags][value=aot]");
-        await page.CheckAsync("input[name=tags][value=htmx]");
-        await page.ClickAsync("form.nws-form button[type=submit]");
+        try
+        {
+            await page.CheckAsync("input[name=tags][value=aot]");
+            await page.CheckAsync("input[name=tags][value=htmx]");
+            await page.ClickAsync("form.nws-form button[type=submit]");
+            await page.GotoAsync($"/admin/articles/{id}");
+            await Assertions.Expect(page.Locator("input[name=tags][value=htmx]")).ToBeCheckedAsync();
+
+            await page.GotoAsync($"/articles/{title}");
+            await page.ClickAsync("a.tag[href='/tags/htmx']");
+            Assert.EndsWith("/tags/htmx", page.Url, StringComparison.Ordinal);
+            await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
+
+            await page.GotoAsync("/admin/tags/htmx");
+            IReadOnlyList<string> held = await page.EvalOnSelectorAllAsync<string[]>(
+                "select[name=articles] option:checked", "options => options.map(o => o.value)");
+            Assert.Contains(id, held);
+            await page.SelectOptionAsync("select[name=articles]", held.Where(h => h != id).ToArray());
+            await page.ClickAsync("form.nws-form button[type=submit]");
+
+            await page.GotoAsync($"/admin/articles/{id}");
+            await Assertions.Expect(page.Locator("input[name=tags][value=htmx]")).Not.ToBeCheckedAsync();
+            await Assertions.Expect(page.Locator("input[name=tags][value=aot]")).ToBeCheckedAsync();
+
+            await page.GotoAsync("/tags/htmx");
+            await Assertions.Expect(page.GetByText(title)).ToHaveCountAsync(0);
+            await page.GotoAsync("/tags/aot");
+            await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
+        }
+        finally
+        {
+            // Bug: left Published, this row made the public listing seven articles long
+            // for PublicSiteTests and PublicFormatsTests whenever this class ran first
+            // (CI run 35987898302, 2026-09-24).
+            await ArchiveAsync(page, id);
+        }
+    }
+
+    private static async Task ArchiveAsync(IPage page, string id)
+    {
         await page.GotoAsync($"/admin/articles/{id}");
-        await Assertions.Expect(page.Locator("input[name=tags][value=htmx]")).ToBeCheckedAsync();
-
-        await page.GotoAsync($"/articles/{title}");
-        await page.ClickAsync("a.tag[href='/tags/htmx']");
-        Assert.EndsWith("/tags/htmx", page.Url, StringComparison.Ordinal);
-        await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
-
-        await page.GotoAsync("/admin/tags/htmx");
-        IReadOnlyList<string> held = await page.EvalOnSelectorAllAsync<string[]>(
-            "select[name=articles] option:checked", "options => options.map(o => o.value)");
-        Assert.Contains(id, held);
-        await page.SelectOptionAsync("select[name=articles]", held.Where(h => h != id).ToArray());
+        await page.SelectOptionAsync("select[name=status]", "Archived");
         await page.ClickAsync("form.nws-form button[type=submit]");
-
-        await page.GotoAsync($"/admin/articles/{id}");
-        await Assertions.Expect(page.Locator("input[name=tags][value=htmx]")).Not.ToBeCheckedAsync();
-        await Assertions.Expect(page.Locator("input[name=tags][value=aot]")).ToBeCheckedAsync();
-
-        await page.GotoAsync("/tags/htmx");
-        await Assertions.Expect(page.GetByText(title)).ToHaveCountAsync(0);
-        await page.GotoAsync("/tags/aot");
-        await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
     }
 
     [Fact]
