@@ -55,12 +55,16 @@ listener will become a startup failure.
 Windows containers, not both. Switching modes would stop every Linux container on the machine,
 including the Linux runner itself.
 
-**Two things a persistent runner changes, both handled in the workflows:**
+**Three things a persistent runner changes, all handled in the workflows:**
 
 - **The NuGet cache survives between jobs.** A warm `~/.nuget/packages` is what hid the deleted
-  `JauntyQ.*` ids from 2026-09-17 to 2026-09-24. Each job's first step points `NUGET_PACKAGES` at
-  `$RUNNER_TEMP`, which the runner empties for every job, so every restore is cold, as on a hosted
-  runner.
+  `JauntyQ.*` ids from 2026-09-17 to 2026-09-24. Each job's first step points `NUGET_PACKAGES` and
+  `NUGET_HTTP_CACHE_PATH` at `$RUNNER_TEMP`, which the runner empties for every job, so every
+  restore is cold, as on a hosted runner. The HTTP cache matters too: NuGet trusts it for 30
+  minutes, so two runs inside that window could otherwise resolve an id the feed no longer serves.
+- **Files outside a checkout survive too.** `skeleton-stamp` writes `ciprobe/` beside the
+  `NativeWeb/` checkout, where `actions/checkout` never cleans. The job clears it first, because
+  `new-product.ps1` refuses a destination that is not empty.
 - **The user-level NuGet config survives too,** and `dotnet nuget add source` exits 1 on a name it
   already holds. So every credential step removes the source first.
 

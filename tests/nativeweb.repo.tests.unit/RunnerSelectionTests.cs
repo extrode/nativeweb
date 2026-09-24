@@ -5,6 +5,8 @@ namespace NativeWeb.Repo.Tests.Unit;
 
 public sealed partial class RunnerSelectionTests
 {
+    private static readonly string[] CacheVariables = ["NUGET_PACKAGES", "NUGET_HTTP_CACHE_PATH"];
+
     [Theory]
     [InlineData("ci.yml")]
     [InlineData("publish.yml")]
@@ -27,12 +29,16 @@ public sealed partial class RunnerSelectionTests
     {
         Assert.All(Jobs(file), job =>
         {
-            Match cold = ColdCachePattern().Match(job.Body);
-            Assert.True(cold.Success, $"{file} job '{job.Name}' never points NUGET_PACKAGES at RUNNER_TEMP.");
-
             Match sdk = SdkCommandPattern().Match(job.Body);
-            Assert.True(!sdk.Success || cold.Index < sdk.Index,
-                $"{file} job '{job.Name}' runs the SDK before it points NUGET_PACKAGES at RUNNER_TEMP.");
+            foreach (string variable in CacheVariables)
+            {
+                Match cold = ColdCachePattern().Matches(job.Body)
+                    .FirstOrDefault(m => m.Groups["variable"].Value == variable)
+                    ?? Match.Empty;
+                Assert.True(cold.Success, $"{file} job '{job.Name}' never exports {variable} under RUNNER_TEMP.");
+                Assert.True(!sdk.Success || cold.Index < sdk.Index,
+                    $"{file} job '{job.Name}' runs the SDK before it exports {variable} under RUNNER_TEMP.");
+            }
         });
     }
 
@@ -59,24 +65,36 @@ public sealed partial class RunnerSelectionTests
         Assert.True(adds > 0, $"{file} adds no source at all.");
     }
 
-    [Theory]
-    [InlineData("compose.yaml", "--labels nativeweb-linux")]
-    [InlineData("install-windows-runner.ps1", "$labels = 'nativeweb-windows'")]
-    public void TheRunnersRegisterToThisRepositoryUnderTheLabelsTheVariablesName(string file, string label)
+    [Fact]
+    public void TheLinuxRunnerRegistersToThisRepositoryUnderItsLabel()
     {
-        string text = File.ReadAllText(Path.Combine(RepoRoot(), "scripts", "ci-runner", file));
+        string code = CommentLinePattern().Replace(RunnerFile("compose.yaml"), string.Empty);
 
-        Assert.Contains("https://github.com/extrode/nativeweb", text, StringComparison.Ordinal);
-        Assert.Contains(label, text, StringComparison.Ordinal);
+        Assert.Matches(@"(?m)^\s*--url https://github\.com/extrode/nativeweb \\\r?$", code);
+        Assert.Matches(@"(?m)^\s*--labels nativeweb-linux\r?$", code);
+    }
+
+    [Fact]
+    public void TheWindowsRunnerRegistersToThisRepositoryUnderItsLabel()
+    {
+        string code = CommentLinePattern().Replace(
+            PowerShellHelpPattern().Replace(RunnerFile("install-windows-runner.ps1"), string.Empty),
+            string.Empty);
+
+        Assert.Matches(@"(?m)^\$repo = 'https://github\.com/extrode/nativeweb'\r?$", code);
+        Assert.Matches(@"(?m)^\$labels = 'nativeweb-windows'\r?$", code);
+        Assert.Matches(@"'--url', \$repo,", code);
+        Assert.Matches(@"'--labels', \$labels,", code);
     }
 
     [Fact]
     public void TheComposeProjectIsNamed_SoItCannotMergeWithAnotherCiRunnerDirectory()
     {
-        string compose = File.ReadAllText(Path.Combine(RepoRoot(), "scripts", "ci-runner", "compose.yaml"));
-
-        Assert.Matches(ProjectNamePattern(), compose);
+        Assert.Matches(ProjectNamePattern(), RunnerFile("compose.yaml"));
     }
+
+    private static string RunnerFile(string file) =>
+        File.ReadAllText(Path.Combine(RepoRoot(), "scripts", "ci-runner", file));
 
     private static List<(string Name, string Body)> Jobs(string file)
     {
@@ -112,8 +130,11 @@ public sealed partial class RunnerSelectionTests
     [GeneratedRegex(@"(?m)^    runs-on: \$\{\{ vars\.CI_(?<os>LINUX|WINDOWS)_RUNNER \|\| '(?<hosted>ubuntu|windows)-latest' \}\}\r?$")]
     private static partial Regex RunsOnPattern();
 
-    [GeneratedRegex(@"NUGET_PACKAGES=\$(?:env:)?RUNNER_TEMP[\\/]nuget-packages")]
+    [GeneratedRegex(@"(?m)^\s*(?:echo ""(?<variable>NUGET_PACKAGES|NUGET_HTTP_CACHE_PATH)=\$RUNNER_TEMP/[\w-]+"" >> ""\$GITHUB_ENV""|Add-Content -Path \$env:GITHUB_ENV -Value ""(?<variable>NUGET_PACKAGES|NUGET_HTTP_CACHE_PATH)=\$env:RUNNER_TEMP\\[\w-]+"")\r?$")]
     private static partial Regex ColdCachePattern();
+
+    [GeneratedRegex(@"<#[\s\S]*?#>")]
+    private static partial Regex PowerShellHelpPattern();
 
     [GeneratedRegex(@"dotnet (?:restore|build|publish|pack|test|run)\b")]
     private static partial Regex SdkCommandPattern();

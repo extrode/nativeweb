@@ -39,9 +39,13 @@ jobs:
       # A self-hosted runner keeps $HOME between jobs, and a warm ~/.nuget/packages
       # is what hid the deleted JauntyQ.* ids for a week (2026-09-17 to 09-24).
       # RUNNER_TEMP is emptied for every job, so each restore starts cold, as it
-      # does on a hosted runner. Decision 2026-09-24-014.
+      # does on a hosted runner. The HTTP cache moves too: NuGet trusts it for 30
+      # minutes, long enough to answer for an id the feed no longer serves.
+      # Decision 2026-09-24-014.
       - name: Cold NuGet cache
-        run: echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
+        run: |
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
+          echo "NUGET_HTTP_CACHE_PATH=$RUNNER_TEMP/nuget-http-cache" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v7
 

@@ -43,6 +43,9 @@ services:
     restart: unless-stopped
     depends_on: [dind]
     network_mode: service:dind
+    # Docker's default /dev/shm is 64 MB, the documented cause of headless Chromium crashing
+    # under Playwright; hosted runners are not containers and have no such limit.
+    shm_size: 1gb
     environment:
       RUNNER_TOKEN: ${RUNNER_TOKEN:-}
       DOCKER_HOST: unix:///var/run/dind/docker.sock
