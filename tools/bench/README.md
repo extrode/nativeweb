@@ -40,7 +40,7 @@ exit 0, because nothing the operator types changes which machine they are on.
 
 ## Prerequisites
 
-For the publish step only, the JauntyQ sibling checkout that `Directory.Build.props` requires.
+For the publish step only, a restorable .NET SDK; JauntyQ comes from its nuget.org packages.
 `--skip-publish` against an existing `tmp/bench/publish/` needs neither dotnet nor JauntyQ.
 `openssl` was a prerequisite while the harness minted a loopback certificate; it serves over http
 now (see below) and `cert.ts` is gone.

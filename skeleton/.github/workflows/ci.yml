@@ -17,14 +17,12 @@ env:
   # -- the CVE gate included -- never ran. NativeWeb package mode is still
   # available (pass that one flag yourself) for the day those packages publish.
   #
-  # JauntyQ went the other way on 2026-09-05. It split its generator and runtime
-  # out to a public core repository, so cloning extrode/jauntyq no longer yields
-  # the two csproj paths a product references and checkout mode cannot work at
-  # all; package mode is the default now and needs no clone, no JauntyQRoot and
-  # no token -- but it DOES need a credential on the framework-github source,
-  # because nuget.config maps JauntyQ.* there alone and GitHub Packages will not
-  # serve a read anonymously. That is the "Authenticate to GitHub Packages" step
-  # in each job below. The clone step and the JauntyQRoot variable were removed.
+  # JauntyQ went the other way on 2026-09-05: package mode is its default and
+  # needs no clone and no JauntyQRoot. Since 2026-09-24 it needs no token either:
+  # the pins are Extrode.JauntyQ.*, public on nuget.org since core 0.5.0. The
+  # "Authenticate to GitHub Packages" step in each job below is kept for
+  # NativeWeb.* package mode only; retiring it is a work/todo.md item in the
+  # framework repository. The clone step and the JauntyQRoot variable were removed.
   #
   # A runner has no sibling checkout for the `$(NativeWebRoot)` probe in
   # Directory.Build.props, so the step below clones the framework and that
@@ -164,10 +162,10 @@ jobs:
           PGPASSWORD: ci_test_password
         run: bash db/migrate.sh
 
-      # JauntyQ resolves from packages now, and nuget.config maps JauntyQ.* to
-      # framework-github alone -- GitHub Packages, which needs auth even to READ.
-      # Without this step `dotnet restore` dies NU1301/401 on JauntyQ.Generator
-      # before anything else in the job runs.
+      # Until 2026-09-24 JauntyQ resolved from framework-github, which needs auth
+      # even to READ, and without this step `dotnet restore` died NU1301/401 on
+      # JauntyQ.Generator. The pins are now Extrode.JauntyQ.* on nuget.org, so the
+      # default restore no longer needs it; it stays for NativeWeb.* package mode.
       #
       # FRAMEWORK_CHECKOUT_TOKEN is reused rather than GITHUB_TOKEN on purpose:
       # this product lives in its own repository, so the automatic token is
@@ -287,10 +285,10 @@ jobs:
       # say was a third-party action that was redundant and broke the publish
       # path. If the tools are genuinely absent the publish fails with a named
       # error, never a silent fallback.
-      # JauntyQ resolves from packages now, and nuget.config maps JauntyQ.* to
-      # framework-github alone -- GitHub Packages, which needs auth even to READ.
-      # Without this step `dotnet restore` dies NU1301/401 on JauntyQ.Generator
-      # before anything else in the job runs.
+      # Until 2026-09-24 JauntyQ resolved from framework-github, which needs auth
+      # even to READ, and without this step `dotnet restore` died NU1301/401 on
+      # JauntyQ.Generator. The pins are now Extrode.JauntyQ.* on nuget.org, so the
+      # default restore no longer needs it; it stays for NativeWeb.* package mode.
       #
       # FRAMEWORK_CHECKOUT_TOKEN is reused rather than GITHUB_TOKEN on purpose:
       # this product lives in its own repository, so the automatic token is

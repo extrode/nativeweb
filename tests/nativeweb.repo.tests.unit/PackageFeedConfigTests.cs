@@ -498,22 +498,34 @@ public sealed partial class PackageFeedConfigTests
             .Where(id => id.Contains("JauntyQ", StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
-        string[] privatePatterns = XDocument.Load(Path.Combine(RepoRoot(), file))
+        var config = XDocument.Load(Path.Combine(RepoRoot(), file));
+        string[] Patterns(Func<string?, bool> key) => config
             .Descendants("packageSourceMapping")
             .Elements("packageSource")
-            .Where(s => (string?)s.Attribute("key") != "nuget.org")
+            .Where(s => key((string?)s.Attribute("key")))
             .Elements("package")
             .Select(p => (string?)p.Attribute("pattern"))
             .OfType<string>()
             .ToArray();
+        static bool Matches(string pattern, string id) => pattern.EndsWith('*')
+            ? id.StartsWith(pattern.TrimEnd('*'), StringComparison.OrdinalIgnoreCase)
+            : string.Equals(pattern, id, StringComparison.OrdinalIgnoreCase);
 
+        string[] publicPatterns = Patterns(k => k == "nuget.org");
+        string[] privatePatterns = Patterns(k => k != "nuget.org");
+
+        Assert.Equal(
+            "https://api.nuget.org/v3/index.json",
+            config.Descendants("packageSources").Elements("add")
+                .Where(a => (string?)a.Attribute("key") == "nuget.org")
+                .Select(a => (string?)a.Attribute("value"))
+                .SingleOrDefault());
         Assert.NotEmpty(pinned);
         Assert.All(pinned, id =>
         {
             Assert.StartsWith("Extrode.JauntyQ.", id, StringComparison.Ordinal);
-            Assert.DoesNotContain(privatePatterns, p => p.EndsWith('*')
-                ? id.StartsWith(p.TrimEnd('*'), StringComparison.OrdinalIgnoreCase)
-                : string.Equals(p, id, StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(publicPatterns, p => Matches(p, id));
+            Assert.DoesNotContain(privatePatterns, p => Matches(p, id));
         });
     }
 

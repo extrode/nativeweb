@@ -40,7 +40,7 @@ Re-pull the snapshot after any change to `migrations/`:
 
 ```bash
 JAUNTYQ_CONNECTION="Host=127.0.0.1;Database=nativeweb_sample_dev;Username=nativeweb_app" \
-  <jauntyq>/src/JauntyQ.Cli/bin/Release/net8.0/JauntyQ.Cli.exe \
+  <jauntyq>/src/Extrode.JauntyQ.Cli/bin/Release/net10.0/Extrode.JauntyQ.Cli.exe \
   schema pull --provider postgres --output db/sample/schema/sample.schema.json
 ```
 

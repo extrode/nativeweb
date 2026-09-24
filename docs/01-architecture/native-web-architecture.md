@@ -154,7 +154,7 @@ The generated code is performance-aligned by construction:
 
 Because there's no reflection and no runtime code generation, the emitted code is Native
 AOT and trim compatible **by construction** — no separate `.AOT` package, no interceptor
-step, unlike Dapper. `JauntyQ.Runtime` is marked `IsAotCompatible`, and
+step, unlike Dapper. `Extrode.JauntyQ.Runtime` is marked `IsAotCompatible`, and
 `samples/JauntyQ.Aot.Smoke` publishes to a self-contained native binary — verified in CI —
 running the full auto-CRUD, identity-return, and `@stream` paths against SQLite.
 
