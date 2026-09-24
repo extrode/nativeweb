@@ -29,6 +29,13 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Changed
 
+- CI can run on self-hosted runners: each job in `ci.yml` and `publish.yml` takes its runner from
+  the `CI_LINUX_RUNNER` / `CI_WINDOWS_RUNNER` repository variables and falls back to
+  `ubuntu-latest` / `windows-latest` when they are unset. `scripts/ci-runner/` holds a Docker
+  runner, with a private Docker-in-Docker daemon so `services:` Postgres stays at `localhost`, and
+  an installer for a native Windows runner for the NativeAOT job. Every job now restores into a
+  per-job NuGet cache, so a persistent runner cannot hide a missing package the way a warm cache
+  hid the deleted `JauntyQ.*` ids. Decision `2026-09-24-014`.
 - **Breaking for stamped products:** JauntyQ is pinned to core 0.5.1 as `Extrode.JauntyQ.Generator`
   and `Extrode.JauntyQ.Runtime`, restored from nuget.org with no credential. Core 0.5.0 renamed
   every package id and the generated namespace, so `using JauntyQ.Generated;` becomes

@@ -63,7 +63,7 @@ jobs:
     # Unit/integration/e2e are plain JIT test hosts, not AOT publishes, so
     # they don't need the Windows-only MSVC toolchain -- Postgres service
     # containers are also Linux-runner-only in GitHub Actions.
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
     services:
       postgres:
         image: postgres:18
@@ -100,6 +100,17 @@ jobs:
       # integration and 2 e2e failures.
       ConnectionStrings__Sample: "Host=localhost;Database=nativeweb_sample_test;Username=nativeweb_app;Password=ci_test_password"
     steps:
+      # A self-hosted runner keeps $HOME between jobs, and a warm ~/.nuget/packages
+      # is what hid the deleted JauntyQ.* ids for a week (2026-09-17 to 09-24).
+      # RUNNER_TEMP is emptied for every job, so each restore starts cold, as it
+      # does on a hosted runner. The HTTP cache moves too: NuGet trusts it for 30
+      # minutes, long enough to answer for an id the feed no longer serves.
+      # Decision 2026-09-24-014.
+      - name: Cold NuGet cache
+        run: |
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
+          echo "NUGET_HTTP_CACHE_PATH=$RUNNER_TEMP/nuget-http-cache" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v7
 
       # No setup-dotnet step: ubuntu-latest (Ubuntu 24.04) ships .NET SDK 10.0.110,
@@ -143,6 +154,9 @@ jobs:
           # clears them before declaring its own.
           [ -f "$HOME/.nuget/NuGet/NuGet.Config" ] \
             || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
+          # A self-hosted runner keeps this file between jobs, and `add` exits 1 on
+          # a name it already holds, so the previous job's entry goes first.
+          dotnet nuget remove source jauntyq-github --configfile "$HOME/.nuget/NuGet/NuGet.Config" >/dev/null 2>&1 || true
           dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
             --name jauntyq-github \
             --username ${{ github.actor }} \
@@ -268,8 +282,18 @@ jobs:
     # for AOT/trim analysis, matching the local publish gate used throughout
     # Phase 0. It doesn't need Postgres: publish only compiles, it never runs
     # the app.
-    runs-on: windows-latest
+    runs-on: ${{ vars.CI_WINDOWS_RUNNER || 'windows-latest' }}
     steps:
+      # A self-hosted runner keeps its profile between jobs, and a warm NuGet
+      # cache is what hid the deleted JauntyQ.* ids for a week (2026-09-17 to
+      # 09-24). RUNNER_TEMP is emptied for every job, so each restore starts
+      # cold, as it does on a hosted runner. The HTTP cache moves too: NuGet
+      # trusts it for 30 minutes. Decision 2026-09-24-014.
+      - name: Cold NuGet cache
+        run: |
+          Add-Content -Path $env:GITHUB_ENV -Value "NUGET_PACKAGES=$env:RUNNER_TEMP\nuget-packages"
+          Add-Content -Path $env:GITHUB_ENV -Value "NUGET_HTTP_CACHE_PATH=$env:RUNNER_TEMP\nuget-http-cache"
+
       - uses: actions/checkout@v7
 
       # Same as the test job: windows-latest (Windows Server 2025) already ships the
@@ -313,6 +337,9 @@ jobs:
           if (-not (Test-Path "$env:APPDATA\NuGet\NuGet.Config")) {
             Set-Content -Path "$env:APPDATA\NuGet\NuGet.Config" -Value '<?xml version="1.0" encoding="utf-8"?><configuration />'
           }
+          # A self-hosted runner keeps this file between jobs, and `add` exits 1 on
+          # a name it already holds, so the previous job's entry goes first.
+          dotnet nuget remove source jauntyq-github --configfile "$env:APPDATA\NuGet\NuGet.Config" *> $null
           dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json `
             --name jauntyq-github `
             --username ${{ github.actor }} `
@@ -355,7 +382,7 @@ jobs:
   # that builds and passes.
   # ---------------------------------------------------------------------------
   skeleton-stamp:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
     services:
       postgres:
         image: postgres:18
@@ -395,6 +422,17 @@ jobs:
       # underneath it and kills the restore. The skeleton's own workflow carries
       # the measurement (NU1008, 2026-08-17); the same trap applies here with the
       # roles reversed.
+      # A self-hosted runner keeps $HOME between jobs, and a warm ~/.nuget/packages
+      # is what hid the deleted JauntyQ.* ids for a week (2026-09-17 to 09-24).
+      # RUNNER_TEMP is emptied for every job, so each restore starts cold, as it
+      # does on a hosted runner. The HTTP cache moves too: NuGet trusts it for 30
+      # minutes, long enough to answer for an id the feed no longer serves.
+      # Decision 2026-09-24-014.
+      - name: Cold NuGet cache
+        run: |
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
+          echo "NUGET_HTTP_CACHE_PATH=$RUNNER_TEMP/nuget-http-cache" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v7
         with:
           path: NativeWeb
@@ -420,6 +458,12 @@ jobs:
 
       # -Execute, because a dry run exits 0 having written nothing and would make
       # every step after this one a test of an empty directory.
+      # ciprobe/ sits beside the NativeWeb checkout, so actions/checkout never
+      # cleans it, and on a self-hosted runner it survives into the next job;
+      # new-product.ps1 refuses a destination that is not empty.
+      - name: Clear an earlier job's stamp
+        run: rm -rf "$GITHUB_WORKSPACE/ciprobe"
+
       - name: Stamp a product from the skeleton
         working-directory: NativeWeb
         run: >
@@ -463,6 +507,9 @@ jobs:
           # clears them before declaring its own.
           [ -f "$HOME/.nuget/NuGet/NuGet.Config" ] \
             || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
+          # A self-hosted runner keeps this file between jobs, and `add` exits 1 on
+          # a name it already holds, so the previous job's entry goes first.
+          dotnet nuget remove source framework-github --configfile "$HOME/.nuget/NuGet/NuGet.Config" >/dev/null 2>&1 || true
           dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
             --name framework-github \
             --username ${{ github.actor }} \
