@@ -33,7 +33,7 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </remarks>
 public sealed class FrameworkTemplateDeliveryTests : IDisposable
 {
-    private const string ProductCopy = @"templates\shared\bot-traps.html";
+    private static readonly string ProductCopy = Path.Combine("templates", "shared", "bot-traps.html");
 
     private readonly string _workspace = Directory.CreateTempSubdirectory("nw-029-").FullName;
 
@@ -89,7 +89,9 @@ public sealed class FrameworkTemplateDeliveryTests : IDisposable
         (int exitCode, string output) = Msbuild(Probe(ProductCopy));
 
         Assert.Equal(1, exitCode);
-        Assert.Contains(@"exist both in probe and in the framework: shared\bot-traps.html", output);
+        Assert.Contains(
+            $"exist both in probe and in the framework: {Path.Combine("shared", "bot-traps.html")}",
+            output);
     }
 
     /// <summary>
