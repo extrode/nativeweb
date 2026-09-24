@@ -175,15 +175,22 @@ jobs:
       # an env var makes project evaluation here match the package-mode restore
       # above (without it, evaluation falls back to checkout mode and a JauntyQ
       # sibling dir that does not exist on the runner). The command exits 0
-      # either way, so the gate is two greps: fail on any "> PackageName"
-      # finding line, and fail if the positive "no vulnerable packages"
-      # confirmation never appears -- an audit that evaluated nothing (broken
-      # sources, format change) must not pass silently.
+      # whether or not it finds anything, so the gate is two greps: fail on any
+      # "> PackageName" finding line, and fail if the positive "no vulnerable
+      # packages" confirmation never appears -- an audit that evaluated nothing
+      # (broken sources, format change) must not pass silently.
+      # It exits non-zero when it cannot query a source, and prints why on
+      # stdout. Under bash -e a bare `out=$(...)` then ends the step before the
+      # echo, leaving "exit code 1" and no reason in the log (2026-09-24).
       - name: Vulnerable package gate
         env:
           JauntyQUsePackages: "true"
         run: |
-          out=$(dotnet list package --vulnerable --include-transitive)
+          out=$(dotnet list package --vulnerable --include-transitive 2>&1) || {
+            echo "$out"
+            echo '::error::dotnet list package failed -- see its output above.'
+            exit 1
+          }
           echo "$out"
           if echo "$out" | grep -Eq '^\s*>'; then
             echo '::error::Vulnerable package(s) found -- see the list above.'
