@@ -23,8 +23,8 @@
          Extrode.JauntyQ.*, not JauntyQ.*: core 0.5.0 (2026-09-17) renamed every
          package id, assembly and namespace, and generated code moved from
          JauntyQ.Generated to Extrode.JauntyQ.Generated. The core is public on
-         nuget.org from 0.5.0, so these resolve through nuget.config's "*"
-         mapping and need no feed credential. The old JauntyQ.* ids were deleted
+         nuget.org from 0.5.0, so these resolve from nuget.org, the only source
+         nuget.config declares, with no feed credential. The old JauntyQ.* ids were deleted
          from the extrode GitHub Packages feed, which is what turned every CI
          restore red: a warm ~/.nuget/packages hid it locally. -->
     <PackageVersion Include="Extrode.JauntyQ.Generator" Version="0.5.1" />

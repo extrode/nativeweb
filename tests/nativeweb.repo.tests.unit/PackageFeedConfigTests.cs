@@ -60,7 +60,7 @@ public sealed partial class PackageFeedConfigTests
     /// Two, not one, since 2026-08-25. The skeleton-stamp job restores a product
     /// stamped from <c>skeleton/</c>, whose nuget.config is a generic product
     /// config and names its framework feed <c>framework-github</c> rather than
-    /// this repository's <c>jauntyq-github</c>. Checking only the root config
+    /// this repository's <c>jauntyq-github</c> of the time. Checking only the root config
     /// failed that job's auth step by name, which is the test working -- the fix
     /// is to widen what counts as declared, not to drop the check. Both files
     /// stay in scope, so authenticating a source neither declares is still a
