@@ -99,14 +99,15 @@
 
        CHECKOUT MODE IS THE OPT-IN, and it was the default until 2026-09-05.
        JauntyQ split: the generator and runtime sources moved to a public core
-       repository, and ../jauntyq now holds only the premium half
+       repository, and ../jauntyq then held only the premium half
        (Extrode.JauntyQ.Registry, .Schema.Contract, .Explain, .Licensing and
        .Cli.Premium). Both csproj paths this repository referenced are gone from
        it, so the sentinel below matched nothing and EVERY build failed fast
-       until -p:JauntyQUsePackages=true was passed by hand. The package IDs are
+       until -p:JauntyQUsePackages=true was passed by hand. The package IDs were
        unchanged by the split, so package mode kept working throughout, which is
        why it is now the default rather than the exception.
-       docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md.
+       docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md. Core 0.5.0
+       renamed them later (Directory.Packages.props has the pin and why).
 
        The probe block above is deliberately untouched. It is correct; it simply
        stops firing on the default path, and it is what checkout mode needs the
@@ -124,12 +125,13 @@
        CS0246, which is the error this target exists to pre-empt. Sentinel-file
        probe, same as skeleton/Directory.Build.props.
 
-       The sentinel still names the PRE-SPLIT path. Whoever clones the public
-       core updates it to that repository's real layout in the same commit; it is
-       not guessed here, because a probe pointing at a path nobody verified is
-       the extrode-legacy-org.com breakage JauntyQRootProbeTests exists to prevent. -->
+       The sentinel names the public core's layout, verified 2026-09-24 against
+       a sibling clone of it (core 0.5.1): src/Extrode.JauntyQ.Generator/. It
+       named the pre-split path until then, unguessed, because a probe pointing
+       at a path nobody verified is the extrode-legacy-org.com breakage
+       JauntyQRootProbeTests exists to prevent. -->
   <Target Name="EnsureJauntyQRoot" BeforeTargets="BeforeBuild"
-          Condition="'$(JauntyQUsePackages)' == 'false' and !Exists('$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj')">
+          Condition="'$(JauntyQUsePackages)' == 'false' and !Exists('$(JauntyQRoot)\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj')">
     <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt;, or drop -p:JauntyQUsePackages=false to build against the pinned packages." />
   </Target>
 

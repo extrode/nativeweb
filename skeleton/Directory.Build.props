@@ -61,7 +61,8 @@
        JauntyQ split its generator and runtime out to a public core repository,
        so a sibling jauntyq/ no longer carries the two csproj paths referenced
        below and a stamped product could not build at all without the flag. The
-       package IDs did not change, so package mode is the path that kept working.
+       package IDs did not change, so package mode is the path that kept working
+       (core 0.5.0 renamed them later, to Extrode.JauntyQ.*).
        The framework repository made the same flip in the same change; its
        Directory.Build.props carries the full reasoning.
 
@@ -78,11 +79,10 @@
        is a sentinel csproj, not the bare directory: an empty or unrelated dir
        at the path would pass Exists() and still MSB9008-skip every reference.
 
-       The sentinel names the pre-split path, unverified against the public core
-       for the same reason the framework's copy does: a probe pointing somewhere
-       nobody checked is worse than one that fails honestly. -->
+       The sentinel names the public core's layout, the same path the
+       framework's copy verified on 2026-09-24. -->
   <Target Name="EnsureJauntyQRoot" BeforeTargets="BeforeBuild"
-          Condition="'$(JauntyQUsePackages)' == 'false' and !Exists('$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj')">
+          Condition="'$(JauntyQUsePackages)' == 'false' and !Exists('$(JauntyQRoot)\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj')">
     <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt;, or drop -p:JauntyQUsePackages=false to build against the pinned packages." />
   </Target>
 

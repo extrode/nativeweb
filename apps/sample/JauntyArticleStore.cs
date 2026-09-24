@@ -1,18 +1,18 @@
 using System.Globalization;
 
-using JauntyQ.Generated;
+using Extrode.JauntyQ.Generated;
 
 using Npgsql;
 
 using NativeWeb.Scaffold;
 
 // The generated row type for a whole-table projection is named after the table,
-// so JauntyQ.Generated.Article and NativeWeb.Sample.Article are two different
+// so Extrode.JauntyQ.Generated.Article and NativeWeb.Sample.Article are two different
 // types with one name. C# would resolve the bare name to this file's own
 // namespace and compile either way, which is exactly the kind of quiet
 // resolution that makes a later reader mistrust every mapping below. Aliased so
 // each side of the mapping says which type it is.
-using Row = JauntyQ.Generated.Article;
+using Row = Extrode.JauntyQ.Generated.Article;
 
 namespace NativeWeb.Sample;
 

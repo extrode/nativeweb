@@ -35,11 +35,11 @@
        release puts these versions on the feed. Until a v0.1.0 tag is pushed
        nothing is there to restore, and a local sibling checkout of NativeWeb
        (its checkout mode is still the default) stays the working path. JauntyQ
-       has no such fallback: its checkout mode needs the post-split public core
-       repository, which is not what extrode/jauntyq holds. -->
+       needs no fallback: its core is public on nuget.org as Extrode.JauntyQ.*
+       from 0.5.0, so these two pins restore with no credential. -->
   <ItemGroup>
-    <PackageVersion Include="JauntyQ.Generator" Version="0.4.0" />
-    <PackageVersion Include="JauntyQ.Runtime" Version="0.4.0" />
+    <PackageVersion Include="Extrode.JauntyQ.Generator" Version="0.5.1" />
+    <PackageVersion Include="Extrode.JauntyQ.Runtime" Version="0.5.1" />
     <PackageVersion Include="NativeWeb.Security" Version="0.1.0" />
     <PackageVersion Include="NativeWeb.Render" Version="0.1.0" />
     <PackageVersion Include="NativeWeb.Render.Generator" Version="0.1.0" />

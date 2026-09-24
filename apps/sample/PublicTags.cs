@@ -1,10 +1,10 @@
-using JauntyQ.Generated;
+using Extrode.JauntyQ.Generated;
 
 using Npgsql;
 
 using NativeWeb.Scaffold;
 
-using TagRow = JauntyQ.Generated.Tag;
+using TagRow = Extrode.JauntyQ.Generated.Tag;
 
 namespace NativeWeb.Sample;
 

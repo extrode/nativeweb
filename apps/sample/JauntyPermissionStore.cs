@@ -1,14 +1,14 @@
-using JauntyQ.Generated;
+using Extrode.JauntyQ.Generated;
 
 using NativeWeb.Permissions;
 
 using Npgsql;
 
-// The generated query class is JauntyQ.Generated.Permissions, and the library's
+// The generated query class is Extrode.JauntyQ.Generated.Permissions, and the library's
 // namespace is NativeWeb.Permissions: unaliased, `Permissions.Result` binds to the
 // namespace and every result type is CS0234. Aliased for the same reason
 // JauntyArticleStore aliases its row types.
-using PermissionQueries = JauntyQ.Generated.Permissions;
+using PermissionQueries = Extrode.JauntyQ.Generated.Permissions;
 
 namespace NativeWeb.Sample;
 
