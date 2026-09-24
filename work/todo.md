@@ -2232,3 +2232,4 @@ an answer different from the one the audit assumed.
   `drill-post-20260905`. They are what made the restore drill falsifiable. Removing them is a
   database delete, so it is in `scripts/cleanup/011-t15-restore-and-dr-drill.ps1` for you to run,
   not done here.
+- **A stamped product's CI fails its second run on a persistent runner.** `skeleton/.github/workflows/ci.yml:188` and `:316` create the user-level NuGet config only when it is absent and never remove the source, so the next job's `dotnet nuget add source` exits 1 with "already been added". NativeWeb's own workflows write the file fresh every job since 2026-09-24; the skeleton was left alone because a stamped product's runner is its own choice. Found by Fable's review of `fix/ci-fresh-user-nuget-config`.
