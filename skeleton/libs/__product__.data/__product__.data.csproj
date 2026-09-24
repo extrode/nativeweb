@@ -23,19 +23,19 @@
        repo's Directory.Packages.props reaches it and central package management
        fails its restore (NU1008). -->
   <ItemGroup Condition="'$(JauntyQUsePackages)' == 'false'">
-    <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Generator\JauntyQ.Generator.csproj"
+    <ProjectReference Include="$(JauntyQRoot)\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
-    <ProjectReference Include="$(JauntyQRoot)\src\JauntyQ.Runtime\JauntyQ.Runtime.csproj" />
+    <ProjectReference Include="$(JauntyQRoot)\src\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(JauntyQUsePackages)' != 'false'">
     <!-- The package ships under analyzers/dotnet/cs; OutputItemType /
          ReferenceOutputAssembly are ProjectReference metadata and would be
          ignored here. PrivateAssets keeps the generator build-only. -->
-    <PackageReference Include="JauntyQ.Generator" PrivateAssets="all" />
-    <PackageReference Include="JauntyQ.Runtime" />
+    <PackageReference Include="Extrode.JauntyQ.Generator" PrivateAssets="all" />
+    <PackageReference Include="Extrode.JauntyQ.Runtime" />
   </ItemGroup>
 
   <!-- Inline SQL and the committed schema snapshot the generator reads. -->

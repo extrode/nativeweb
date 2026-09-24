@@ -18,9 +18,17 @@
     <PackageVersion Include="MimeKitLite" Version="4.17.0" />
     <!-- JauntyQ pin: used only when building without a local jauntyq checkout
          (package mode, e.g. CI, -p:JauntyQUsePackages=true). Bump deliberately
-         after a new jauntyq v* tag publishes. -->
-    <PackageVersion Include="JauntyQ.Generator" Version="0.4.0" />
-    <PackageVersion Include="JauntyQ.Runtime" Version="0.4.0" />
+         after a new jauntyq v* tag publishes.
+
+         Extrode.JauntyQ.*, not JauntyQ.*: core 0.5.0 (2026-09-17) renamed every
+         package id, assembly and namespace, and generated code moved from
+         JauntyQ.Generated to Extrode.JauntyQ.Generated. The core is public on
+         nuget.org from 0.5.0, so these resolve through nuget.config's "*"
+         mapping and need no feed credential. The old JauntyQ.* ids were deleted
+         from the extrode GitHub Packages feed, which is what turned every CI
+         restore red: a warm ~/.nuget/packages hid it locally. -->
+    <PackageVersion Include="Extrode.JauntyQ.Generator" Version="0.5.1" />
+    <PackageVersion Include="Extrode.JauntyQ.Runtime" Version="0.5.1" />
     <!-- Fido2 4.0.1 and NSec.Cryptography 26.4.0 were pinned here and were removed
          on 2026-08-31: WebAuthn left with the identity provider
          (docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md) and neither had a

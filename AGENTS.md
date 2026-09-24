@@ -44,12 +44,12 @@ is what `tools/new-product.ps1` stamps. Both exercise the framework. Neither is 
 - JauntyQ for ALL data access. No EF Core, no Dapper, no hand-written ADO.NET.
 - HTMX + Alpine.js, vendored into the repo. No CDN references.
 - PostgreSQL only.
-- JauntyQ resolves from the pinned `JauntyQ.*` packages **by default**; a local checkout is the
-  opt-in, via `-p:JauntyQUsePackages=false`. The default flipped on 2026-09-05 when JauntyQ split
-  its generator and runtime out to a public core repository
-  (`docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md`); checkout mode does not resolve
-  against today's sibling `jauntyq/` and will not until that core is cloned and the sentinel in
-  `Directory.Build.props` is repointed.
+- JauntyQ resolves from the pinned `Extrode.JauntyQ.*` packages on nuget.org **by default**; a
+  local checkout is the opt-in, via `-p:JauntyQUsePackages=false`. The default flipped on
+  2026-09-05 when JauntyQ split its generator and runtime out to a public core repository
+  (`docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md`). Core 0.5.0 renamed every id
+  and namespace to `Extrode.JauntyQ.*`; since 2026-09-24 the pins and the checkout-mode paths both
+  follow it, and a sibling `jauntyq/` (now the public core) builds in checkout mode again.
 
 ## Tooling runtime: Deno, never Node
 Deno is a first-class citizen here and Node is not. Any new script that would have been

@@ -9,6 +9,13 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
+- **The `jauntyq-github` feed now serves nothing this repo pins.** Since 2026-09-24 the JauntyQ
+  pins are `Extrode.JauntyQ.*` from nuget.org; the private source still maps the dead `JauntyQ.*`
+  prefix plus two premium ids nobody references, and ci.yml, skeleton ci.yml and
+  `scripts/deploy/build.sh` still credential it. Retiring it touches ~10 repo tests that pin its
+  layout (`PackageFeedConfigTests`, `DeployTargetTests`, `SkeletonFrameworkResolutionTests`);
+  ghosthive.com already dropped its copy. Kept out of `fix/ci-jauntyq-core-packages`.
+
 - **Scaffold generator: a cascaded refusal hides the local fault.** A model whose reference
   property is `string` rather than `string?`, against a target that is itself dropped, is reported
   as `NWS003` alone; the author fixes the target and only then meets `NWS004`. A consequence of

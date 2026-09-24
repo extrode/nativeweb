@@ -477,6 +477,46 @@ public sealed partial class PackageFeedConfigTests
         Assert.DoesNotContain(patterns, p => p.StartsWith("Extrode.JauntyQ.", StringComparison.Ordinal) && p.EndsWith('*'));
     }
 
+    /// <summary>
+    /// Every pinned JauntyQ package is a core Extrode.JauntyQ.* id that restores from
+    /// nuget.org, never an id served only by the authenticated feed.
+    /// </summary>
+    /// <remarks>
+    /// The pre-0.5.0 JauntyQ.* ids were deleted from that feed, and every CI restore
+    /// from then until 2026-09-24 failed on them while a warm ~/.nuget/packages kept
+    /// local builds green.
+    /// </remarks>
+    [Theory]
+    [InlineData("Directory.Packages.props", "nuget.config")]
+    [InlineData("skeleton/Directory.Packages.props", "skeleton/nuget.config")]
+    public void JauntyQPins_ResolveFromNuGetOrg(string props, string file)
+    {
+        string[] pinned = XDocument.Load(Path.Combine(RepoRoot(), props))
+            .Descendants("PackageVersion")
+            .Select(p => (string?)p.Attribute("Include"))
+            .OfType<string>()
+            .Where(id => id.Contains("JauntyQ", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        string[] privatePatterns = XDocument.Load(Path.Combine(RepoRoot(), file))
+            .Descendants("packageSourceMapping")
+            .Elements("packageSource")
+            .Where(s => (string?)s.Attribute("key") != "nuget.org")
+            .Elements("package")
+            .Select(p => (string?)p.Attribute("pattern"))
+            .OfType<string>()
+            .ToArray();
+
+        Assert.NotEmpty(pinned);
+        Assert.All(pinned, id =>
+        {
+            Assert.StartsWith("Extrode.JauntyQ.", id, StringComparison.Ordinal);
+            Assert.DoesNotContain(privatePatterns, p => p.EndsWith('*')
+                ? id.StartsWith(p.TrimEnd('*'), StringComparison.OrdinalIgnoreCase)
+                : string.Equals(p, id, StringComparison.OrdinalIgnoreCase));
+        });
+    }
+
     private static string RepoRoot()
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);

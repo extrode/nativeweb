@@ -1,10 +1,10 @@
-using JauntyQ.Generated;
+using Extrode.JauntyQ.Generated;
 
 using Npgsql;
 
 using NativeWeb.Scaffold;
 
-using CategoryRow = JauntyQ.Generated.Category;
+using CategoryRow = Extrode.JauntyQ.Generated.Category;
 
 namespace NativeWeb.Sample;
 
