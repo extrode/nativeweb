@@ -31,9 +31,9 @@ Two things follow, each verified rather than assumed:
 
 - **Restore needs no credential.** JauntyQ core 0.5.0 (2026-09-17) renamed every package id and
   the generated namespace to `Extrode.JauntyQ.*` / `Extrode.JauntyQ.Generated`, and publishes them
-  on nuget.org. The old `JauntyQ.*` ids were deleted from the `jauntyq-github` feed; a machine
-  whose NuGet cache still holds them will keep building until the cache is cleared, then fail
-  with `NU1101`.
+  on nuget.org. The old `JauntyQ.*` ids were deleted from the `jauntyq-github` feed, which
+  `nuget.config` no longer declares; a machine whose NuGet cache still holds them will keep
+  building until the cache is cleared, then fail with `NU1101`.
 - **Checkout mode is still there, behind `-p:JauntyQUsePackages=false`.** It expects `jauntyq`
   (the public core, `github.com/extrode/jauntyq`) as a sibling; `Directory.Build.props` probes
   `..\jauntyq` and `..\..\..\jauntyq`, the second being the depth a `.worktrees/<branch>` or

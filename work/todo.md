@@ -9,16 +9,11 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
-- **The `jauntyq-github` feed now serves nothing this repo pins.** Since 2026-09-24 the JauntyQ
-  pins are `Extrode.JauntyQ.*` from nuget.org; the private source still maps the dead `JauntyQ.*`
-  prefix plus two premium ids nobody references, and ci.yml, skeleton ci.yml and
-  `scripts/deploy/build.sh` still credential it. Retiring it touches ~10 repo tests that pin its
-  layout (`PackageFeedConfigTests`, `DeployTargetTests`, `SkeletonFrameworkResolutionTests`);
-  ghosthive.com already dropped its copy. Kept out of `fix/ci-jauntyq-core-packages`.
-  **Retiring means removing the source, not only its credential:** NuGet's vulnerability audit
-  queries every declared source, and an unreachable or unauthenticated one fails the build with
-  NU1900 as a warning-as-error (seen 2026-09-24). The `scripts/deploy/build.sh` 401 remedy, which
-  still names this feed, goes in the same change.
+- **`skeleton/nuget.config` still maps `JauntyQ.*` and the two premium ids to `framework-github`.**
+  The root config retired its `jauntyq-github` source on 2026-09-24 (it served nothing pinned,
+  and the vulnerable package gate got 403 from it). The skeleton's source stays, since it serves
+  `NativeWeb.*`, but its JauntyQ patterns are dead weight a stamped product inherits. Same
+  change as the skeleton workflow gaps at the end of this file; stamped-product CI was out of scope here.
 
 - **Point CI back at GitHub's runners when the Actions minutes reset (October 2026).** Since
   2026-09-24 the repository variables `CI_LINUX_RUNNER` / `CI_WINDOWS_RUNNER` send every job to
@@ -2234,3 +2229,4 @@ an answer different from the one the audit assumed.
   not done here.
 - **A stamped product's CI fails its second run on a persistent runner.** `skeleton/.github/workflows/ci.yml:188` and `:316` create the user-level NuGet config only when it is absent and never remove the source, so the next job's `dotnet nuget add source` exits 1 with "already been added". NativeWeb's own workflows write the file fresh every job since 2026-09-24; the skeleton was left alone because a stamped product's runner is its own choice. Found by Fable's review of `fix/ci-fresh-user-nuget-config`.
 - **A stamped product's vulnerable package gate hides why its audit failed.** `skeleton/.github/workflows/ci.yml:219` still runs `out=$(dotnet list package ...)` bare, so a source the audit cannot query ends the step under `bash -e` with no reason in the log. NativeWeb's own gate captures `2>&1` and prints the output on failure since 2026-09-24 (`VulnerableGateTests`).
+- **`SkeletonFrameworkResolutionTests.cs:336` remark names a pre-0.5.0 id.** It says the stamp step "dies NU1301/401 on JauntyQ.Generator"; the pins are `Extrode.JauntyQ.*` on nuget.org since 2026-09-24. Reword alongside the `skeleton/nuget.config` JauntyQ-pattern item.
