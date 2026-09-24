@@ -114,14 +114,13 @@ jobs:
           mkdir -p "$HOME/.nuget/NuGet"
           # `add source --configfile` does not create the file: it exits 1 with
           # "File '...' does not exist." A runner image is not guaranteed to have
-          # a user-level config, so create a minimal one when it is absent. The
-          # sources it would otherwise carry are irrelevant here; nuget.config
-          # clears them before declaring its own.
-          [ -f "$HOME/.nuget/NuGet/NuGet.Config" ] \
-            || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
-          # A self-hosted runner keeps this file between jobs, and `add` exits 1 on
-          # a name it already holds, so the previous job's entry goes first.
-          dotnet nuget remove source jauntyq-github --configfile "$HOME/.nuget/NuGet/NuGet.Config" >/dev/null 2>&1 || true
+          # a user-level config, so write a minimal one. The sources it would
+          # otherwise carry are irrelevant here; nuget.config clears them before
+          # declaring its own.
+          # Written fresh every job, not only when absent: a self-hosted runner
+          # keeps this file between jobs, and `add` exits 1 on a URL an earlier
+          # job's entry already holds, under whatever name that job gave it.
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
           dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
             --name jauntyq-github \
             --username ${{ github.actor }} \

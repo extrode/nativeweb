@@ -45,7 +45,7 @@ public sealed partial class RunnerSelectionTests
     [Theory]
     [InlineData("ci.yml")]
     [InlineData("publish.yml")]
-    public void EveryAddSource_FirstRemovesTheSameNameFromTheSameConfig(string file)
+    public void EveryAddSource_GoesIntoAConfigTheSameJobWroteFresh(string file)
     {
         int adds = 0;
         foreach ((string name, string body) in Jobs(file))
@@ -56,9 +56,13 @@ public sealed partial class RunnerSelectionTests
                 string source = add.Groups["name"].Value;
                 string config = add.Groups["config"].Value;
                 string before = body[..add.Index];
-                Assert.True(
-                    before.Contains($"dotnet nuget remove source {source} --configfile \"{config}\"", StringComparison.Ordinal),
-                    $"{file} job '{name}' adds '{source}' to {config} without removing it first.");
+                Assert.Contains(
+                    FreshConfigPattern().Matches(before),
+                    write => write.Groups["config"].Value == config);
+                Assert.False(
+                    before.Contains($"-f \"{config}\"", StringComparison.Ordinal)
+                        || before.Contains($"Test-Path \"{config}\"", StringComparison.Ordinal),
+                    $"{file} job '{name}' writes {config} only when it is absent, so '{source}' can meet an earlier job's entry.");
             }
         }
 
@@ -141,6 +145,9 @@ public sealed partial class RunnerSelectionTests
 
     [GeneratedRegex(@"dotnet nuget add source \S+ [\\`]\r?\n\s*--name (?<name>\S+)(?:[^\n]*[\\`]\r?\n)*?[^\n]*--configfile ""(?<config>[^""]+)""")]
     private static partial Regex AddSourcePattern();
+
+    [GeneratedRegex(@"(?m)^\s*(?:printf '<\?xml [^']*' > ""(?<config>[^""]+)""|Set-Content -Path ""(?<config>[^""]+)"" -Value '<\?xml [^']*')\r?$")]
+    private static partial Regex FreshConfigPattern();
 
     [GeneratedRegex(@"(?m)^name: nativeweb-ci-runner\r?$")]
     private static partial Regex ProjectNamePattern();
