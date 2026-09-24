@@ -29,6 +29,13 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Changed
 
+- **Breaking for stamped products:** JauntyQ is pinned to core 0.5.1 as `Extrode.JauntyQ.Generator`
+  and `Extrode.JauntyQ.Runtime`, restored from nuget.org with no credential. Core 0.5.0 renamed
+  every package id and the generated namespace, so `using JauntyQ.Generated;` becomes
+  `using Extrode.JauntyQ.Generated;`. The old `JauntyQ.*` ids were deleted from the GitHub Packages
+  feed, so a product still pinning them fails restore with `NU1101` once its NuGet cache is cold.
+  Checkout mode (`-p:JauntyQUsePackages=false`) now points at the public core's
+  `src/Extrode.JauntyQ.*` projects and builds against a sibling `jauntyq/` again.
 - `nw-dev.example.com` is being moved onto the `incus-host` fleet backup rather than its own
   `backup.sh`: nightly `pg_dump -Fc` into two independent backup-tool repositories, offsite object storage and a
   offsite storage, with a daily integrity check and a six-hourly dead-man probe. This is how

@@ -12,8 +12,7 @@ NativeWeb is a template; you stamp a new product out of `skeleton/` and work in 
 ## Before you start
 
 Prerequisites are in the [README](../../README.md#prerequisites). Read that table now — the
-JauntyQ row is the only thing here that can stop you before you begin, and it is a feed credential
-rather than a checkout since 2026-09-05.
+JauntyQ row needs nothing from you since 2026-09-24: its packages are public on nuget.org.
 
 ## 1. Clone
 
@@ -37,9 +36,9 @@ dotnet build
 ```
 
 Roughly a minute cold, and it needs no `jauntyq` beside it: JauntyQ resolves from the pinned
-packages by default. If restore fails with `NU1101` naming `JauntyQ.Generator`, the
-`jauntyq-github` source in `nuget.config` has no credential yet — the prerequisite above says how
-to supply one.
+`Extrode.JauntyQ.*` packages on nuget.org by default, with no credential. If restore fails with
+`NU1101` naming `JauntyQ.Generator` without the `Extrode.` prefix, your branch predates
+2026-09-24: those ids were deleted from the feed, so rebase onto `dev`.
 
 ## 3. Run it, with no database at all
 

@@ -22,14 +22,11 @@ your-org/
   your-product/       <- yours
 ```
 
-No `jauntyq/` sibling is needed. NativeWeb resolves JauntyQ from the pinned `JauntyQ.*` packages
-by default since 2026-09-05, so the only JauntyQ prerequisite is being able to restore them.
-
-**Those packages are private, and this is the step that stops an outside team.** JauntyQ is
-licensed for self-hosted-SaaS use of its generated output; its source and binaries are not
-redistributable, so the `jauntyq-github` feed is credentialed per organisation and no link here
-would help you. If you cannot restore `JauntyQ.Generator`, that is a licensing conversation to
-have before starting, not a step to work around. Everything below assumes you can.
+No `jauntyq/` sibling is needed. NativeWeb resolves JauntyQ from the pinned `Extrode.JauntyQ.*`
+packages by default since 2026-09-05, and since core 0.5.0 those are public on nuget.org, so
+restoring them needs no credential. The license terms still apply to what you ship: JauntyQ's
+generated output is licensed for self-hosted-SaaS use (see the constraints at the end of this
+page).
 
 Then add to your product's `Directory.Build.props`. Both casings are probed because both are in
 the wild: the repository is `nativeweb` on disk, and `getting-started.md` has long told people

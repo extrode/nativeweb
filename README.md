@@ -17,7 +17,7 @@ everything else.
 | .NET SDK | `10.0.100` or later feature band (`global.json`) | 10.0.203 |
 | PostgreSQL | any recent server; **optional to start**, see below | psql 18.2 |
 | PowerShell | 7+, for `tools/` and `scripts/` | 7.6.4 |
-| The JauntyQ packages | restorable from `nuget.config`'s `jauntyq-github` source | `JauntyQ.*` 0.4.0 |
+| The JauntyQ packages | public on nuget.org, no credential | `Extrode.JauntyQ.*` 0.5.1 |
 
 **JauntyQ is load-bearing and needs no checkout.** All data access goes through its source
 generator, so nothing here builds without it, and its generated output is licensed for
@@ -29,18 +29,17 @@ sibling checkout stopped carrying either project this repository referenced.
 
 Two things follow, each verified rather than assumed:
 
-- **The feed needs credentialing once.** `nuget.config` declares the `jauntyq-github` source and
-  deliberately carries no password; see the comments in that file for the `gh auth token` setup.
-  It appears to work with no credentials on a machine whose NuGet cache is already populated from
-  a previous `dotnet pack`, which is a trap worth knowing about: the cache is standing in for the
-  feed, and the same command fails on a clean machine with `NU1101`.
-- **Checkout mode is still there, behind `-p:JauntyQUsePackages=false`.** It expects `jauntyq` as a
-  sibling; `Directory.Build.props` probes `..\jauntyq` and `..\..\..\jauntyq`, the second being the
-  depth a `.worktrees/<branch>` or `.claude/worktrees/<name>` checkout sits at, and neither names
-  an ancestor directory. `-p:JauntyQRoot=<path>` overrides the location. **It does not resolve
-  against today's `jauntyq`**: the sentinel it probes for is a pre-split path, so selecting that
-  mode stops with *"JauntyQ checkout not found at '…'"* until someone clones the public core and
-  repoints it.
+- **Restore needs no credential.** JauntyQ core 0.5.0 (2026-09-17) renamed every package id and
+  the generated namespace to `Extrode.JauntyQ.*` / `Extrode.JauntyQ.Generated`, and publishes them
+  on nuget.org. The old `JauntyQ.*` ids were deleted from the `jauntyq-github` feed; a machine
+  whose NuGet cache still holds them will keep building until the cache is cleared, then fail
+  with `NU1101`.
+- **Checkout mode is still there, behind `-p:JauntyQUsePackages=false`.** It expects `jauntyq`
+  (the public core, `github.com/extrode/jauntyq`) as a sibling; `Directory.Build.props` probes
+  `..\jauntyq` and `..\..\..\jauntyq`, the second being the depth a `.worktrees/<branch>` or
+  `.claude/worktrees/<name>` checkout sits at, and neither names an ancestor directory.
+  `-p:JauntyQRoot=<path>` overrides the location. Verified building against core 0.5.1 on
+  2026-09-24.
 
 ## Run it
 
