@@ -44,7 +44,6 @@ public sealed partial class RunnerSelectionTests
 
     [Theory]
     [InlineData("ci.yml")]
-    [InlineData("publish.yml")]
     public void EveryAddSource_GoesIntoAConfigTheSameJobWroteFresh(string file)
     {
         int adds = 0;

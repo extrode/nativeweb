@@ -24,71 +24,32 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// from the mapping, which is not a partial failure but a total one, because
 /// package source mapping resolves nothing that matches no pattern.
 /// </para>
+/// <para>
+/// Since 2026-09-24 the root config declares nuget.org alone, and only the stamped product's
+/// config names a GitHub source.
+/// </para>
 /// </remarks>
 public sealed partial class PackageFeedConfigTests
 {
-    private const string JauntyQSource = "jauntyq-github";
-
-    [Fact]
-    public void NuGetConfig_MapsJauntyQPackagesToTheGitHubPackagesSource()
-    {
-        var config = XDocument.Load(Path.Combine(RepoRoot(), "nuget.config"));
-
-        XElement? source = config.Descendants("packageSources")
-            .Elements("add")
-            .FirstOrDefault(e => (string?)e.Attribute("key") == JauntyQSource);
-
-        Assert.True(source is not null, $"nuget.config declares no '{JauntyQSource}' package source.");
-
-        // The owner segment is the whole point of this assertion, not incidental
-        // detail. A GITHUB_TOKEN is scoped to its own repository, so it can only
-        // read packages owned by that repository's org: when both repos moved
-        // from extrode-legacy-org to extrode on 2026-08-26 and the packages did not follow,
-        // this URL kept naming extrode-legacy-org and every CI restore died NU1301 "403
-        // (Forbidden)" for three days. Pointing it at an org whose packages this
-        // repo cannot read fails only on a runner, never here.
-        Assert.Equal("https://nuget.pkg.github.com/extrode/index.json", (string?)source!.Attribute("value"));
-
-        XElement? mapping = config.Descendants("packageSourceMapping")
-            .Elements("packageSource")
-            .FirstOrDefault(e => (string?)e.Attribute("key") == JauntyQSource);
-
-        Assert.True(mapping is not null, $"nuget.config maps nothing to '{JauntyQSource}'.");
-        Assert.Contains(
-            mapping!.Elements("package"),
-            p => (string?)p.Attribute("pattern") == "JauntyQ.*");
-    }
-
     /// <summary>
-    /// Only the GitHub source may claim a JauntyQ pattern.
+    /// The root config declares nuget.org and nothing else.
     /// </summary>
     /// <remarks>
-    /// This is the dependency-confusion shape, and it is the one mis-edit here
-    /// that NuGet accepts without complaint. Mapping resolves by most specific
-    /// pattern, so an identical "JauntyQ.*" added under nuget.org puts both
-    /// sources in play for those ids and a public package could answer for a
-    /// private one. Restore stays green and nothing in the log says so.
-    ///
-    /// The neighbouring invariant — that the mapping keeps a "*" catch-all —
-    /// deliberately has no test: drop it and NuGet refuses the file outright
-    /// ("Package source 'nuget.org' must have at least one package pattern"),
-    /// which is a louder failure than any assertion here could add.
+    /// The jauntyq-github source outlived every package this repository pinned from it, and
+    /// still failed CI on 2026-09-24: <c>dotnet list package --vulnerable</c> queries every
+    /// declared source, and the job's token got 403 (Forbidden) from that one.
     /// </remarks>
     [Fact]
-    public void NuGetConfig_LetsNoOtherSourceClaimAJauntyQPattern()
+    public void NuGetConfig_DeclaresNuGetOrgAlone()
     {
-        var config = XDocument.Load(Path.Combine(RepoRoot(), "nuget.config"));
+        XElement sources = XDocument.Load(Path.Combine(RepoRoot(), "nuget.config"))
+            .Descendants("packageSources")
+            .Single();
 
-        IEnumerable<XElement> offenders = config.Descendants("packageSourceMapping")
-            .Elements("packageSource")
-            .Where(s => (string?)s.Attribute("key") != JauntyQSource)
-            .Where(s => s.Elements("package").Any(p =>
-                ((string?)p.Attribute("pattern"))?.StartsWith("JauntyQ", StringComparison.OrdinalIgnoreCase) == true));
-
-        Assert.True(
-            !offenders.Any(),
-            $"Only '{JauntyQSource}' may map JauntyQ.*; also mapped by: "
-                + string.Join(", ", offenders.Select(s => (string?)s.Attribute("key"))));
+        Assert.Equal("clear", sources.Elements().First().Name.LocalName);
+        Assert.Equal(
+            ["nuget.org=https://api.nuget.org/v3/index.json"],
+            sources.Elements("add").Select(a => $"{(string?)a.Attribute("key")}={(string?)a.Attribute("value")}"));
     }
 
     /// <summary>
@@ -103,11 +64,11 @@ public sealed partial class PackageFeedConfigTests
     /// failed that job's auth step by name, which is the test working -- the fix
     /// is to widen what counts as declared, not to drop the check. Both files
     /// stay in scope, so authenticating a source neither declares is still a
-    /// failure.
+    /// failure. Since 2026-09-24 only the skeleton's declares one, and publish.yml
+    /// authenticates nothing.
     /// </remarks>
     [Theory]
     [InlineData("ci.yml")]
-    [InlineData("publish.yml")]
     public void Workflow_AuthenticatesTheSourceNameNuGetConfigActuallyDeclares(string file)
     {
         string root = RepoRoot();
@@ -237,7 +198,6 @@ public sealed partial class PackageFeedConfigTests
     /// </remarks>
     [Theory]
     [InlineData("ci.yml")]
-    [InlineData("publish.yml")]
     public void Workflow_WritesFeedCredentialsOutsideTheWorkspace(string file)
     {
         var checkedJobs = new List<string>();
@@ -296,36 +256,28 @@ public sealed partial class PackageFeedConfigTests
     }
 
     /// <summary>
-    /// Every job that runs the SDK authenticates the feed first.
+    /// The one job that restores against a GitHub source authenticates, and no other job does.
     /// </summary>
     /// <remarks>
     /// The check above is satisfied by whatever credential steps remain, so deleting a whole
     /// step left the suite green: confirmed by mutation 2026-09-06, 194 tests and 0 failed with
     /// skeleton-stamp's step removed. A restore without the credential is a 401 on the runner
-    /// and nothing at all here, so the count is anchored to the jobs that need one.
+    /// and nothing at all here, so the count is anchored to the jobs that need one. Since
+    /// 2026-09-24 that is skeleton-stamp alone: the root config declares nuget.org and nothing
+    /// else, so a credential step anywhere else names a feed no config it restores against has.
     /// </remarks>
     [Theory]
-    [InlineData("ci.yml")]
-    [InlineData("publish.yml")]
-    public void Workflow_AuthenticatesInEveryJobThatRunsTheSdk(string file)
+    [InlineData("ci.yml", "skeleton-stamp")]
+    [InlineData("publish.yml", "")]
+    public void Workflow_CredentialsOnlyTheJobThatRestoresTheStampedProduct(string file, string job)
     {
-        var sdkJobs = new List<string>();
+        string[] expected = job.Length == 0 ? [] : [job];
 
-        foreach ((string job, string body) in Jobs(file))
-        {
-            if (!SdkCommandPattern().IsMatch(body))
-            {
-                continue;
-            }
-
-            sdkJobs.Add(job);
-            Assert.True(
-                body.Contains("--store-password-in-clear-text", StringComparison.Ordinal),
-                $"{file} job '{job}' runs the SDK without authenticating the package feed; "
-                    + "restore resolves JauntyQ.* from GitHub Packages, which 401s unauthenticated.");
-        }
-
-        Assert.NotEmpty(sdkJobs);
+        Assert.Equal(
+            expected,
+            Jobs(file)
+                .Where(j => j.Body.Contains("--store-password-in-clear-text", StringComparison.Ordinal))
+                .Select(j => j.Job));
     }
 
     /// <summary>
@@ -447,8 +399,9 @@ public sealed partial class PackageFeedConfigTests
     private static partial Regex ConfigFilePattern();
 
     /// <summary>
-    /// The two premium ids resolve from the same private source as JauntyQ.*, in both
-    /// config files, by exact id.
+    /// The two premium ids resolve from the same private source as JauntyQ.*, in the stamped
+    /// product's config, by exact id. The root config dropped both with its private source on
+    /// 2026-09-24.
     /// </summary>
     /// <remarks>
     /// Exact ids on purpose. The core Extrode.JauntyQ.* packages ship on nuget.org from
@@ -457,7 +410,6 @@ public sealed partial class PackageFeedConfigTests
     /// generator. An exact id outranks any prefix, so only these two leave the catch-all.
     /// </remarks>
     [Theory]
-    [InlineData("nuget.config")]
     [InlineData("skeleton/nuget.config")]
     public void NuGetConfig_MapsThePremiumIdsToTheSourceThatServesJauntyQ(string file)
     {
@@ -511,7 +463,16 @@ public sealed partial class PackageFeedConfigTests
             ? id.StartsWith(pattern.TrimEnd('*'), StringComparison.OrdinalIgnoreCase)
             : string.Equals(pattern, id, StringComparison.OrdinalIgnoreCase);
 
-        string[] publicPatterns = Patterns(k => k == "nuget.org");
+        string[] otherSources = [.. config.Descendants("packageSources").Elements("add")
+            .Select(a => (string?)a.Attribute("key"))
+            .OfType<string>()
+            .Where(k => k != "nuget.org")];
+        bool mapped = config.Descendants("packageSourceMapping").Any();
+        Assert.True(
+            mapped || otherSources.Length == 0,
+            $"{file} declares {string.Join(", ", otherSources)} beside nuget.org with no packageSourceMapping.");
+
+        string[] publicPatterns = mapped ? Patterns(k => k == "nuget.org") : ["*"];
         string[] privatePatterns = Patterns(k => k != "nuget.org");
 
         Assert.Equal(

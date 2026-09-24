@@ -1,6 +1,4 @@
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 
 using Xunit;
 
@@ -375,110 +373,6 @@ public sealed class DeployTargetTests
         Assert.Contains("-r \"$RUNTIME_ID\"", restore, StringComparison.Ordinal);
         Assert.Contains("-r \"$RUNTIME_ID\"", publish, StringComparison.Ordinal);
         Assert.DoesNotContain("-c Release", restore, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void BuildScript_TellsTheOperatorToCredentialTheSourceJauntyQResolvesFrom()
-    {
-        string build = Read("scripts", "deploy", "build.sh");
-
-        var mapped = XDocument.Parse(Read("nuget.config"))
-            .Descendants("packageSource")
-            .Where(e => e.Elements("package")
-                .Any(pkg => (string?)pkg.Attribute("pattern") == "JauntyQ.*"))
-            .Select(e => (string?)e.Attribute("key"))
-            .ToList();
-
-        Assert.True(mapped.Count == 1, $"nuget.config maps {mapped.Count} sources for JauntyQ.*; build.sh names one.");
-        string source = mapped[0]!;
-
-        Assert.Contains($"JAUNTYQ_FEED_SOURCE=\"{source}\"", build, StringComparison.Ordinal);
-
-        // Inside the branch that prints it, not merely somewhere in the file: the remedy
-        // text survives in a comment when the branch itself is deleted, and a fact that
-        // stays green through that tests nothing an operator ever sees.
-        const string guard = "if grep -qiE '401";
-        int start = build.IndexOf(guard, StringComparison.Ordinal);
-        Assert.True(start >= 0, "build.sh no longer classifies the restore failure, so no remedy is reachable.");
-
-        int end = build.IndexOf("\n\tfi\n", start, StringComparison.Ordinal);
-        Assert.True(end > start, "the restore-failure branch has no closing fi.");
-
-        // `add ... --configfile "$JAUNTYQ_USER_CONFIG"`, not `update source`. The remedy printed
-        // here used to be `update source` with no --configfile, which writes to the nearest
-        // config declaring the source -- in a checkout of this repository, the committed
-        // nuget.config. The script told the operator their token was under $HOME while putting
-        // it in their working tree.
-        string remedy = build[start..end];
-        Assert.DoesNotContain("nuget update source", remedy, StringComparison.Ordinal);
-        Assert.Contains("read:packages", remedy, StringComparison.Ordinal);
-
-        // Asserted against what the operator SEES, not against the file. Every remedy line is an
-        // `echo "..." >&2` and the command spans several of them with printed backslash
-        // continuations, so `--configfile` present somewhere in the branch says nothing about
-        // whether it is on the command being pasted -- it sits on the creation line too. Drop the
-        // continuation and the pasted `add source` runs without it while the test stays green.
-        string printed = PrintedLine(remedy);
-
-        Assert.Contains("> \"$JAUNTYQ_USER_CONFIG\"", printed, StringComparison.Ordinal);
-
-        int addAt = printed.IndexOf("dotnet nuget add source", StringComparison.Ordinal);
-        Assert.True(addAt >= 0, "build.sh's remedy no longer prints a `dotnet nuget add source`.");
-
-        string command = FirstCommand(printed[addAt..]);
-        Assert.Contains("$JAUNTYQ_FEED_URL", command, StringComparison.Ordinal);
-        Assert.Contains("--name $JAUNTYQ_FEED_SOURCE", command, StringComparison.Ordinal);
-        Assert.Contains("--store-password-in-clear-text", command, StringComparison.Ordinal);
-        Assert.Contains("--configfile \"$JAUNTYQ_USER_CONFIG\"", command, StringComparison.Ordinal);
-
-        // The path it names has to be the user config, or the paragraph above is decoration.
-        Assert.Contains(
-            "JAUNTYQ_USER_CONFIG=\"$HOME/.nuget/NuGet/NuGet.Config\"",
-            build,
-            StringComparison.Ordinal);
-    }
-
-    // The text an `echo "..." >&2` block puts on the operator's terminal, with the shell's
-    // own escaping undone -- so \" reads as ", \\ as one backslash, and a printed
-    // continuation is a continuation rather than a literal pair.
-    private static string PrintedLine(string block)
-    {
-        StringBuilder printed = new();
-        foreach (Match line in Regex.Matches(block, "(?m)^[ \t]*echo \"(.*)\" >&2[ \t]*$"))
-        {
-            string text = line.Groups[1].Value;
-            for (int i = 0; i < text.Length; i++)
-            {
-                if (text[i] == '\\' && i + 1 < text.Length)
-                {
-                    i++;
-                }
-
-                printed.Append(text[i]);
-            }
-
-            printed.Append('\n');
-        }
-
-        return printed.ToString();
-    }
-
-    // One command as pasted: its first line plus every line a trailing backslash carries on to.
-    private static string FirstCommand(string text)
-    {
-        StringBuilder command = new();
-        foreach (string line in text.Split('\n'))
-        {
-            string trimmed = line.TrimEnd();
-            bool continues = trimmed.EndsWith('\\');
-            command.Append(trimmed.TrimEnd('\\')).Append(' ');
-            if (!continues)
-            {
-                break;
-            }
-        }
-
-        return command.ToString();
     }
 
     // A single invocation, from its command up to the last line of a backslash

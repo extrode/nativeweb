@@ -207,33 +207,13 @@ if [[ -n "$(git status --porcelain)" ]]; then
 	echo "          The RELEASE stamp below will say so." >&2
 fi
 
-# The source key that NuGet.config maps JauntyQ.* to. Named here rather than
-# inlined into the message below because DeployTargetTests reads it back and
-# compares it against that mapping: rename the source in NuGet.config alone and
-# the remedy would tell an operator to credential a source that does not exist.
-JAUNTYQ_FEED_SOURCE="jauntyq-github"
-JAUNTYQ_FEED_URL="https://nuget.pkg.github.com/extrode/index.json"
-# The user-level config, and the reason the hint below names it. `update source` with no
-# --configfile writes to the nearest config that declares the source, which in a checkout of this
-# repository is the committed nuget.config -- so the advice this script used to print put the
-# operator's token in the working tree while telling them it was under $HOME.
-JAUNTYQ_USER_CONFIG="$HOME/.nuget/NuGet/NuGet.Config"
-
 # Restore before the publish, not inside it, for the same reason zstd is checked
-# above: so the failure names its own fix.
+# above: so a restore failure is reported as one, not buried in the publish.
 #
-# JauntyQ resolves from a private GitHub Packages feed by default since
-# 2026-09-05, and GitHub Packages needs auth even to READ. This script runs in
-# WSL, which is a different user profile from the Windows workstation the
-# repository sits on -- so the credential a developer added on Windows does not
-# apply here, and nothing in the repository can carry one. Measured 2026-09-05 on
-# this machine: WSL restored 255 packages and then died on
-#
-#   error NU1301: Failed to retrieve information about 'JauntyQ.Generator'
-#   error NU1301:   Response status code does not indicate success: 401 (Unauthorized).
-#
-# preceded by twelve identical "could not be authenticated" warnings, none of
-# which says that the fix is one command in this shell.
+# JauntyQ resolved from a private GitHub Packages feed from 2026-09-05 to
+# 2026-09-24, and this block used to print how to credential that feed in WSL,
+# whose NuGet profile is not the Windows one. The pins restore from nuget.org
+# with no credential since then; the preflight stays for the reasons below.
 #
 # The flag is repeated from the publish below rather than shared through a
 # variable, so that both lines read as the mode they select; DeployTargetTests
@@ -251,33 +231,6 @@ RESTORE_LOG="$(mktemp)"
 echo "build.sh: restoring $PROJECT before the publish"
 if ! dotnet restore "$PROJECT" -r "$RUNTIME_ID" -p:JauntyQUsePackages=true --nologo >"$RESTORE_LOG" 2>&1; then
 	cat "$RESTORE_LOG" >&2
-	# Matched on the authentication signal itself, not on a NuGet error code. NU1301
-	# is the generic "could not retrieve information about" code: an offline shell, a
-	# proxy or a nuget.org outage raises it too, and telling someone whose network is
-	# down to go and fetch a token sends them the wrong way. Both strings below appear
-	# in the measured failure, twelve times each; the second comes from the server
-	# rather than the SDK, so it survives a non-English DOTNET_CLI_UI_LANGUAGE.
-	if grep -qiE '401 \(Unauthorized\)|could not be authenticated by the GitHub Packages service' "$RESTORE_LOG"; then
-		echo "" >&2
-		echo "build.sh: the restore above could not read the JauntyQ packages." >&2
-		echo "          They live on a private feed that needs a token even to READ, and this" >&2
-		echo "          shell has its own NuGet profile -- a credential added on Windows does" >&2
-		echo "          not reach it. Once, in THIS shell:" >&2
-		echo "" >&2
-		echo "            mkdir -p \"$(dirname "$JAUNTYQ_USER_CONFIG")\"" >&2
-		echo "            [ -f \"$JAUNTYQ_USER_CONFIG\" ] || printf '%s' '<configuration />' > \"$JAUNTYQ_USER_CONFIG\"" >&2
-		echo "            dotnet nuget add source $JAUNTYQ_FEED_URL \\" >&2
-		echo "              --name $JAUNTYQ_FEED_SOURCE \\" >&2
-		echo "              --username <your-github-account> --password <token> \\" >&2
-		echo "              --store-password-in-clear-text \\" >&2
-		echo "              --configfile \"$JAUNTYQ_USER_CONFIG\"" >&2
-		echo "" >&2
-		echo "          The token needs read:packages. A gh OAuth token works:" >&2
-		echo "          gh auth refresh -h github.com -s read:packages && gh auth token" >&2
-		echo "          It is stored in plain text in that file, under \$HOME and never in" >&2
-		echo "          this checkout, so use a token scoped to reading packages and" >&2
-		echo "          nothing else." >&2
-	fi
 	rm -f "$RESTORE_LOG"
 	exit 1
 fi
@@ -303,9 +256,8 @@ echo "build.sh: publishing $PROJECT for $RUNTIME_ID at $SHORT_SHA ($DIRTY)"
 # mode that cannot restore. R22 asks for the build mode to be documented rather
 # than discovered; this is where it is documented.
 #
-# Package mode still restores from whatever the machine's NuGet cache holds when
-# the jauntyq-github feed is uncredentialed -- a documented, still-unresolved gap
-# (work/todo.md, NuGet.config). A clean host gets NU1101 naming the feed.
+# Package mode restores the Extrode.JauntyQ.* pins from nuget.org, the only
+# source nuget.config declares since 2026-09-24.
 dotnet publish "$PROJECT" \
 	-c Release \
 	-r "$RUNTIME_ID" \
