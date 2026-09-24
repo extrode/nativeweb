@@ -118,12 +118,12 @@ checkout step fails with `Repository not found`.
 no `NativeWeb.*` package has published, so a package-mode restore of the framework cannot succeed
 anywhere. CI used to force it and died at Restore on every run; it no longer depends on it.
 
-**JauntyQ went the other way on 2026-09-05 and packages are its default.** It split its generator
-and runtime out to a public core repository, so a sibling `jauntyq/` no longer carries either
-project a product references and checkout mode cannot work; `-p:JauntyQUsePackages=false` selects
-it and fails. Nothing needs to be passed for the default. The packages are private-feed only —
-the JauntyQ license limits generated output to self-hosted use, which is also why enabling this
-workflow in a repository outside those terms is not permitted.
+**JauntyQ went the other way on 2026-09-05 and packages are its default.** Nothing needs to be
+passed for the default: the pins are `Extrode.JauntyQ.*`, public on nuget.org since core 0.5.0, and
+restore with no credential. Checkout mode, `-p:JauntyQUsePackages=false`, builds against a sibling
+clone of the public core (`github.com/extrode/jauntyq`). The JauntyQ license limits generated
+output to self-hosted use, which is also why enabling this workflow in a repository outside those
+terms is not permitted.
 
 ## Before shipping
 
