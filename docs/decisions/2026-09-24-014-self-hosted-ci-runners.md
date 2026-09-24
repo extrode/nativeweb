@@ -65,11 +65,14 @@ including the Linux runner itself.
 - **Files outside a checkout survive too.** `skeleton-stamp` writes `ciprobe/` beside the
   `NativeWeb/` checkout, where `actions/checkout` never cleans. The job clears it first, because
   `new-product.ps1` refuses a destination that is not empty.
-- **The user-level NuGet config survives too,** and `dotnet nuget add source` exits 1 on a name it
-  already holds. So every credential step removes the source first.
+- **The user-level NuGet config survives too,** and `dotnet nuget add source` exits 1 on a URL it
+  already holds, under any name. So every credential step writes that file fresh before adding its
+  source. The first version removed only its own source name first. On the first real run,
+  `skeleton-stamp` left the feed URL behind as `framework-github`, and `test`'s `add` of
+  `jauntyq-github` then failed on the same runner.
 
 `RunnerSelectionTests` pins all of this: the variable-plus-fallback shape of every `runs-on`, the
-cold cache before the first SDK command, remove-before-add, the registration URL and labels, and
+cold cache before the first SDK command, the fresh config before every add, the registration URL and labels, and
 the compose project name. The name is pinned because another project's runner also lives in a directory
 called `ci-runner`, and two compose projects with one name share containers and volumes.
 
