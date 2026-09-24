@@ -307,7 +307,7 @@ query, then never again.</li>
 </ul>
 <p>Because there's no reflection and no runtime code generation, the emitted code is Native
 AOT and trim compatible <strong>by construction</strong> — no separate <code>.AOT</code> package, no interceptor
-step, unlike Dapper. <code>JauntyQ.Runtime</code> is marked <code>IsAotCompatible</code>, and
+step, unlike Dapper. <code>Extrode.JauntyQ.Runtime</code> is marked <code>IsAotCompatible</code>, and
 <code>samples/JauntyQ.Aot.Smoke</code> publishes to a self-contained native binary — verified in CI —
 running the full auto-CRUD, identity-return, and <code>@stream</code> paths against SQLite.</p>
 <p><strong>The database provider must also be AOT-friendly</strong> — the ORM being AOT-safe doesn't make
