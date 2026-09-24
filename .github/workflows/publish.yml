@@ -33,9 +33,16 @@ env:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
 
     steps:
+      # A self-hosted runner keeps $HOME between jobs, and a warm ~/.nuget/packages
+      # is what hid the deleted JauntyQ.* ids for a week (2026-09-17 to 09-24).
+      # RUNNER_TEMP is emptied for every job, so each restore starts cold, as it
+      # does on a hosted runner. Decision 2026-09-24-014.
+      - name: Cold NuGet cache
+        run: echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v7
 
       # Deno is not preinstalled on a GitHub runner and denoland/setup-deno is a
@@ -108,6 +115,9 @@ jobs:
           # clears them before declaring its own.
           [ -f "$HOME/.nuget/NuGet/NuGet.Config" ] \
             || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
+          # A self-hosted runner keeps this file between jobs, and `add` exits 1 on
+          # a name it already holds, so the previous job's entry goes first.
+          dotnet nuget remove source jauntyq-github --configfile "$HOME/.nuget/NuGet/NuGet.Config" >/dev/null 2>&1 || true
           dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
             --name jauntyq-github \
             --username ${{ github.actor }} \

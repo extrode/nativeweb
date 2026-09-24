@@ -1,0 +1,73 @@
+# Self-hosted GitHub Actions runner for the Linux jobs in .github/workflows/ci.yml and
+# publish.yml, run on the dev machine while the account's hosted-runner minutes are used up.
+# Decision: docs/decisions/2026-09-24-014-self-hosted-ci-runners.md. Setup: README.md here.
+#
+#   cd scripts/ci-runner
+#   echo RUNNER_TOKEN=<token> > .env   # gh api -X POST repos/extrode/nativeweb/actions/runners/registration-token --jq .token
+#   docker compose up -d --build
+#
+# The token is needed for the first start only; it expires after an hour, and the registration
+# it produces lives in the runner-home volume.
+#
+# Two containers, one network namespace. The jobs start Postgres as a `services:` container and
+# reach it at localhost:5432, so the runner needs a Docker daemon whose published ports land on
+# ITS localhost. The host's Docker Desktop cannot provide that: Windows already has a native
+# Postgres on 5432, so publishing that port fails, and a published port would be on the VM
+# anyway, not inside the runner container. dind is a private daemon: the runner shares its network
+# namespace, so a service's port binds where the job looks for it, nothing binds on Windows, and a
+# job cannot see or touch the host's own containers.
+
+# Pinned, not left to the directory name: another project's runner lives in a directory also called
+# ci-runner, and two projects with one name share containers and volumes, so `up` here would
+# replace that runner and inherit its registration.
+name: nativeweb-ci-runner
+
+services:
+  dind:
+    image: docker:dind
+    restart: unless-stopped
+    privileged: true
+    # A unix socket on a volume both containers mount, not TCP: dockerd warns that an
+    # unauthenticated TCP listener will become a hard startup failure, and a socket needs no port.
+    # --group=123 is the docker group the base runner image puts its runner user in, so the job
+    # can use the socket without sudo. dockerd-entrypoint.sh is bypassed because it appends its own
+    # listeners; `dind` is the cgroup/mount wrapper it would have run.
+    entrypoint: ["dind", "dockerd", "--host=unix:///var/run/dind/docker.sock", "--group=123"]
+    volumes:
+      - dind-data:/var/lib/docker
+      - dind-socket:/var/run/dind
+
+  runner:
+    build: .
+    image: nativeweb-ci-runner
+    restart: unless-stopped
+    depends_on: [dind]
+    network_mode: service:dind
+    environment:
+      RUNNER_TOKEN: ${RUNNER_TOKEN:-}
+      DOCKER_HOST: unix:///var/run/dind/docker.sock
+      # The base image's /etc/localtime links to zoneinfo//UTC, which Deno cannot resolve.
+      # Hosted ubuntu-latest runners are UTC too.
+      TZ: UTC
+    volumes:
+      - runner-home:/home/runner
+      - dind-socket:/var/run/dind
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        if [ ! -f .runner ]; then
+          ./config.sh --unattended --replace \
+            --url https://github.com/extrode/nativeweb \
+            --token "$$RUNNER_TOKEN" \
+            --name nativeweb-docker \
+            --labels nativeweb-linux
+        fi
+        until docker info >/dev/null 2>&1; do sleep 1; done
+        exec ./run.sh
+
+volumes:
+  dind-data:
+  dind-socket:
+  runner-home:
