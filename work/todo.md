@@ -15,6 +15,17 @@ wish list; the value is in recording the ones nobody has got to yet.
   `scripts/deploy/build.sh` still credential it. Retiring it touches ~10 repo tests that pin its
   layout (`PackageFeedConfigTests`, `DeployTargetTests`, `SkeletonFrameworkResolutionTests`);
   ghosthive.com already dropped its copy. Kept out of `fix/ci-jauntyq-core-packages`.
+  **Retiring means removing the source, not only its credential:** NuGet's vulnerability audit
+  queries every declared source, and an unreachable or unauthenticated one fails the build with
+  NU1900 as a warning-as-error (seen 2026-09-24). The `scripts/deploy/build.sh` 401 remedy, which
+  still names this feed, goes in the same change.
+
+- **Point CI back at GitHub's runners when the Actions minutes reset (October 2026).** Since
+  2026-09-24 the repository variables `CI_LINUX_RUNNER` / `CI_WINDOWS_RUNNER` send every job to
+  the self-hosted runners in `scripts/ci-runner/` on the dev machine. Delete both variables
+  (`gh variable delete CI_LINUX_RUNNER -R extrode/nativeweb`, same for Windows) and the jobs fall
+  back to ubuntu-latest / windows-latest with no commit. Then stop the runners and remove them
+  under Settings > Actions > Runners, or keep them as a spare.
 
 - **Scaffold generator: a cascaded refusal hides the local fault.** A model whose reference
   property is `string` rather than `string?`, against a target that is itself dropped, is reported
