@@ -29,6 +29,13 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Changed
 
+- The root `nuget.config` declares nuget.org alone. The `jauntyq-github` source (GitHub Packages)
+  served nothing pinned since the `Extrode.JauntyQ.*` pins moved to nuget.org, and still failed
+  CI's vulnerable package gate: `dotnet list package --vulnerable` queries every declared source,
+  and the job's token got `403 (Forbidden)`. Its credential steps in `ci.yml` and `publish.yml`
+  and `scripts/deploy/build.sh`'s remedy for credentialing it went with it. The premium ids it
+  mapped (`Extrode.JauntyQ.Cli.Premium`, `.Schema.Contract`) are referenced by nothing; using one
+  again means re-adding the source. `skeleton/` keeps its `framework-github` source.
 - CI can run on self-hosted runners: each job in `ci.yml` and `publish.yml` takes its runner from
   the `CI_LINUX_RUNNER` / `CI_WINDOWS_RUNNER` repository variables and falls back to
   `ubuntu-latest` / `windows-latest` when they are unset. `scripts/ci-runner/` holds a Docker
