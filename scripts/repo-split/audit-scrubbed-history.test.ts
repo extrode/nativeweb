@@ -157,6 +157,12 @@ Deno.test("a comment line in a rules file is refused, since filter-repo would re
   assertThrows(() => parseRules("# note\nregex:x==>y"), Error, "comment line");
 });
 
+Deno.test("a leading (?i) matches any case, as Python's re does", () => {
+  const [rule] = parseRules("regex:(?i)hangar==>host");
+  assertEquals("Hangar HANGAR hangar".match(rule.pattern)?.length, 3);
+  assertEquals("Hangar".match(parseRules("regex:hangar==>host")[0].pattern), null);
+});
+
 Deno.test("path lists skip comments and blank lines", () => {
   assertEquals(parsePathList("# head\n\napps/x\n  libs/y  \n"), ["apps/x", "libs/y"]);
 });

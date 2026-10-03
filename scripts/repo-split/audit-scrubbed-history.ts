@@ -42,7 +42,10 @@ export function parseRules(text: string): Rule[] {
   return text.split(/\r?\n/).filter((l) => l.length > 0).map((line) => {
     const body = line.includes("==>") ? line.slice(0, line.lastIndexOf("==>")) : line;
     if (body.startsWith("regex:")) {
-      return { source: body.slice(6), pattern: new RegExp(body.slice(6), "g") };
+      // filter-repo compiles with Python's re, which takes a leading (?i); JavaScript wants a flag.
+      const source = body.slice(6);
+      const ignoreCase = source.startsWith("(?i)");
+      return { source, pattern: new RegExp(ignoreCase ? source.slice(4) : source, ignoreCase ? "gi" : "g") };
     }
     if (body.startsWith("#")) {
       throw new Error(`comment line in a rules file, which filter-repo would treat as a literal: ${line}`);
