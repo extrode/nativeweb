@@ -98,6 +98,14 @@ Deno.test("the company form fails and the person's name passes", async () => {
   });
 });
 
+Deno.test("a binary blob is skipped, as filter-repo skips it", async () => {
+  await withFixture([
+    { files: { "font.woff2": "\u0000\u0001host7\u0000" }, message: "feat: font" },
+  ], async (dir) => {
+    assertEquals(failures(await audit(dir, RULES, "work")), 0);
+  });
+});
+
 Deno.test("a commit message that names a removed string fails", async () => {
   await withFixture([
     { files: { "a.txt": "a" }, message: "chore: back up to the hangar" },

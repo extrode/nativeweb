@@ -148,6 +148,9 @@ export async function audit(repo: string, rules: Rules, ref = "dev", tree = fals
   const contents = await readBlobs(repo, shas);
   contents.forEach((bytes, i) => {
     const path = blobs.get(shas[i])!;
+    // filter-repo's --replace-text skips a blob with a NUL byte in its first 8 KiB, so the same
+    // test decides what is text here: a rule matching inside a font is not a leak it could fix.
+    if (bytes.subarray(0, 8192).includes(0)) return;
     const text = latin1.decode(bytes);
     report.blobHits.push(...matchRules(text, rules.text, `${path} (${shas[i].slice(0, 10)})`));
     const markers = text.match(MARKERS)?.length ?? 0;
