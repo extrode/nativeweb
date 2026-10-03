@@ -1,4 +1,4 @@
-# NativeWeb reverse proxy, edge variant. Decision 006.
+# NativeWeb reverse proxy, edge variant.
 #
 # The sibling Caddyfile is for a host the public resolves to directly: it holds
 # :443, gets its own certificates over ACME, and redirects :80. This one is for a
@@ -51,9 +51,8 @@
 	}
 }
 
-# Bare :80, matching the fleet's own tenant sidecar shape -- the base image's
-# nftables comment names it, and edge-test.example.com already runs
-# it. No hostname match, because the boundary here is the firewall: one rule,
+# Bare :80, the usual shape for a guest behind a host-level proxy. No hostname
+# match, because the boundary here is the firewall: one rule,
 # `ip saddr 10.0.0.1 tcp dport 80 accept`, so the only peer that can reach
 # this listener is the edge. A hostname match would add a second, weaker copy of
 # that boundary and break probing the guest by address.
@@ -67,7 +66,7 @@
 	# Compression happens at this hop, not in the app (2026-08-31; see the
 	# non-edge variant and docs/02-reference/performance.md, bottleneck 4).
 	#
-	# Here it does mean compressing on the private bridge hop to the fleet edge,
+	# Here it does mean compressing on the private bridge hop to the host edge,
 	# which is CPU this guest could skip if the host-level Caddy compressed for
 	# it. It is stated anyway because that host's config is not in this
 	# repository: an edge that does not compress would otherwise ship every page

@@ -105,12 +105,8 @@ wish list; the value is in recording the ones nobody has got to yet.
   variable.
 
   **The open question in front of this is answered, 2026-09-06: `pg_dump` earns its place.**
-  Whole instances do leave `incus-host` -- `incus export` to offsite object storage -- but weekly, to
-  one provider, and unrehearsed: the fleet runbook records the tier-3 restore path as never
-  drilled. The daily dump runs to two independent providers. Daily against weekly and two
-  providers against one is the whole difference, so the deliverable was a drill, not a deletion.
-  The work moved rather than disappearing: this host is joining the fleet's tier 1 instead of
-  running its own `backup.sh`.
+  A weekly, unrehearsed whole-instance export is no substitute for a daily dump, so the
+  deliverable was a drill, not a deletion.
 
   Neither restore has been drilled from where the bytes will actually live. `restore.sh` was
   drilled on 2026-09-05 against MinIO, which is gone; the backup-tool restore has not been drilled at
@@ -1513,27 +1509,27 @@ unchanged by any of this, so the banner question stays open and stays theirs.
 ## ~~Deploy toolchain hardcodes SSH port 22~~ — FIXED 2026-08-30 (`fix/nft-ssh-port`)
 
 `scripts/deploy/nftables/nativeweb.nft:43-44` accepts `tcp dport 22` only, and `provision.sh:351`
-installs it as `/etc/nftables.conf` and enables it. On `web-host` — sshd on 2222, 22 closed at
-the DO firewall and not bound by sshd — that is an immediate lockout with no console failover, in
+installs it as `/etc/nftables.conf` and enables it. On a host with sshd on a non-default port and 22 closed at
+the provider firewall and not bound by sshd — that is an immediate lockout with no console failover, in
 the middle of the provisioning step. Fix is to derive the ports from `sshd -T` and emit an
 nftables `define` rather than hardcoding, so the ruleset opens whatever sshd actually listens on.
 Blocks spec 011 T15 at its first step.
 
-## Deploy target moved to incus-host — three follow-ups
+## Deploy target moved to an Incus host — three follow-ups
 
-Recorded in `docs/decisions/2026-08-30-006-fleet-as-deploy-target.md`. `nativeweb-dev`
+`nativeweb-dev`
 (`10.0.0.30`) and `nativeweb-prod` (`10.0.0.31`) exist, are hardened and are idempotent;
-`build-host` is the NativeAOT builder. Three T15 stoppers from the vm rehearsal are
+a separate build host is the NativeAOT builder. Three T15 stoppers from the earlier VM rehearsal are
 gone with the host change. What is left is code, not infrastructure:
 
-- **Caddy needs a behind-an-edge variant.** The fleet terminates TLS at one host Caddy and speaks
+- **Caddy needs a behind-an-edge variant.** The host terminates TLS at one host Caddy and speaks
   plain HTTP to a private address, so the VM's Caddy moves from `:443`-with-ACME to `:80` with
   `auto_https off`. Keeping that sidecar rather than dropping it is what preserves R10's zero-gap
   blue/green swap, since `deploy.sh` promotes by rewriting `upstream.caddy` and reloading. Needs
   the Caddyfile variant, the matching `deploy.sh` branch, and tests for both.
 - **Guest firewall rule.** The golden image's default-deny `inet filter` needs
-  `ip saddr 10.0.0.1 tcp dport 80 accept` — the bridge gateway only, per the fleet convention
-  epass follows. Waiting on the sidecar port above.
+  `ip saddr 10.0.0.1 tcp dport 80 accept` — the bridge gateway only, per the host
+  convention. Waiting on the sidecar port above.
 - ~~**`deploy.sh` still has no SSH port flag**~~ — **done 2026-08-31** (`fix/014-leftovers`).
   `--port` / `-p`, validated before anything is copied, reaching both the `ssh` calls as `-p` and
   both `scp` calls as `-P` from one pair of arrays — the two spellings differ, and a deploy where
@@ -1558,15 +1554,6 @@ gone with the host change. What is left is code, not infrastructure:
 
 - **`nativeweb-prod` has no sidecar firewall rule and no provisioning.** `nativeweb-dev` has
   both. Deliberate: prod waits until dev has served a real release.
-
-`web-host` is untouched and still running. It is not in any cleanup script and is not mine to
-remove.
-
-## `other-vm` has LLMNR open on `0.0.0.0:5355` — not ours
-
-Noted only, one line, because it turned up while verifying the same port was closed on the
-NativeWeb VMs. The resolver drop-in in `harden-host.sh` closes it. That host belongs to the
-another project's deployment and runbook, not to this repo.
 
 ## Spec 014 leftovers — noted during the pre-merge review, out of that branch's scope
 

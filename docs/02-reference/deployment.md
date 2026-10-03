@@ -17,22 +17,21 @@ decision with a stated default.
 > **Releasing, restoring and disaster recovery have all now been executed for
 > real. What has never been rehearsed is losing the machine.** On 2026-09-01 a
 > `linux-x64` artifact built by `build.sh` was deployed by `deploy.sh` to
-> `nativeweb-dev` (10.0.0.30, Debian 12, an Incus guest on `incus-host`)
-> and promoted to blue, and the result is public at `https://nw-dev.example.com`;
-> that closes R1. On 2026-09-05 a backup was taken, restored into a scratch
+> `nativeweb-dev` (Debian 12, a VM guest behind an edge proxy) and promoted to
+> blue, and the result was served publicly; that closes R1. On 2026-09-05 a backup was taken, restored into a scratch
 > database and served from, and `nativeweb-dr` was rebuilt from repository plus
 > backup in 345 s. That closes R16 and R17a, and every elapsed time below is now
 > a measured number rather than a placeholder. Build time is the one it does not
 > record: the drill repackaged a running release rather than publishing one.
 >
 > **R14 and R17b are unmet, and they are the ones that matter most.** The backup
-> bucket is a MinIO container on `incus-host`, the machine being backed up,
-> so losing that machine loses the guest, the replacement and the bucket
-> together. The drill rehearsed recovering a broken guest. The `age` private key is
-> the one part of that set which now survives the host, stored off-fleet 2026-09-06.
+> bucket was a MinIO container on the physical host being backed up, so losing
+> that machine loses the guest, the replacement and the bucket together. The
+> drill rehearsed recovering a broken guest. The `age` private key is the one
+> part of that set which now survives the host, stored off-host 2026-09-06.
 > **R17b had two blockers and now has one.** Its criterion is that the backup is
 > still readable after the host is gone, and readable needs both the bytes and the
-> key; the key is off the fleet and the bytes are not. R14 is about location alone,
+> key; the key is off the host and the bytes are not. R14 is about location alone,
 > so it is untouched. Both stay unmet. R15 is unmet too:
 > `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is unnoticed.
 >
@@ -83,7 +82,7 @@ Both are R7's, and both are choices rather than defaults.
 
 - **Distribution: Debian stable, x86-64.** `provision.sh` targets apt and systemd;
   Ubuntu LTS works unchanged. `TESTED ON: Debian 12 (bookworm), x86-64,
-  2026-09-01` — an Incus guest, provisioned and deployed to.
+  2026-09-01` — a VM guest, provisioned and deployed to.
 - **`unattended-upgrades` is on, security pocket only, and does NOT reboot.**
   There is one host and no failover, so an unattended 03:00 reboot is an
   unannounced outage. Kernel and libc updates therefore wait for an operator:
@@ -149,7 +148,7 @@ nine keys nothing reads and passed on the two that mattered while they stayed un
    > working backups helps. A password manager, a second machine, a printed copy
    > in a safe — anywhere, as long as losing the host does not lose the key.
    > **Recorded 2026-09-06:** an off-host copy exists, in the operator's own
-   > store, off `incus-host`. Deliberately not named here -- this file is
+   > store, off the host. Deliberately not named here -- this file is
    > in a public repository, and a runbook that names the vault holding the key
    > is half of the compromise. Ask the operator.
    > **The `nativeweb-dev` key of 2026-09-01 is not being rotated -- decided by
@@ -244,9 +243,9 @@ against and step 8 had nothing to prune.
 | `/` | `302` to `/admin`, 0.050 s |
 | Date last exercised | 2026-09-01 |
 
-The timings are from `incus-host` over the LAN and through the edge, so they
+The timings are from the physical host over the LAN and through the edge, so they
 include Caddy and TLS but not a WAN round trip. Build time is not recorded here:
-the publish ran on `build-host` rather than the workstation, and one
+the publish ran on a separate build machine rather than the workstation, and one
 measurement on one build box is not a figure this runbook should quote.
 
 Exit 78 in step 6's log is `EX_CONFIG`: a configuration error, not a crash. The
@@ -312,30 +311,12 @@ less than it sounds, because the site is versioned: every release's documentatio
 stays in the tree whichever one is serving.
 
 One thing to know before copying the tracked `Caddyfile` onto a host: **a guest
-behind an edge proxy needs a different one.** `nativeweb-dev` terminates TLS at
-`incus-host`, so its Caddyfile is `auto_https off` on `:80` with
+behind an edge proxy needs a different one.** `nativeweb-dev` has TLS terminated
+at an edge proxy in front of it, so its Caddyfile is `auto_https off` on `:80` with
 `trusted_proxies`, and the `/docs` block above is the only part the two share
 verbatim.
 
 ## Backups
-
-> **`nw-dev.example.com` is being moved off this script, and nothing is backing it
-> up in the meantime.** The intended home is the `incus-host` fleet backup, which
-> does the same `pg_dump -Fc` into two independent backup-tool repositories -- offsite object storage
-> and a offsite storage -- with a daily integrity check and a dead-man probe. The
-> two-word change that puts this VM in its tier-1 and tier-3 lists is merged to that
-> repository's `dev`, but `/opt/host-backup` on `incus-host` still runs the
-> pre-review scripts, so **on the host nothing has changed yet**. Their tier 3 has
-> additionally never produced a snapshot at all: ten of the host's 25 instances are
-> unclassified and the coverage check exits before the first export. See the gap table
-> below.
-> `the host's ops runbook` is the operating document for it,
-> and restores for that host follow its **Restoring** section rather than the one
-> below.
->
-> Everything in this section and the next stays the reference story for a NativeWeb
-> deployment that has no fleet behind it, which is most of them. `backup.sh` and
-> `restore.sh` are unchanged and still what `provision.sh` installs.
 
 Nightly at 03:17 UTC (plus up to 15 minutes of jitter), `Persistent=true` so a
 host that was off catches up rather than skipping a day silently.
@@ -369,11 +350,6 @@ Two mechanisms, covering two different failures:
 > that silently stops running will not be noticed. Point it at an external check
 > (healthchecks.io or equivalent) to close it. `backup.sh` says so in its own output
 > on every run rather than letting the gap pass quietly.
->
-> For `nw-dev.example.com` the fleet's own dead-man probe covers this instead -- a
-> GitHub Actions workflow that alerts on a stale freshness marker every six hours.
-> Read its own caveat before trusting it: a green marker means the job ran, not that
-> your database was in the list it dumped.
 
 ## Restoring
 
@@ -406,7 +382,7 @@ was taken, while a row written after it is absent**.
 > restore at all. It tested nothing. The replacement is falsifiable: write a
 > marker row *after* the backup, and the restored database must not have it.
 
-Drill of 2026-09-05, on `nativeweb-dev`, against MinIO on the same fleet host:
+Drill of 2026-09-05, on `nativeweb-dev`, against MinIO on the same physical host:
 `drill-pre-20260905` was written before the backup and `drill-post-20260905`
 after it. The restored database held the first and not the second, and the
 current release served `/articles/restore-drill-pre` 200 and
@@ -425,13 +401,6 @@ floor, not a capacity measurement.
 
 Losing the host is an outage, not a failover — one host, by decision. This is the
 whole way back, from nothing but this repository and the backup bucket.
-
-> For `nw-dev.example.com` the bytes now come from the fleet's backup-tool repositories
-> rather than from a bucket this host writes to, so steps 3, 4 and 7 are replaced by
-> the fleet runbook's **Restoring** section: backup-tool restores the `.dump` files to a
-> scratch directory and `pg_restore` loads them. Steps 1, 2, 5, 6, 8 and 9 are
-> unchanged, and step 2 becomes the backup-tool password rather than the `age` key. The
-> sequence below remains the story for a deployment backing up with `backup.sh`.
 
 1. Provision a new host: **Provisioning a host**, above.
 2. Restore the `age` private key from the operator's off-host store. Without it,
@@ -462,8 +431,8 @@ whole way back, from nothing but this repository and the backup bucket.
 | Total time, bare host to serving | **345 s** (5 m 45 s) |
 | Date last exercised | **2026-09-05** |
 
-Measured 2026-09-05 rebuilding `nativeweb-dr` on `incus-host`: guest created,
-`provision.sh --edge 10.0.0.1` (26 s), age key installed from the value
+Measured 2026-09-05 rebuilding `nativeweb-dr` on the same physical host: guest
+created, `provision.sh --edge <edge-ip>` (26 s), age key installed from the value
 printed when `nativeweb-dev` was provisioned (no off-host copy existed on the day
 of the drill; one was made 2026-09-06, so step 2 as written above has not itself
 been exercised), `restore.sh --target nativeweb --from-host nativeweb-dev
@@ -474,7 +443,7 @@ been exercised), `restore.sh --target nativeweb --from-host nativeweb-dev
   (see the gap table below), so the running release was repackaged from
   `nativeweb-dev` with `tar --zstd`, the same shape `build.sh` emits. A real
   rebuild adds however long a publish takes to the 345 s.
-- The bucket is MinIO **on the same physical host**. Losing `incus-host`
+- The bucket is MinIO **on the same physical host**. Losing that host
   loses the guest, the replacement guest and the bucket together, so this
   exercises R17a and leaves R17b and R14 unmet. The key was in that set on the day
   and is not any more, which removes one of R17b's two blockers -- readable needs
@@ -486,7 +455,7 @@ been exercised), `restore.sh --target nativeweb --from-host nativeweb-dev
   the new host's address, and the app role's password must be set to match the
   carried `secrets.env` -- `pg_dump -Fc` dumps one database, not roles. They are
   now steps 3 to 6.
-- `provision.sh` must run **inside the guest**. On the fleet host it would
+- `provision.sh` must run **inside the guest**. On a shared physical host it would
   overwrite `/etc/caddy/Caddyfile`, which serves every site on the machine, and
   its nftables ruleset opens with `flush ruleset`.
 
@@ -497,11 +466,9 @@ been exercised), `restore.sh --target nativeweb --from-host nativeweb-dev
 | ~~Provisioning has never been run on a real host~~ | **Closed 2026-09-01** — provisioned and deployed to on `nativeweb-dev`. R1 met |
 | ~~The restore drill has never been run~~ | **Closed 2026-09-05** — drilled on `nativeweb-dev`, R16 met under the amended criterion above |
 | ~~Disaster recovery has never been exercised~~ | **Closed 2026-09-05** — `nativeweb-dr` rebuilt from repo plus backup in 345 s, R17a met with the four caveats above |
-| No backup is offsite | **R14 and R17b closing, not yet closed.** `nativeweb-dev` was added to the fleet backup's tier 1 and tier 3 on 2026-09-06, which puts the dumps on offsite object storage and a offsite storage, both off `incus-host`. Unmet until a fleet run has captured this VM and a restore from one of those repositories has been drilled; neither has happened yet |
-| Nothing is backing up `nativeweb-dev` right now | **Open, and the reason the row above is not closed.** The MinIO container this host's `backup.env` points at was deleted on 2026-09-06 with every backup in it, and the fleet has not yet run against this VM. The 03:17 timer is still enabled but inert: every run dies at the upload and the dump is removed by the `EXIT` trap, so disabling it would widen no window. It is left for a host pass, not as cover |
-| The nightly backup fails on `nativeweb-dev` | **Closed 2026-09-05, reopened 2026-09-06.** Bucket, endpoint and credentials were filled in and the first successful backup taken; the bucket was MinIO on the same fleet host, and was deleted on 2026-09-06 with everything in it. Folded into the row above — the timer is inert until it is disabled, since every run now dies at the upload and the `EXIT` trap removes the dump |
+| No backup is offsite | **R14 and R17b unmet.** Every backup drilled so far lived on the physical host being backed up. Closed when a backup held on separate storage has been restored from |
 | `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
-| `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it, for any deployment running `backup.sh`. For `nw-dev.example.com` the fleet's own six-hourly probe is the intended answer instead — see **Backups**, above |
+| `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it, for any deployment running `backup.sh` |
 | The build host needs a JauntyQ feed credential | `build.sh` pins **package** mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints a `dotnet nuget add source --configfile "$HOME/.nuget/NuGet/NuGet.Config"` command; an operator runs it once per WSL profile: the file it writes is the user-level
 NuGet config, which persists across shells. It printed `update source` with no `--configfile` until 2026-09-06, which writes the token into the checked-out `nuget.config` |
 | ~~The epass.io cutover scope decision~~ | **Closed 2026-08-31, and not a NativeWeb concern at all** — `../decisions/2026-08-31-008-epass-cutover-closed.md`. Nothing in this runbook is gated on it. |

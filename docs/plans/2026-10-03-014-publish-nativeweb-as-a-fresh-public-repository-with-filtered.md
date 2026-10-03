@@ -21,7 +21,7 @@ preserved, minus anything they do not want public. Decisions taken 2026-10-03:
   remaining hit is listed in the inventory for review.
 - **D3, hosting.** **No trace of where or how NativeWeb is hosted**: provider, host names and
   baselines, region, private subnets, co-tenancy (which products share a host), the private backup
-  setup, public IPs. Sibling product names (epass, ghosthive, justsmtp, another-product) go wherever they
+  setup, public IPs. Sibling product names (epass, ghosthive, justsmtp and the rest) go wherever they
   describe hosting; every other hit is listed in the inventory for the user to keep or cut. The
   `AGENTS.md` scope section's epass.io rationale (the "Django line") stays.
 - **D4, security contact.** `SECURITY.md` points at GitHub private vulnerability reporting.

@@ -30,7 +30,7 @@ export type Report = {
 };
 
 const PATH_LISTS = ["paths-idp.txt", "paths-devmarks.txt", "paths-other.txt"];
-const MARKERS = /WebAuthn|TwoFactor|OAuthToken|Consent|\brealm\b|ghosthive|justsmtp|manzil|another-product/g;
+const MARKERS = /WebAuthn|TwoFactor|OAuthToken|Consent|\brealm\b|ghosthive|justsmtp|manzil/g;
 
 export function parsePathList(text: string): string[] {
   return text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));

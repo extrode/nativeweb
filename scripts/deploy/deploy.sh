@@ -18,7 +18,7 @@
 #                    carrying a Port needs nothing here.
 #   --incus <inst>   run on an Incus host: pushes both into the guest <inst> and
 #                    re-executes there. For a guest that runs no sshd because it
-#                    is managed by `incus exec` -- decision 006.
+#                    is managed by `incus exec`.
 #   --local          already on the host. What the other two invoke on the target.
 #
 # Re-running with an artifact that is already live is a no-op and exits 0 (R8).
@@ -157,7 +157,7 @@ if [[ "$LOCAL" -ne 1 ]]; then
 	#
 	# No sudo here, and no deploy account: `incus exec` enters the guest as root
 	# through the host's control socket. That is the whole reason this transport
-	# exists rather than an sshd in every guest (decision 006) -- the privilege
+	# exists rather than an sshd in every guest -- the privilege
 	# already belongs to whoever can talk to Incus on the host.
 	if [[ -n "$INSTANCE" ]]; then
 		command -v incus >/dev/null ||
