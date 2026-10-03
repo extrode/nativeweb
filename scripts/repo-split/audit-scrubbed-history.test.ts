@@ -88,6 +88,35 @@ Deno.test("a removed path anywhere in history fails, prefix or exact", async () 
   });
 });
 
+Deno.test("a removed string in a path name fails, even with clean content", async () => {
+  await withFixture([
+    { files: { "scripts/move-to-host7.ps1": "x" }, message: "add" },
+    { files: { "scripts/move-to-host7.ps1": null }, message: "remove" },
+  ], async (dir) => {
+    const report = await audit(dir, RULES, "work");
+    assertEquals(report.pathHits, ["scripts/move-to-host7.ps1"]);
+    assertEquals(report.blobHits.length, 0);
+  });
+});
+
+Deno.test("a removed path introduced only by a merge commit fails", async () => {
+  await withFixture([{ files: { "README.md": "r" }, message: "docs: readme" }], async (dir) => {
+    await run(dir, "switch", "-q", "-c", "side");
+    await Deno.writeTextFile(`${dir}/side.md`, "s");
+    await run(dir, "add", "side.md");
+    await run(dir, "-c", "user.name=Jane Acme", "-c", "user.email=jane@example.test", "commit", "-q", "-m", "side");
+    await run(dir, "switch", "-q", "work");
+    await run(dir, "-c", "user.name=Jane Acme", "-c", "user.email=jane@example.test", "merge", "-q", "--no-ff", "--no-commit", "side");
+    await Deno.mkdir(`${dir}/apps/secret`, { recursive: true });
+    await Deno.writeTextFile(`${dir}/apps/secret/Evil.cs`, "e");
+    await run(dir, "add", "apps/secret/Evil.cs");
+    await run(dir, "-c", "user.name=Jane Acme", "-c", "user.email=jane@example.test", "commit", "-q", "-m", "merge");
+    await run(dir, "rm", "-q", "apps/secret/Evil.cs");
+    await run(dir, "-c", "user.name=Jane Acme", "-c", "user.email=jane@example.test", "commit", "-q", "-m", "remove");
+    assertEquals((await audit(dir, RULES, "work")).pathHits, ["apps/secret/Evil.cs"]);
+  });
+});
+
 Deno.test("the company form fails and the person's name passes", async () => {
   await withFixture([
     { files: { "NOTICE.md": "Copyright Jane Acme. Formerly the Acme org." }, message: "docs: notice" },

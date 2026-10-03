@@ -138,12 +138,22 @@ async function readBlobs(repo: string, shas: string[]): Promise<Uint8Array[]> {
 export async function audit(repo: string, rules: Rules, ref = "dev", tree = false): Promise<Report> {
   const report: Report = { pathHits: [], blobHits: [], messageHits: [], identities: [], markers: new Map() };
 
+  const blobs = await blobsOf(repo, ref, tree);
+
+  // History: log names what each commit touched, -m includes a merge's own diff and --no-renames
+  // keeps a rename's old name; the blob walk adds every path a blob was first seen at.
   const paths = tree
     ? lines(await git(repo, ["ls-tree", "-r", "--name-only", ref]))
-    : lines(await git(repo, ["log", "--format=", "--name-only", ref]));
-  report.pathHits = [...new Set(paths.filter((p) => isRemovedPath(p, rules.paths)))].sort();
+    : [
+      ...lines(await git(repo, ["log", "--format=", "--name-only", "-m", "--no-renames", ref])),
+      ...[...blobs.values()].filter((p) => p !== "?"),
+    ];
+  // --replace-text rewrites content, never a path, so a path carrying a rule's literal survives
+  // the rewrite unless a remove list or path-renames.txt deals with it.
+  report.pathHits = [
+    ...new Set(paths.filter((p) => isRemovedPath(p, rules.paths) || matchRules(p, rules.text, p).length > 0)),
+  ].sort();
 
-  const blobs = await blobsOf(repo, ref, tree);
   const shas = [...blobs.keys()];
   const contents = await readBlobs(repo, shas);
   contents.forEach((bytes, i) => {
