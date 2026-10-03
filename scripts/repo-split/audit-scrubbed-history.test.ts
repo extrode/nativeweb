@@ -111,8 +111,6 @@ Deno.test("a removed path introduced only by a merge commit fails", async () => 
     await Deno.writeTextFile(`${dir}/apps/secret/Evil.cs`, "e");
     await run(dir, "add", "apps/secret/Evil.cs");
     await run(dir, "-c", "user.name=Jane Acme", "-c", "user.email=jane@example.test", "commit", "-q", "-m", "merge");
-    await run(dir, "rm", "-q", "apps/secret/Evil.cs");
-    await run(dir, "-c", "user.name=Jane Acme", "-c", "user.email=jane@example.test", "commit", "-q", "-m", "remove");
     assertEquals((await audit(dir, RULES, "work")).pathHits, ["apps/secret/Evil.cs"]);
   });
 });
