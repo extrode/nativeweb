@@ -13,6 +13,8 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Added
 
+- `.github/SECURITY.md`: vulnerabilities are reported through GitHub private vulnerability
+  reporting. Decision `2026-10-03-015` records the move to a fresh public repository.
 - `nativeweb.signin`: `ISessionTokens.GetAccessTokenAsync(HttpContext, CancellationToken)`, the
   read-only seam onto the access token a session is holding. With `RetainTokens` on the library
   already kept and rotated the provider's tokens and nothing could read one, so a product calling
