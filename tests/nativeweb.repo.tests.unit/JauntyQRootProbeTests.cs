@@ -10,7 +10,7 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Both probes used to name an ancestor directory literally called <c>extrode-legacy-org.com</c>. On
+/// Both probes used to name the legacy org's ancestor directory literally. On
 /// 2026-08-26 that broke twice in a single move: the org directory was renamed to
 /// <c>extrode.com</c> and jauntyq moved with it, so both probes and the fallback pointed at a
 /// path that no longer existed. <c>EnsureJauntyQRoot</c> turned that into a clear error rather
@@ -30,7 +30,7 @@ public sealed partial class JauntyQRootProbeTests
     /// <remarks>
     /// The whole point of the fix. A probe relative to the repository survives a rename of the
     /// org directory; one that spells the name out is a build break waiting on the next one.
-    /// The pattern is deliberately not just "extrode-legacy-org" -- writing <c>extrode.com</c> in would be
+    /// The pattern is deliberately not just the old org's name -- writing <c>extrode.com</c> in would be
     /// the identical mistake with a fresher name on it.
     /// </remarks>
     [Theory]
@@ -338,8 +338,9 @@ public sealed partial class JauntyQRootProbeTests
     private static partial Regex ExistsGuardPattern();
 
     // Any path segment that looks like the org directory of the day. `extrode.com` is listed
-    // for the same reason `extrode-legacy-org.com` is: naming it would be the same bug, freshly made.
-    [GeneratedRegex(@"[\\/](extrode-legacy-org\.com|extrode\.com|[^\\/]+\.com)[\\/]", RegexOptions.IgnoreCase)]
+    // for the same reason the old org's directory was: naming it would be the same bug, freshly
+    // made. The catch-all `.com` segment covers the old org's directory too.
+    [GeneratedRegex(@"[\\/](extrode\.com|[^\\/]+\.com)[\\/]", RegexOptions.IgnoreCase)]
     private static partial Regex OrgDirectoryPattern();
 
     private static string RepoRoot()

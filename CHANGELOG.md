@@ -13,6 +13,8 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ### Added
 
+- `.github/SECURITY.md`: vulnerabilities are reported through GitHub private vulnerability
+  reporting. Decision `2026-10-03-015` records the move to a fresh public repository.
 - `nativeweb.signin`: `ISessionTokens.GetAccessTokenAsync(HttpContext, CancellationToken)`, the
   read-only seam onto the access token a session is holding. With `RetainTokens` on the library
   already kept and rotated the provider's tokens and nothing could read one, so a product calling
@@ -50,14 +52,6 @@ sections that apply; drop the empty ones rather than leaving them blank.
   feed, so a product still pinning them fails restore with `NU1101` once its NuGet cache is cold.
   Checkout mode (`-p:JauntyQUsePackages=false`) now points at the public core's
   `src/Extrode.JauntyQ.*` projects and builds against a sibling `jauntyq/` again.
-- `nw-dev.example.com` is being moved onto the `incus-host` fleet backup rather than its own
-  `backup.sh`: nightly `pg_dump -Fc` into two independent backup-tool repositories, offsite object storage and a
-  offsite storage, with a daily integrity check and a six-hourly dead-man probe. This is how
-  spec 011's R14, R15 and R17b are meant to close; all three stay unmet until a fleet run has held
-  this database. The change that puts the VM in the fleet's lists is merged in the host's ops
-  repository but not yet deployed to the host. Documentation only on this side. `backup.sh` and `restore.sh` are
-  unchanged and remain the reference story for a deployment with no fleet behind it;
-  `provision.sh` still installs them.
 
 ### Fixed
 
@@ -1048,7 +1042,7 @@ Merged into `dev`, not yet tagged.
 - **Three silent deaths in the deploy scripts.** Under `set -euo pipefail` a command substitution
   whose pipeline fails ends the script at the assignment, before the `die` written to explain it.
   A mistyped `--incus <instance>` exited 127 with no output at all; a guest with no sshd — the
-  fleet's normal case — died before the message about deriving the firewall's SSH allowance. Both
+  usual case behind an edge — died before the message about deriving the firewall's SSH allowance. Both
   now reach their message. A failed `incus file push` no longer skips the cleanup and leaves a
   partial artifact in the guest.
 - **The firewall install no longer fails open.** `/etc/nftables.conf` was written and the service

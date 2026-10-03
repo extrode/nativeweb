@@ -133,7 +133,7 @@ for itself.
   container on the host being backed up, so no copy is offsite. R17 was split on 2026-09-06 for
   that reason, and the drill's result is recorded against R17a.
   — **one third done, 2026-09-01.** `nativeweb-dev` was provisioned and deployed to for real,
-  and `https://nw-dev.example.com` serves `apps/sample`: **R1 was met** at that point, with the
+  and the public dev site serves `apps/sample`: **R1 was met** at that point, with the
   measured release time in the runbook. The run took four attempts and found two defects in the
   deploy scripts, both fixed with tests on `fix/deploy-unit-section`; the runbook's opening note
   names them.

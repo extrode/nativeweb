@@ -7,8 +7,8 @@
 #   sudo scripts/deploy/provision.sh --edge 10.0.0.1
 #
 # --edge <addr> provisions a host that sits BEHIND a TLS-terminating proxy at
-# <addr> instead of holding :443 itself -- an Incus guest on a fleet host, where
-# one host-level Caddy fronts every site. Decision 006.
+# <addr> instead of holding :443 itself -- a guest on a shared host, where
+# one host-level Caddy fronts every site.
 #
 # --prefix <Name> is the configuration section the binary reads, default Sample.
 # It decides how every key in app.env and secrets.env is spelled, so a stamped
@@ -44,7 +44,7 @@ die() {
 step() { echo "provision.sh: $*"; }
 
 # --edge <addr>: this host sits behind a TLS-terminating proxy at <addr> rather
-# than holding :443 itself. Decision 006. It changes three things and nothing
+# than holding :443 itself. It changes three things and nothing
 # else -- which Caddyfile is installed, the trusted-proxy address Caddy is given,
 # and the forwarded-headers settings seeded into app.env -- so the two modes share
 # every other step, including the whole blue/green release layout.
@@ -374,7 +374,7 @@ systemctl enable nativeweb@blue nativeweb@green >/dev/null
 step "installing the Caddy configuration"
 # One or the other, never both: the edge variant turns auto_https off and listens
 # on :80, the standalone one holds :443 and gets its own certificates. Installing
-# the wrong one on a fleet guest means Caddy retrying an ACME order that can never
+# the wrong one on a shared-host guest means Caddy retrying an ACME order that can never
 # complete, because the HTTP-01 challenge cannot reach a private bridge address.
 if [[ -n "$EDGE_PROXY" ]]; then
 	step "  edge mode: behind the proxy at $EDGE_PROXY, no ACME, listening on :80"
@@ -463,7 +463,7 @@ ssh_ports_from_sshd() {
 	# killing the script. Without it, `set -euo pipefail` turns the failed pipeline
 	# into a silent exit at the SSH_PORTS assignment below -- before the die that
 	# explains the problem, so the operator sees a bare nonzero exit. A guest with
-	# no sshd at all is not exotic: it is decision 006's stated target, and the one
+	# no sshd at all is not exotic: it is the stated target for guests, and the one
 	# real --edge run never reached this branch because the flush guard skipped it.
 	sshd -T 2>/dev/null | awk '$1 == "port" { printf "%s%s", sep, $2; sep = ", " }' || true
 }
@@ -478,7 +478,7 @@ nft_with_ssh_ports() {
 }
 
 # In edge mode the public surface is not public. The stock ruleset accepts
-# { 80, 443 } from any source, which on a fleet guest means every neighbour on
+# { 80, 443 } from any source, which on a shared-host guest means every neighbour on
 # the bridge can reach a listener whose X-Forwarded-* headers Caddy trusts --
 # and 443 is not even bound, because Caddyfile.edge runs with auto_https off.
 # Same anchored-substitution discipline as ssh_ports, checked by the caller.

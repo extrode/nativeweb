@@ -1,7 +1,8 @@
 # 013 — the history was filtered before the first public release
 
 Date: 2026-09-17
-Status: accepted
+Status: superseded by `2026-10-03-015-fresh-public-repository.md` — the rewrite described
+here never ran; 015 records what replaced it
 
 ## Context
 
@@ -20,23 +21,22 @@ identity leak in commit messages.
 ## Decision
 
 The public repository carries NativeWeb's real history, with the authorship and dates it was
-written with. Before the first push the history was filtered with `git filter-repo`
-(`scripts/repo-split/scrub-public-history.sh` / `.ps1`) to:
+written with. Before the first push the history is to be filtered with `git filter-repo`
+(`scripts/repo-split/scrub-public-history.sh`) to:
 
-- **Remove the identity provider's source**, reachable in every commit before its removal at
-  `f743436` (`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`). This was never framework
+- **Remove the identity provider's source**, reachable in every commit before its removal
+  (`docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md`). This was never framework
   code — WebAuthn policy, TOTP secret handling, opaque-token hashing and realm/SSO logic for a
   live product, epass.io.
-- **Remove DevMarks's source**, a bookmarks product spun out to manzil.my and removed from HEAD
-  at `0760c7c`, the same pattern at smaller scale.
+- **Remove DevMarks's source**, a bookmarks product spun out to manzil.my and removed from HEAD,
+  the same pattern at smaller scale.
 - **Replace two real infrastructure IPs** with RFC 5737 documentation-range placeholders.
-- **Replace the pre-Extrode org identity, "extrode-legacy-org"**, in commit messages and in tracked file
+- **Replace the pre-Extrode org identity** in commit messages and in tracked file
   content (`--replace-message` and `--replace-text` respectively — the same string, two fast-export
   sections neither flag alone reaches). Author and committer identity (the maintainer's own
   verified name and email) is untouched, matching JauntyQ's own carve-out; it is not a leak.
-- **Rename the two `scripts/cleanup/` scripts whose own filename names "extrode-legacy-org"**
-  (`relocate-nativeweb-to-extrode-legacy-org.ps1`, `stale-extrode-legacy-org-references.ps1`) to
-  `relocate-nativeweb-to-legacy-org.ps1` and `stale-legacy-org-references.ps1`, via
+- **Rename the two `scripts/cleanup/` scripts whose own filename names that org** to
+  `relocate-nativeweb-to-extrode-legacy-org.ps1` and `stale-extrode-legacy-org-references.ps1`, via
   `--path-rename`. `--replace-text` rewrites blob content, never a path, so these two would
   otherwise still name the org in a plain `git log`/`ls` of the public repo after every other
   transform ran. Their content is left alone by this rename — it is already covered by the

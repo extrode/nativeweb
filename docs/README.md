@@ -54,9 +54,6 @@ Answers to specific questions. Not written to be read in order.
 | [`02-reference/performance.md`](02-reference/performance.md) | Every load measurement taken here, what changed between them, and the bottlenecks found — including the one that cost 35% of page throughput to a header nobody was setting. |
 | [`02-reference/deployment.md`](02-reference/deployment.md) | The production runbook: provisioning, blue/green release, rollback, backups, restore, disaster recovery. Carries its own list of what has never been executed. |
 | [`handovers/admin-cms-handoff.md`](handovers/admin-cms-handoff.md) | The admin panel and CMS module design. |
-| [`handovers/epass-io-adoption-handoff.md`](handovers/epass-io-adoption-handoff.md) | For a downstream project building on this one: the licensing and JauntyQ constraints that reach it, the landmines, and what is built here but unproven. **Read first** — the other two handoffs assume it. |
-| [`handovers/justsmtp-com-adoption-handoff.md`](handovers/justsmtp-com-adoption-handoff.md) | Why that tree cannot build, which library left under it, and what to reference instead. |
-| [`handovers/ghosthive-com-adoption-handoff.md`](handovers/ghosthive-com-adoption-handoff.md) | Why its migration plan is stale, which of its two backends NativeWeb addresses, and what it is blocked on. |
 
 ### Library READMEs
 

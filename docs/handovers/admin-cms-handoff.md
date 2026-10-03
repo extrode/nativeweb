@@ -220,7 +220,7 @@ next — don't accumulate unverified NativeAOT compatibility risk across phases.
 1. Naming convention linking `[AdminModel]` types to their JauntyQ query methods.
 2. Block-instance discriminator representation (string vs. int enum) and its effect on the
    dispatch table.
-3. Media/object storage choice (self-hosted MinIO container vs. Provider object storage) —
+3. Media/object storage choice (self-hosted MinIO container vs. the provider's object storage) —
    pure infra decision, no codegen impact either way.
 4. Exact `content_versions` schema shared (or not) between admin audit history and CMS
    page versioning — decide whether these are one mechanism or two.

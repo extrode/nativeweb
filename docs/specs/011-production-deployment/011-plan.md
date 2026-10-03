@@ -45,7 +45,7 @@ Verified against this repo and pinned in the runbook rather than guessed at depl
 | Database | PostgreSQL from the distribution, `listen_addresses = 'localhost'` | Same host by decision; loopback-only binding is what actually satisfies R5, independent of firewall rules. |
 | Migrations | `db/migrate.sh`, already in the repo | Per-file transactions, `schema_migrations` tracking, `-- @no-transaction` opt-out. Nothing new is written. |
 | Supervision | systemd template unit `nativeweb@.service` | Instance name selects the colour and therefore the port. |
-| Backups | `pg_dump -Fc`, encrypted with `age`, uploaded to S3-compatible storage via `aws-cli` (`--endpoint-url`) | Endpoint is configuration, so offsite object storage / R2 / Provider / S3 are interchangeable. `age` gives encryption at rest that does not depend on the provider's promises. |
+| Backups | `pg_dump -Fc`, encrypted with `age`, uploaded to S3-compatible storage via `aws-cli` (`--endpoint-url`) | Endpoint is configuration, so any S3-compatible provider is interchangeable. `age` gives encryption at rest that does not depend on the provider's promises. |
 | Backup schedule | systemd timer, `OnCalendar` nightly with `RandomizedDelaySec` | `Persistent=true` so a host that was off catches up. |
 | Backup alerting | `OnFailure=` unit plus a success heartbeat to a configured external URL | The heartbeat is what makes silence detectable (R15); the runbook states plainly that leaving it unset leaves R15 unmet. |
 | Firewall | nftables, 22/80/443 inbound only | ufw is a wrapper over the same thing; nftables directly keeps the ruleset readable in the repo. |

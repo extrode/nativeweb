@@ -77,9 +77,10 @@ library's own tier is where its facts belong; `apps/sample` is where they are pr
 real entry point.
 
 ## JauntyQ license constraint
-JauntyQ is used from a local checkout only. Permitted use is self-hosted-SaaS use of the
-generated output. Never redistribute JauntyQ source or binaries, and never ship this product's
-binary to third parties.
+JauntyQ's source and packages are under ISL-R 1.2. Code its generator emits into this repository is
+ours under its Output Exception, and `Extrode.JauntyQ.Runtime` may ship inside built output under
+its Redistribution Exception. Nothing else of JauntyQ's may be committed, vendored or
+redistributed from here, including files from a local checkout.
 
 ## Layout
 Flat convention: `apps/` (deployable services), `libs/` (shared libraries), `tests/`, `tools/`.

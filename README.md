@@ -20,8 +20,8 @@ everything else.
 | The JauntyQ packages | public on nuget.org, no credential | `Extrode.JauntyQ.*` 0.5.1 |
 
 **JauntyQ is load-bearing and needs no checkout.** All data access goes through its source
-generator, so nothing here builds without it, and its generated output is licensed for
-self-hosted-SaaS use only (`AGENTS.md`). Since 2026-09-05 it resolves **from packages by default**:
+generator, so nothing here builds without it. Its generated output is ours to ship under
+JauntyQ's Output Exception (`AGENTS.md`). Since 2026-09-05 it resolves **from packages by default**:
 `dotnet build` at the root or on any project just works, and no sibling `jauntyq/` is expected or
 probed. Decision `docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md` records why the
 default moved — JauntyQ split its generator and runtime out to a public core repository, and the
@@ -103,8 +103,7 @@ pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination C:\path\to\man
 
 A stamped product consumes the framework libs dual-mode (spec 003 R1): sibling checkout via
 `$(NativeWebRoot)` for co-development, or the `NativeWeb.*` packages with
-`-p:NativeWebUsePackages=true`. `dotnet pack` on `libs/nativeweb.*` produces the packages —
-**private feed only**; the JauntyQ license limits generated output to self-hosted use, and no
+`-p:NativeWebUsePackages=true`. `dotnet pack` on `libs/nativeweb.*` produces the packages, but no
 `NativeWeb.*` package has published yet (known gap, see the stamped README), so checkout mode
 is the working path for the framework. Its JauntyQ half went the other way on 2026-09-05 and
 resolves from packages by default, needing no checkout at all.
@@ -129,6 +128,7 @@ is not OSI-approved. Read `LICENSE.md` before depending on this.
 
 **Contributions are not accepted yet**, and AI-generated ones will not be at all — bug reports,
 reproduction steps and written design proposals are the route. See `CONTRIBUTING.md`.
+Security issues go through private reporting, not issues: see [`.github/SECURITY.md`](.github/SECURITY.md).
 
 ## Status
 

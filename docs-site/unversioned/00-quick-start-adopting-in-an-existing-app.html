@@ -156,9 +156,7 @@ its checkout is probed relative to the NativeWeb one:</p>
 </div>
 <p>No <code>jauntyq/</code> sibling is needed. NativeWeb resolves JauntyQ from the pinned <code>Extrode.JauntyQ.*</code>
 packages by default since 2026-09-05, and since core 0.5.0 those are public on nuget.org, so
-restoring them needs no credential. The license terms still apply to what you ship: JauntyQ's
-generated output is licensed for self-hosted-SaaS use (see the constraints at the end of this
-page).</p>
+restoring them needs no credential. The license terms still apply to what you ship (see the constraints at the end of this page).</p>
 <p>Then add to your product's <code>Directory.Build.props</code>. Both casings are probed because both are in
 the wild: the repository is <code>nativeweb</code> on disk, and <code>getting-started.md</code> has long told people
 to clone it as <code>NativeWeb</code>.</p>
@@ -365,8 +363,9 @@ trim-compatible fails your publish, not ours.</li>
 <li><strong>PostgreSQL only.</strong> No provider abstraction exists to swap.</li>
 <li><strong>Minimal APIs only.</strong> No MVC, no Controllers, no Razor Pages, no Blazor.</li>
 <li><strong>HTMX and Alpine are vendored</strong>, never from a CDN.</li>
-<li><strong>JauntyQ is licensed for self-hosted use of its generated output.</strong> Never redistribute its
-source or binaries, and never ship a binary built against it to a third party.</li>
+<li><strong>JauntyQ's source and packages are under ISL-R 1.2.</strong> Code its generator emits is yours under
+its Output Exception, and <code>Extrode.JauntyQ.Runtime</code> may ship inside your built output under its
+Redistribution Exception. Nothing else of JauntyQ's may be redistributed.</li>
 </ul>
 <h2 id="6-check-it-worked">6. Check it worked</h2>
 <div class="code-block">

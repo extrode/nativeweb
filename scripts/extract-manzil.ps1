@@ -22,7 +22,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$Destination = 'C:\home\code\extrode-legacy-org.com\manzil.my',
+    [string]$Destination = 'C:\home\code\extrode.com\manzil.my',
     [Alias('e')][switch]$Execute
 )
 

@@ -11,7 +11,7 @@
 # an -Execute run exits non-zero if a precondition fails.
 #
 # Usage:
-#   pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination C:\home\code\extrode-legacy-org.com\manzil.my
+#   pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination C:\home\code\extrode.com\manzil.my
 #   pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination ... -Execute
 
 [CmdletBinding()]
