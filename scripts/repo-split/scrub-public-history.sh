@@ -129,11 +129,11 @@ build_archive() {
 
   # `git bundle verify` proves the bundle is intact, not that it is current: a bundle built
   # before a later commit landed on dev would verify cleanly and be reused, silently missing
-  # that commit's changes under the archived paths. Compare its recorded dev tip to the real one.
-  if [[ -f "$bundle" ]] && git bundle verify "$bundle" >/dev/null 2>&1; then
-    local bundle_dev_sha
-    bundle_dev_sha="$(git bundle list-heads "$bundle" refs/heads/dev 2>/dev/null | awk '{print $1}')"
-    if [[ -n "$bundle_dev_sha" && "$bundle_dev_sha" == "$(git rev-parse dev)" ]]; then
+  # that commit's changes under the archived paths. The bundle's own dev is a filtered commit and
+  # never equals the real tip, so the tip it was built from is recorded beside it instead.
+  local source_file="$bundle.source-dev"
+  if [[ -f "$bundle" && -f "$source_file" ]] && git bundle verify "$bundle" >/dev/null 2>&1; then
+    if [[ "$(cat "$source_file")" == "$(git rev-parse dev)" ]]; then
       skip "$bundle already exists, verifies, and matches dev's current tip; not rebuilding"
       return 0
     fi
@@ -156,6 +156,7 @@ build_archive() {
     bad "archive bundle failed to verify: $bundle"
     exit 1
   fi
+  git rev-parse dev > "$source_file"
   ok "archive written and verified: $bundle"
 }
 

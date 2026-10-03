@@ -20,8 +20,8 @@ everything else.
 | The JauntyQ packages | public on nuget.org, no credential | `Extrode.JauntyQ.*` 0.5.1 |
 
 **JauntyQ is load-bearing and needs no checkout.** All data access goes through its source
-generator, so nothing here builds without it, and its generated output is licensed for
-self-hosted-SaaS use only (`AGENTS.md`). Since 2026-09-05 it resolves **from packages by default**:
+generator, so nothing here builds without it. Its generated output is ours to ship under
+JauntyQ's Output Exception (`AGENTS.md`). Since 2026-09-05 it resolves **from packages by default**:
 `dotnet build` at the root or on any project just works, and no sibling `jauntyq/` is expected or
 probed. Decision `docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md` records why the
 default moved — JauntyQ split its generator and runtime out to a public core repository, and the

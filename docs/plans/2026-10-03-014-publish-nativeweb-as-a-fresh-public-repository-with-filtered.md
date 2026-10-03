@@ -40,8 +40,8 @@ Two invariants make the rewrite checkable:
 
 1. **HEAD is cleaned first, by ordinary reviewed commits.** Every path the rewrite removes or
    renames, and every string it replaces, is already gone from `dev`'s tip. The rewrite then
-   changes history only, and **the tip tree before and after must be identical** (`git diff
-   --stat <old-tip> <new-tip>` empty). Fable verified this holds for `--invert-paths`,
+   changes history only, and **the tip tree before and after must be identical** (`dev^{tree}`
+   unchanged; the old commits are pruned after the rewrite, so the script compares tree hashes). Fable verified this holds for `--invert-paths`,
    `--replace-text`, `--replace-message`, `--path-rename` and empty-commit pruning when their
    targets are absent at HEAD.
 2. **Nothing that names a removed string ships.** The rule lists move out of the repository to
@@ -86,9 +86,8 @@ past here starts until they have.
 ## Phase B: prep branch `chore/public-release-prep` (me)
 
 1. **HEAD clean-up** per the approved inventory. Edits in place; regenerate `docs-site/` with
-   `scripts/build-docs.sh`. Removals and renames go into `scripts/cleanup/public-release-prep.ps1`
-   (dry run default, `-Execute` acts), which the user runs before I commit the result. It also
-   removes the tracked `grep.exe.stackdump` (tidy only; it holds msys frame addresses, no leak)
+   `scripts/build-docs.sh`. Removals and renames are `git rm`/`git mv` commits, each approved by the user first
+   (chosen over a cleanup script on 2026-10-03). They also remove the tracked `grep.exe.stackdump` (tidy only; it holds msys frame addresses, no leak)
    and `scrub-public-history.ps1` (see 2).
 2. **Scrub script**, `scripts/repo-split/scrub-public-history.sh` only. The `.ps1` twin is
    retired: this is a one-shot run on this machine, and parity doubles every change.
@@ -144,7 +143,7 @@ Then `docker compose down` in `scripts/ci-runner/`, and from an elevated shell
    user reviews this before the real repo is touched.**
 4. On the user's go: `--execute` on the real repo. It writes a full backup bundle and the
    pre-rewrite tip SHA to `tmp/` first.
-5. Verify: the audit exits 0; `git diff --stat <old-tip> dev` is empty; `dotnet build` and the
+5. Verify: the audit exits 0; `dev^{tree}` is unchanged; `dotnet build` and the
    repo, render and forms suites pass.
 
 Local only: the other branches and the `pre-idp-extraction` tag are rewritten with `dev` and
@@ -186,7 +185,7 @@ rename's redirect, so old links reach the public repo.
 | Check | Proves |
 |---|---|
 | Audit fails on today's repo, exits 0 after the rewrite | it detects leaks, and none remain in paths, blobs or messages |
-| `git diff --stat <old-tip> <new-tip>` empty | the rewrite changed history only |
+| `dev^{tree}` unchanged by the rewrite | the rewrite changed history only |
 | Build and repo, render, forms suites green after the rewrite | the shipped tree still works |
 | Rehearsal reviewed before the real run | the user saw what goes public |
 | Archive and backup bundles verify | removed history is held privately, not lost |
@@ -194,7 +193,7 @@ rename's redirect, so old links reach the public repo.
 
 ## Confirm-first points
 
-- Running `public-release-prep.ps1` (removes tracked files): the user runs it.
+- Removing or renaming tracked files: a reviewed commit, after the user's explicit yes.
 - The stash decision, and `--execute` on the real repo.
 - Every `gh` call that changes GitHub state, the rename, the create, the push: the user's, or
   mine on an explicit yes at the time.

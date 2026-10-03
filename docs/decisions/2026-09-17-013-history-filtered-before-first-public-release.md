@@ -36,7 +36,7 @@ written with. Before the first push the history is to be filtered with `git filt
   sections neither flag alone reaches). Author and committer identity (the maintainer's own
   verified name and email) is untouched, matching JauntyQ's own carve-out; it is not a leak.
 - **Rename the two `scripts/cleanup/` scripts whose own filename names that org** to
-  `relocate-nativeweb-to-legacy-org.ps1` and `stale-legacy-org-references.ps1`, via
+  `relocate-nativeweb-to-extrode-legacy-org.ps1` and `stale-extrode-legacy-org-references.ps1`, via
   `--path-rename`. `--replace-text` rewrites blob content, never a path, so these two would
   otherwise still name the org in a plain `git log`/`ls` of the public repo after every other
   transform ran. Their content is left alone by this rename — it is already covered by the

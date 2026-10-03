@@ -24,9 +24,7 @@ your-org/
 
 No `jauntyq/` sibling is needed. NativeWeb resolves JauntyQ from the pinned `Extrode.JauntyQ.*`
 packages by default since 2026-09-05, and since core 0.5.0 those are public on nuget.org, so
-restoring them needs no credential. The license terms still apply to what you ship: JauntyQ's
-generated output is licensed for self-hosted-SaaS use (see the constraints at the end of this
-page).
+restoring them needs no credential. The license terms still apply to what you ship (see the constraints at the end of this page).
 
 Then add to your product's `Directory.Build.props`. Both casings are probed because both are in
 the wild: the repository is `nativeweb` on disk, and `getting-started.md` has long told people
@@ -203,8 +201,9 @@ be output-cached, which a hand-rolled shell usually does not do.
 - **PostgreSQL only.** No provider abstraction exists to swap.
 - **Minimal APIs only.** No MVC, no Controllers, no Razor Pages, no Blazor.
 - **HTMX and Alpine are vendored**, never from a CDN.
-- **JauntyQ is licensed for self-hosted use of its generated output.** Never redistribute its
-  source or binaries, and never ship a binary built against it to a third party.
+- **JauntyQ's source and packages are under ISL-R 1.2.** Code its generator emits is yours under
+  its Output Exception, and `Extrode.JauntyQ.Runtime` may ship inside your built output under its
+  Redistribution Exception. Nothing else of JauntyQ's may be redistributed.
 
 ## 6. Check it worked
 
