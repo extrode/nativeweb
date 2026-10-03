@@ -10,7 +10,7 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Ten packable csproj files carried <c>&lt;Authors&gt;extrode-legacy-org&lt;/Authors&gt;</c> for
+/// Ten packable csproj files carried the legacy org's name in <c>&lt;Authors&gt;</c> for
 /// three days after the 2026-08-26 rename to Extrode LLC, each of them one line
 /// away from a <c>Copyright</c> that already said Extrode LLC, because that one
 /// was central in <c>Directory.Build.targets</c> and Authors was not.
@@ -21,7 +21,7 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </para>
 /// <para>
 /// The assertion is deliberately shaped as "one central value, no local ones"
-/// rather than "no csproj says extrode-legacy-org". <c>Directory.Build.targets</c> is
+/// rather than "no csproj names the old org". <c>Directory.Build.targets</c> is
 /// imported after every csproj, so a per-project <c>&lt;Authors&gt;</c> is
 /// overridden rather than merged: it has no effect on the produced .nupkg while
 /// reading, in the file, as though it does. Banning the local form is what stops
@@ -31,7 +31,6 @@ namespace NativeWeb.Repo.Tests.Unit;
 public sealed class PackageMetadataTests
 {
     private const string Publisher = "Extrode LLC";
-    private const string OldOrg = "extrode-legacy-org";
 
     [Fact]
     public void PackableProjectsTakeTheirAuthorsFromTheCentralTargets()
@@ -70,7 +69,7 @@ public sealed class PackageMetadataTests
             $"These declare their own <Authors>, which Directory.Build.targets overrides because it "
                 + $"is imported after the csproj: {string.Join(", ", offenders)}. The value has no "
                 + "effect on the .nupkg and will be read as though it does — which is how ten of "
-                + $"them went on saying '{OldOrg}' after the rename. Delete the line; the central "
+                + "them went on naming the old org after the rename. Delete the line; the central "
                 + "one applies.");
     }
 

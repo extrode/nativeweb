@@ -90,7 +90,7 @@ Agent instructions are in `AGENTS.md`. `CLAUDE.md` is a one-line shim that impor
 
 `.github/workflows/ci.yml` resolves NativeWeb in **checkout mode**, the same mode a developer
 machine uses, and JauntyQ from packages. A runner has no sibling checkout, so the workflow clones
-`extrode-legacy-org/NativeWeb` and points `NativeWebRoot` at it. That is a workflow-level *environment*
+`extrode/nativeweb` and points `NativeWebRoot` at it. That is a workflow-level *environment*
 variable rather than a `-p:` flag, because `dotnet list package` accepts no `-p:` and the e2e
 fixture's NativeAOT publish runs as a child process — MSBuild reads bare environment variables as
 properties, so one definition covers all of it.
@@ -139,10 +139,10 @@ The stamp leaves deliberate placeholders. Replace every one before the product f
 - `docs/security-baseline.md` — tick the checklist, honestly.
 - **The `FRAMEWORK_CHECKOUT_TOKEN` repository secret.** The one setup step with no artifact in
   this repo, so nothing here will remind you: CI cannot check out the framework without it.
-- `nuget.config` — the `framework-github` source points at `extrode-legacy-org`'s registry. Repoint it if
+- `nuget.config` — the `framework-github` source points at `extrode`'s registry. Repoint it if
   your framework packages publish elsewhere; the `packageSourceMapping` beside it is what keeps
   `NativeWeb.*`/`JauntyQ.*` from ever resolving against nuget.org, so keep the two in step.
-- `.github/workflows/ci.yml` — the `extrode-legacy-org/NativeWeb` checkout target and its `ref: dev`. Pin
+- `.github/workflows/ci.yml` — the `extrode/nativeweb` checkout target and its `ref: dev`. Pin
   that to a tag once the framework publishes one.
 
 ## Status

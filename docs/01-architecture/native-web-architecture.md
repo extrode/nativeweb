@@ -358,7 +358,7 @@ Not a projection — a minimal but complete version of both stacks was built (sa
 conceptual todo functionality, JSON on one side and HTML fragments on the other) and
 load-tested with `wrk`, three runs per test, a fixed 15-item dataset throughout (a growing
 dataset inflates repeated-write numbers). Single-vCPU sandbox — absolute numbers are a
-floor, not what real Provider hardware shows, but the relative comparison holds regardless
+floor, not what real server hardware shows, but the relative comparison holds regardless
 of hardware.
 
 | | req/s (avg of 3 runs) | avg latency |

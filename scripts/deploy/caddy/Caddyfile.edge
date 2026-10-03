@@ -2,7 +2,7 @@
 #
 # The sibling Caddyfile is for a host the public resolves to directly: it holds
 # :443, gets its own certificates over ACME, and redirects :80. This one is for a
-# host that sits BEHIND such a proxy -- an Incus guest on incus-host, where a
+# host that sits BEHIND such a proxy -- an Incus guest on the host, where a
 # single host-level Caddy terminates TLS for every site on the box and forwards
 # over plain HTTP to a private bridge address.
 #
