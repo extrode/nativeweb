@@ -9,17 +9,20 @@
 #    into the branch you are standing on, and that refusal is left alone.
 #
 # Usage, from the repository root on a branch that is not main or dev:
-#   scripts/cleanup/public-release-leftovers.sh                     # dry run, changes nothing
-#   scripts/cleanup/public-release-leftovers.sh --execute           # section 2 only
-#   scripts/cleanup/public-release-leftovers.sh --execute --git-rm  # sections 1 and 2
+#   scripts/cleanup/public-release-leftovers.sh                                       # dry run, changes nothing
+#   scripts/cleanup/public-release-leftovers.sh --execute --git-rm                    # section 1 only
+#   scripts/cleanup/public-release-leftovers.sh --execute --delete-branches           # section 2 only
+#   scripts/cleanup/public-release-leftovers.sh --execute --git-rm --delete-branches  # both
 set -euo pipefail
 
 execute=0
 git_rm=0
+delete_branches=0
 for arg in "$@"; do
     case "$arg" in
         --execute|-e) execute=1 ;;
         --git-rm) git_rm=1 ;;
+        --delete-branches) delete_branches=1 ;;
         *) printf 'unknown argument: %s\n' "$arg" >&2; exit 2 ;;
     esac
 done
@@ -84,13 +87,13 @@ branches=(
     chore/worker-nw-pkg
     chore/public-repo-followups
 )
-git worktree prune
+[ "$execute" -eq 1 ] && [ "$delete_branches" -eq 1 ] && git worktree prune
 for target in "${branches[@]}"; do
     if ! git rev-parse --verify --quiet "refs/heads/$target" >/dev/null; then
         printf 'skip:  branch %s no longer exists\n' "$target"
         continue
     fi
-    if [ "$execute" -eq 1 ]; then
+    if [ "$execute" -eq 1 ] && [ "$delete_branches" -eq 1 ]; then
         if git branch -d "$target" >/dev/null 2>&1; then
             printf 'git branch -d %s\n' "$target"
         else

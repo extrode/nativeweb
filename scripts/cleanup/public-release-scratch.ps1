@@ -6,16 +6,22 @@
 #
 # The pre-scrub backups (pre-scrub-backup-*.bundle, pre-scrub-dev-sha-*.txt, pre-scrub-check.git)
 # hold the history as it was before the rewrite. They are the only local copy of it besides any
-# archive clone, so they need their own flag and are kept otherwise.
+# archive clone, so they need their own flag and are kept otherwise. An entry that holds one at
+# any depth is kept whole.
+#
+# An entry that holds a git repository at any depth (a rehearsal clone, a scratch checkout) may
+# carry commits that exist nowhere else, so it is kept unless -DeleteNestedRepos is passed too.
 #
 # Usage, from the repository root:
 #   pwsh -NoProfile scripts/cleanup/public-release-scratch.ps1                         # dry run
-#   pwsh -NoProfile scripts/cleanup/public-release-scratch.ps1 -e -DeleteScratch       # scratch only
-#   pwsh -NoProfile scripts/cleanup/public-release-scratch.ps1 -e -DeleteScratch -DeletePreScrubBackups
+#   pwsh -NoProfile scripts/cleanup/public-release-scratch.ps1 -e -DeleteScratch       # plain scratch only
+#   pwsh -NoProfile scripts/cleanup/public-release-scratch.ps1 -e -DeleteScratch -DeleteNestedRepos
+#   pwsh -NoProfile scripts/cleanup/public-release-scratch.ps1 -e -DeleteScratch -DeleteNestedRepos -DeletePreScrubBackups
 [CmdletBinding()]
 param(
     [Alias('e')][switch]$Execute,
     [switch]$DeleteScratch,
+    [switch]$DeleteNestedRepos,
     [switch]$DeletePreScrubBackups
 )
 $ErrorActionPreference = 'Stop'
@@ -50,6 +56,24 @@ function Test-PreScrub([string]$name) {
     return ($name -like 'pre-scrub-backup-*.bundle') -or ($name -like 'pre-scrub-dev-sha-*.txt') -or ($name -eq 'pre-scrub-check.git')
 }
 
+# Walks an entry once without descending into any .git directory or bare *.git repository, and
+# reports whether a pre-scrub backup or a git repository sits anywhere inside it.
+function Get-Contents([System.IO.FileSystemInfo]$entry) {
+    $found = @{ PreScrub = (Test-PreScrub $entry.Name); Repo = $false }
+    if (-not $entry.PSIsContainer) { return $found }
+    if ($entry.Name -like '*.git') { $found.Repo = $true; return $found }
+    $stack = [System.Collections.Generic.Stack[string]]::new()
+    $stack.Push($entry.FullName)
+    while ($stack.Count -gt 0) {
+        foreach ($child in Get-ChildItem -LiteralPath $stack.Pop() -Force) {
+            if (Test-PreScrub $child.Name) { $found.PreScrub = $true }
+            if ($child.Name -eq '.git' -or ($child.PSIsContainer -and $child.Name -like '*.git')) { $found.Repo = $true; continue }
+            if ($child.PSIsContainer -and -not $child.LinkType) { $stack.Push($child.FullName) }
+        }
+    }
+    return $found
+}
+
 Write-Host ''
 Write-Host '-- 1. tmp/ scratch --'
 $kept = @()
@@ -62,8 +86,14 @@ foreach ($item in Get-ChildItem -LiteralPath $tmp -Force) {
         $failed = $true
         continue
     }
-    if ((Test-PreScrub $item.Name) -and -not $DeletePreScrubBackups) {
-        Write-Host "keep:  $rel (pre-scrub backup; pass -DeletePreScrubBackups to remove)"
+    $contents = Get-Contents $item
+    if ($contents.PreScrub -and -not $DeletePreScrubBackups) {
+        Write-Host "keep:  $rel (holds a pre-scrub backup; pass -DeletePreScrubBackups to remove)"
+        $kept += $rel
+        continue
+    }
+    if ($contents.Repo -and -not $DeleteNestedRepos) {
+        Write-Host "keep:  $rel (holds a git repository; pass -DeleteNestedRepos to remove)"
         $kept += $rel
         continue
     }
