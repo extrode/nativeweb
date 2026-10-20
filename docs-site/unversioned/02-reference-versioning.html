@@ -138,10 +138,10 @@ decision 004.</p>
 <h2 id="one-version-every-package">One version, every package</h2>
 <p>Every <code>NativeWeb.*</code> package carries the same version, from a single <code>VersionPrefix</code> in
 <code>Directory.Build.props</code>. There is no per-library version and there will not be one.</p>
-<p>That is a deliberate loss of precision. <code>NativeWeb.Mail</code> changes far less often than
-<code>NativeWeb.Scaffold</code>, so lockstep versioning means it gets minor bumps that changed nothing in
+<p>That is a deliberate loss of precision. <code>Extrode.NativeWeb.Mail</code> changes far less often than
+<code>Extrode.NativeWeb.Scaffold</code>, so lockstep versioning means it gets minor bumps that changed nothing in
 it. The alternative costs more: libraries that reference each other, versioned
-independently, produce a matrix where <code>NativeWeb.Web 0.4.0</code> and <code>NativeWeb.Render 0.2.0</code> restore
+independently, produce a matrix where <code>Extrode.NativeWeb.Web 0.4.0</code> and <code>Extrode.NativeWeb.Render 0.2.0</code> restore
 together, compile, and were never built or tested together once. <code>PackageVersionTests</code> enforces
 the single version, and <code>tools/pack.ts</code> refuses to run when <code>Directory.Build.props</code> declares more
 than one.</p>
@@ -242,10 +242,10 @@ removal and the migration.</li>
 Decision 007 records a removal that
 skipped these steps.</p>
 <h2 id="where-the-packages-go-and-where-they-do-not">Where the packages go, and where they do not</h2>
-<p><code>.github/workflows/publish.yml</code> pushes to <code>https://nuget.pkg.github.com/&lt;owner&gt;/index.json</code>
-(GitHub Packages), and there is no path in this repository to nuget.org. A package pushed there
-inherits the visibility of the repository named in its nuspec, so the workflow checks that the
-repository is private and publishes nothing otherwise.</p>
+<p><code>.github/workflows/publish.yml</code> pushes to nuget.org (<code>https://api.nuget.org/v3/index.json</code>) with
+the <code>NUGET_API_KEY</code> repository secret. The package ids are <code>Extrode.NativeWeb.*</code>, matching
+JauntyQ's <code>Extrode.JauntyQ.*</code>; namespaces and assembly names stay <code>NativeWeb.*</code>. No version has
+been published yet.</p>
 <p><strong>No packable library carries JauntyQ-generated output.</strong> <code>grep -rn -i jauntyq libs/ --include=*.csproj</code>
 finds comments only; the two projects that reference JauntyQ are <code>apps/sample</code> and the stamped
 product under <code>skeleton/</code>, neither of which is packable. <code>tools/pack.ts</code> refuses a package
@@ -255,15 +255,14 @@ would otherwise reach the feed, and the JauntyQ licence bars that (see <code>AGE
 <ol>
 <li>Read the branch's <code>CHANGELOG.md</code> under <code>## [Unreleased]</code> and decide the number against
 <strong>What each component means</strong> above.</li>
-<li>Bump <code>VersionPrefix</code> in <code>Directory.Build.props</code> and the five <code>NativeWeb.*</code> pins in
+<li>Bump <code>VersionPrefix</code> in <code>Directory.Build.props</code> and the five <code>Extrode.NativeWeb.*</code> pins in
 <code>skeleton/Directory.Packages.props</code> — <code>PackageVersionTests</code> fails if they disagree.</li>
 <li>Move the changelog's <code>## [Unreleased]</code> entries under a <code>## [X.Y.Z]</code> heading, dated.</li>
 <li>Merge <code>dev</code> into <code>main</code> with <code>--no-ff</code>, tag <code>vX.Y.Z</code>, and push the tag.</li>
 </ol>
 <p>The tag is what publishes. <code>publish.yml</code> refuses a tag that disagrees with <code>VersionPrefix</code> before
 it packs anything, so a mistyped tag costs a failed run rather than a burned version — and a
-version on GitHub Packages cannot be replaced, only deleted, which breaks any consumer that has
-already restored it.</p>
+version on nuget.org can never be deleted or replaced, only unlisted.</p>
 <h2 id="related">Related</h2>
 <ul>
 <li><a href="02-reference-breaking-changes.html"><code>breaking-changes.md</code></a> — what changed at each seam, and the edit.</li>
