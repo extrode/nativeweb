@@ -10,7 +10,7 @@
        note in nativeweb.security.csproj. -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.Render</PackageId>
+    <PackageId>Extrode.NativeWeb.Render</PackageId>
     <Description>NativeWeb framework: compiled-template render runtime (TemplateWriter, Html, IResult adapters, locale tables).</Description>
   </PropertyGroup>
   <ItemGroup>

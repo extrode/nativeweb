@@ -4,8 +4,8 @@ name: Publish
 #
 # No push:branches, no pull_request, no workflow_dispatch. Every one of those
 # would put a package on the feed from a commit nobody decided to release, and
-# a version already on GitHub Packages cannot be replaced -- only deleted and
-# re-pushed, which breaks any consumer that already restored it. The manual
+# a version already on nuget.org can never be deleted or replaced, only
+# unlisted, so an accidental publish burns that version number for good. The manual
 # trigger is the tempting one to add and the one that most reliably ships
 # something by accident.
 #
@@ -16,13 +16,13 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
-# packages:write is the whole reason this file is separate from ci.yml. CI runs
-# on every push with packages:read; giving that job write access so it could
-# also publish would mean every branch push held a token that can overwrite the
-# framework's own feed.
+# The push credential is the NUGET_API_KEY repository secret, and it is the
+# whole reason this file is separate from ci.yml. CI runs on every push; giving
+# that job the key so it could also publish would mean every branch push held a
+# credential that can put a permanent version on nuget.org. GITHUB_TOKEN needs
+# only to read the repository and its check runs.
 permissions:
   contents: read
-  packages: write
 
 env:
   # No JauntyQ sibling checkout on a runner; the pinned packages come from
@@ -79,26 +79,10 @@ jobs:
           fi
           echo "Releasing $declared"
 
-      # A package pushed to GitHub Packages is linked to the repository named in
-      # its nuspec <repository url> and inherits that repository's visibility.
-      # The packages are proprietary framework source, so a public repository
-      # would publish them. The visibility is a precondition, checked rather
-      # than assumed.
-      #
       # Not the JauntyQ licence: no packable library references JauntyQ, only
       # apps/sample and skeleton/ do, and neither is packed. pack.ts refuses a
       # package carrying a JauntyQ path, which is what keeps that true.
-      - name: The repository is private
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          private="$(gh api "repos/$GITHUB_REPOSITORY" --jq .private)"
-          if [ "$private" != "true" ]; then
-            echo "$GITHUB_REPOSITORY is public, so every pushed package would be too." >&2
-            echo "AGENTS.md forbids redistributing JauntyQ. Nothing is published." >&2
-            exit 1
-          fi
-
+      #
       # The tag is the only gate on this workflow, and a tag can be placed on any
       # commit -- including one whose suite never went green. These two are the
       # guards over this workflow and over the version stamping it depends on, so
@@ -132,11 +116,6 @@ jobs:
       - name: Pack
         run: deno run -A tools/pack.ts --release $DOTNET_BUILD_ARGS
 
-      # repository_owner rather than a literal org. The 2026-08-26 move from
-      # extrode-legacy-org to extrode cost three days of red CI because a feed URL was
-      # written out by hand in one file and not another; OrgReferenceTests bans
-      # the old name, and this form cannot acquire a new one to ban.
-      #
       # No --skip-duplicate, and that is the deliberate half of this step.
       #
       # The flag was here so a publish that died halfway could be re-run. It
@@ -149,9 +128,9 @@ jobs:
       # in the run can see it: verify reads local files only.
       #
       # Without the flag a partial publish fails loudly on the second attempt,
-      # and recovery is a human decision: delete the partial version from the
-      # feed, then re-run the tag. That is the right cost. A version already
-      # restored by a consumer cannot be fixed by pushing over it either way.
+      # and recovery is a human decision. nuget.org never deletes or replaces a
+      # version, so the packages already pushed stay; unlist them and release
+      # the next patch version from one commit. That is the right cost.
       #
       # The glob is safe because pack.ts refuses to run when the output directory
       # holds a .nupkg it will not produce: everything matched here has been
@@ -159,5 +138,5 @@ jobs:
       - name: Push
         run: >
           dotnet nuget push "artifacts/packages/*.nupkg"
-          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
-          --api-key ${{ secrets.GITHUB_TOKEN }}
+          --source https://api.nuget.org/v3/index.json
+          --api-key ${{ secrets.NUGET_API_KEY }}

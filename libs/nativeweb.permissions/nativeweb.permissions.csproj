@@ -22,7 +22,7 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.Permissions</PackageId>
+    <PackageId>Extrode.NativeWeb.Permissions</PackageId>
     <Description>NativeWeb framework: model permissions, groups, and the store contract the permission decisions read.</Description>
   </PropertyGroup>
   <ItemGroup>

@@ -19,7 +19,7 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.Scaffold</PackageId>
+    <PackageId>Extrode.NativeWeb.Scaffold</PackageId>
     <Description>NativeWeb framework: scaffolding attributes and the store contract the generated CRUD endpoints call.</Description>
   </PropertyGroup>
   <ItemGroup>

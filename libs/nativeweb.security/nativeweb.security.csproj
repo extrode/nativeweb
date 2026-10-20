@@ -2,8 +2,7 @@
 
   <!-- Pack metadata (spec 003 R1): products consume the framework libs either
        as a sibling checkout via $(NativeWebRoot) ProjectReferences or as these
-       packages from a PRIVATE feed. Never publish publicly: the packages are
-       proprietary framework source.
+       Extrode.NativeWeb.* packages from nuget.org.
 
        This comment used to add that NativeWeb.Data and its dependents embed
        JauntyQ-generated output. Data and Auth left with the identity provider
@@ -12,7 +11,7 @@
        carrying a JauntyQ path, which is what keeps that so. -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.Security</PackageId>
+    <PackageId>Extrode.NativeWeb.Security</PackageId>
     <Description>NativeWeb framework: Argon2id passphrases, opaque tokens, bot traps, security primitives.</Description>
   </PropertyGroup>
 

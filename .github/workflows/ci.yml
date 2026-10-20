@@ -432,39 +432,6 @@ jobs:
           PGPASSWORD: ci_test_password
         run: bash db/migrate.sh
 
-      # The stamped product's nuget.config names its framework feed
-      # "framework-github" -- it is a generic product config, not this
-      # repository's, which declares nuget.org alone since 2026-09-24, so this is
-      # the one job that needs a credential. Package source mapping sends JauntyQ.* and
-      # NativeWeb.* there and everything else to nuget.org, and the feed needs
-      # auth even to read.
-      # Written to the runner's user-level NuGet config, never to a file in the
-      # workspace. `dotnet nuget update source` with no --configfile writes to the
-      # nearest config that declares the source -- which is this repository's
-      # committed one -- so the token sat in the checkout for the rest of the job.
-      # It has to be `add`, not `update`: update with --configfile throws
-      # "Object reference not set to an instance of an object" when the target file
-      # does not already declare that source. Verified locally 2026-09-05.
-      - name: Authenticate to GitHub Packages
-        working-directory: ciprobe
-        run: |
-          mkdir -p "$HOME/.nuget/NuGet"
-          # `add source --configfile` does not create the file: it exits 1 with
-          # "File '...' does not exist." A runner image is not guaranteed to have
-          # a user-level config, so write a minimal one. The sources it would
-          # otherwise carry are irrelevant here; nuget.config clears them before
-          # declaring its own.
-          # Written fresh every job, not only when absent: a self-hosted runner
-          # keeps this file between jobs, and `add` exits 1 on a URL an earlier
-          # job's entry already holds, under whatever name that job gave it.
-          printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
-          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
-            --name framework-github \
-            --username ${{ github.actor }} \
-            --password ${{ secrets.GITHUB_TOKEN }} \
-            --store-password-in-clear-text \
-            --configfile "$HOME/.nuget/NuGet/NuGet.Config"
-
       - name: Restore
         working-directory: ciprobe
         run: dotnet restore
