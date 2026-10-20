@@ -19,10 +19,7 @@ env:
   #
   # JauntyQ went the other way on 2026-09-05: package mode is its default and
   # needs no clone and no JauntyQRoot. Since 2026-09-24 it needs no token either:
-  # the pins are Extrode.JauntyQ.*, public on nuget.org since core 0.5.0. The
-  # "Authenticate to GitHub Packages" step in each job below is kept for
-  # NativeWeb.* package mode only; retiring it is a work/todo.md item in the
-  # framework repository. The clone step and the JauntyQRoot variable were removed.
+  # the pins are Extrode.JauntyQ.*, public on nuget.org since core 0.5.0. The clone step and the JauntyQRoot variable were removed.
   #
   # A runner has no sibling checkout for the `$(NativeWebRoot)` probe in
   # Directory.Build.props, so the step below clones the framework and that
@@ -111,17 +108,11 @@ jobs:
 
       # The framework, as a checkout rather than as packages -- this is what makes
       # the NativeWebRoot variable at the top of this file resolve. JauntyQ needs
-      # no equivalent step; it resolves from packages.
+      # no equivalent step; it resolves from packages. The repository is public,
+      # so actions/checkout's default GITHUB_TOKEN reads it.
       #
-      # The repository is private, so actions/checkout's default GITHUB_TOKEN,
-      # which is scoped to THIS repository alone, cannot read it:
-      # FRAMEWORK_CHECKOUT_TOKEN must be a repository secret holding a token with
-      # read access to it. Without it the step fails with "Repository not found",
-      # and that is the right failure -- there is no arrangement here where a green
-      # run silently skipped the framework.
-      #
-      # `ref` is a moving branch because the framework repository publishes no
-      # tags yet. Pin to a tag as soon as it does: on a branch, a push to the framework can turn this
+      # `ref` is the framework's release branch, a moving one, because the framework
+      # repository publishes no tags yet. Pin to a tag as soon as it does: on a branch, a push to the framework can turn this
       # product's CI red with nothing having changed here.
       #
       # LICENCE: JauntyQ is under ISL-R 1.2. Code its generator emits is yours
@@ -132,9 +123,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: extrode/nativeweb
-          ref: dev
+          ref: main
           path: NativeWeb
-          token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
           persist-credentials: false
 
       # No setup-dotnet step: the hosted images already ship the 10.0.x SDKs, so the
@@ -159,38 +149,6 @@ jobs:
           SUPERUSER_ROLE: postgres
           PGPASSWORD: ci_test_password
         run: bash db/migrate.sh
-
-      # Until 2026-09-24 JauntyQ resolved from framework-github, which needs auth
-      # even to READ, and without this step `dotnet restore` died NU1301/401 on
-      # JauntyQ.Generator. The pins are now Extrode.JauntyQ.* on nuget.org, so the
-      # default restore no longer needs it; it stays for NativeWeb.* package mode.
-      #
-      # FRAMEWORK_CHECKOUT_TOKEN is reused rather than GITHUB_TOKEN on purpose:
-      # this product lives in its own repository, so the automatic token is
-      # scoped THERE and cannot read extrode's packages whatever its permissions
-      # block says. The secret must therefore carry `read:packages` alongside the
-      # repository read it already needs for the framework checkout above.
-      # The credential goes to the runner's OWN user-level config, never to the
-      # checked-out nuget.config. `update source` with no --configfile writes to
-      # the nearest config that declares the source, which in a checkout is the
-      # committed one -- and this token is a PAT carrying read:packages, so it is
-      # longer-lived than the automatic GITHUB_TOKEN and worse to leave sitting in
-      # a workspace. `add` rather than `update`, because `update source
-      # --configfile` throws "Object reference not set to an instance of an
-      # object" against a file that does not already declare the source. The file
-      # is created first because `add source --configfile` does not create it: it
-      # exits 1 with "File '...' does not exist."
-      - name: Authenticate to GitHub Packages
-        run: |
-          mkdir -p "$HOME/.nuget/NuGet"
-          [ -f "$HOME/.nuget/NuGet/NuGet.Config" ] \
-            || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
-          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
-            --name framework-github \
-            --username ${{ github.actor }} \
-            --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }} \
-            --store-password-in-clear-text \
-            --configfile "$HOME/.nuget/NuGet/NuGet.Config"
 
       - name: Restore
         run: dotnet restore
@@ -263,15 +221,14 @@ jobs:
 
       # Same framework checkout as the test job, and for the same reason -- this
       # job resolves NativeWebRoot from the workflow-level variable too. See the
-      # long note on that step above for the token, the ref pinning and the
+      # long note on that step above for the ref pinning and the
       # JauntyQ licence constraint.
       - name: Check out the framework (NativeWeb)
         uses: actions/checkout@v7
         with:
           repository: extrode/nativeweb
-          ref: dev
+          ref: main
           path: NativeWeb
-          token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
           persist-credentials: false
 
       # Same as the test job: preinstalled SDK, global.json pins the band.
@@ -283,43 +240,5 @@ jobs:
       # say was a third-party action that was redundant and broke the publish
       # path. If the tools are genuinely absent the publish fails with a named
       # error, never a silent fallback.
-      # Until 2026-09-24 JauntyQ resolved from framework-github, which needs auth
-      # even to READ, and without this step `dotnet restore` died NU1301/401 on
-      # JauntyQ.Generator. The pins are now Extrode.JauntyQ.* on nuget.org, so the
-      # default restore no longer needs it; it stays for NativeWeb.* package mode.
-      #
-      # FRAMEWORK_CHECKOUT_TOKEN is reused rather than GITHUB_TOKEN on purpose:
-      # this product lives in its own repository, so the automatic token is
-      # scoped THERE and cannot read extrode's packages whatever its permissions
-      # block says. The secret must therefore carry `read:packages` alongside the
-      # repository read it already needs for the framework checkout above.
-      # The credential goes to the runner's OWN user-level config, never to the
-      # checked-out nuget.config. `update source` with no --configfile writes to
-      # the nearest config that declares the source, which in a checkout is the
-      # committed one -- and this token is a PAT carrying read:packages, so it is
-      # longer-lived than the automatic GITHUB_TOKEN and worse to leave sitting in
-      # a workspace. `add` rather than `update`, because `update source
-      # --configfile` throws "Object reference not set to an instance of an
-      # object" against a file that does not already declare the source. The file
-      # is created first because `add source --configfile` does not create it: it
-      # exits 1 with "File '...' does not exist."
-      # This job is windows-latest, where the default shell is pwsh and NuGet reads its
-      # user config from %APPDATA%\NuGet\NuGet.Config rather than ~/.nuget. A bash body
-      # here is a parse error before the first command runs, and a credential written
-      # under $HOME is written to a file the SDK never loads -- a publish that 401s with
-      # a green-looking authentication step above it.
-      - name: Authenticate to GitHub Packages
-        run: |
-          New-Item -ItemType Directory -Force -Path "$env:APPDATA\NuGet" | Out-Null
-          if (-not (Test-Path "$env:APPDATA\NuGet\NuGet.Config")) {
-            Set-Content -Path "$env:APPDATA\NuGet\NuGet.Config" -Value '<?xml version="1.0" encoding="utf-8"?><configuration />'
-          }
-          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json `
-            --name framework-github `
-            --username ${{ github.actor }} `
-            --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }} `
-            --store-password-in-clear-text `
-            --configfile "$env:APPDATA\NuGet\NuGet.Config"
-
       - name: Publish (NativeAOT)
         run: dotnet publish apps/__product__/__product__.csproj -c Release

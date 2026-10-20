@@ -141,16 +141,17 @@ public sealed partial class SkeletonFrameworkResolutionTests
         }
     }
 
-    /// <summary>Every framework checkout carries a token, because the repository is private.</summary>
+    /// <summary>Every framework checkout reads the public repository's release branch with the default token.</summary>
     /// <remarks>
-    /// actions/checkout's default GITHUB_TOKEN is scoped to the repository running the
-    /// workflow, so it cannot read the framework repo. Omitting the token fails with
-    /// "Repository not found", which names neither the token nor the scope.
+    /// The framework repository is public, so actions/checkout's default GITHUB_TOKEN reads it
+    /// and no repository secret is needed. <c>main</c> is its release branch; it publishes no
+    /// tags yet.
     /// </remarks>
     [Fact]
-    public void EveryFrameworkCheckout_SuppliesACredential()
+    public void EveryFrameworkCheckout_ReadsMainWithTheDefaultToken()
     {
-        List<Checkout> checkouts = FrameworkCheckouts(SkeletonWorkflow());
+        string workflow = SkeletonWorkflow();
+        List<Checkout> checkouts = FrameworkCheckouts(workflow);
 
         // A bare foreach over an empty list passes having asserted nothing -- the CRLF
         // failure mode again. One repository, in each of the two jobs; it was two of each
@@ -159,11 +160,11 @@ public sealed partial class SkeletonFrameworkResolutionTests
 
         foreach (Checkout checkout in checkouts)
         {
-            Assert.True(
-                checkout.Token is not null && checkout.Token.Contains("secrets.", StringComparison.Ordinal),
-                $"the checkout of '{checkout.Repository}' into '{checkout.Path}' supplies no secret token; "
-                    + "a private repository will fail with 'Repository not found'.");
+            Assert.Null(checkout.Token);
+            Assert.Equal("main", checkout.Ref);
         }
+
+        Assert.DoesNotContain("FRAMEWORK_CHECKOUT_TOKEN", workflow, StringComparison.Ordinal);
     }
 
     /// <summary>Package mode is available but must not be what CI depends on.</summary>
@@ -309,9 +310,8 @@ public sealed partial class SkeletonFrameworkResolutionTests
     /// actions/checkout persists the credential it authenticated with into
     /// <c>.git/config</c> by default, so it stays readable for the rest of the job -- through
     /// the test steps, which execute the product's and the framework's code and the whole
-    /// transitive package graph. FRAMEWORK_CHECKOUT_TOKEN is broader than the job's own
-    /// GITHUB_TOKEN, spanning several private repositories, and nothing in this workflow
-    /// pushes to them, so there is nothing to trade for the exposure.
+    /// transitive package graph. Nothing in this workflow pushes to the framework, so there is
+    /// nothing to trade for the exposure.
     /// </remarks>
     [Fact]
     public void NoFrameworkCheckout_LeavesItsCredentialInTheWorkspace()
@@ -325,117 +325,20 @@ public sealed partial class SkeletonFrameworkResolutionTests
         }
     }
 
-    /// <summary>
-    /// Every job that restores credentials the source JauntyQ.* is mapped to.
-    /// </summary>
+    /// <summary>No skeleton job authenticates to GitHub Packages.</summary>
     /// <remarks>
-    /// <para>
-    /// JauntyQ resolves from packages by default since 2026-09-05, and
-    /// <c>skeleton/nuget.config</c> maps <c>JauntyQ.*</c> to <c>framework-github</c> alone --
-    /// GitHub Packages, which serves no read anonymously. A job that runs a restore without
-    /// this step dies NU1301/401 on JauntyQ.Generator before it compiles anything, which is
-    /// how this workflow shipped for the length of one review.
-    /// </para>
-    /// <para>
-    /// Since 2026-09-24 the pins are <c>Extrode.JauntyQ.*</c> on nuget.org and no default
-    /// restore touches <c>framework-github</c>; the step now matters only for NativeWeb.*
-    /// package mode, and retiring it is a <c>work/todo.md</c> item.
-    /// </para>
-    /// <para>
-    /// The credential is FRAMEWORK_CHECKOUT_TOKEN, not the automatic GITHUB_TOKEN: a stamped
-    /// product lives in its own repository, so the automatic token is scoped there and cannot
-    /// read the framework owner's packages at any permission level.
-    /// </para>
+    /// The framework packages resolve from nuget.org, which needs no credential, so a step
+    /// that registers a feed or a password is dead weight that still handles a secret.
     /// </remarks>
     [Fact]
-    public void EverySkeletonJobThatRestores_CredentialsTheJauntyQSource()
+    public void NoSkeletonJob_AuthenticatesToGitHubPackages()
     {
         string workflow = SkeletonWorkflow();
-        string mapped = File.ReadAllText(Path.Combine(RepoRoot(), "skeleton", "nuget.config"));
 
-        string? source = XDocument.Parse(mapped)
-            .Descendants("packageSource")
-            .Where(e => e.Elements("package")
-                .Any(p => (string?)p.Attribute("pattern") == "JauntyQ.*"))
-            .Select(e => (string?)e.Attribute("key"))
-            .SingleOrDefault();
-
-        Assert.False(string.IsNullOrEmpty(source), "skeleton/nuget.config maps no source for JauntyQ.*");
-
-        List<string> uncredentialed = [];
-        foreach ((string name, string body) in Jobs(workflow))
-        {
-            bool restores = body.Contains("dotnet restore", StringComparison.Ordinal)
-                || body.Contains("dotnet publish", StringComparison.Ordinal);
-
-            bool credentials = body.Contains($"--name {source}", StringComparison.Ordinal)
-                && body.Contains("dotnet nuget add source", StringComparison.Ordinal);
-
-            if (restores && !credentials)
-            {
-                uncredentialed.Add(name);
-            }
-
-            if (!credentials)
-            {
-                continue;
-            }
-
-            // Every assertion below reads the commands, not the comments above them: the step
-            // explains why `update source --configfile` is not used, and a regex over the raw
-            // body reads that sentence as the flag it is arguing against.
-            string code = WithoutComments(body);
-
-            // The stamped product's token is a PAT with read:packages, not the job's automatic
-            // GITHUB_TOKEN, so leaving it in the workspace is worse here than it was in this
-            // repository's own ci.yml. `update source` with no --configfile does exactly that:
-            // it writes to the nearest config declaring the source, which is the product's
-            // committed nuget.config.
-            Assert.DoesNotContain("nuget update source", code, StringComparison.Ordinal);
-
-            // The runner decides which of the two the job must use, and getting it wrong fails
-            // in a way that reads like success: a credential written under $HOME on
-            // windows-latest lands in a file the SDK never loads, so the step is green and the
-            // publish 401s. The shell follows the same split -- a bash body on windows-latest is
-            // a pwsh parse error before the first command runs.
-            string runner = Scalar(body, "runs-on") ?? "";
-            bool windows = runner.Contains("windows", StringComparison.OrdinalIgnoreCase);
-            string expected = windows
-                ? @"$env:APPDATA\NuGet\NuGet.Config"
-                : "$HOME/.nuget/NuGet/NuGet.Config";
-
-            Match configfile = ConfigFilePattern().Match(code);
-            Assert.True(
-                configfile.Success,
-                $"skeleton job '{name}' credentials the feed with no --configfile, so the token "
-                    + "lands in the stamped product's own nuget.config.");
-            Assert.Equal(expected, configfile.Groups[1].Value);
-
-            string written = WrittenConfigContent(code, expected);
-            Assert.True(
-                written.Length > 0,
-                $"skeleton job '{name}' passes --configfile '{expected}' without creating it when "
-                    + "absent; `dotnet nuget add source` exits 1 rather than creating it.");
-
-            // Parsed rather than matched: an unclosed <configuration> is the same substring and
-            // a different outcome on the runner.
-            var created = XDocument.Parse(written);
-            Assert.Equal("configuration", created.Root?.Name.LocalName);
-
-            int credential = code.IndexOf("--store-password-in-clear-text", StringComparison.Ordinal);
-            Match firstSdkCommand = SdkCommandPattern().Match(code);
-            Assert.True(
-                firstSdkCommand.Success && credential < firstSdkCommand.Index,
-                $"skeleton job '{name}' runs `{firstSdkCommand.Value}` before it authenticates "
-                    + "the feed, which is a 401 on the runner and nothing at all here.");
-        }
-
-        Assert.True(
-            uncredentialed.Count == 0,
-            $"skeleton job(s) restore without credentialing '{source}', which JauntyQ.* maps to: "
-                + string.Join(", ", uncredentialed));
-
-        Assert.DoesNotContain("secrets.GITHUB_TOKEN", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("nuget.pkg.github.com", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet nuget add source", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet nuget update source", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("secrets.", workflow, StringComparison.Ordinal);
     }
 
     /// <summary>The skeleton ships a nuget.config, and its mapping is total.</summary>
@@ -506,7 +409,7 @@ public sealed partial class SkeletonFrameworkResolutionTests
         Assert.NotEqual("nuget.org", claimants[0]);
     }
 
-    private sealed record Checkout(string Repository, string Path, string? Token, string? PersistCredentials);
+    private sealed record Checkout(string Repository, string Path, string? Ref, string? Token, string? PersistCredentials);
 
     /// <summary>
     /// The checkout steps that fetch another repository. The bare
@@ -519,6 +422,7 @@ public sealed partial class SkeletonFrameworkResolutionTests
             .Select(s => new Checkout(
                 Scalar(s, "repository") ?? string.Empty,
                 Scalar(s, "path") ?? string.Empty,
+                Scalar(s, "ref"),
                 Scalar(s, "token"),
                 Scalar(s, "persist-credentials")))
             .Where(c => c.Repository.Length > 0)
@@ -559,39 +463,6 @@ public sealed partial class SkeletonFrameworkResolutionTests
             yield return (headers[i].Groups[1].Value, yaml[start..end]);
         }
     }
-
-    /// <summary>
-    /// The XML a job writes to <paramref name="path"/> when the file is absent, or empty if it
-    /// writes nothing. Bash writes it with a redirect, pwsh with Set-Content.
-    /// </summary>
-    private static string WithoutComments(string body) =>
-        CommentLinePattern().Replace(body, string.Empty);
-
-    private static string WrittenConfigContent(string job, string path)
-    {
-        string escaped = Regex.Escape(path);
-
-        Match redirect = Regex.Match(job, @"printf\s+'([^']*)'\s*>\s*""" + escaped + @"""");
-        if (redirect.Success)
-        {
-            return redirect.Groups[1].Value.Replace(@"\n", "\n", StringComparison.Ordinal);
-        }
-
-        Match setContent = Regex.Match(
-            job,
-            @"Set-Content\s+-Path\s+""" + escaped + @"""\s+-Value\s+'([^']*)'");
-
-        return setContent.Success ? setContent.Groups[1].Value : string.Empty;
-    }
-
-    [GeneratedRegex(@"(?m)^[ \t]*#.*$")]
-    private static partial Regex CommentLinePattern();
-
-    [GeneratedRegex("--configfile\\s+\"?([^\"\\s]+)\"?")]
-    private static partial Regex ConfigFilePattern();
-
-    [GeneratedRegex(@"dotnet (?:restore|build|publish|pack|test|run)\b")]
-    private static partial Regex SdkCommandPattern();
 
     private static string? Scalar(string block, string key) =>
         Regex.Match(block, $@"(?m)^\s*{Regex.Escape(key)}:\s*(\S.*?)\s*$") is { Success: true } m
