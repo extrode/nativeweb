@@ -14,8 +14,10 @@ top-level schema here is a scope question, not a migration. The reasoning is in
 
 It applies `NNNN_*.sql` files in order and records each applied version in `schema_migrations`,
 so a re-run skips what is already there. Each file and its `schema_migrations` row commit in one
-transaction. Files that cannot run inside a transaction (`CREATE INDEX CONCURRENTLY`) are detected
-by content and run on their own.
+transaction. A file that cannot run inside a transaction (`CREATE INDEX CONCURRENTLY`, `VACUUM`) or
+that opens its own `BEGIN`/`COMMIT` must carry `-- @no-transaction` on a line of its own. It then
+runs unwrapped and is recorded afterwards. A file that looks like one of these but lacks the marker
+aborts the run with an instruction.
 
 - It applies `db/sample/migrations/` by default. Set `MIGRATIONS_DIR` to apply another directory.
 - It stops if the directory is missing or holds no `NNNN_*.sql` file.

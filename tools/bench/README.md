@@ -13,10 +13,9 @@ deno run -A tools/bench/run.ts --skip-publish   reuse this harness's existing pu
 
 **Where it publishes: `tmp/bench/publish/`, and only there.** Not the default
 `apps/sample/bin/Release/net10.0/<rid>/publish/`, which belongs to the e2e tier's process
-fixture — a bench run interleaved with that tier had the two writing one directory, and
-`--skip-publish` would benchmark whichever binary the tier had last built and report it as this
-harness's own. `--skip-publish` now finds only what this harness published, and says so by name
-when it finds nothing.
+fixture. Sharing it would let `--skip-publish` benchmark whichever binary the tier last built.
+`--skip-publish` finds only what this harness published, and says so by name when it finds
+nothing.
 
 Other flags: `--duration <seconds>`, `--runs <n>`, `--concurrency <n>`, `--port <n>`, and
 `--force` (with `--baseline`, to replace a baseline recorded on a different machine). Changing
@@ -39,8 +38,6 @@ exit 0, because nothing the operator types changes which machine they are on.
 
 For the publish step only, a restorable .NET SDK; JauntyQ comes from its nuget.org packages.
 `--skip-publish` against an existing `tmp/bench/publish/` needs neither dotnet nor JauntyQ.
-`openssl` was a prerequisite while the harness minted a loopback certificate; it serves over http
-now (see below) and `cert.ts` is gone.
 
 ## What it measures
 
@@ -66,11 +63,8 @@ its ceiling. **They are not comparable to the figures in
 `docs/01-architecture/native-web-architecture.md` §14** — different apps, different tool,
 different hardware. That is the whole reason this harness exists.
 
-**Small regressions.** Eleven full-render passes across five sessions on one machine and one
-unchanged binary ranged 6,887 to 8,012 req/s, 16.3%; peak RSS moved 57.1 MB to 73.8 MB, 29%.
-The spread is a property of the driver and the machine, not of the app, and it sizes the
-tolerances.
-Back to back within one session the spread is a few per cent; across sessions it is whatever
+**Small regressions.** Run to run, the spread on one machine and one unchanged binary is a
+property of the driver and the machine, not of the app, and it sizes the tolerances. Back to back within one session the spread is a few per cent; across sessions it is whatever
 else the machine was doing. The shipped tolerances are 20% down on throughput and 25% up on
 RSS, sized from that, so **this catches gross regressions and not small ones** — a doubling of
 page cost, a leak, a middleware that suddenly blocks. Run it on an otherwise idle machine, and
@@ -117,7 +111,6 @@ later comparison unfailable while the file still looked like a baseline.
 `--baseline` refuses to write a measurement with failed requests, zero throughput, or no RSS
 reading, and refuses to replace a baseline recorded on a different machine unless `--force` says
 to. A **measured** zero RSS is refused on the read side too: `0 > baseline × 1.25` is false, so a
-dead sampler would otherwise pass the memory half of every check in silence. Without that second guard a `--baseline` run anywhere else would replace the committed file,
-and every later `--check` on the recording machine would exit 0 having compared nothing. That guard exists because the first real run of this harness recorded exactly such a
-baseline: 0 req/s and 245,106 errors, written without complaint, under which the floor would
-have been unfailable forever.
+dead sampler would otherwise pass the memory half of every check in silence. The machine guard
+stops a `--baseline` run elsewhere from replacing the committed file, which would leave every later
+`--check` on the recording machine comparing nothing.

@@ -3,8 +3,7 @@
 This folder holds one thing: `rollback/htmx-2.0.10.min.js`, the previous htmx build, kept so a
 revert to it is a file copy rather than a re-download. It sits outside every `wwwroot`, so it is
 never served or published. Files here are never edited, and are removed when the version they roll
-back to stops being a plausible target. It is the htmx build `apps/web` and the skeleton served
-before the htmx 4.0.0 upgrade.
+back to stops being a plausible target. No app copies from it; `apps/sample` is the only app, and `apps/web` does not exist.
 
 ## Where framework assets live
 
