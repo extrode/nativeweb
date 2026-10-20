@@ -11,6 +11,15 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 ## [Unreleased]
 
+### Changed
+
+- **Package ids are `Extrode.NativeWeb.*`.** Every packable library under `libs/` changes its
+  `PackageId` from `NativeWeb.X` to `Extrode.NativeWeb.X`, matching JauntyQ's `Extrode.JauntyQ.*`.
+  Namespaces and assembly names stay `NativeWeb.*`. `publish.yml` pushes to nuget.org with the
+  `NUGET_API_KEY` secret instead of GitHub Packages, and `skeleton/nuget.config` declares
+  nuget.org alone. Nothing had been published under the old ids. See
+  `docs/02-reference/breaking-changes.md`.
+
 ### Added
 
 - `.github/SECURITY.md`: vulnerabilities are reported through GitHub private vulnerability

@@ -108,13 +108,12 @@ inherits this repo's copy — which sets `ManagePackageVersionsCentrally=true` o
 that does not expect it (NU1008 on both JauntyQ projects). `defaults.run.working-directory: product`
 is what keeps every `run:` step pointed at this repository.
 
-**Set the `FRAMEWORK_CHECKOUT_TOKEN` repository secret** before the first run. The workflow
-checks out the framework with it, because the default `GITHUB_TOKEN` is scoped to this repository
-only. Without it the checkout step fails with `Repository not found`.
+The framework repository is public, so the workflow checks it out with the default
+`GITHUB_TOKEN` and needs no repository secret.
 
 **NativeWeb package mode (`-p:NativeWebUsePackages=true`) still exists and is still unusable:**
-no `NativeWeb.*` package has published, so a package-mode restore of the framework cannot succeed
-anywhere. CI does not use it.
+the `Extrode.NativeWeb.*` packages will come from nuget.org, but none has been released yet, so
+a package-mode restore of the framework cannot succeed anywhere. CI does not use it.
 
 **JauntyQ packages are its default.** Nothing needs to be passed: the pins are
 `Extrode.JauntyQ.*`, public on nuget.org, and restore with no credential. Checkout mode, `-p:JauntyQUsePackages=false`, builds against a sibling
@@ -134,12 +133,10 @@ The stamp leaves deliberate placeholders. Replace every one before the product f
 - `wwwroot/img/logo.svg` — the placeholder logo.
 - `deploy/__product__.service` / `install-windows-service.ps1` — connection string and URLs.
 - `docs/security-baseline.md` — tick the checklist, honestly.
-- **The `FRAMEWORK_CHECKOUT_TOKEN` repository secret.** The one setup step with no artifact in
-  this repo, so nothing here will remind you: CI cannot check out the framework without it.
-- `nuget.config` — the `framework-github` source points at `extrode`'s registry. Repoint it if
-  your framework packages publish elsewhere; the `packageSourceMapping` beside it is what keeps
-  `NativeWeb.*`/`JauntyQ.*` from ever resolving against nuget.org, so keep the two in step.
-- `.github/workflows/ci.yml` — the `extrode/nativeweb` checkout target and its `ref: dev`. Pin
+- `nuget.config` — nuget.org alone, with a `*` source mapping. Every pin, `Extrode.NativeWeb.*`
+  and `Extrode.JauntyQ.*`, restores from it with no credential. Add a mapping for any source you
+  add beside it.
+- `.github/workflows/ci.yml` — the `extrode/nativeweb` checkout target and its `ref: main`. Pin
   that to a tag once the framework publishes one.
 
 ## Status

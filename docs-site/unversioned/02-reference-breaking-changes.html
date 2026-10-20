@@ -127,7 +127,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</a><a class="toc-l2" href="#2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — IScaffoldStore&lt;T&gt;.ListAsync takes an ordering and a cursor</a><a class="toc-l3" href="#what-a-consumer-does">What a consumer does</a><a class="toc-l2" href="#2026-08-31--the-identity-provider-sign-in-library-removed">2026-08-31 — the identity-provider sign-in library removed</a><a class="toc-l2" href="#2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — libs/nativeweb.auth and libs/nativeweb.data removed</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#2026-10-20--the-frameworks-package-ids-gain-the-extrode-prefix">2026-10-20 — the framework's package ids gain the Extrode. prefix</a><a class="toc-l2" href="#2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</a><a class="toc-l2" href="#2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — IScaffoldStore&lt;T&gt;.ListAsync takes an ordering and a cursor</a><a class="toc-l3" href="#what-a-consumer-does">What a consumer does</a><a class="toc-l2" href="#2026-08-31--the-identity-provider-sign-in-library-removed">2026-08-31 — the identity-provider sign-in library removed</a><a class="toc-l2" href="#2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — libs/nativeweb.auth and libs/nativeweb.data removed</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Breaking changes</nav>
         <article>
@@ -144,6 +144,30 @@ library takes before it is removed.</p>
 shim that makes the wrong shape survivable, because a shim outlives the reason for it and the
 next reader cannot tell which of the two overloads is the one to write against. What is owed
 instead is this file: what changed, why, and the before/after a consumer edits by.</p>
+<hr />
+<h2 id="2026-10-20--the-frameworks-package-ids-gain-the-extrode-prefix">2026-10-20 — the framework's package ids gain the <code>Extrode.</code> prefix</h2>
+<p><strong>Seam:</strong> every <code>PackageId</code> under <code>libs/</code> — <code>NativeWeb.Render</code> is now <code>Extrode.NativeWeb.Render</code>,
+and the same for the other twelve.
+<strong>Affects:</strong> a product building in package mode (<code>-p:NativeWebUsePackages=true</code>). Checkout mode
+references projects, not ids, and changes nothing. Namespaces and assembly names are unchanged,
+so no <code>using</code> line moves.</p>
+<p>The packages publish to nuget.org, alongside JauntyQ's <code>Extrode.JauntyQ.*</code>. No version has been
+released under either id, so there is nothing to restore from the old one.</p>
+<p><strong>Rename the ids</strong> in <code>Directory.Packages.props</code> and in each package-mode <code>PackageReference</code>:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-com">&lt;!-- before --&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">PackageVersion</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;NativeWeb.Render&quot;</span> <span class="tok-attr">Version</span>=<span class="tok-str">&quot;0.1.0&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-com">&lt;!-- after --&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">PackageVersion</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;Extrode.NativeWeb.Render&quot;</span> <span class="tok-attr">Version</span>=<span class="tok-str">&quot;0.1.0&quot;</span> <span class="tok-punc">/&gt;</span>
+</code></pre>
+</div>
+<p>A stamped product's <code>nuget.config</code> no longer declares the <code>framework-github</code> source; nuget.org
+alone serves every pin. Delete the source, its <code>packageSourceMapping</code> entry and any
+<code>framework-github</code> credential in a user-level config.</p>
 <hr />
 <h2 id="2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</h2>
 <p><strong>Seam:</strong> <code>NativeWeb.Web</code>'s MSBuild contribution — <code>libs/nativeweb.web/build/NativeWeb.Web.targets</code>.

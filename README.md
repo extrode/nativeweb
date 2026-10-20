@@ -250,8 +250,9 @@ pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe -Execut
 ```
 
 By default the stamped app references the NativeWeb libraries from a checkout of this repository
-sitting next to it. It can switch to NuGet packages with `-p:NativeWebUsePackages=true`, but those
-packages aren't published yet, so the checkout is the way for now. JauntyQ comes from nuget.org
+sitting next to it. It can switch to NuGet packages with `-p:NativeWebUsePackages=true`; those
+will be on nuget.org as `Extrode.NativeWeb.*`, but none is released yet, so the checkout is the
+way for now. JauntyQ comes from nuget.org
 and needs no checkout.
 
 To check that `skeleton/` still builds before you stamp the app you mean to keep,

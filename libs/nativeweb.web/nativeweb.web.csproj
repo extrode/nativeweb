@@ -6,7 +6,7 @@
        output-cache guard could not reach a product already stamped. -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.Web</PackageId>
+    <PackageId>Extrode.NativeWeb.Web</PackageId>
     <Description>NativeWeb framework: the request pipeline — security headers, public-page output cache, error pages, static pages, flash, readiness, CSP reporting.</Description>
     <RootNamespace>NativeWeb.Web</RootNamespace>
     <!-- The Request Delegate Generator. MapGet/MapPost carry
@@ -71,8 +71,10 @@
        Chrome.cs does. They are AdditionalFiles rather than Content, because the
        render generator compiles them into the consumer's assembly, so nothing
        is served or copied at runtime. -->
+  <!-- NuGet imports build/<PackageId>.targets only, so the file is renamed to
+       the package id on the way in. -->
   <ItemGroup>
-    <None Include="build\NativeWeb.Web.targets" Pack="true" PackagePath="build\" />
+    <None Include="build\NativeWeb.Web.targets" Pack="true" PackagePath="build\Extrode.NativeWeb.Web.targets" />
     <None Include="wwwroot\**\*" Pack="true" PackagePath="wwwroot\" />
     <None Include="templates\**\*" Pack="true" PackagePath="templates\" />
   </ItemGroup>

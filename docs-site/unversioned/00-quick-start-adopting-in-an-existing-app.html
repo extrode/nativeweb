@@ -200,9 +200,10 @@ worktree fails:</p>
 <h3 id="why-not-packages">Why not packages</h3>
 <p>The thirteen packable projects under <code>libs/</code> carry <code>IsPackable</code> and a <code>PackageId</code>, and
 <code>skeleton/Directory.Build.props</code> already has a <code>-p:NativeWebUsePackages=true</code> mode. <strong>Do not use
-it yet.</strong> Package mode is approved and not working: it has never restored end to end, and the
-repository has no release process for a consumed library — no stated semver guarantee, no
-support window, no deprecation path. See
+it yet.</strong> The packages publish to nuget.org as <code>Extrode.NativeWeb.*</code> from a <code>v*</code> tag
+(<a href="02-reference-versioning.html"><code>../02-reference/versioning.md</code></a>), but none has been released, so
+package mode has never restored end to end. There is also no stated semver guarantee, support
+window or deprecation path for a consumed library yet. See
 <code>../decisions/2026-08-30-004-package-mode-for-consumers.md</code>
 for what it obliges. Until that lands, a checkout is the supported model and you upgrade by
 pulling.</p>

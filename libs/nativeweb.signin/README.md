@@ -13,7 +13,7 @@ anywhere in this library's source.
 <ProjectReference Include="..\..\libs\nativeweb.signin\nativeweb.signin.csproj" />
 ```
 
-Published as `NativeWeb.SignIn` for consumers building against packages. The skeleton carries
+Published as `Extrode.NativeWeb.SignIn` for consumers building against packages. The skeleton carries
 both forms; `tools/new-product.ps1` stamps a product with the section already wired.
 
 ## The whole wiring
