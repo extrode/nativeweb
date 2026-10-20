@@ -187,9 +187,9 @@ tests pin this.
 ### `/version` and error pages
 
 Designed error pages (400–500 range) via `ErrorPageMiddleware` + `StaticErrorShell`, HX-aware.
-`/version` beside `/healthz` returns `InformationalVersion` (`<Version>` + short git SHA
-stamped by the `StampSourceRevision` MSBuild target in the product's csproj, "dev" fallback), unauthenticated,
-in robots.txt disallow. **Accepted posture:** the SHA is disclosed deliberately — it identifies
+`/version` beside `/healthz` returns `InformationalVersion` (`<Version>`, plus a short git SHA
+with a "dev" fallback where the product's csproj carries the `StampSourceRevision` MSBuild target,
+as the skeleton's does), unauthenticated, in robots.txt disallow. **Accepted posture:** the SHA is disclosed deliberately — it identifies
 a public commit, not a secret.
 
 ### Browser-native first

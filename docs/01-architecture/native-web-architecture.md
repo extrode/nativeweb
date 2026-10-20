@@ -9,7 +9,7 @@ principle is enforced by something that fails when it is broken:
 |---|---|---|
 | Minimal APIs, server-rendered HTML | `libs/nativeweb.web`, `libs/nativeweb.render` | the test projects under `tests/` |
 | NativeAOT, no trim warnings | `PublishAot`, `TreatWarningsAsErrors` repo-wide | the publish itself; a warning is an error |
-| Compile-time HTML, forms and CRUD | the source generators under `libs/` | the generated code is the only code path; no runtime reflection |
+| Compile-time HTML, forms and CRUD | the source generators under `libs/` | the generated code is the only code path; no runtime reflection outside the one assembly-attribute read behind `/version` |
 | JauntyQ for all data access | `db/sample`, `apps/sample` | wired and running, not a placeholder list |
 | HTMX + Alpine, vendored | framework assets in `libs/nativeweb.web/wwwroot/_nativeweb/`; htmx and Alpine.js in `apps/sample/wwwroot/vendor/` | served from the app's own files, no CDN. Alpine.js is loaded but no page uses it yet |
 | The reference application | `apps/sample` | the only deployable project in the tree |
