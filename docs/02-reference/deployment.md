@@ -1,58 +1,23 @@
 # Deployment runbook
 
-> **The application this runbook used to deploy left the repository on 2026-08-31**
-> (`../decisions/2026-08-31-007-idp-leaves-nativeweb.md`). `scripts/deploy/` was retargeted the
-> same day: `build.sh` publishes `apps/sample` by default and takes `PROJECT=<csproj>` for a
-> stamped product's own app, and it installs the executable under the fixed name `nativeweb`, so
-> nothing downstream — `deploy.sh`, `nativeweb@.service`, Caddy — names the project. Since
-> 2026-09-05 all of it has been run on a real host; what has not is below.
-
-Spec: `../specs/011-production-deployment/011-spec.md`
+Spec: `../specs/011-production-deployment/011-spec.md` (the R-numbers below are its requirements)
 Scripts: `../../scripts/deploy/`
 
 The one document for provisioning, releasing, rolling back, backing up and
 recovering a NativeWeb production host. Everything here is a command to run or a
 decision with a stated default.
 
-> **Releasing, restoring and disaster recovery have all now been executed for
-> real. What has never been rehearsed is losing the machine.** On 2026-09-01 a
-> `linux-x64` artifact built by `build.sh` was deployed by `deploy.sh` to
-> `nativeweb-dev` (Debian 12, a VM guest behind an edge proxy) and promoted to
-> blue, and the result was served publicly; that closes R1. On 2026-09-05 a backup was taken, restored into a scratch
-> database and served from, and `nativeweb-dr` was rebuilt from repository plus
-> backup in 345 s. That closes R16 and R17a, and every elapsed time below is now
-> a measured number rather than a placeholder. Build time is the one it does not
-> record: the drill repackaged a running release rather than publishing one.
->
-> **R14 and R17b are unmet, and they are the ones that matter most.** The backup
-> bucket was a MinIO container on the physical host being backed up, so losing
-> that machine loses the guest, the replacement and the bucket together. The
-> drill rehearsed recovering a broken guest. The `age` private key is the one
-> part of that set which now survives the host, stored off-host 2026-09-06.
-> **R17b had two blockers and now has one.** Its criterion is that the backup is
-> still readable after the host is gone, and readable needs both the bytes and the
-> key; the key is off the host and the bytes are not. R14 is about location alone,
-> so it is untouched. Both stay unmet. R15 is unmet too:
-> `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running is unnoticed.
->
-> **Three attempts were needed and two of them were defects in these scripts,**
-> which is what a first real run is for. Both are fixed and both now have a test:
-> `ConditionPathExists` sat in `[Service]`, where systemd logs "Unknown key name"
-> and ignores it, so the skip it promises had never happened on any host; and
-> `chmod -R g-w,o-rwx` could not restore group bits that `cp -a` from a `mktemp -d`
-> stage never granted, so the release directory arrived `drwx------` and systemd
-> failed the unit at `status=200/CHDIR`. The third refusal was not a defect — the
-> host carried `NativeWeb__*` keys from a provisioning run predating the config
-> prefix, and the preflight said so and stopped, which is the behaviour it is for.
->
-> **2026-08-30: an audit sweep read the scripts and found eight defects, four of
-> which would have stopped this walkthrough dead on a clean Debian** — Caddy never
-> reading the environment file it is told to fill in, a log directory the Caddy
-> user cannot write, the firewall skipped on every first provision, and `sudo`
-> refusing the variables `deploy.sh` passes on its command line. All eight are
-> fixed and each has a test. That is a reason to have more confidence in the
-> document, and none at all to think it has been run: static reading cannot find
-> the ninth.
+`build.sh` publishes `apps/sample` by default and takes `PROJECT=<csproj>` for a stamped product's
+own app. It installs the executable under the fixed name `nativeweb`, so nothing downstream
+(`deploy.sh`, `nativeweb@.service`, Caddy) names the project.
+
+> **Releasing, restoring and rebuilding a guest from backup have all been run on a real host.
+> What has never been rehearsed is losing the machine.** The backup bucket was an S3-compatible
+> service on the physical host being backed up, so losing that machine loses the guest, the
+> replacement and the bucket together. **R14 and R17b are unmet.** R17b needs the backup to be
+> readable after the host is gone, which takes both the bytes and the `age` key; the key is held
+> off-host and the bytes are not. R14 is about location alone. **R15 is unmet too:**
+> `BACKUP_HEARTBEAT_URL` is unset, so a backup that stops running goes unnoticed.
 
 ## Shape of it
 
@@ -78,11 +43,10 @@ never reaches the public.
 
 ## Decisions on record
 
-Both are R7's, and both are choices rather than defaults.
+Both are choices rather than defaults.
 
 - **Distribution: Debian stable, x86-64.** `provision.sh` targets apt and systemd;
-  Ubuntu LTS works unchanged. `TESTED ON: Debian 12 (bookworm), x86-64,
-  2026-09-01` — a VM guest, provisioned and deployed to.
+  Ubuntu LTS works unchanged. Tested on Debian 12 (bookworm), x86-64, a VM guest.
 - **`unattended-upgrades` is on, security pocket only, and does NOT reboot.**
   There is one host and no failover, so an unattended 03:00 reboot is an
   unannounced outage. Kernel and libc updates therefore wait for an operator:
@@ -93,7 +57,7 @@ Both are R7's, and both are choices rather than defaults.
 Prerequisites: a Debian host, root over SSH, and a DNS A/AAAA record pointing at
 it. Caddy cannot get a certificate before DNS resolves.
 
-```sh
+```bash
 git clone <this repo> && cd nativeweb
 sudo scripts/deploy/provision.sh
 ```
@@ -109,23 +73,17 @@ ruleset and the Caddy config, bounds journal retention, and enables the backup
 timer. It writes **no secrets**; a script that generates production keys is a
 script that has seen them.
 
-> The nftables guard used to read *absent, or carrying our marker*, which never
-> fired: this same script installs Debian's `nftables` package, and that package
-> ships `/etc/nftables.conf` as a conffile. Every **first** provision took the
-> "not ours, refusing" branch and left the host with no firewall — R5 unmet, on a
-> clean install, with a line of output that read like a considered decision. It
-> now also accepts a conffile `dpkg --verify` reports as unmodified. Found in the
-> 2026-08-30 audit sweep, one of eight defects in scripts nobody had run yet.
-
+> The firewall guard accepts an `/etc/nftables.conf` that is absent, that carries our marker, or
+> that is Debian's packaged conffile unmodified (`dpkg --verify` reports it clean). Debian's
+> `nftables` package ships that file, so a guard that accepted only the first two would refuse
+> every first provision and leave the host with no firewall.
 Then, in order:
 
 **Every key below is spelled `<Prefix>__…`, where `<Prefix>` is the configuration
 section the deployed binary reads** — `Sample` for `apps/sample`, your product's
 own name for anything stamped from `skeleton/`. Pass it to `provision.sh --prefix`
 and `build.sh` stamps the matching `config_prefix` into the artifact, which is
-where `deploy.sh` reads it from. Until 2026-08-31 every key here was spelled
-`NativeWeb__`, a section no binary in this repository binds: the preflight demanded
-nine keys nothing reads and passed on the two that mattered while they stayed unset.
+where `deploy.sh` reads it from.
 
 1. **Fill in `/etc/nativeweb/secrets.env`.** The connection string, and nothing
    else. Two spellings are seeded and one of them applies:
@@ -147,20 +105,12 @@ nine keys nothing reads and passed on the two that mattered while they stayed un
    > key and every object in the bucket is unreadable noise, and no amount of
    > working backups helps. A password manager, a second machine, a printed copy
    > in a safe — anywhere, as long as losing the host does not lose the key.
-   > **Recorded 2026-09-06:** an off-host copy exists, in the operator's own
-   > store, off the host. Deliberately not named here -- this file is
-   > in a public repository, and a runbook that names the vault holding the key
-   > is half of the compromise. Ask the operator.
-   > **The `nativeweb-dev` key of 2026-09-01 is not being rotated -- decided by
-   > the operator, 2026-09-06.** It was printed into a terminal session and read
-   > back from that session's own output during the 2026-09-05 drill, so it
-   > exists in whatever transcript, scrollback or shell history that session
-   > left behind. The operator judged that reach acceptable for `nativeweb-dev`.
-   > **Revisit it if that material ever leaves their own machines, and do not
-   > carry the decision to a production key.** Rotating would mean `age-keygen`
-   > afresh, a new `BACKUP_AGE_RECIPIENT`, and keeping the old private key for
-   > as long as objects encrypted to the old recipient are inside the retention
-   > window.
+   > Keep the private half in the operator's own store, and do not name that store in this file:
+   > a runbook that names the vault holding the key is half of the compromise. A key that was
+   > printed into a terminal session exists in whatever transcript, scrollback or shell history that
+   > session left behind; do not carry such a key to production. Rotating means `age-keygen`
+   > afresh, a new `BACKUP_AGE_RECIPIENT`, and keeping the old private key for as long as objects
+   > encrypted to the old recipient are inside the retention window.
 
    Put the public half in `BACKUP_AGE_RECIPIENT` in `/etc/nativeweb/backup.env`,
    along with the bucket, endpoint and access keys.
@@ -168,12 +118,10 @@ nine keys nothing reads and passed on the two that mattered while they stayed un
    each account for its own role — can reach the `nativeweb` database over the
    unix socket as either `nativeweb` or `postgres`. That is how `deploy.sh`,
    `backup.sh` and `restore.sh` authenticate with **no password in any file**.
-   Migrations need both: they create objects (and whoever creates them owns them
-   — nothing in the migrations issued a `GRANT`), and migration `0002` needed a
-   superuser for the citext extension.
-5. **Apply migrations** — the first deploy does this, but a fresh database needs
-   the citext extension created by a superuser (migration `0002`). See
-   `db/migrate.sh`.
+   Migrations need both: they create objects (and whoever creates them owns them, since nothing in
+   the migrations issues a `GRANT`), and an extensions migration needs a superuser.
+5. **Apply migrations.** The first deploy does this. A migration directory that carries an
+   `NNNN_extensions.sql` needs it applied by a superuser; see `db/migrate.sh`.
 
 ### Required configuration
 
@@ -187,25 +135,15 @@ happening is worse than none, because it is also an assurance.
 | `<Prefix>__ForwardedHeaders__KnownProxies` | Unset behind Caddy means `RemoteIpAddress` is the proxy hop and every client in the world shares one rate-limit partition. Nothing errors and nothing logs it |
 | `ConnectionStrings__<Prefix>` **or** `<Prefix>__Db__ConnectionString` | Absent, `apps/sample` serves its in-memory demo store with a green `/healthz`, and a stamped product times out the `/readyz` poll with no named cause |
 | `<Prefix>__DataProtection__KeyDirectory` | Must be under `/var/lib/nativeweb`. That is the only path `ReadWritePaths` names, and `ProtectSystem=strict` makes the rest read-only. Unset, the key ring lands under a read-only working directory and cannot persist: every restart remints the antiforgery keys and every form POST answers 400 after each deploy, with `/readyz` green. The app now refuses to start rather than doing that silently |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`, when `<Prefix>__Telemetry__Enabled=true` | Telemetry is opt-**in**: the framework defaults `Enabled` to false. The preflight fails only when it is on with nowhere to send. Until 2026-08-31 this gate asserted the opposite, which was true of the app that left the repo and demanded busywork ever after |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, when `<Prefix>__Telemetry__Enabled=true` | Telemetry is opt-**in**: the framework defaults `Enabled` to false. The preflight fails only when it is on with nowhere to send |
 
-**Nine keys were deleted from this table on 2026-08-31**: `ContactKey`,
-`StoreEncryptionKey`, `PairwiseSalt`, both `Smtp` settings, both `WebAuthn`
-settings, `DeviceGrant__VerificationUri`, `CanonicalBaseUrl` and
-`FirstPartyClientId`. No code in this repository binds any of them — they left
-with the identity provider — and `FirstPartyClientId` pointed at a row seeded by
-migration `0055`, which left with `db/migrations`. The preflight required all of
-them, so deploying the scripts' own default project meant inventing values for a
-departed product's settings.
 
 ## Releasing
 
-**Build on Linux.** NativeAOT does not cross-compile, so a `linux-x64` publish
-must happen on Linux. From WSL on the workstation:
+**Build on Linux.** NativeAOT does not cross-compile, so a `linux-x64` publish must happen on
+Linux. From the repository root (under WSL on Windows):
 
-```sh
-wsl
-cd /mnt/c/home/code/extrode.com/nativeweb
+```bash
 scripts/deploy/build.sh                       # refuses a dirty tree; --force overrides
 scripts/deploy/deploy.sh --artifact dist/nativeweb-<sha>.tar.zst --host <host>
 ```
@@ -228,24 +166,16 @@ untouched**:
    in-flight requests finish on the old colour.
 8. Records the promotion and prunes old release directories.
 
-Measured on the first real release, `nativeweb-dev`, 2026-09-01 — the fourth
-attempt, after the two defects in the note at the top of this document were
-fixed. A cold host: nothing was serving, so step 3 had no live colour to compare
-against and step 8 had nothing to prune.
+A reference run on a cold host (nothing serving, so step 3 had no live colour to compare against
+and step 8 had nothing to prune):
 
 | Measure | Value |
 |---|---|
 | `deploy.sh`, artifact on the host to promoted | **1.774 s** |
-| Release | `7436517`, promoted to blue |
-| `/version` after promotion | `0.1.0+743651707dbfdce70f3bc723f845446d6128088e` |
 | `/readyz` through the public origin | `200`, body `ready`, 0.022 s |
 | `/healthz` | `200`, 0.023 s |
-| `/` | `302` to `/admin`, 0.050 s |
-| Date last exercised | 2026-09-01 |
 
-The timings are from the physical host over the LAN and through the edge, so they
-include Caddy and TLS but not a WAN round trip. Build time is not recorded here:
-the publish ran on a separate build machine rather than the workstation, and one
+The timings include Caddy and TLS but not a WAN round trip. Build time is not recorded: one
 measurement on one build box is not a figure this runbook should quote.
 
 Exit 78 in step 6's log is `EX_CONFIG`: a configuration error, not a crash. The
@@ -268,7 +198,7 @@ Step 5 happens while the old binary is still serving. Two consequences:
 
 ### Rolling back
 
-```sh
+```bash
 sudo /opt/nativeweb/scripts/rollback.sh            # dry run
 sudo /opt/nativeweb/scripts/rollback.sh --execute
 ```
@@ -281,7 +211,7 @@ release that reverses it.
 
 ### What is deployed right now
 
-```sh
+```bash
 curl -s https://<host>/version          # from inside the running process
 cat /opt/nativeweb/blue/RELEASE         # or green — works with nothing running
 tail /var/lib/nativeweb/deployments.log
@@ -310,11 +240,9 @@ under the product's own hostname.
 less than it sounds, because the site is versioned: every release's documentation
 stays in the tree whichever one is serving.
 
-One thing to know before copying the tracked `Caddyfile` onto a host: **a guest
-behind an edge proxy needs a different one.** `nativeweb-dev` has TLS terminated
-at an edge proxy in front of it, so its Caddyfile is `auto_https off` on `:80` with
-`trusted_proxies`, and the `/docs` block above is the only part the two share
-verbatim.
+A guest behind an edge proxy needs a different Caddyfile from the tracked one: TLS terminates at
+the edge, so it is `auto_https off` on `:80` with `trusted_proxies`. The `/docs` block above is the
+only part the two share verbatim.
 
 ## Backups
 
@@ -325,7 +253,7 @@ then uploaded to the configured S3-compatible endpoint as
 `<host>/<UTC timestamp>.dump.age`, and objects past the retention period
 (default 30 days) are deleted.
 
-```sh
+```bash
 sudo /opt/nativeweb/scripts/backup.sh            # dry run: what it would do
 sudo /opt/nativeweb/scripts/backup.sh --execute
 systemctl list-timers nativeweb-backup.timer
@@ -348,7 +276,7 @@ Two mechanisms, covering two different failures:
 
 > **`BACKUP_HEARTBEAT_URL` is unset, so R15 is not met by this script.** A backup
 > that silently stops running will not be noticed. Point it at an external check
-> (healthchecks.io or equivalent) to close it. `backup.sh` says so in its own output
+> (a dead-man's-switch service) to close it. `backup.sh` says so in its own output
 > on every run rather than letting the gap pass quietly.
 
 ## Restoring
@@ -356,46 +284,30 @@ Two mechanisms, covering two different failures:
 **Drill against a scratch database. Never against production by accident** — the
 script requires `--overwrite-production` on top of `--execute` for that.
 
-```sh
+```bash
 sudo /opt/nativeweb/scripts/restore.sh --target nativeweb_drill              # dry run
 sudo /opt/nativeweb/scripts/restore.sh --target nativeweb_drill --execute
 ```
-
-> Until 2026-08-30 this drill could not have worked. `provision.sh` scoped its
-> `pg_hba` peer-map line to the database `nativeweb`, so `createdb` (which
-> connects to the `postgres` maintenance database) and the restore itself (which
-> connects to `nativeweb_drill`) both fell through to Debian's default
-> `local all all peer`, where OS root maps to no role. The `createdb` failure was
-> swallowed by `2>/dev/null || true` and `pg_restore` died on authentication. The
-> production overwrite would have worked and the drill would not — the wrong way
-> round for a guard whose whole argument is "practise on the scratch copy".
 
 `pg_restore` exiting 0 means the rows loaded, not that the application works
 against them. The drill is not finished until you have pointed a NativeWeb
 instance at the restored database and **served a row that existed when the backup
 was taken, while a row written after it is absent**.
 
-> **That criterion replaced "signed in as an account that existed when the backup
-> was taken" on 2026-09-05.** `apps/sample` keeps no accounts in the database --
-> its only sign-in is a passphrase read from `secrets.env` -- so the old wording
-> passed against the drill database, against an empty database, and against no
-> restore at all. It tested nothing. The replacement is falsifiable: write a
-> marker row *after* the backup, and the restored database must not have it.
-
-Drill of 2026-09-05, on `nativeweb-dev`, against MinIO on the same physical host:
-`drill-pre-20260905` was written before the backup and `drill-post-20260905`
-after it. The restored database held the first and not the second, and the
-current release served `/articles/restore-drill-pre` 200 and
-`/articles/restore-drill-post` 404 against it.
+> `apps/sample` keeps no accounts in the database -- its only sign-in is a passphrase read from
+> `secrets.env` -- so "signed in as an account that existed when the backup was taken" would pass
+> against an empty database and against no restore at all. Writing a marker row *after* the backup
+> makes the check falsifiable: the restored database must not have it.
 
 | Measure | Value |
 |---|---|
 | Time to download and restore | **1 s** (10,359-byte dump, 8 MB database) |
 | Time to a verified serve against restored data | **1 s** |
-| Date of the last successful drill | **2026-09-05** |
 
-The dump is small because the database is nearly empty; these figures are a
-floor, not a capacity measurement.
+Those figures come from a drill that wrote one marker article before the backup and one after it.
+The restored database held the first and not the second, and the release served the first 200 and
+the second 404 against it. The dump is small because the database was nearly empty; the figures are
+a floor, not a capacity measurement.
 
 ## Disaster recovery
 
@@ -403,11 +315,8 @@ Losing the host is an outage, not a failover — one host, by decision. This is 
 whole way back, from nothing but this repository and the backup bucket.
 
 1. Provision a new host: **Provisioning a host**, above.
-2. Restore the `age` private key from the operator's off-host store. Without it,
-   stop — the bucket is noise. The key was printed once when `nativeweb-dev` was
-   provisioned; an off-host copy was made on 2026-09-06, so this step now has
-   something to read. It did not when the drill below was run, which re-used the
-   printed value from the session that generated it.
+2. Restore the `age` private key from the operator's off-host store. Without it, stop: the bucket
+   is noise.
 3. Install `age` and the AWS CLI if the image does not carry them, and make sure the
    backup bucket accepts connections from the new host's address.
 4. Fill `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`, `AWS_ACCESS_KEY_ID` and
@@ -429,56 +338,40 @@ whole way back, from nothing but this repository and the backup bucket.
 | Measure | Value |
 |---|---|
 | Total time, bare host to serving | **345 s** (5 m 45 s) |
-| Date last exercised | **2026-09-05** |
+| `provision.sh --edge <edge-ip>` | **26 s** |
 
-Measured 2026-09-05 rebuilding `nativeweb-dr` on the same physical host: guest
-created, `provision.sh --edge <edge-ip>` (26 s), age key installed from the value
-printed when `nativeweb-dev` was provisioned (no off-host copy existed on the day
-of the drill; one was made 2026-09-06, so step 2 as written above has not itself
-been exercised), `restore.sh --target nativeweb --from-host nativeweb-dev
---overwrite-production --execute`, `deploy.sh --incus`, then `/healthz` 200,
-`/readyz` 200 and the pre-backup article served. **Four caveats on that number:**
+Measured rebuilding a guest on the same physical host: guest created, `provision.sh`, age key
+installed, `restore.sh --target nativeweb --from-host <old-host> --overwrite-production --execute`,
+`deploy.sh --incus`, then `/healthz` 200, `/readyz` 200 and the pre-backup article served.
+**Four caveats on that number:**
 
-- The artifact was **not rebuilt**. `build.sh` needs the JauntyQ feed credential
-  (see the gap table below), so the running release was repackaged from
-  `nativeweb-dev` with `tar --zstd`, the same shape `build.sh` emits. A real
-  rebuild adds however long a publish takes to the 345 s.
-- The bucket is MinIO **on the same physical host**. Losing that host
-  loses the guest, the replacement guest and the bucket together, so this
-  exercises R17a and leaves R17b and R14 unmet. The key was in that set on the day
-  and is not any more, which removes one of R17b's two blockers -- readable needs
-  the key and the bytes -- and neither of R14's, which is about location alone.
-- Four preconditions the numbered list above did not state were found by running
-  it: the DR host needs the bucket, endpoint and both AWS keys in its own
-  `backup.env` (`provision.sh` seeds them empty and `restore.sh` dies on the
-  first), `age` and the AWS CLI must be installed, the object storage must allow
-  the new host's address, and the app role's password must be set to match the
-  carried `secrets.env` -- `pg_dump -Fc` dumps one database, not roles. They are
-  now steps 3 to 6.
-- `provision.sh` must run **inside the guest**. On a shared physical host it would
-  overwrite `/etc/caddy/Caddyfile`, which serves every site on the machine, and
-  its nftables ruleset opens with `flush ruleset`.
+- The artifact was **not rebuilt**. The running release was repackaged with `tar --zstd`, the same
+  shape `build.sh` emits. A real rebuild adds however long a publish takes to the 345 s.
+- The bucket was an S3-compatible service **on the same physical host**. Losing that host loses the
+  guest, the replacement guest and the bucket together, so this exercises R17a and leaves R17b and
+  R14 unmet. The `age` key is held off-host, which removes one of R17b's two blockers (readable
+  needs the key and the bytes) and neither of R14's, which is about location alone.
+- Four preconditions were found by running it: the DR host needs the bucket, endpoint and both AWS
+  keys in its own `backup.env` (`provision.sh` seeds them empty and `restore.sh` dies on the first),
+  `age` and the AWS CLI must be installed, the object storage must allow the new host's address,
+  and the app role's password must be set to match the carried `secrets.env`, because `pg_dump -Fc`
+  dumps one database, not roles. They are steps 3 to 6.
+- `provision.sh` must run **inside the guest**. On a shared physical host it would overwrite
+  `/etc/caddy/Caddyfile`, which serves every site on the machine, and its nftables ruleset opens
+  with `flush ruleset`.
 
 ## Known gaps
 
 | Gap | Status |
 |---|---|
-| ~~Provisioning has never been run on a real host~~ | **Closed 2026-09-01** — provisioned and deployed to on `nativeweb-dev`. R1 met |
-| ~~The restore drill has never been run~~ | **Closed 2026-09-05** — drilled on `nativeweb-dev`, R16 met under the amended criterion above |
-| ~~Disaster recovery has never been exercised~~ | **Closed 2026-09-05** — `nativeweb-dr` rebuilt from repo plus backup in 345 s, R17a met with the four caveats above |
 | No backup is offsite | **R14 and R17b unmet.** Every backup drilled so far lived on the physical host being backed up. Closed when a backup held on separate storage has been restored from |
-| `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | T14, closed with a caveat — see below |
-| `BACKUP_HEARTBEAT_URL` unset | R15 unmet until an operator sets it, for any deployment running `backup.sh` |
-| The build host needs a JauntyQ feed credential | `build.sh` pins **package** mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints a `dotnet nuget add source --configfile "$HOME/.nuget/NuGet/NuGet.Config"` command; an operator runs it once per WSL profile: the file it writes is the user-level
-NuGet config, which persists across shells. It printed `update source` with no `--configfile` until 2026-09-06, which writes the token into the checked-out `nuget.config` |
-| ~~The epass.io cutover scope decision~~ | **Closed 2026-08-31, and not a NativeWeb concern at all** — `../decisions/2026-08-31-008-epass-cutover-closed.md`. Nothing in this runbook is gated on it. |
+| `MemoryDenyWriteExecute=yes` verified on WSL2, not on the target host | Closed with a caveat; see below |
+| `BACKUP_HEARTBEAT_URL` unset | **R15 unmet** until an operator sets it, for any deployment running `backup.sh` |
 
-**On `MemoryDenyWriteExecute`.** Measured 2026-08-27, Debian 12 under WSL2: the
-`linux-x64` publish started, logged "Now listening", and answered `/healthz` 200
-and `/readyz` 503 — the no-database state — with the filter on, indistinguishable
-from the same binary with it off. The lazy `dlopen` of `libsodium.so` behind
-Argon2id never runs at startup, so it was probed separately under the same
-filter: `dlopen` succeeded and `sodium_init()` returned 0. What is **not** proven
-is the target host — that was a `--user` unit on the WSL2 kernel, not a
-`--system` unit on Debian bare metal. If a first boot there dies without ever
-logging, this line is the first thing to comment out.
+**On `MemoryDenyWriteExecute`.** The unit sets `MemoryDenyWriteExecute=yes`. A `linux-x64` publish was
+checked under that filter on Debian 12 under WSL2: it started, logged "Now listening", and answered
+`/healthz` 200 and `/readyz` 503 (the no-database state), the same as with the filter off. The lazy
+`dlopen` of `libsodium.so` behind Argon2id never runs at startup, so it was probed separately under
+the same filter: `dlopen` succeeded and `sodium_init()` returned 0. What is **not** proven is a
+`--system` unit on Debian bare metal. If a first boot there dies without ever logging, this line is
+the first thing to comment out.
