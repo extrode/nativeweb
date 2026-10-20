@@ -27,7 +27,7 @@ identity provider an app signs in against.
 | ☑ | `__Host-` prefixed cookie: Secure, `Path=/`, no Domain, HttpOnly, SameSite=Lax. Not configurable; a cookie name without the prefix fails at startup | `libs/nativeweb.signin/SessionManager.cs`, `SignInOptions.cs` |
 | ☑ | Sign-out deletes the server row and expires the cookie with matching attributes | `libs/nativeweb.signin/SignInEndpoints.cs` |
 | ☑ | Fixed session lifetime, 14 days by default | `SignInOptions.SessionLifetime` |
-| ☑ | Antiforgery token on every state-changing form post, rejected before the body is read | `libs/nativeweb.web/AntiforgeryValidationMiddleware.cs`, `libs/nativeweb.forms` |
+| ☑ | Antiforgery token on every state-changing form post, a failed token answers 400 before the endpoint runs | `libs/nativeweb.web/AntiforgeryValidationMiddleware.cs`, `libs/nativeweb.forms` |
 
 ## V5 — Input handling
 
@@ -50,7 +50,7 @@ identity provider an app signs in against.
 | ☑ | `Permissions-Policy` denying unused powerful features | `SecurityHeadersMiddleware.cs` |
 | ☑ | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` | `SecurityHeadersMiddleware.cs` |
 | ☑ | `no-store` and `Pragma: no-cache` on sensitive content types and secret-bearing redirects, including `HX-Redirect` | `SecurityHeadersMiddleware.cs` |
-| ☑ | `security.txt` (RFC 9116) at `/.well-known/`, served only when `NativeWeb:SecurityContact` names a mailbox. Unset serves no file, by design | `libs/nativeweb.web/SecurityTxtEndpoint.cs` |
+| ☑ | `security.txt` (RFC 9116) at `/.well-known/`, served only when `{Section}:SecurityContact` names a mailbox. Unset serves no file, by design | `libs/nativeweb.web/SecurityTxtEndpoint.cs` |
 | ☐ | `Expires` in `security.txt` is a source literal and needs a yearly bump; currently `2027-08-01` | `SecurityTxtEndpoint.cs` |
 
 ## V7/V16 — Logging and auditing
@@ -73,7 +73,7 @@ identity provider an app signs in against.
 ## Known-open items
 
 - **security.txt contact address.** A deployment that wants a `security.txt` must set
-  `NativeWeb:SecurityContact`, and nothing warns when it has not. Deliberately not a startup
+  `{Section}:SecurityContact`, and nothing warns when it has not. Deliberately not a startup
   guard: refusing to boot without a security contact would be a larger claim than this baseline
   makes.
 - **Canary replay breadth.** The bot-trap canary is app-bound, not session, path or single-use.
