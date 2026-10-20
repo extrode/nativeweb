@@ -1,10 +1,8 @@
 # Lean Native Web: Progressive Enhancement Layer
 
-The frontend enhancement conventions for Lean Native Web (spec 004, R1–R8; extended by spec
-005's built-in UX defaults). Mandatory for all browser-facing pages in every LNW app. Decided
-2026-08-01: attributes are `data-nw-*`, endpoints are POST-only, and `boot.js` is the only
-enhancement mechanism. The v2 conventions handoff was folded in here on 2026-08-02 (adopted
-items merged below, rejected items recorded at the end) and deleted.
+The frontend enhancement conventions for Lean Native Web. Mandatory for all browser-facing
+pages in every LNW app. Attributes are `data-nw-*`, endpoints are POST-only, and `boot.js` is
+the only enhancement mechanism.
 
 ---
 
@@ -29,10 +27,10 @@ enhancement. Never reverse it.
 
 ## The enhancement layer: boot.js
 
-Each app serves a vendored copy of `boot.js` (canonical source:
-`libs/nativeweb.assets/boot.js`; vendored at `wwwroot/vendor/nativeweb/boot.js`, guarded by a
-byte-parity unit test). It is loaded with `defer` **before** htmx, so its normalization runs
-before htmx processes the document.
+`boot.js` lives in `libs/nativeweb.web/wwwroot/_nativeweb/` and reaches every app through
+`libs/nativeweb.web/build/NativeWeb.Web.targets`, which serves it at `/_nativeweb/boot.js`. It is
+loaded with `defer` **before** htmx, so its normalization runs before htmx processes the
+document.
 
 Its only responsibility is an HTML normalization pass:
 
@@ -46,14 +44,9 @@ stores application state, never duplicates server validation, never replaces ser
 Two hooks cover every element: a `DOMContentLoaded` sweep for the initial document, and an
 `htmx:before:process` listener for fragments swapped in by htmx. Normalization is idempotent.
 
-Under htmx 2 the second hook needed a workaround: htmx snapshotted the elements it would
-initialize *before* the event fired, so an element that became enhanceable only through the
-attributes the sweep had just added (say, a swapped-in `<a data-nw-target>`) was not in that
-snapshot, and boot.js had to re-submit everything it modified to `htmx.process()` on a
-microtask. **htmx 4 dispatches `htmx:before:process` and only then queries the subtree**, so
-attributes added by the sweep are picked up by the very pass that follows and the
-re-submission is gone (spec 012 T4, removed on a browser assertion rather than on reading the
-source).
+htmx 4 dispatches `htmx:before:process` and only then queries the subtree, so attributes added
+by the sweep are picked up by the very pass that follows. boot.js needs no `htmx.process()`
+re-submission.
 
 ---
 
@@ -126,12 +119,12 @@ state (menus, toggles, purely visual concerns). Business state never lives in Ja
 
 ---
 
-## Built-in UX defaults (spec 005)
+## Built-in UX defaults
 
-The layer every LNW app gets for free, on top of normalization. All shipped in both apps and
-the skeleton; the e2e suites enforce them.
+The layer every LNW app gets for free, on top of normalization. It ships in the sample app and
+the skeleton.
 
-### Busy states (R3)
+### Busy states
 
 boot.js owns in-flight feedback: on `htmx:before:request` it resolves the triggering submit
 control (from `ctx.request.submitter`) and sets `disabled`, `aria-busy="true"` and class
@@ -140,15 +133,13 @@ dropped focus to `<body>`. No per-form markup, no `hx-indicator` repetition; eac
 `.nw-busy` in its own `components.css`. **Accepted posture:** busy treatment covers submit
 controls only — links and background triggers stay unstyled.
 
-**Restore is on `finally:`, not `after:`, and the difference is the one that matters.** htmx 2's
-`afterRequest` fired on success, error, timeout and abort alike. htmx 4's `after:request` fires
-only once the response body has been read and is cancelable, so a dropped connection skips it
-entirely — restoring there would leave the submit control disabled with no way back.
+**Restore is on `finally:`, not `after:`.** htmx 4's `after:request` fires only once the response
+body has been read and is cancelable, so a dropped connection skips it entirely — restoring there
+would leave the submit control disabled with no way back.
 `finally:request` sits in the request's actual `finally` block and covers every path, including
-a `before:request` that another listener cancelled. Pinned by
-`BusyState_RestoredWhenTheRequestFailsOutright`.
+a `before:request` that another listener cancelled..
 
-### Focus after swap (R6)
+### Focus after swap
 
 boot.js recovers focus only when it saw the swap take it: at `htmx:before:swap` it records
 whether the focused element (or the busy-disabled submitter, whose `disabled` is what drops
@@ -157,40 +148,35 @@ focuses the first `[autofocus]` inside the swapped content, else the swapped roo
 `tabindex="-1"`. A polling or load-triggered swap that fires while focus is already on
 `<body>` deliberately does not autofocus, and focus that survived the swap is never stolen.
 
-**Where the swapped content is read from changed in htmx 4.** htmx 2 dispatched `afterSwap` on
-each swapped-in element, so the handler could fall back to `event.target`. htmx 4 dispatches
-`after:swap` on `ctx.sourceElement` — the element that *issued* the request — so `event.target`
-is now the wrong node and may not be in the swapped region at all. The live content is reached
-through `event.detail.ctx.target`. This one fails silently rather than loudly: the old fallback
-still resolves to *an* element, so focus would land somewhere plausible and accessibility would
-regress with nothing erroring.
+htmx 4 dispatches `after:swap` on `ctx.sourceElement` — the element that *issued* the request —
+so `event.target` may not be in the swapped region at all. boot.js reads the live content through
+`event.detail.ctx.target`. Reading `event.target` fails silently: focus lands somewhere
+plausible and accessibility regresses with nothing erroring.
 
 Layouts must not carry their own `after:swap` autofocus script — boot.js is the single owner.
 
-### Flash messages (R4)
+### Flash messages
 
 `Flash.Set(context, kind, message)` before a success redirect writes a `__Host-nw-flash`
 cookie ("ok:"/"err:" prefix, escaped, 300-char cap with surrogate-safe truncation, 5-minute
 MaxAge); the next full-page render takes it read-once (expiring the cookie in the same
 response) and shows the standard banner. One mechanism covers both transports because success
 navigation is already unified: a real redirect no-JS, `HX-Redirect` enhanced — either way the
-next request renders the full layout. `Flash.cs` is pattern-copied per app (the established
-cross-app C# convention); the take happens explicitly at full-page render sites, never in a
+next request renders the full layout. `Flash` lives in `libs/nativeweb.web`; the take happens explicitly at full-page render sites, never in a
 fragment path, or a fragment render would consume the flash invisibly. **Accepted posture:**
 under same-site prerender a flash can double-show or be consumed silently — cosmetic, accepted.
 
-### Keyboard (R5)
+### Keyboard
 
-Skip link first in the tab order, `main tabindex="-1"`, `:focus-visible` rings — plus two or
-three access keys per app on primary actions, carried as `accesskey` + `aria-keyshortcuts` +
-the combo in `title`. Chosen letters: IdP — settings `Alt+S`, admin `Alt+A`; manzil — new
-bookmark `Alt+N`, search `Alt+S`, settings `Alt+O`.
+Skip link first in the tab order, `main tabindex="-1"`, `:focus-visible` rings. An app may add
+access keys on its primary actions, carried as `accesskey` + `aria-keyshortcuts` + the combo in
+`title`.
 
-### Validation (R7, R8)
+### Validation
 
 Server validation is authoritative, always; the browser's native layer mirrors it for free.
 Form fields carry `required`, `minlength`/`maxlength`/`pattern`/`inputmode` matching the server
-rules (a unit test pins the mirrored constants where they duplicate server values). Server-side
+rules. Server-side
 failures render **field-level errors**: the input gets `aria-invalid="true"` and
 `aria-describedby="{id}-error"` (chaining any always-on hint), and an adjacent
 `<p class="field__hint field__hint--error" id="{id}-error" role="alert">` carries the message.
@@ -198,11 +184,11 @@ Non-field failures keep the page banner. **Boundary:** sign-in and other credent
 stay generic banners — enumeration defense forbids saying which part was wrong; integration
 tests pin this.
 
-### `/version` and error pages (R1, R2)
+### `/version` and error pages
 
 Designed error pages (400–500 range) via `ErrorPageMiddleware` + `StaticErrorShell`, HX-aware.
 `/version` beside `/healthz` returns `InformationalVersion` (`<Version>` + short git SHA
-stamped by the per-app `StampSourceRevision` MSBuild target, "dev" fallback), unauthenticated,
+stamped by the `StampSourceRevision` MSBuild target in the product's csproj, "dev" fallback), unauthenticated,
 in robots.txt disallow. **Accepted posture:** the SHA is disclosed deliberately — it identifies
 a public commit, not a secret.
 
@@ -213,14 +199,11 @@ feature. Prefer `<dialog>`, `<details>`/`<summary>`, popover, `<template>`, nati
 validation, lazy loading, and view transitions over rebuilding them; do not build replacements
 for browser capabilities.
 
-### Any content type (R12)
+### Any content type
 
 LNW apps answer the web's text formats through one typed helper each, and offer several
 representations of one route through one mapping call
-([decision 009](../decisions/2026-09-02-009-response-formats-in-the-framework.md), spec 021).
-This section used to say the opposite — "no framework machinery, no content-negotiation layer" —
-and that stance was withdrawn when the sample became the first product to rebuild the same five
-things by hand.
+([decision 009](../decisions/2026-09-02-009-response-formats-in-the-framework.md)).
 
 - **One call per format.** `FormatResults` in `libs/nativeweb.render` has `Text`, `Markdown`,
   `Json` (source-generated `JsonTypeInfo<T>` only, so it trims), `Xml` (an `XmlWriter` callback),
@@ -234,8 +217,9 @@ things by hand.
   `Accept` that admits nothing is a 406, both `text/plain` naming the offers and neither
   reaching the handler. The extensionless route says `Vary: Accept` on every response.
 - **A page is cached only when every render is the same page.** `apps/sample` declares `/`,
-  `/tags` and `/tags/{slug}` with `AsPublicPage` and leaves `/articles/{slug}` out of the cache
-  on purpose: that page counts a view per render, and a cached copy would count one visit a
+  `/tags`, `/tags/{slug}`, `/feed`, `/sitemap.xml`, `/robots.txt` and `/about` with
+  `AsPublicPage` and leaves `/articles/{slug}` out of the cache on purpose: that page counts a
+  view per render, and a cached copy would count one visit a
   minute. The three 404s an article slug can earn — unknown, unpublished, malformed — are one
   response, so the page never says which.
 - **The cache keys on the choice.** `PublicPageCachePolicy` runs the same chooser and varies its
@@ -266,9 +250,8 @@ Recorded so they aren't re-proposed:
 - **`RequestContext` wrapper**: rejected — the per-request `Chrome`/`FormChrome` values built
   at render sites already carry what templates need without a context object drifting toward
   a service locator.
-- **Strongly-typed IDs**: deferred, not rejected — waiting on JauntyQ converter support
-  (tracked in `work/todo.md`).
-- **Resource-oriented `Features/` folders**: rejected — both apps and the skeleton already
+- **Strongly-typed IDs**: deferred, not rejected — waiting on JauntyQ converter support.
+- **Resource-oriented `Features/` folders**: rejected — the sample and the skeleton already
   follow the flat `apps//libs//tests/` layout with per-area endpoint files; a restructure
   buys navigation churn, not clarity.
 - **Fragment URLs** (`GET /todos:list`) **as first-class outputs**: rejected as a URL scheme —

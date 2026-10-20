@@ -2,36 +2,27 @@
 
 ## Status
 
-**Rewritten 2026-08-31.** What stood here described the four throwaway apps this document was
-originally written from — `htmx-skeleton.zip`, `bare-kestrel.zip`, a JSON API variant and a
-SvelteKit+Deno app — and said JauntyQ was "decided, not yet wired" and JWT bearer was the default
-auth. All three statements outlived the code they described by months. The sections below are the
-design; this block is what of it exists.
-
-**Built, and in this repository.** Everything §2 states as a principle is enforced by something
-that fails when it is broken:
+The sections below are the design; this block is what of it exists. Everything §2 states as a
+principle is enforced by something that fails when it is broken:
 
 | | Where | Proved by |
 |---|---|---|
-| Minimal APIs, server-rendered HTML | `libs/nativeweb.web`, `libs/nativeweb.render` | 8 test suites, 657 facts |
+| Minimal APIs, server-rendered HTML | `libs/nativeweb.web`, `libs/nativeweb.render` | the test projects under `tests/` |
 | NativeAOT, no trim warnings | `PublishAot`, `TreatWarningsAsErrors` repo-wide | the publish itself; a warning is an error |
-| Compile-time HTML, forms and CRUD | the three source generators under `libs/` | no runtime reflection outside one documented `/version` read |
+| Compile-time HTML, forms and CRUD | the source generators under `libs/` | the generated code is the only code path; no runtime reflection |
 | JauntyQ for all data access | `db/sample`, `apps/sample` | wired and running, not a placeholder list |
-| HTMX + Alpine, vendored | `libs/nativeweb.assets` | served from the assembly, no CDN |
+| HTMX + Alpine, vendored | framework assets in `libs/nativeweb.web/wwwroot/_nativeweb/`; htmx and Alpine.js in `apps/sample/wwwroot/vendor/` | served from the app's own files, no CDN. Alpine.js is loaded but no page uses it yet |
 | The reference application | `apps/sample` | the only deployable project in the tree |
 | The template a product is stamped from | `skeleton/`, `tools/new-product.ps1` | CI stamps and tests a product on every push |
 
 **Decided, and deliberately absent.** Auth is not the framework's to pick, so §10's JWT-bearer
 default is a recommendation to a product rather than a description of this repo: `apps/sample`
-uses a cookie and a demo sign-in, and the framework registers no authentication scheme. The
-identity provider that once made this section's auth claims true left on 2026-08-31
-([decision 007](../decisions/2026-08-31-007-idp-leaves-nativeweb.md)); the line NativeWeb holds is
-Django's, where `contrib.auth` ships and the OAuth2/OIDC server does not.
+uses a cookie and a demo sign-in, and the framework registers no authentication scheme.
+`libs/nativeweb.signin` is a relying party (client) only; there is no identity provider in this
+repository ([decision 007](../decisions/2026-08-31-007-idp-leaves-nativeweb.md)). The line
+NativeWeb holds is Django's, where `contrib.auth` ships and the OAuth2/OIDC server does not.
 
-**Open, and tracked elsewhere rather than here.** Deployment against a real host is unexecuted
-(spec 011 T15), and `libs/nativeweb.security` and `libs/nativeweb.mail` carry no tests — their
-coverage left with the identity provider. `work/todo.md` and `work/milestones.md` are where those
-live; §16's checklist below is the original list and is kept for the reasoning in it, not as a
+§16's checklist is the original list of open risks, kept for the reasoning in it, not as a
 current to-do.
 
 ------
@@ -101,7 +92,7 @@ Unless there is a documented, specific reason:
 
 ## 5. Project Structure
 
-```
+```text
 LeanNativeWeb/
 ├── Program.cs
 ├── LeanNativeWeb.csproj
@@ -114,7 +105,7 @@ LeanNativeWeb/
 ├── Auth/
 ├── Models/
 └── wwwroot/
-    ├── htmx.min.js, alpine.min.js   vendored, not CDN-loaded
+    ├── vendor/              htmx, Alpine.js and fonts, vendored, not CDN-loaded
     ├── css/
     └── components/       hand-written or Lit-based Web Components (see §9)
 ```
@@ -286,11 +277,10 @@ Use Authorization Policies (`.RequireAuthorization("Admin")`) over manual claim 
 
 **Static assets:** `wwwroot/`, vendored htmx/Alpine, no CDN dependency, no npm chain for a
 simple application. Use `MapStaticAssets` (not `UseStaticFiles`) for build-time
-compression and content-hash fingerprinting — see §14 for the caching detail.
+compression and content-hash fingerprinting.
 
 **Serialization:** always source-generated `System.Text.Json` (a `JsonSerializerContext`
-with `[JsonSerializable]` per DTO). Reflection-based serialization is prohibited — this is
-already how the JSON-API variant built in this process works.
+with `[JsonSerializable]` per DTO). Reflection-based serialization is prohibited.
 
 **Configuration:** strongly typed configuration objects, loaded once, not `IConfiguration`
 injected throughout. One thing worth being explicit about, since it's easy to get
@@ -313,10 +303,11 @@ deliberately rather than defaulted into one:
 - **HTML/htmx routes**: a real HTML fragment shaped for the target it'll be swapped into —
   not `ProblemDetails` JSON, which would render as a broken blob of text in the DOM.
 
-This distinction matters more than it used to: htmx 4.0 swaps 4xx/5xx responses into the
-target by default (2.x silently drops them) — see §15. Decide the error-fragment shape for
-htmx routes now, or explicitly set `htmx.config.noSwap` after upgrading, but don't leave it
-undecided in a codebase that serves both response types from the same host.
+This distinction matters: htmx 4 swaps 4xx/5xx responses into the target by default. The layouts
+set `htmx-config` `noSwap` to `[204, 304, "4xx", "5xx"]`, so a guard rejection (415, 400
+antiforgery) does not render its body inside the page — see §15. Decide the error-fragment shape
+for htmx routes, but don't leave it undecided in a codebase that serves both response types from
+the same host.
 
 Avoid exception-driven business logic; logging stays on the built-in `ILogger`, added only
 where needed.
@@ -389,110 +380,71 @@ APIs. Real, but not adopted as the default: it costs the "boring, AI/human-legib
 corpus" property that makes Minimal APIs the maintainability winner, and per §7, "DI alone"
 was never isolated as the specific variable responsible for the gain.
 
-**Never re-run, and never re-runnable — these figures are frozen.** They came from a
-purpose-built pair of minimal apps load-tested with `wrk` in a single-vCPU sandbox. Neither app
-is in this repo and the sandbox is gone, so nothing can reproduce them and nothing should be
-compared against them. They stand as the relative comparison they were made for: HTMX+ASP.NET
-Core against Svelte+Deno, ~13.8x on the same page. Not as a target.
+**These figures are frozen.** They came from a purpose-built pair of minimal apps load-tested
+with `wrk` in a single-vCPU sandbox. Neither app is in this repo, so nothing can reproduce them
+and nothing should be compared against them. They stand as the relative comparison they were
+made for: HTMX+ASP.NET Core against Svelte+Deno, ~13.8x on the same page. Not as a target.
 
-**What replaced them for regression work: `tools/bench/`** (spec 012 R16, 2026-08-29). A Deno
-load driver with a committed `baseline.json` and a `--check` mode. **Its first baseline is also
-frozen and also unreproducible**, for the same class of reason: it measured the published
-`apps/web` binary, and `apps/web` left this repository on 2026-08-31 with the identity provider
-(decision `2026-08-31-007`). Those figures — bench-host, 16 cpu, win-x64: `/healthz` 18,067.2 req/s,
-0.83 ms p50, 74.4 MB peak RSS; `GET /` 6,998.0 req/s, 2.11 ms p50, 60.9 MB, zero errors — are
-kept here as a record and are **not** a target for anything now in the tree. The harness itself
-survives, retargeted at `apps/sample`, and its baseline was re-measured rather than carried
-over: a smaller app measured against a larger one's ceiling passes for the wrong reason. The
-figures `--check` compares against now, recorded 2026-08-31 on the same bench-host: `/healthz` 23,068.6
-req/s, 0.60 ms p50, 45.0 MB peak RSS; `/articles` 19,937.6 req/s, 0.61 ms p50, 40.3 MB, zero
-errors. `/articles`, not `/`, because `/` on `apps/sample` was a 302 when the baseline was taken
-and would have measured the router; since spec 022 it is a cached home page, and the baseline
-was not re-taken.
-Tolerances stay 20% down on throughput and 25% up on RSS, sized from a measured 16.3%
-run-to-run spread. `tools/bench/README.md` has the rest.
+**For regression work, use `tools/bench/`.** A Deno load driver that measures `apps/sample`
+against a committed `baseline.json`; `--check` exits 1 on a regression (20% down on throughput,
+25% up on RSS). The baseline is only comparable on the machine and harness settings it was
+recorded with. `tools/bench/README.md` has the commands and exit codes.
 
-What the htmx upgrade itself changed was the client asset, and that was measured directly — the
-minified library went from 51,238 B to 36,716 B, a 28.3% reduction, one fewer 14 KB download per
-cold page load. It could not have moved a server-side throughput number: htmx runs in the browser
-and does not appear in the request path either harness measures.
+The htmx 4 upgrade changed the client asset: the minified library went from 51,238 B to
+36,716 B, a 28.3% reduction. It does not move a server-side throughput number: htmx runs in the
+browser and does not appear in the request path either harness measures.
 
 ------
 
-## 15. Upgrading to htmx 4.0
+## 15. htmx 4
 
-**The mechanical part is cheap, by construction** — and it was, but it was not the cost. htmx
-isn't a package dependency here: one vendored file (`wwwroot/vendor/htmx/htmx.min.js`)
-referenced from a single `<script src>`, plus `hx-*` attribute strings inside C# string
-literals. Upgrading never forces a C# recompile on its own. What it did force was rewriting
-every htmx event listener in the enhancement layer, because 4.0 changed the payload those
-listeners read and, in two places, when they fire at all. See "What the upgrade actually cost"
-below.
+htmx isn't a package dependency here: one vendored file (`wwwroot/vendor/htmx/htmx.min.js` in
+`apps/sample` and in the skeleton) referenced from a single `<script src>`, plus `hx-*` attribute
+strings inside templates. The vendored version is htmx 4, which ships under the `next` dist-tag
+while 2.x holds `latest`. The previous 2.x file is kept at
+`libs/nativeweb.assets/rollback/htmx-2.0.10.min.js`, outside every `wwwroot` so a superseded
+library is not served or shipped in the published output. Rollback is copying it over the
+vendored `htmx.min.js` files.
 
-**Done, 2026-08-29 (spec 012).** htmx 4.0.0 was released 2026-08-28 and is vendored here now.
-4.0 ships as the `next` dist-tag; 2.x holds `latest` until early 2027, so this was an early
-adoption taken deliberately rather than a forced move. The checklist below is closed out.
+How the codebase meets htmx 4's changed defaults:
 
-**Checklist, closed:**
-- [x] Re-verify no `hx-*` attribute relies on implicit inheritance from a parent — **clean, and
-  structurally so.** Every `hx-*` attribute in this codebase is derived by boot.js onto the same
-  element that carries the `data-nw-*`, so no parent ever configures a descendant and
-  `:inherited` is needed nowhere. `implicitInheritance` left at its `false` default.
-- [x] Decide the 4xx/5xx response shape — **`noSwap` set.** Correction to the note this
-  checklist carried: the config takes an *array*, defaulting to `[204, 304]`, and the matcher
+- **No implicit inheritance.** Every `hx-*` attribute is derived by boot.js onto the same
+  element that carries the `data-nw-*`, so no parent configures a descendant and `:inherited` is
+  needed nowhere. `implicitInheritance` stays at its `false` default.
+- **4xx/5xx are not swapped.** `noSwap` takes an *array* defaulting to `[204, 304]`; the matcher
   tests the status against `"404"`, `"40x"` and `"4xx"` in turn, so the value is
-  `[204, 304, "4xx", "5xx"]` and not a bare `['4xx','5xx']`. Validation errors here already
-  return `200 OK` with a fragment and were never affected; the 4xx paths are guards (415
-  content-type, 400 antiforgery, OAuth RFC JSON), whose bodies would otherwise have rendered
-  inside the page. Pinned by `GuardRejection_DoesNotSwapItsBodyIntoThePage`. htmx 4 also adds a
-  per-element `hx-status:4xx` attribute if a finer rule is ever wanted.
-- [x] If `hx-boost` is in use — **not in use.** Zero occurrences outside the vendored library.
-- [x] Grep for `hx-vars` and `hx-disable` — **neither appears.** Recorded for anyone starting
-  from the skeleton: in htmx 4 `hx-disable` means "disable this control during the request"
-  (htmx 2's `hx-disabled-elt`), and htmx 2's "don't process this subtree" meaning moved to
+  `[204, 304, "4xx", "5xx"]`, not a bare `['4xx','5xx']`. Validation errors return `200 OK` with
+  a fragment and are unaffected; the 4xx paths are guards (415 content-type, 400 antiforgery),
+  whose bodies would otherwise render inside the page. htmx 4 also has a per-element
+  `hx-status:4xx` attribute if a finer rule is wanted.
+- **No `hx-boost`.** Nothing in the templates uses it.
+- **`hx-disable` means something else.** In htmx 4 it means "disable this control during the
+  request" (htmx 2's `hx-disabled-elt`), and htmx 2's "don't process this subtree" moved to
   `hx-ignore`. Same attribute name, different job, no error if you get it wrong.
-- [x] Check for any endpoint that could run past 60 seconds — **none can.** `Program.cs` sets a
-  `RequestTimeoutPolicy` default of 30 s and Npgsql's command timeout is 30 s, both inside
-  htmx 4's new 60,000 ms `defaultTimeout`. No allowance set.
-- [x] Pull the new file from the project's own distribution — **done**, and the beta-era warning
-  about the filename is void: 4.0.0 ships `dist/htmx.min.js` as before. (`htmax.js` is a
-  separate bundle of htmx plus extensions, not a rename.)
-- [x] Stage with a compat shim — **declined.** No compat layer exists for 4.0 anyway, and the
-  inheritance audit above was cheap enough that a flag would have been a permanent fixture in a
-  template other projects copy. `implicitInheritance: true` was considered and rejected.
-- [ ] **Re-run §14's benchmark suite — NOT DONE, and not doable as written.** §14's figures came
-  from an ad-hoc comparative experiment (htmx-skeleton vs C# JSON API vs Deno) run during
-  architecture exploration; no runnable harness was ever committed, so there is nothing here to
-  re-run and no reproducible 2.x baseline to compare against. The one measured client-side
-  delta: the minified library went **51,238 B → 36,716 B, 28.3% smaller**. Server throughput and
-  RSS under 4.0 are **unmeasured**. Spec 012 R16 is therefore unmet.
-- [x] Keep the previous file around — **kept at `libs/nativeweb.assets/rollback/htmx-2.0.10.min.js`**,
-  outside every `wwwroot` so a superseded library is not served or shipped in the published
-  output. Rollback is copying it over the two vendored `htmx.min.js` files.
+- **Timeouts.** `NativeWebOptions.RequestTimeout` defaults to 30 s, inside htmx 4's 60,000 ms
+  `defaultTimeout`, so no allowance is set.
+- **No compat shim.** `implicitInheritance: true` is not used.
 
-**What the upgrade actually cost**, for the next time: not the renames. Three behaviours changed
-under the same-looking API. `after:request` stopped covering error/timeout/abort (restore moved
-to `finally:request`), `after:swap` moved its dispatch from the swapped-in element to the
-issuing one, and every payload moved from flat `detail.*` fields onto `detail.ctx`. The first
-two fail silently — a mechanical rename leaves a permanently disabled button and a focus bug,
-both green in CI.
+**What to watch for in an upgrade:** not the renames. Three behaviours changed under the
+same-looking API. `after:request` stopped covering error/timeout/abort (restore moved to
+`finally:request`), `after:swap` moved its dispatch from the swapped-in element to the issuing
+one, and every payload moved from flat `detail.*` fields onto `detail.ctx`. The first two fail
+silently — a mechanical rename leaves a permanently disabled button and a focus bug, both green
+in CI.
 
-**Watch, don't act on yet:** 4.0's declarative signals may let some of §8's Alpine rows
-move to plain htmx; a proposed `hx-drag` extension could shrink the "Island" row for simple
-drag-and-drop cases. Worth a second pass over §8's table now that 4.0 has shipped. The
-`hx-alpine-compat` extension is evaluated and declined in spec 012 — see there.
+**Watch, don't act on yet:** htmx 4's declarative signals may let some of §8's Alpine rows move
+to plain htmx, and a proposed `hx-drag` extension could shrink the "Island" row for simple
+drag-and-drop cases. The `hx-alpine-compat` extension is not used.
 
 ------
 
 ## 16. Handoff Checklist — the original open risks, kept as a record
 
-> **This list is historical, not a to-do.** It was written before any of this existed, when the
-> artifacts were four throwaway apps. Most of it has since been answered by building the thing:
-> the AOT publish runs in CI against the real dependency graph, JauntyQ drives `apps/sample` and
-> `db/sample` rather than an in-memory list, and there is no strangler-fig window because there
-> was no legacy stack to strangle. It is kept for the reasoning inside each item, which is still
-> the reasoning that applies. What is genuinely open lives in `work/todo.md` and
-> `work/milestones.md`, and the Status block at the top of this document names the two that matter.
+> **This list is historical, not a to-do.** It was written before any of this existed. Most of it
+> has since been answered by building the thing: the AOT publish runs in CI against the real
+> dependency graph, JauntyQ drives `apps/sample` and `db/sample`, and there is no strangler-fig
+> window because there was no legacy stack to strangle. It is kept for the reasoning inside each
+> item, which still applies.
 
 - [ ] **Auth AOT compatibility** for whatever scheme is actually configured (§10) — the one
   item in this spec not yet verified against a real setup.
@@ -503,8 +455,5 @@ drag-and-drop cases. Worth a second pass over §8's table now that 4.0 has shipp
 - [ ] **Session/auth state during the strangler-fig window** (§13) — if a session must
   survive a request being routed to a *different* backend mid-session, the session store
   needs to be readable by both stacks during the transition.
-- [ ] **Wire JauntyQ into the actual skeleton** — the built-and-verified skeleton (§ Status)
-  still uses a placeholder in-memory list; the `.sql`-file/schema-snapshot workflow hasn't
-  been exercised against it yet.
 - [ ] **Confirm the config-binding source generator and `TypedResults`** are actually used
   in the real codebase, not just specified here (§5, §11) — both are opt-in, not automatic.
