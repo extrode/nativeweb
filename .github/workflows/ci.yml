@@ -73,9 +73,7 @@ jobs:
           # nativeweb_app completes the neutral-naming rename (spec 002 R11):
           # no migration references the role by name, so CI just provisions
           # the neutral name and local dev carries a nativeweb_app role that
-          # owns nativeweb_dev (created 2026-07-31; epass_app itself was left
-          # untouched because it also owns other projects' local
-          # databases).
+          # owns nativeweb_dev (created 2026-07-31).
           POSTGRES_USER: nativeweb_app
           POSTGRES_PASSWORD: ci_test_password
           POSTGRES_DB: nativeweb_test

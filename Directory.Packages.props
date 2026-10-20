@@ -13,7 +13,7 @@
     <PackageVersion Include="Geralt" Version="4.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
     <!-- Trimmed MimeKit/MailKit forks (no legacy charset tables), used by
-         libs/nativeweb.mail for SMTP send + templating. Pins mirror epass.io. -->
+         libs/nativeweb.mail for SMTP send + templating. -->
     <PackageVersion Include="MailKitLite" Version="4.17.0" />
     <PackageVersion Include="MimeKitLite" Version="4.17.0" />
     <!-- JauntyQ pin: used only when building without a local jauntyq checkout
@@ -70,12 +70,12 @@
          built against 5.9.0    SDK 10.0.203                 CS9057
 
        5.3.0 is the ceiling, so it is also the highest this can go today. It was
-       4.12.0 until 2026-09-05, held there by justsmtp.com - the one consumer of
+       4.12.0 until 2026-09-05, held there by the one consumer of
        the four published packages, and its global.json had no sdk section, so it
        built on whatever dotnet resolved. It pins 10.0.100 / latestFeature now,
-       and no other repository consumes these packages: epass.io project-
-       references nativeweb.render and nativeweb.security, neither of which
-       references a generator.
+       and no other repository consumes these packages. A consumer that
+       project-references nativeweb.render or nativeweb.security pulls in no
+       generator.
 
        So the floor is a property of the CONSUMER SET, and it has to be
        re-checked whenever that set grows. Raise the pin when a generator here
