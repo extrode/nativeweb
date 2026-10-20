@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html" class="active" aria-current="page">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html" class="active" aria-current="page">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -127,7 +127,7 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</a><a class="toc-l2" href="#2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — IScaffoldStore&lt;T&gt;.ListAsync takes an ordering and a cursor</a><a class="toc-l3" href="#what-a-consumer-does">What a consumer does</a><a class="toc-l2" href="#2026-08-31--libsnativewebsigninepass-removed">2026-08-31 — libs/nativeweb.signin.epass removed</a><a class="toc-l2" href="#2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — libs/nativeweb.auth and libs/nativeweb.data removed</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</a><a class="toc-l2" href="#2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — IScaffoldStore&lt;T&gt;.ListAsync takes an ordering and a cursor</a><a class="toc-l3" href="#what-a-consumer-does">What a consumer does</a><a class="toc-l2" href="#2026-08-31--the-identity-provider-sign-in-library-removed">2026-08-31 — the identity-provider sign-in library removed</a><a class="toc-l2" href="#2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — libs/nativeweb.auth and libs/nativeweb.data removed</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Breaking changes</nav>
         <article>
@@ -135,11 +135,8 @@
 <p>Every change that makes a consumer's existing code stop compiling or stop behaving as it did,
 newest first. A consumer reads this file top-down from wherever they last upgraded and stops
 when they reach an entry they have already taken.</p>
-<p><strong>Entries are dated and identified by commit.</strong> Every entry below predates the first release, so
-none carries a version: consumers took the framework as a project reference off <code>dev</code>, where a
-version number would have been a promise nothing enforced. Spec 028 built the pack and the
-tag-triggered publish, so entries from the first <code>v*</code> tag onward name the version they first
-shipped in as well. The dates stay either way.</p>
+<p><strong>Entries are dated.</strong> Every entry below predates the first release, so none carries a version.
+Entries from the first <code>v*</code> tag onward name the version they first shipped in as well.</p>
 <p><strong>What a version promises is in <a href="02-reference-versioning.html"><code>versioning.md</code></a></strong> — what each component means,
 what counts as breaking, how long a released minor is supported, and the deprecation path a
 library takes before it is removed.</p>
@@ -150,7 +147,6 @@ instead is this file: what changed, why, and the before/after a consumer edits b
 <hr />
 <h2 id="2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</h2>
 <p><strong>Seam:</strong> <code>NativeWeb.Web</code>'s MSBuild contribution — <code>libs/nativeweb.web/build/NativeWeb.Web.targets</code>.
-<strong>Spec:</strong> 029.
 <strong>Affects:</strong> every product carrying its own <code>templates/shared/antiforgery.html</code>,
 <code>bot-traps.html</code>, <code>banner-ok.html</code> or <code>banner-error.html</code>. A product carrying none of them
 takes this change by rebuilding and changes nothing.</p>
@@ -167,16 +163,16 @@ template's name on the part after the last <code>/templates/</code> segment of i
 <p><strong>Delete your copy.</strong> That is the whole upgrade:</p>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">text</span>
+    <span class="code-lang">bash</span>
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="text"><code class="language-text">rm templates/shared/antiforgery.html templates/shared/bot-traps.html
-rm templates/shared/banner-ok.html templates/shared/banner-error.html
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">rm</span> templates/shared/antiforgery.html templates/shared/bot-traps.html
+<span class="tok-fn">rm</span> templates/shared/banner-ok.html templates/shared/banner-error.html
 </code></pre>
 </div>
 <p>Leaving one in place is a build error naming the file, not a silent last-wins — the generator
-keys its model dictionary on the logical path, so before this the second file to arrive replaced
-the first and which one that was depended on MSBuild item order.</p>
+keys its model dictionary on the logical path, so the second file to arrive replaced
+the first, and which one that was depended on MSBuild item order.</p>
 <p>Two escape hatches, if deleting is not what you want:</p>
 <div class="code-block">
   <div class="code-header">
@@ -199,7 +195,6 @@ site to a framework template fail at compile time with NWT005, which is the righ
 <hr />
 <h2 id="2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — <code>IScaffoldStore&lt;T&gt;.ListAsync</code> takes an ordering and a cursor</h2>
 <p><strong>Seam:</strong> <code>NativeWeb.Scaffold.IScaffoldStore&lt;T&gt;</code> — <code>libs/nativeweb.scaffold/IScaffoldStore.cs</code>.
-<strong>Spec:</strong> 017.
 <strong>Affects:</strong> every hand-written store. Nothing generated changes: the generated endpoints, forms
 and routes are emitted against the new signature and a consumer regenerates by rebuilding.</p>
 <p>Offset paging is gone from the seam and from the generated list. A scaffolded list could not be
@@ -253,13 +248,14 @@ alone; it will be correct, just not sortable.</p>
 <p>Callers of <code>ListAsync</code> that are not stores — anything that lists rows for its own purposes — pass
 <code>(null, [], null, [], null, take, ct)</code>.</p>
 <hr />
-<h2 id="2026-08-31--libsnativewebsigninepass-removed">2026-08-31 — <code>libs/nativeweb.signin.epass</code> removed</h2>
-<p><strong>Seam:</strong> the whole library, and the <code>AddEpass(...)</code> builder on top of <code>AddNativeWebSignIn</code>.
+<h2 id="2026-08-31--the-identity-provider-sign-in-library-removed">2026-08-31 — the identity-provider sign-in library removed</h2>
+<p><strong>Seam:</strong> the identity-provider-specific sign-in library (<code>libs/nativeweb.signin.&lt;provider&gt;</code>) and
+its <code>Add&lt;Provider&gt;(...)</code> builder on top of <code>AddNativeWebSignIn</code>.
 <strong>Commit:</strong> <code>f743436</code>. <strong>Decision:</strong>
 007.
-<strong>Affects:</strong> anything registering the epass provider through NativeWeb.</p>
+<strong>Affects:</strong> anything registering that provider through NativeWeb.</p>
 <p><code>libs/nativeweb.signin</code> — the generic OIDC/OAuth2 <strong>client</strong>, its session handler, bearer
-introspection filter and store seams — stays and is unchanged. What went is the epass-specific
+introspection filter and store seams — stays and is unchanged. What went is the provider-specific
 client, DTOs and registration built on top of it. A consumer configures the same flow through the
 generic library, supplying the provider's endpoints from configuration instead of getting them
 from a compiled-in provider class.</p>
@@ -272,12 +268,11 @@ provider's integration is a product's.</p>
 007.
 <strong>Affects:</strong> anything referencing <code>TokenIssuer</code>, <code>SilentConsent</code>, <code>RealmResolver</code>, <code>SsoModes</code>,
 <code>WebAuthnPolicy</code>, <code>ClientAuthenticator</code>, or the generated accessors over the identity schema.</p>
-<p>Removed together with <code>apps/web</code>, <code>db/</code> (55 migrations of users, realms and refresh tokens) and
-seven test projects. <strong>None of it is ported and there is no replacement here.</strong> epass.io owns
-epass; the copy that lived in this repository was a dead fork, and decision 007 records the
-divergence between the two in detail.</p>
-<p>The pieces of that tree that <em>are</em> framework stayed and did not move: password and token hashing,
-opaque token generation, bot traps and the data protector are in <code>libs/nativeweb.security</code>.</p>
+<p>Removed together with <code>apps/web</code> (the identity provider), its <code>db/</code> migrations of users, realms
+and refresh tokens, and seven test projects. <strong>None of it is ported and there is no replacement
+here.</strong> The identity provider is a separate product; decision 007 records why.</p>
+<p>The pieces of that tree that <em>are</em> framework stayed: password and token hashing, opaque token
+generation, bot traps and the data protector are in <code>libs/nativeweb.security</code>.</p>
 <p>A consumer that needs an identity provider uses one. A consumer that needs users and passwords
 builds them on the primitives, which is the <code>contrib.auth</code> side of the line.</p>
 
