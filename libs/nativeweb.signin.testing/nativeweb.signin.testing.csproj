@@ -34,7 +34,7 @@
          interfaces with no runner attached, which is what a base class a consumer
          derives from needs. -->
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.SignIn.Testing</PackageId>
+    <PackageId>Extrode.NativeWeb.SignIn.Testing</PackageId>
     <!-- The property that keeps this out of an application's production closure,
          matching nativeweb.render.generator and nativeweb.scaffold.generator.
          NuGet installs a developmentDependency with PrivateAssets=all, so a

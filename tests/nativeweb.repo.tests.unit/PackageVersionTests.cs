@@ -16,13 +16,13 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// <c>&lt;Authors&gt;</c>: ten copies of one string went on naming the retired
 /// org for three days after the rename, because nothing made them move
 /// together. A per-project version is worse than a per-project author, because
-/// a consumer resolving <c>NativeWeb.Web 0.2.0</c> against a
-/// <c>NativeWeb.Render</c> still at <c>0.1.0</c> gets a restore that succeeds
+/// a consumer resolving <c>Extrode.NativeWeb.Web 0.2.0</c> against a
+/// <c>Extrode.NativeWeb.Render</c> still at <c>0.1.0</c> gets a restore that succeeds
 /// and a framework whose halves were never built together.
 /// </para>
 /// <para>
 /// The skeleton assertion is the same invariant seen from the other side. A
-/// stamped product pins five <c>NativeWeb.*</c> versions, and a pin naming a
+/// stamped product pins five <c>Extrode.NativeWeb.*</c> versions, and a pin naming a
 /// version the framework does not publish fails as NU1101 inside somebody
 /// else's repository, with nothing here to say why. That is the failure
 /// a consumer pinned at <c>0.1.0</c> ran into, where its own comment said those
@@ -39,7 +39,7 @@ public sealed class PackageVersionTests
         Assert.True(
             declared.Length == 1,
             $"Expected exactly one <VersionPrefix> in Directory.Build.props, found {declared.Length}. "
-                + "It is the source of truth for every NativeWeb.* package version, and tools/pack.ts "
+                + "It is the source of truth for every Extrode.NativeWeb.* package version, and tools/pack.ts "
                 + "refuses to run when it is not.");
     }
 
@@ -78,12 +78,12 @@ public sealed class PackageVersionTests
                 .Descendants()
                 .Where(e => e.Name.LocalName == "PackageVersion")
                 .Select(e => ((string?)e.Attribute("Include"), (string?)e.Attribute("Version")))
-                .Where(p => p.Item1 is not null && p.Item1.StartsWith("NativeWeb.", StringComparison.Ordinal)),
+                .Where(p => p.Item1 is not null && p.Item1.StartsWith("Extrode.NativeWeb.", StringComparison.Ordinal)),
         ];
 
         Assert.True(
             pins.Length > 0,
-            "skeleton/Directory.Packages.props pins no NativeWeb.* package. A stamped product "
+            "skeleton/Directory.Packages.props pins no Extrode.NativeWeb.* package. A stamped product "
                 + "cannot build in package mode without them, and this test would assert nothing.");
 
         string[] wrong = [.. pins

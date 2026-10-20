@@ -7,8 +7,8 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A version already on GitHub Packages cannot be replaced, only deleted and
-/// re-pushed, which breaks every consumer that has restored it. So the cost of
+/// A version already on nuget.org can never be deleted or replaced, only
+/// unlisted. So the cost of
 /// an accidental publish is not a wasted run: it is a version number that has
 /// to be burned. The trigger this guards against is <c>workflow_dispatch</c>,
 /// which is the one someone adds while debugging the workflow and does not
@@ -56,7 +56,7 @@ public sealed class PublishWorkflowTests
     }
 
     [Fact]
-    public void PublishHoldsWriteAccessToPackagesAndNothingMore()
+    public void PublishHoldsReadAccessToContentsAndNothingMore()
     {
         string permissions = TopLevelBlock(
             File.ReadAllText(Path.Combine(RepoRoot(), PublishWorkflow)),
@@ -67,7 +67,7 @@ public sealed class PublishWorkflowTests
             .Select(line => line.Trim())
             .Where(line => line.Length > 0 && !line.StartsWith('#'))];
 
-        Assert.Equal(["contents: read", "packages: write"], granted);
+        Assert.Equal(["contents: read"], granted);
     }
 
     /// <summary>

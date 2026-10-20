@@ -18,6 +18,32 @@ instead is this file: what changed, why, and the before/after a consumer edits b
 
 ---
 
+## 2026-10-20 — the framework's package ids gain the `Extrode.` prefix
+
+**Seam:** every `PackageId` under `libs/` — `NativeWeb.Render` is now `Extrode.NativeWeb.Render`,
+and the same for the other twelve.
+**Affects:** a product building in package mode (`-p:NativeWebUsePackages=true`). Checkout mode
+references projects, not ids, and changes nothing. Namespaces and assembly names are unchanged,
+so no `using` line moves.
+
+The packages publish to nuget.org, alongside JauntyQ's `Extrode.JauntyQ.*`. No version has been
+released under either id, so there is nothing to restore from the old one.
+
+**Rename the ids** in `Directory.Packages.props` and in each package-mode `PackageReference`:
+
+```xml
+<!-- before -->
+<PackageVersion Include="NativeWeb.Render" Version="0.1.0" />
+<!-- after -->
+<PackageVersion Include="Extrode.NativeWeb.Render" Version="0.1.0" />
+```
+
+A stamped product's `nuget.config` no longer declares the `framework-github` source; nuget.org
+alone serves every pin. Delete the source, its `packageSourceMapping` entry and any
+`framework-github` credential in a user-level config.
+
+---
+
 ## 2026-09-05 — four shared templates are delivered by the framework, not vendored
 
 **Seam:** `NativeWeb.Web`'s MSBuild contribution — `libs/nativeweb.web/build/NativeWeb.Web.targets`.

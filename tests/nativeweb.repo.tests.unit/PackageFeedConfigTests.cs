@@ -25,8 +25,8 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// package source mapping resolves nothing that matches no pattern.
 /// </para>
 /// <para>
-/// Since 2026-09-24 the root config declares nuget.org alone, and only the stamped product's
-/// config names a GitHub source.
+/// Since 2026-09-24 the root config declares nuget.org alone, and since 2026-10-20 the stamped
+/// product's does too.
 /// </para>
 /// </remarks>
 public sealed partial class PackageFeedConfigTests
@@ -64,8 +64,8 @@ public sealed partial class PackageFeedConfigTests
     /// failed that job's auth step by name, which is the test working -- the fix
     /// is to widen what counts as declared, not to drop the check. Both files
     /// stay in scope, so authenticating a source neither declares is still a
-    /// failure. Since 2026-09-24 only the skeleton's declares one, and publish.yml
-    /// authenticates nothing.
+    /// failure. Since 2026-10-20 neither declares one, so any credential step that
+    /// comes back has to come back with the source it names.
     /// </remarks>
     [Theory]
     [InlineData("ci.yml")]
@@ -83,9 +83,6 @@ public sealed partial class PackageFeedConfigTests
             .ToHashSet(StringComparer.Ordinal);
 
         MatchCollection authenticated = AuthenticatedSourcePattern().Matches(workflow);
-        Assert.True(
-            authenticated.Count > 0,
-            $"{file} no longer authenticates any package source — package-mode restore will 401.");
 
         foreach (Match match in authenticated)
         {
@@ -200,8 +197,6 @@ public sealed partial class PackageFeedConfigTests
     [InlineData("ci.yml")]
     public void Workflow_WritesFeedCredentialsOutsideTheWorkspace(string file)
     {
-        var checkedJobs = new List<string>();
-
         foreach ((string job, string body) in Jobs(file))
         {
             if (!body.Contains("--store-password-in-clear-text", StringComparison.Ordinal))
@@ -209,7 +204,6 @@ public sealed partial class PackageFeedConfigTests
                 continue;
             }
 
-            checkedJobs.Add(job);
             Assert.DoesNotContain("nuget update source", body, StringComparison.Ordinal);
 
             string[] commands = [.. AddSourceCommandPattern().Matches(body).Select(m => m.Value)];
@@ -251,8 +245,6 @@ public sealed partial class PackageFeedConfigTests
                 $"{file} job '{job}' runs `{firstSdkCommand.Value}` before it authenticates the "
                     + "feed, which is a 401 on the runner and nothing at all here.");
         }
-
-        Assert.NotEmpty(checkedJobs);
     }
 
     /// <summary>
@@ -263,11 +255,11 @@ public sealed partial class PackageFeedConfigTests
     /// step left the suite green: confirmed by mutation 2026-09-06, 194 tests and 0 failed with
     /// skeleton-stamp's step removed. A restore without the credential is a 401 on the runner
     /// and nothing at all here, so the count is anchored to the jobs that need one. Since
-    /// 2026-09-24 that is skeleton-stamp alone: the root config declares nuget.org and nothing
-    /// else, so a credential step anywhere else names a feed no config it restores against has.
+    /// 2026-09-24 that was skeleton-stamp alone, and since 2026-10-20 it is no job: both configs
+    /// declare nuget.org and nothing else, so a credential step names a feed no config has.
     /// </remarks>
     [Theory]
-    [InlineData("ci.yml", "skeleton-stamp")]
+    [InlineData("ci.yml", "")]
     [InlineData("publish.yml", "")]
     public void Workflow_CredentialsOnlyTheJobThatRestoresTheStampedProduct(string file, string job)
     {
@@ -397,37 +389,6 @@ public sealed partial class PackageFeedConfigTests
 
     [GeneratedRegex("--configfile\\s+\"?([^\"\\s]+)\"?")]
     private static partial Regex ConfigFilePattern();
-
-    /// <summary>
-    /// The two premium ids resolve from the same private source as JauntyQ.*, in the stamped
-    /// product's config, by exact id. The root config dropped both with its private source on
-    /// 2026-09-24.
-    /// </summary>
-    /// <remarks>
-    /// Exact ids on purpose. The core Extrode.JauntyQ.* packages ship on nuget.org from
-    /// 0.5.0, so an "Extrode.JauntyQ.*" prefix here would drag every core package onto the
-    /// authenticated feed, where none of them exist, and restore would fail NU1101 on the
-    /// generator. An exact id outranks any prefix, so only these two leave the catch-all.
-    /// </remarks>
-    [Theory]
-    [InlineData("skeleton/nuget.config")]
-    public void NuGetConfig_MapsThePremiumIdsToTheSourceThatServesJauntyQ(string file)
-    {
-        var config = XDocument.Load(Path.Combine(RepoRoot(), file));
-
-        XElement jauntyQ = config.Descendants("packageSourceMapping")
-            .Elements("packageSource")
-            .Single(s => s.Elements("package").Any(p => (string?)p.Attribute("pattern") == "JauntyQ.*"));
-
-        string[] patterns = jauntyQ.Elements("package")
-            .Select(p => (string?)p.Attribute("pattern"))
-            .OfType<string>()
-            .ToArray();
-
-        Assert.Contains("Extrode.JauntyQ.Cli.Premium", patterns);
-        Assert.Contains("Extrode.JauntyQ.Schema.Contract", patterns);
-        Assert.DoesNotContain(patterns, p => p.StartsWith("Extrode.JauntyQ.", StringComparison.Ordinal) && p.EndsWith('*'));
-    }
 
     /// <summary>
     /// Every pinned JauntyQ package is a core Extrode.JauntyQ.* id that restores from

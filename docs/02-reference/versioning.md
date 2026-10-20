@@ -9,10 +9,10 @@ supported, and how a library is retired. It is the release process for a library
 Every `NativeWeb.*` package carries the same version, from a single `VersionPrefix` in
 `Directory.Build.props`. There is no per-library version and there will not be one.
 
-That is a deliberate loss of precision. `NativeWeb.Mail` changes far less often than
-`NativeWeb.Scaffold`, so lockstep versioning means it gets minor bumps that changed nothing in
+That is a deliberate loss of precision. `Extrode.NativeWeb.Mail` changes far less often than
+`Extrode.NativeWeb.Scaffold`, so lockstep versioning means it gets minor bumps that changed nothing in
 it. The alternative costs more: libraries that reference each other, versioned
-independently, produce a matrix where `NativeWeb.Web 0.4.0` and `NativeWeb.Render 0.2.0` restore
+independently, produce a matrix where `Extrode.NativeWeb.Web 0.4.0` and `Extrode.NativeWeb.Render 0.2.0` restore
 together, compile, and were never built or tested together once. `PackageVersionTests` enforces
 the single version, and `tools/pack.ts` refuses to run when `Directory.Build.props` declares more
 than one.
@@ -99,10 +99,10 @@ skipped these steps.
 
 ## Where the packages go, and where they do not
 
-`.github/workflows/publish.yml` pushes to `https://nuget.pkg.github.com/<owner>/index.json`
-(GitHub Packages), and there is no path in this repository to nuget.org. A package pushed there
-inherits the visibility of the repository named in its nuspec, so the workflow checks that the
-repository is private and publishes nothing otherwise.
+`.github/workflows/publish.yml` pushes to nuget.org (`https://api.nuget.org/v3/index.json`) with
+the `NUGET_API_KEY` repository secret. The package ids are `Extrode.NativeWeb.*`, matching
+JauntyQ's `Extrode.JauntyQ.*`; namespaces and assembly names stay `NativeWeb.*`. No version has
+been published yet.
 
 **No packable library carries JauntyQ-generated output.** `grep -rn -i jauntyq libs/ --include=*.csproj`
 finds comments only; the two projects that reference JauntyQ are `apps/sample` and the stamped
@@ -114,15 +114,14 @@ would otherwise reach the feed, and the JauntyQ licence bars that (see `AGENTS.m
 
 1. Read the branch's `CHANGELOG.md` under `## [Unreleased]` and decide the number against
    **What each component means** above.
-2. Bump `VersionPrefix` in `Directory.Build.props` and the five `NativeWeb.*` pins in
+2. Bump `VersionPrefix` in `Directory.Build.props` and the five `Extrode.NativeWeb.*` pins in
    `skeleton/Directory.Packages.props` — `PackageVersionTests` fails if they disagree.
 3. Move the changelog's `## [Unreleased]` entries under a `## [X.Y.Z]` heading, dated.
 4. Merge `dev` into `main` with `--no-ff`, tag `vX.Y.Z`, and push the tag.
 
 The tag is what publishes. `publish.yml` refuses a tag that disagrees with `VersionPrefix` before
 it packs anything, so a mistyped tag costs a failed run rather than a burned version — and a
-version on GitHub Packages cannot be replaced, only deleted, which breaks any consumer that has
-already restored it.
+version on nuget.org can never be deleted or replaced, only unlisted.
 
 ## Related
 

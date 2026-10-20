@@ -50,7 +50,7 @@ public sealed class SkeletonSignInTests
             .Select(reference => reference.Attribute("Include")!.Value)
             .ToArray();
 
-        Assert.Contains("NativeWeb.SignIn", references);
+        Assert.Contains("Extrode.NativeWeb.SignIn", references);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public sealed class SkeletonSignInTests
 
         Assert.Contains(
             packages.Descendants("PackageVersion"),
-            version => version.Attribute("Include")?.Value == "NativeWeb.SignIn"
+            version => version.Attribute("Include")?.Value == "Extrode.NativeWeb.SignIn"
                 && !string.IsNullOrWhiteSpace(version.Attribute("Version")?.Value));
     }
 
