@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html" class="active" aria-current="page">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html" class="active" aria-current="page">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -135,9 +135,7 @@
 <p>Every setting the framework reads, what it defaults to, and what a wrong or absent value costs.</p>
 <p><strong>This page is enforced.</strong> <code>tests/nativeweb.repo.tests.unit/DocsClaimsTests.cs</code> extracts the key
 names from the two binders below at run time and fails when this file names a key the code does
-not read, or omits one it does. An earlier version of this page was not enforced, described an
-application that had left the repository, and stayed wrong for months while being served at
-<code>/docs</code>; the guard is the lesson.</p>
+not read, or omits one it does.</p>
 <h2 id="the-section-prefix">The section prefix</h2>
 <p>NativeWeb reads nothing from a fixed key path. Every setting lives under a section the product
 chooses, passed to <code>NativeWebOptions.FromConfiguration(builder.Configuration, &quot;&lt;Name&gt;&quot;)</code>. The
@@ -433,9 +431,9 @@ seen it.</p>
 systemd unit names that directory and <code>ProtectSystem=strict</code> makes the rest read-only.</p>
 <h2 id="related">Related</h2>
 <ul>
-<li><code>docs/02-reference/deployment.md</code> — the runbook these files serve.</li>
-<li><code>libs/nativeweb.web/README.md</code> — the pipeline that reads the framework settings.</li>
-<li><code>libs/nativeweb.signin/README.md</code> — the relying party that reads the sign-in settings.</li>
+<li><a href="02-reference-deployment.html">deployment.md</a> — the runbook these files serve.</li>
+<li>libs/nativeweb.web/README.md — the pipeline that reads the framework settings.</li>
+<li>libs/nativeweb.signin/README.md — the relying party that reads the sign-in settings.</li>
 </ul>
 
         </article>

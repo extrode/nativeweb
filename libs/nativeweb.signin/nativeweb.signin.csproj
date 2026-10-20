@@ -59,7 +59,7 @@
 
     <!-- Spec 016 R20, inherited from spec 009 R3. A consumer's integration tests
          need a signed-in browser, and the only honest way to get one is this
-         library's own minting code: the alternative, which justsmtp did under
+         library's own minting code: the alternative, which a consumer did under
          008, is a test that reimplements the session format by hand and therefore
          keeps passing when the format changes.
 

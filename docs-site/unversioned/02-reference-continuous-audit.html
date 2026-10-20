@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html" class="active" aria-current="page">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html" class="active" aria-current="page">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -139,7 +139,7 @@ opening a <code>.ts</code> file. That is what this page is for.</p>
 <h2 id="what-it-does-once-a-night">What it does, once a night</h2>
 <ol>
 <li>The workstation has pushed a mirror of the repository to the audit host.</li>
-<li>At 03:07 the audit host clones that mirror into a temporary directory.</li>
+<li>At 03:07 (the hour is <code>--hour</code>, default 3) the audit host clones that mirror into a temporary directory.</li>
 <li>It picks the <strong>least recently audited slice</strong> — a directory that directly contains source —
 and reads only that. Slices never audited come first.</li>
 <li>It runs six mechanical checks over the slice, then, if the slice is under 120 KB and a GLM key
@@ -250,11 +250,11 @@ is &quot;everything not yet decided&quot;, not &quot;everything since yesterday&
 
 <span class="tok-com"># Agree to act on it. Requires a recorded approver.</span>
 <span class="tok-fn">deno</span> run <span class="tok-attr">-A</span> tools/audit/triage.ts <span class="tok-attr">--ssh</span> audit-host.<span class="tok-kw">local</span> \
-  <span class="tok-attr">--id</span> a1b2c3d4e5f6 <span class="tok-attr">--state</span> accepted <span class="tok-attr">--reason</span> <span class="tok-str">&quot;broken cross-reference&quot;</span> <span class="tok-attr">--approved-by</span> sy
+  <span class="tok-attr">--id</span> a1b2c3d4e5f6 <span class="tok-attr">--state</span> accepted <span class="tok-attr">--reason</span> <span class="tok-str">&quot;broken cross-reference&quot;</span> <span class="tok-attr">--approved-by</span> &lt;<span class="tok-fn">name</span>&gt;
 
 <span class="tok-com"># Record that it is done.</span>
 <span class="tok-fn">deno</span> run <span class="tok-attr">-A</span> tools/audit/triage.ts <span class="tok-attr">--ssh</span> audit-host.<span class="tok-kw">local</span> \
-  <span class="tok-attr">--id</span> a1b2c3d4e5f6 <span class="tok-attr">--state</span> fixed <span class="tok-attr">--reason</span> <span class="tok-str">&quot;landed in 97dc116&quot;</span>
+  <span class="tok-attr">--id</span> a1b2c3d4e5f6 <span class="tok-attr">--state</span> fixed <span class="tok-attr">--reason</span> <span class="tok-str">&quot;landed in &lt;commit&gt;&quot;</span>
 </code></pre>
 </div>
 <p><code>--id</code> takes any unambiguous prefix of at least six characters. An ambiguous one is an error, not

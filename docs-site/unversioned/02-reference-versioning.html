@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html" class="active" aria-current="page">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html" class="active" aria-current="page">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -133,15 +133,14 @@
         <article>
 <h1 id="versioning-and-release">Versioning and release</h1>
 <p>What a <code>NativeWeb.*</code> version number promises, what breaks one, how long a released minor is
-supported, and how a library is retired. Written for spec 028 R8, which discharges obligation 2
-of decision 004: a release process
-for a library, which is not the same thing as a release process for an application.</p>
+supported, and how a library is retired. It is the release process for a library, as required by
+decision 004.</p>
 <h2 id="one-version-every-package">One version, every package</h2>
 <p>Every <code>NativeWeb.*</code> package carries the same version, from a single <code>VersionPrefix</code> in
 <code>Directory.Build.props</code>. There is no per-library version and there will not be one.</p>
 <p>That is a deliberate loss of precision. <code>NativeWeb.Mail</code> changes far less often than
 <code>NativeWeb.Scaffold</code>, so lockstep versioning means it gets minor bumps that changed nothing in
-it. The alternative costs more: thirteen libraries that reference each other, versioned
+it. The alternative costs more: libraries that reference each other, versioned
 independently, produce a matrix where <code>NativeWeb.Web 0.4.0</code> and <code>NativeWeb.Render 0.2.0</code> restore
 together, compile, and were never built or tested together once. <code>PackageVersionTests</code> enforces
 the single version, and <code>tools/pack.ts</code> refuses to run when <code>Directory.Build.props</code> declares more
@@ -194,14 +193,14 @@ the literal semver reading at 1.0.</p>
 </table>
 <p><strong>The reliable answer is not the number, it is
 <a href="02-reference-breaking-changes.html"><code>breaking-changes.md</code></a>.</strong> Read it top-down from the version you are on and
-stop at the entry you have already taken. Every entry names the seam, the spec, what changed and
+stop at the entry you have already taken. Every entry names the seam, what changed and
 the before/after a consumer edits by.</p>
 <h2 id="what-counts-as-breaking">What counts as breaking</h2>
 <p>A change is breaking when a consumer who upgrades and rebuilds gets a compile error, or gets a
 build that succeeds and does something else. Concretely, in this framework:</p>
 <ul>
 <li><strong>A public seam's signature changes.</strong> <code>IScaffoldStore&lt;T&gt;.ListAsync</code> gaining an ordering and a
-cursor on 2026-09-01 is the worked example — every hand-written store had to be edited, and
+cursor (see <code>breaking-changes.md</code>) is the worked example — every hand-written store had to be edited, and
 nothing generated did.</li>
 <li><strong>A generator's diagnostic set gains a member that fires on code that used to build.</strong> <code>NWF006</code>
 is not breaking (nothing could declare a file field before it existed); a new <code>NWF00n</code> that
@@ -221,16 +220,15 @@ entry.</p>
 <h2 id="support-window">Support window</h2>
 <p><strong>The current minor, and the one before it.</strong> When <code>0.3.0</code> releases, <code>0.2.x</code> still receives
 security fixes and defect fixes that apply cleanly; <code>0.1.x</code> receives nothing.</p>
-<p>That is short on purpose. Every consumer is an Extrode product in a repository on the same
-machine, so the cost of an upgrade is a rebuild and a read of <code>breaking-changes.md</code>, not a
-procurement cycle. A longer window would buy a consumer time it does not need and would commit
-this repository to backporting into a shape it has already moved past. If a consumer outside that
-set ever exists, this section is the first thing that has to change.</p>
+<p>That is short on purpose. The cost of an upgrade is a rebuild and a read of
+<code>breaking-changes.md</code>. A longer window would commit this repository to backporting into a shape it
+has already moved past. If consumers need more time than that, this section is the first thing
+that has to change.</p>
 <p>A fix to a supported older minor releases as a patch on that minor: <code>0.2.4</code> alongside <code>0.3.1</code>.
 <code>VersionPrefix</code> is bumped on a branch cut from that minor's tag, and the same tag-triggered
 publish runs.</p>
 <h2 id="retiring-a-library">Retiring a library</h2>
-<p>The path a departing library takes, and the one <code>nativeweb.signin.epass</code> did not:</p>
+<p>The path a departing library takes:</p>
 <ol>
 <li><strong>Deprecate in place, in a minor.</strong> The library still ships and still works. Its <code>README.md</code>
 gains a line at the top naming what replaces it and the version it is expected to go in, and
@@ -240,25 +238,19 @@ the library disappears rather than at the same moment.</li>
 <li><strong>Remove in the next breaking bump</strong>, with a second <code>breaking-changes.md</code> entry naming the
 removal and the migration.</li>
 </ol>
-<p><code>nativeweb.signin.epass</code> and <code>nativeweb.auth</code> left on 2026-08-31 with none of that
-(decision 007). Seven files in
-<code>justsmtp.com</code> carried <code>using NativeWeb.SignIn.Epass</code> and still do; the removal was recorded as a
-decision in this repository and reached no consumer. That is what steps 1 to 3 exist to prevent,
-and the structural half of the fix is the version pin itself: a consumer on <code>0.2.x</code> is not moved
-by a removal in <code>0.3.0</code> until it chooses to be.</p>
+<p>A consumer pinned to <code>0.2.x</code> is not moved by a removal in <code>0.3.0</code> until it chooses to be.
+Decision 007 records a removal that
+skipped these steps.</p>
 <h2 id="where-the-packages-go-and-where-they-do-not">Where the packages go, and where they do not</h2>
-<p><strong>A private feed, always.</strong> <code>.github/workflows/publish.yml</code> pushes to
-<code>https://nuget.pkg.github.com/&lt;owner&gt;/index.json</code>, and there is no path in this repository to
-nuget.org.</p>
-<p>That is not a default anyone is free to change. <code>AGENTS.md</code> states it and
-<code>libs/nativeweb.security/nativeweb.security.csproj</code> repeats it at the point of use: the packages
-are proprietary, and a public feed publishes proprietary source.</p>
-<p><strong>No packable library carries JauntyQ-generated output</strong>, and that is worth stating because an
-earlier draft of this page claimed three of them did. <code>grep -rn -i jauntyq libs/ --include=*.csproj</code>
+<p><code>.github/workflows/publish.yml</code> pushes to <code>https://nuget.pkg.github.com/&lt;owner&gt;/index.json</code>
+(GitHub Packages), and there is no path in this repository to nuget.org. A package pushed there
+inherits the visibility of the repository named in its nuspec, so the workflow checks that the
+repository is private and publishes nothing otherwise.</p>
+<p><strong>No packable library carries JauntyQ-generated output.</strong> <code>grep -rn -i jauntyq libs/ --include=*.csproj</code>
 finds comments only; the two projects that reference JauntyQ are <code>apps/sample</code> and the stamped
-product under <code>skeleton/</code>, neither of which is packable. <code>tools/pack.ts</code> still refuses a package
-containing a JauntyQ path, because that check is what keeps the claim true rather than assumed:
-a library that grows a JauntyQ reference would otherwise reach the feed and the licence bars it.</p>
+product under <code>skeleton/</code>, neither of which is packable. <code>tools/pack.ts</code> refuses a package
+containing a JauntyQ path, which keeps that claim true: a library that grows a JauntyQ reference
+would otherwise reach the feed, and the JauntyQ licence bars that (see <code>AGENTS.md</code>).</p>
 <h2 id="cutting-a-release">Cutting a release</h2>
 <ol>
 <li>Read the branch's <code>CHANGELOG.md</code> under <code>## [Unreleased]</code> and decide the number against

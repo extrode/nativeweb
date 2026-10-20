@@ -69,8 +69,7 @@ export function assertPortFree(port: number, listen = Deno.listen): void {
  * harness's own.
  *
  * Under `tmp/` rather than the repo-root `publish/`, which is deliberately NOT gitignored
- * (see .gitignore: justsmtp commits a top-level publish/, so this repo does not blanket-ignore
- * one). A throwaway NativeAOT publish landing somewhere `git add -A` can see it has cost this
+ * (see .gitignore: this repo does not blanket-ignore one). A throwaway NativeAOT publish landing somewhere `git add -A` can see it has cost this
  * repo a bad commit once already. `tmp/` is gitignored by rule, and the harness already writes
  * `tmp/bench/latest.json`.
  */

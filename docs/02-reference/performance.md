@@ -4,7 +4,7 @@ Every load measurement taken on this repository, newest first, with what changed
 and the next. `tools/bench/README.md` explains the harness; this file is the record it produces.
 
 **Numbers here are machine-bound and comparable only to each other.** All of them were taken on
-`bench-host` (16 logical cores, Windows 11 10.0.26200), against `apps/sample` published Release with
+one workstation (16 logical cores, Windows 11), against `apps/sample` published Release with
 NativeAOT, over plain HTTP on loopback, 16 concurrent workers, three timed runs of 10 s averaged
 after a discarded warmup. `tools/bench/baseline.json` carries the machine fingerprint and the
 harness records rather than compares when it does not match.
@@ -16,15 +16,15 @@ anything about a page.
 
 ## Measurements
 
-| Date | Change | `articles` req/s | p50 | p99 | `healthz` req/s | peak RSS | `articles`/`healthz` |
-|---|---|---|---|---|---|---|---|
-| 2026-08-31 | **Compression moved to Caddy** — current baseline | **16,528.8** | 0.93ms | 2.40ms | 23,183.5 | 54.0 MB | 0.713 |
-| 2026-08-31 | Framework web pipeline adopted (spec 015), compressing in-process | 6,440.5 | 2.30ms | 6.52ms | 19,539.8 | 53.5 MB | 0.330 |
-| 2026-08-31 | Phase 1 close: review fixes (author match, `Take` echoed) | 18,958.6 | 0.70ms | 2.30ms | 23,324.5 | 35.6 MB | 0.813 |
-| 2026-08-31 | **Content-Length declared** on template pages | 19,051.8 | 0.69ms | 2.30ms | 22,655.4 | 35.4 MB | 0.841 |
-| 2026-08-31 | Rendering through compiled templates (T3/T4) | 12,124.2 | 1.18ms | 3.76ms | 22,523.7 | 38.7 MB | 0.538 |
-| 2026-08-31 | Design system + styled page (T1/T2) | 18,453.4 | 0.67ms | 2.74ms | 20,953.5 | 47.0 MB | 0.881 |
-| 2026-08-31 | Baseline, hand-written StringBuilder renderer | 19,937.6 | — | — | 23,068.6 | 45.0 MB | 0.864 |
+| Change | `articles` req/s | p50 | p99 | `healthz` req/s | peak RSS | `articles`/`healthz` |
+|---|---|---|---|---|---|---|
+| **Compression moved to Caddy** — current baseline | **16,528.8** | 0.93ms | 2.40ms | 23,183.5 | 54.0 MB | 0.713 |
+| Framework web pipeline adopted, compressing in-process | 6,440.5 | 2.30ms | 6.52ms | 19,539.8 | 53.5 MB | 0.330 |
+| Review fixes (author match, `Take` echoed) | 18,958.6 | 0.70ms | 2.30ms | 23,324.5 | 35.6 MB | 0.813 |
+| **Content-Length declared** on template pages | 19,051.8 | 0.69ms | 2.30ms | 22,655.4 | 35.4 MB | 0.841 |
+| Rendering through compiled templates | 12,124.2 | 1.18ms | 3.76ms | 22,523.7 | 38.7 MB | 0.538 |
+| Design system + styled page | 18,453.4 | 0.67ms | 2.74ms | 20,953.5 | 47.0 MB | 0.881 |
+| Baseline, hand-written StringBuilder renderer | 19,937.6 | — | — | 23,068.6 | 45.0 MB | 0.864 |
 
 Zero errors in every run of every row.
 
@@ -35,9 +35,7 @@ ten middleware where there were none costs `articles` **12.8%** (18,958.6 → 16
 
 The second row is what the same pipeline cost while it compressed in-process, and it is kept
 because the difference between the two rows is the whole of bottleneck 4: one middleware was
-worth 157% of this page's throughput. `tools/bench/baseline.json` was re-recorded twice on
-2026-08-31 — once for the pipeline as first adopted, once after compression moved — because a
-baseline that is red on every run gates nothing.
+worth 157% of this page's throughput.
 
 Between the third and fourth rows, two behavioural fixes, not a perf change: matching authors as
 well as titles adds one null-checked `Contains` per row over at most twenty rows, and echoing
@@ -142,7 +140,7 @@ Two structural reasons on top of the number, both found in review rather than in
   public traffic it exists to serve, and moving compression below the cache in-app would have
   forced `Accept-Encoding` into the cache key.
 - Buffering in a middleware to restore `Content-Length` is not an option here:
-  `TemplateWriter` streams UTF-8 to the body writer by design (spec 003 R41), and these pages only
+  `TemplateWriter` streams UTF-8 to the body writer by design, and these pages only
   behave as materialized because 3 KB fits in Kestrel's pipe before a flush. That is an emergent
   property, not a contract.
 
@@ -167,8 +165,7 @@ exactly the traffic the cache exists for.
 - **Under load with PostgreSQL.** Every row here runs against the in-memory store, so the
   measurement is the render path and the pipeline, not the query path. A JauntyQ-backed run is a
   different harness and a different baseline.
-- **On the deployment target.** Every row here was taken on this workstation. Spec 011's T15
-  ran on real hosts on 2026-09-05 and the deployment reference now carries measured numbers,
-  but what it measured is deploy, restore and rebuild elapsed time. No render or throughput
+- **On the deployment target.** Every row here was taken on this workstation. The deployment reference
+  carries measured numbers, but what it measured is deploy, restore and rebuild elapsed time. No render or throughput
   figure has ever been taken on a deployed host.
 - **Concurrency other than 16.** The harness takes `--concurrency`; nothing has used it.

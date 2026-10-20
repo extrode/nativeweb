@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -137,13 +137,10 @@
 application already, with its own solution, its own <code>Directory.Build.props</code> and its own
 deployment, and you want the framework underneath it.</p>
 <p>Read this if you have written a page shell, a CSP nonce, a clean-URL rewrite, flash messages or
-content-hashed asset URLs by hand. All five ship in <code>libs/nativeweb.web</code>, and the reason this
-document exists is that a consumer of this framework hand-ported every one of them — finishing
-the day before the library that provides them completed.</p>
+content-hashed asset URLs by hand. All five ship in <code>libs/nativeweb.web</code>.</p>
 <h2 id="1-reference-the-framework">1. Reference the framework</h2>
-<p><strong>Checkout mode is what works today.</strong> Clone this repository as a <strong>sibling</strong> of your product —
-and clone JauntyQ beside it too, because NativeWeb's own libraries reference it and
-its checkout is probed relative to the NativeWeb one:</p>
+<p><strong>Checkout mode is the supported way to consume NativeWeb.</strong> Clone this repository as a
+<strong>sibling</strong> of your product:</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">text</span>
@@ -155,11 +152,12 @@ its checkout is probed relative to the NativeWeb one:</p>
 </code></pre>
 </div>
 <p>No <code>jauntyq/</code> sibling is needed. NativeWeb resolves JauntyQ from the pinned <code>Extrode.JauntyQ.*</code>
-packages by default since 2026-09-05, and since core 0.5.0 those are public on nuget.org, so
-restoring them needs no credential. The license terms still apply to what you ship (see the constraints at the end of this page).</p>
-<p>Then add to your product's <code>Directory.Build.props</code>. Both casings are probed because both are in
-the wild: the repository is <code>nativeweb</code> on disk, and <code>getting-started.md</code> has long told people
-to clone it as <code>NativeWeb</code>.</p>
+packages on nuget.org, which restore without a credential. Build with <code>-p:JauntyQUsePackages=false</code>
+only if you want a sibling <code>jauntyq</code> checkout instead. The license terms still apply to what you
+ship (see the constraints at the end of this page).</p>
+<p>Then add to your product's <code>Directory.Build.props</code>. Both casings are probed: the repository is
+<code>nativeweb</code> on disk, and <a href="00-quick-start-getting-started.html"><code>getting-started.md</code></a> tells people to clone it as
+<code>NativeWeb</code>.</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">XML</span>
@@ -186,8 +184,8 @@ warning <code>MSB9008</code>, so the build carries on and fails later as a pile 
 your own code. Without the guard, the error you read is never the error you have.
 <code>skeleton/Directory.Build.props</code> carries the full version of this block, including package mode,
 and is the file to copy from.</p>
-<p><strong>Probe relatively, and name no parent directory.</strong> An earlier version of this block hard-coded
-an ancestor by name; the org directory was renamed and every local build broke at restore.</p>
+<p><strong>Probe relatively, and name no parent directory.</strong> A hard-coded ancestor breaks every build the
+day that directory is renamed.</p>
 <p><strong>If your product builds from a git worktree</strong>, add the deeper probe too — a worktree sits three
 directories down, so a single sibling probe resolves to nothing and every restore in every
 worktree fails:</p>
@@ -200,7 +198,7 @@ worktree fails:</p>
 </code></pre>
 </div>
 <h3 id="why-not-packages">Why not packages</h3>
-<p>The eleven projects under <code>libs/</code> carry <code>IsPackable</code> and a <code>PackageId</code>, and
+<p>The thirteen packable projects under <code>libs/</code> carry <code>IsPackable</code> and a <code>PackageId</code>, and
 <code>skeleton/Directory.Build.props</code> already has a <code>-p:NativeWebUsePackages=true</code> mode. <strong>Do not use
 it yet.</strong> Package mode is approved and not working: it has never restored end to end, and the
 repository has no release process for a consumed library — no stated semver guarantee, no
@@ -226,9 +224,9 @@ pulling.</p>
 <p>A generator is referenced as an <strong>analyzer</strong>, with <code>ReferenceOutputAssembly=&quot;false&quot;</code>. Reference
 it as an ordinary project and it compiles into your output and generates nothing.</p>
 <p><strong>Import the assets targets by hand.</strong> A <code>PackageReference</code> would pick this up on its own; a
-<code>ProjectReference</code> does not, so nothing contributes the framework's <code>wwwroot/</code> — HTMX, Alpine and
-the design-system stylesheets — to your static web assets, and every one of them 404s at run time
-with no build error:</p>
+<code>ProjectReference</code> does not, so nothing contributes the framework's browser assets (<code>boot.js</code> and
+the design-system stylesheets under <code>/_nativeweb/</code>) or its shared templates to your product, and
+every asset 404s at run time with no build error:</p>
 <div class="code-block">
   <div class="code-header">
     <span class="code-lang">XML</span>
@@ -286,8 +284,8 @@ from <code>MyProduct:</code>. Pass a third argument to <code>FromConfiguration</
 <p>Pass <code>typeof(Program).Assembly</code> rather than letting it default to the entry assembly: under a
 <code>WebApplicationFactory</code> test the entry assembly is the test assembly, not yours, so <code>/version</code>
 reports its version instead.</p>
-<p><code>AddNativeWebWeb</code> is eleven registrations behind one call, and every one of them is a public
-method on <code>NativeWebPipeline</code>. If you need to sit between two of them, write the eleven out.</p>
+<p><code>AddNativeWebWeb</code> is a series of registrations behind one call, and every one of them is a public
+method on <code>NativeWebPipeline</code>. If you need to sit between two of them, call them yourself.</p>
 <h3 id="two-things-that-stop-the-process-if-you-skip-them">Two things that stop the process if you skip them</h3>
 <p><strong><code>wwwroot/pages/error.html</code> is required.</strong> The error shell is loaded once at startup, from a
 static file, so that an error page never depends on the renderer or the database — either of
@@ -353,7 +351,8 @@ be output-cached, which a hand-rolled shell usually does not do.</p>
 JauntyQ, source-generated over PostgreSQL, and it is a separate adoption
 decision from this one.</li>
 <li><strong>Your <code>wwwroot</code>.</strong> Framework assets arrive through an MSBuild <code>.targets</code> that contributes
-them to your static web assets; you do not copy them.</li>
+them to your static web assets; you do not copy them. Third-party files (HTMX, Alpine.js, fonts)
+are yours to vendor, as <code>apps/sample/wwwroot/vendor/</code> does.</li>
 <li><strong>NativeAOT discipline, if you publish AOT.</strong> The framework builds with
 <code>TreatWarningsAsErrors</code> and <code>IsAotCompatible</code>. A reference of yours that is not
 trim-compatible fails your publish, not ours.</li>
@@ -370,10 +369,10 @@ Redistribution Exception. Nothing else of JauntyQ's may be redistributed.</li>
 <h2 id="6-check-it-worked">6. Check it worked</h2>
 <div class="code-block">
   <div class="code-header">
-    <span class="code-lang">text</span>
+    <span class="code-lang">bash</span>
     <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
   </div>
-  <pre data-lang="text"><code class="language-text">dotnet build
+  <pre data-lang="bash"><code class="language-bash"><span class="tok-fn">dotnet</span> build
 </code></pre>
 </div>
 <p>The <code>ReportFrameworkResolution</code> target above prints <code>NativeWeb: checkout mode (&lt;path&gt;)</code>, so a
@@ -422,7 +421,7 @@ because the entry assembly under a factory is the test assembly, not the product
 <h2 id="if-you-get-stuck">If you get stuck</h2>
 <ul>
 <li><code>../../libs/nativeweb.web/README.md</code> — the pipeline in
-detail, including what each of the eleven registrations does.</li>
+detail, including what each registration does.</li>
 <li><a href="02-reference-configuration.html"><code>../02-reference/configuration.md</code></a> — every setting and its
 failure mode. Three of them stop the process at startup on purpose.</li>
 <li><a href="02-reference-breaking-changes.html"><code>../02-reference/breaking-changes.md</code></a> — what changed

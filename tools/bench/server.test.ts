@@ -158,7 +158,7 @@ Deno.test("an empty publish directory is not mistaken for a published binary", a
 
 Deno.test("publish output is pinned outside every tree git can see", () => {
   // tmp/ is gitignored by rule; the repo-root publish/ deliberately is not, because
-  // justsmtp commits one. A throwaway NativeAOT publish landing where `git add -A` can
+  // a downstream repo commits one. A throwaway NativeAOT publish landing where `git add -A` can
   // see it has cost this repo a bad commit once already.
   assertStringIncludes(PUBLISH_DIR, "tmp");
 });

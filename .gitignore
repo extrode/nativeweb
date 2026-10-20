@@ -7,9 +7,8 @@ artifacts/
 *.pdb
 
 # NativeAOT / publish build output.
-# Sibling justsmtp.com deliberately COMMITS a top-level publish/ (vendored
-# JauntyQ.Runtime artifacts), so we do NOT blanket-ignore publish/. Ignore only
-# per-project publish output under bin/ and app publish dirs.
+# publish/ is not blanket-ignored; only per-project publish output under bin/ and
+# the apps' publish dirs.
 **/bin/publish/
 apps/**/publish/
 
@@ -40,7 +39,7 @@ Thumbs.db
 .vs/
 *.swp
 
-# Local agent tooling (not committed, matches sibling repos)
+# Local agent tooling (not committed)
 .claude/
 .specify/
 .worktrees/
@@ -53,8 +52,8 @@ tmp/
 # on build with a randomly assigned port. Nothing launches it -- it exists to be
 # published and have its warnings counted -- so the file is machine noise, and
 # committing it would put one machine's port in everyone's diff. The real apps'
-# launch settings (apps/web, apps/sample) stay tracked; this is scoped to the probe.
-tests/nativeweb.signin.epass.tests.aot/Properties/
+# launch settings (apps/sample) stay tracked; this is scoped to the probe.
+tests/nativeweb.signin.tests.aot/Properties/
 
 # A code-review artifact hub written by a per-machine tool outside this repo. It renders the
 # gitignored reviews under tmp/ and drops its index and theme into docs/, which is otherwise the

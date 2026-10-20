@@ -442,7 +442,7 @@ public sealed partial class SessionManager(
     /// </summary>
     /// <remarks>
     /// This was a plain assignment until the first consumer of the sign-out seam was reviewed
-    /// under spec 009. justsmtp's dashboard gate sets
+    /// under spec 009. That consumer's dashboard gate sets
     /// <c>no-store, no-cache, must-revalidate, max-age=0</c> before the request reaches the
     /// account lookup that decides to sign out; the assignment left one directive of the four and
     /// an orphaned <c>Pragma: no-cache</c> beside it, on the one response whose cache posture
