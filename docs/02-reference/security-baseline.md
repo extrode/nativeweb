@@ -1,107 +1,83 @@
-# Security baseline (spec 003, R29)
+# Security baseline
 
-> **Read this as inherited posture, not as a checklist over code in this repository.** It was
-> written against `apps/web`, the identity provider, which left on 2026-08-31
-> (`../decisions/2026-08-31-007-idp-leaves-nativeweb.md`). **Every row citing `apps/web/Auth/*`,
-> `db/queries/*` or a migration number describes code that is no longer here**, and those controls
-> were verified against it rather than against the framework. What survives in this repository is
-> the primitives layer — `libs/nativeweb.security` (`Passphrases`, `OpaqueTokens`, `Sha256Hex`,
-> `BotTraps`, `ContactProtector`, `StoreDataProtector`) and the response hardening in
-> `skeleton/`'s middleware — plus whatever a stamped product builds on it. Deciding which rows are
-> framework posture and which left with the application is an open item in `work/todo.md`.
+The security posture an app built on NativeWeb inherits, laid out as an ASVS-derived checklist.
+Each row names where the control lives so a reviewer can verify it rather than trust this
+document. Rows marked ☐ are known open, with the reason.
 
-ASVS-derived checklist for the NativeWeb reference architecture, written as part of V6
-(`feat/security-baseline`). Scope as written: `apps/web`, the IdP. The first product (DevMarks) was
-extracted to the manzil.my repo in V10 and carries its own copy of this checklist.
-Each row names where the control lived so a reviewer could verify it rather than trust
-this document. Items marked ☐ are known-open, with the reason.
+Applications add their own controls on top. `skeleton/docs/security-baseline.md` is the copy a
+stamped product starts from. Account storage, passphrase policy, two-factor and an OAuth
+authorization server are not part of NativeWeb: `libs/nativeweb.signin` is a relying party only
+([decision record](../decisions/2026-08-31-007-idp-leaves-nativeweb.md)), so those controls belong to whichever
+identity provider an app signs in against.
 
 ## V2 — Authentication
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ☑ | Passphrases hashed with Argon2id, fixed cost parameters | `libs/nativeweb.security/Passphrases.cs` |
-| ☑ | Breach checking on set + sign-in (offline common-password list + HIBP k-anonymity, kill-switch) | `CompositeBreachChecker`; `NativeWeb:BreachCheck:Hibp` |
-| ☑ | Generic failure message; fake-identifier responses prevent user enumeration | `FakeIdentifierResponses`, sign-in/reset endpoints |
-| ☑ | Timing parity: unknown-user and bot-trapped paths pay the same Argon2id cost | V5 review fixes in `SignInEndpoints` |
-| ☑ | Account lockout / throttle on failed sign-ins | `LockoutPolicy` |
-| ☑ | TOTP two-factor with recovery codes; WebAuthn (passkeys) incl. UserVerification step-up | `apps/web/Auth/TwoFactor*`, `WebAuthn*` |
-| ☑ | Forced-passphrase-reset confinement, operator lift control | `ForcedPassphraseResetMiddleware`, admin endpoints |
-| ☑ | Bot defense: 4 honeypots + signed time canary on every human form, per-endpoint fake successes | `libs/nativeweb.security/BotTraps.cs` (V5) |
+| ☑ | Passphrases hashed with Argon2id, fixed cost parameters, `NeedsRehash` when the cost rises | `libs/nativeweb.security/Passphrases.cs` |
+| ☑ | Opaque bearer tokens: 32 CSPRNG bytes, only the SHA-256 is stored | `libs/nativeweb.security/OpaqueTokens.cs` |
+| ☑ | Sign-in by OAuth authorization code with PKCE (`S256`) | `libs/nativeweb.signin/OAuthClient.cs` |
+| ☑ | Bot defense: 4 honeypots and a signed time canary on every human form, per-endpoint fake successes | `libs/nativeweb.security/BotTraps.cs` |
 
 ## V3 — Session management
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ☑ | Opaque server-side sessions (no stateful token on the client), single-DELETE revocation | `bff_store` |
-| ☑ | `__Host-` prefixed cookie: Secure always, `Path=/`, no Domain, HttpOnly, SameSite=Lax | `Auth/SessionAuth.cs` (V6) |
-| ☑ | Sign-out deletes the server row and expires the cookie with matching attributes | `SignInEndpoints` + `SessionAuth.DeleteSessionCookie` |
-| ☑ | Fixed session lifetime 14 d | `SessionAuthDefaults.Lifetime` |
-| ☑ | Antiforgery token on every state-changing form post | `AddAntiforgery` + per-endpoint validation |
-
-## V4 — Access control
-
-| ✓ | Control | Where |
-|---|---------|-------|
-| ☑ | Operator gate derived per request from the user row, not baked into the session | `SessionClaimTypes.Operator` |
-| ☑ | Admin surface requires operator; audited (below) | `AdminEndpoints` |
-| ☑ | OAuth: PKCE, exact redirect-URI match, pairwise subjects, client auth on machine endpoints | `apps/web/Auth/OAuth*` |
+| ☑ | Opaque server-side sessions (no stateful token on the client), single-delete revocation | `libs/nativeweb.signin/ISessionStore.cs` |
+| ☑ | `__Host-` prefixed cookie: Secure, `Path=/`, no Domain, HttpOnly, SameSite=Lax. Not configurable; a cookie name without the prefix fails at startup | `libs/nativeweb.signin/SessionManager.cs`, `SignInOptions.cs` |
+| ☑ | Sign-out deletes the server row and expires the cookie with matching attributes | `libs/nativeweb.signin/SignInEndpoints.cs` |
+| ☑ | Fixed session lifetime, 14 days by default | `SignInOptions.SessionLifetime` |
+| ☑ | Antiforgery token on every state-changing form post, a failed token answers 400 before the endpoint runs | `libs/nativeweb.web/AntiforgeryValidationMiddleware.cs`, `libs/nativeweb.forms` |
 
 ## V5 — Input handling
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ☑ | Global request-body ceiling 128 KB at Kestrel; endpoints raise it explicitly where needed (none do today) | `Program.cs` (V6) |
-| ☑ | Request timeout default 30 s | `Program.cs`, `AddRequestTimeouts` (V6) |
-| ☑ | Rate limiting: per-IP fixed windows on auth/oauth/oauth-authorize/admin/csp-report | `Program.cs` |
-| ☑ | HTML output encoded by default; raw output only via the grep-able `Html.Raw` | `libs/nativeweb.render` (V2) |
-| ☑ | No reflection-based JSON deserialization of attacker input (AOT source-generated contexts only) | repo-wide; `/csp-report` reads raw bytes |
+| ☑ | Request-body ceiling of 128 KB at Kestrel (`MaxRequestBodyBytes`); endpoints raise it explicitly where needed | `libs/nativeweb.web/NativeWebPipeline.cs`, `NativeWebOptions.cs` |
+| ☑ | Request timeout, 30 s by default | `NativeWebPipeline.AddNativeWebRequestTimeouts` |
+| ☑ | Rate limiting: per-IP policies `general` (120 permits) and `csp-report` (10). Endpoints opt in with `RequireRateLimiting` | `NativeWebPipeline.cs`, `NativeWebOptions.cs` |
+| ☑ | HTML output encoded by default; raw output only through the grep-able `Html.Raw` | `libs/nativeweb.render/Html.cs` |
+| ☑ | No reflection-based JSON deserialization of attacker input (AOT source-generated contexts only); `/csp-report` reads raw bytes | repo-wide |
 
 ## V13/V14 — HTTP security configuration
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ☑ | CSP: default-src 'self', per-request nonce for scripts/styles, frame-ancestors 'none' | `SecurityHeadersMiddleware` |
-| ☑ | Static pages (V8): stricter nonce-free CSP branch — default-src 'none', no script-src at all, form-action 'none'; error pages use the same branch | `SecurityHeadersMiddleware.StaticPageCsp`, marker set by `StaticPagesMiddleware`/`ErrorPageMiddleware` |
-| ☑ | CSP violation reporting: report-uri + Reporting-Endpoints → rate-limited `POST /csp-report`, logged raw, never deserialized | `CspReportEndpoint.cs` (V6) |
-| ☑ | HSTS 1 y includeSubDomains, non-Development only | `SecurityHeadersMiddleware` (V6) |
-| ☑ | Permissions-Policy denying unused powerful features (WebAuthn's stay at default 'self') | `SecurityHeadersMiddleware` (V6) |
-| ☑ | X-Content-Type-Options, X-Frame-Options, Referrer-Policy | `SecurityHeadersMiddleware` |
-| ☑ | `no-store` + `Pragma: no-cache` on sensitive content types and secret-bearing redirects (incl. HX-Redirect) | `SecurityHeadersMiddleware` |
-| ☑ | `security.txt` (RFC 9116) at /.well-known/, served only when `NativeWeb:SecurityContact` names a mailbox — **unset serves no file, by design** | `SecurityTxtEndpoint.cs` (V6, address made configuration 2026-08-29) |
-| ☐ | `Expires` is a source literal and needs a yearly bump; currently `2027-08-01` | `SecurityTxtEndpoint.cs` |
+| ☑ | CSP: `default-src 'self'`, per-request nonce for scripts and styles, `frame-ancestors 'none'`, `base-uri 'none'`, `form-action 'self'` | `libs/nativeweb.web/SecurityHeadersMiddleware.cs` |
+| ☑ | Static and error pages get a stricter nonce-free CSP: `default-src 'none'`, no `script-src`, `form-action 'none'` | `SecurityHeadersMiddleware.StaticPageCsp`, set by `StaticPagesMiddleware` and `ErrorPageMiddleware` |
+| ☑ | CSP violation reporting: `report-uri` and `Reporting-Endpoints` to a rate-limited `POST /csp-report`, logged raw, never deserialized | `libs/nativeweb.web/CspReportEndpoint.cs` |
+| ☑ | HSTS for one year with `includeSubDomains`, outside Development only | `SecurityHeadersMiddleware.cs` |
+| ☑ | `Permissions-Policy` denying unused powerful features | `SecurityHeadersMiddleware.cs` |
+| ☑ | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` | `SecurityHeadersMiddleware.cs` |
+| ☑ | `no-store` and `Pragma: no-cache` on sensitive content types and secret-bearing redirects, including `HX-Redirect` | `SecurityHeadersMiddleware.cs` |
+| ☑ | `security.txt` (RFC 9116) at `/.well-known/`, served only when `{Section}:SecurityContact` names a mailbox. Unset serves no file, by design | `libs/nativeweb.web/SecurityTxtEndpoint.cs` |
+| ☐ | `Expires` in `security.txt` is a source literal and needs a yearly bump; currently `2027-08-01` | `SecurityTxtEndpoint.cs` |
 
 ## V7/V16 — Logging and auditing
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ☑ | Append-only `audit_log` (trigger-rejected UPDATE/DELETE), one row per mutating admin action, written on success only | migration `0052`, `db/queries/AuditLog/Insert.sql`, `AdminEndpoints.WriteAuditAsync` (V6) |
-| ☑ | Audit detail never carries secret material (rotate-secret logs the fact, not the secret) | `AdminEndpoints` |
 | ☑ | Structured trap events on every honeypot trip | `BotTraps.LogTripped` |
-| ☑ | Request logging without bodies or credentials | `RequestLoggingMiddleware` |
+| ☑ | Request logging without bodies or credentials; query strings are redacted | `libs/nativeweb.web/RequestLoggingMiddleware.cs`, `QueryRedactingProcessor.cs` |
 
 ## V10/V1 — Dependencies and build
 
 | ✓ | Control | Where |
 |---|---------|-------|
-| ▢ | CI CVE gate: `dotnet list package --vulnerable --include-transitive` fails the build on any finding or on a vacuous audit. Wired in V6 but unverifiable until the CI package-feed gap below is closed -- the job dies at restore before the gate runs | `.github/workflows/ci.yml` (V6) |
-| ☑ | `TreatWarningsAsErrors` repo-wide incl. trim/AOT analyzers | `Directory.Build.props` |
-| ☑ | Central package versions, vendored htmx/Alpine (no CDN) | `Directory.Packages.props`, `wwwroot/vendor` |
-| ☑ | No page HTML cached in `localStorage`. htmx 2 kept a snapshot cache there to restore pages on back-navigation, which put rendered authenticated markup in origin-scoped storage that survives sign-out and is readable by any script that gets execution on the origin. **htmx 4.0 removed it** — back-navigation re-fetches instead. The `hx-history-cache` extension restores the old behaviour and is deliberately not vendored (spec 012 non-goal) | `wwwroot/vendor/htmx`, spec 012 |
-| ☑ | Guard responses are not swapped into the page. htmx 4 swaps 4xx/5xx bodies into the target by default; `noSwap: [204, 304, "4xx", "5xx"]` keeps a 415 or 400 guard body from rendering inside an authenticated page | `Render/Layout.cs` htmx-config meta |
+| ☑ | CI CVE gate: `dotnet list package --vulnerable --include-transitive` fails the build on any finding, or when the audit confirms nothing | `.github/workflows/ci.yml` |
+| ☑ | `TreatWarningsAsErrors` repo-wide, including trim and AOT analyzers | `Directory.Build.props` |
+| ☑ | Central package versions; htmx and Alpine.js vendored, no CDN | `Directory.Packages.props`, `apps/sample/wwwroot/vendor` |
+| ☑ | No page HTML cached in `localStorage`. htmx 2 kept a snapshot cache there, which put rendered authenticated markup in origin-scoped storage that survives sign-out. htmx 4 removed it, so back-navigation re-fetches. The `hx-history-cache` extension restores the old behaviour and is deliberately not vendored | `apps/sample/wwwroot/vendor/htmx` |
+| ☑ | Guard responses are not swapped into the page. htmx 4 swaps 4xx/5xx bodies into the target by default; `noSwap: [204, 304, "4xx", "5xx"]` keeps a 415 or 400 guard body from rendering inside an authenticated page | `htmx-config` meta in `templates/layout/page.html` |
 
 ## Known-open items
 
-- **security.txt contact address** — no longer a placeholder in source. `security@epass.io` was a
-  literal until 2026-08-29; it is now `NativeWeb:SecurityContact`, and unset means no file is
-  served rather than a file naming the wrong mailbox. Still open as an **operator** item: a
-  deployment that wants a `security.txt` must set the key, and nothing warns when it has not.
-  Deliberately not a startup guard — refusing to boot without a security contact would be a
-  larger claim than this baseline makes.
-- **Canary replay breadth** — the bot-trap canary is app-bound, not session/path/single-use;
-  documented as an accepted bypass in `BotTraps.IssueCanary`.
-- **CI package-mode feed gap** — the CVE gate runs against the package-mode restore, which CI
-  cannot currently complete (known JauntyQ feed gap, tracked in memory/README).
-- **Collector address** — telemetry is on by default (2026-08-17) but
-  `OTEL_EXPORTER_OTLP_ENDPOINT` is unset, so it exports to `localhost:4317` and fails in the
-  background. Where the collector lives is an operator decision still open.
+- **security.txt contact address.** A deployment that wants a `security.txt` must set
+  `{Section}:SecurityContact`, and nothing warns when it has not. Deliberately not a startup
+  guard: refusing to boot without a security contact would be a larger claim than this baseline
+  makes.
+- **Canary replay breadth.** The bot-trap canary is app-bound, not session, path or single-use.
+  This is an accepted bypass, documented on `BotTraps.IssueCanary`.
+- **Collector address.** When `Telemetry:Enabled` is true and `OTEL_EXPORTER_OTLP_ENDPOINT` is
+  unset, the exporter targets `localhost:4317` and fails in the background. `deploy.sh` refuses to
+  promote in that state; see [deployment.md](deployment.md).

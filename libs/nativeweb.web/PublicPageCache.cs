@@ -16,9 +16,6 @@ namespace NativeWeb.Web;
 /// <item>the output cache policy uses <see cref="CarriesIdentityCookie"/> to
 /// decide whether to touch the shared store at all.</item>
 /// </list>
-///
-/// Pattern-copied from apps/manzil and kept structurally identical to it, so
-/// fixes travel between the two by diff.
 /// </summary>
 public static class PublicPageCache
 {

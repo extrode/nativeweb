@@ -11,8 +11,8 @@
 # an -Execute run exits non-zero if a precondition fails.
 #
 # Usage:
-#   pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination C:\home\code\extrode.com\manzil.my
-#   pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination ... -Execute
+#   pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe
+#   pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe -Execute
 
 [CmdletBinding()]
 param(

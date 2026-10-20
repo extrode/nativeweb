@@ -58,7 +58,7 @@ public sealed class LocalizationTests
     [Fact]
     public void Format_SubstitutesNamedPlaceholders()
     {
-        Assert.Equal("Sign in to epass", Locales.En.Format("emails.subject", ("product", "epass")));
+        Assert.Equal("Sign in to Acme", Locales.En.Format("emails.subject", ("product", "Acme")));
     }
 
     [Fact]

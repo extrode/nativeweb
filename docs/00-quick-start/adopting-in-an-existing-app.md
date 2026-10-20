@@ -6,29 +6,27 @@ application already, with its own solution, its own `Directory.Build.props` and 
 deployment, and you want the framework underneath it.
 
 Read this if you have written a page shell, a CSP nonce, a clean-URL rewrite, flash messages or
-content-hashed asset URLs by hand. All five ship in `libs/nativeweb.web`, and the reason this
-document exists is that a consumer of this framework hand-ported every one of them — finishing
-the day before the library that provides them completed.
+content-hashed asset URLs by hand. All five ship in `libs/nativeweb.web`.
 
 ## 1. Reference the framework
 
-**Checkout mode is what works today.** Clone this repository as a **sibling** of your product —
-and clone JauntyQ beside it too, because NativeWeb's own libraries reference it and
-its checkout is probed relative to the NativeWeb one:
+**Checkout mode is the supported way to consume NativeWeb.** Clone this repository as a
+**sibling** of your product:
 
-```
+```text
 your-org/
   nativeweb/          <- this repository
   your-product/       <- yours
 ```
 
 No `jauntyq/` sibling is needed. NativeWeb resolves JauntyQ from the pinned `Extrode.JauntyQ.*`
-packages by default since 2026-09-05, and since core 0.5.0 those are public on nuget.org, so
-restoring them needs no credential. The license terms still apply to what you ship (see the constraints at the end of this page).
+packages on nuget.org, which restore without a credential. Build with `-p:JauntyQUsePackages=false`
+only if you want a sibling `jauntyq` checkout instead. The license terms still apply to what you
+ship (see the constraints at the end of this page).
 
-Then add to your product's `Directory.Build.props`. Both casings are probed because both are in
-the wild: the repository is `nativeweb` on disk, and `getting-started.md` has long told people
-to clone it as `NativeWeb`.
+Then add to your product's `Directory.Build.props`. Both casings are probed: the repository is
+`nativeweb` on disk, and [`getting-started.md`](getting-started.md) tells people to clone it as
+`NativeWeb`.
 
 ```xml
 <PropertyGroup>
@@ -53,8 +51,8 @@ your own code. Without the guard, the error you read is never the error you have
 `skeleton/Directory.Build.props` carries the full version of this block, including package mode,
 and is the file to copy from.
 
-**Probe relatively, and name no parent directory.** An earlier version of this block hard-coded
-an ancestor by name; the org directory was renamed and every local build broke at restore.
+**Probe relatively, and name no parent directory.** A hard-coded ancestor breaks every build the
+day that directory is renamed.
 
 **If your product builds from a git worktree**, add the deeper probe too — a worktree sits three
 directories down, so a single sibling probe resolves to nothing and every restore in every
@@ -66,7 +64,7 @@ worktree fails:
 
 ### Why not packages
 
-The eleven projects under `libs/` carry `IsPackable` and a `PackageId`, and
+The thirteen packable projects under `libs/` carry `IsPackable` and a `PackageId`, and
 `skeleton/Directory.Build.props` already has a `-p:NativeWebUsePackages=true` mode. **Do not use
 it yet.** Package mode is approved and not working: it has never restored end to end, and the
 repository has no release process for a consumed library — no stated semver guarantee, no
@@ -92,9 +90,9 @@ A generator is referenced as an **analyzer**, with `ReferenceOutputAssembly="fal
 it as an ordinary project and it compiles into your output and generates nothing.
 
 **Import the assets targets by hand.** A `PackageReference` would pick this up on its own; a
-`ProjectReference` does not, so nothing contributes the framework's `wwwroot/` — HTMX, Alpine and
-the design-system stylesheets — to your static web assets, and every one of them 404s at run time
-with no build error:
+`ProjectReference` does not, so nothing contributes the framework's browser assets (`boot.js` and
+the design-system stylesheets under `/_nativeweb/`) or its shared templates to your product, and
+every asset 404s at run time with no build error:
 
 ```xml
 <Import Project="$(NativeWebRoot)\libs\nativeweb.web\build\NativeWeb.Web.targets" />
@@ -149,8 +147,8 @@ Pass `typeof(Program).Assembly` rather than letting it default to the entry asse
 `WebApplicationFactory` test the entry assembly is the test assembly, not yours, so `/version`
 reports its version instead.
 
-`AddNativeWebWeb` is eleven registrations behind one call, and every one of them is a public
-method on `NativeWebPipeline`. If you need to sit between two of them, write the eleven out.
+`AddNativeWebWeb` is a series of registrations behind one call, and every one of them is a public
+method on `NativeWebPipeline`. If you need to sit between two of them, call them yourself.
 
 ### Two things that stop the process if you skip them
 
@@ -191,7 +189,8 @@ be output-cached, which a hand-rolled shell usually does not do.
   JauntyQ, source-generated over PostgreSQL, and it is a separate adoption
   decision from this one.
 - **Your `wwwroot`.** Framework assets arrive through an MSBuild `.targets` that contributes
-  them to your static web assets; you do not copy them.
+  them to your static web assets; you do not copy them. Third-party files (HTMX, Alpine.js, fonts)
+  are yours to vendor, as `apps/sample/wwwroot/vendor/` does.
 - **NativeAOT discipline, if you publish AOT.** The framework builds with
   `TreatWarningsAsErrors` and `IsAotCompatible`. A reference of yours that is not
   trim-compatible fails your publish, not ours.
@@ -207,7 +206,7 @@ be output-cached, which a hand-rolled shell usually does not do.
 
 ## 6. Check it worked
 
-```
+```bash
 dotnet build
 ```
 
@@ -242,7 +241,7 @@ because the entry assembly under a factory is the test assembly, not the product
 ## If you get stuck
 
 - [`../../libs/nativeweb.web/README.md`](../../libs/nativeweb.web/README.md) — the pipeline in
-  detail, including what each of the eleven registrations does.
+  detail, including what each registration does.
 - [`../02-reference/configuration.md`](../02-reference/configuration.md) — every setting and its
   failure mode. Three of them stop the process at startup on purpose.
 - [`../02-reference/breaking-changes.md`](../02-reference/breaking-changes.md) — what changed

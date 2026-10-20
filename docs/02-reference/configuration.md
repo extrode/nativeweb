@@ -4,9 +4,7 @@ Every setting the framework reads, what it defaults to, and what a wrong or abse
 
 **This page is enforced.** `tests/nativeweb.repo.tests.unit/DocsClaimsTests.cs` extracts the key
 names from the two binders below at run time and fails when this file names a key the code does
-not read, or omits one it does. An earlier version of this page was not enforced, described an
-application that had left the repository, and stayed wrong for months while being served at
-`/docs`; the guard is the lesson.
+not read, or omits one it does.
 
 ## The section prefix
 
@@ -128,6 +126,6 @@ systemd unit names that directory and `ProtectSystem=strict` makes the rest read
 
 ## Related
 
-- `docs/02-reference/deployment.md` — the runbook these files serve.
-- `libs/nativeweb.web/README.md` — the pipeline that reads the framework settings.
-- `libs/nativeweb.signin/README.md` — the relying party that reads the sign-in settings.
+- [deployment.md](deployment.md) — the runbook these files serve.
+- [libs/nativeweb.web/README.md](../../libs/nativeweb.web/README.md) — the pipeline that reads the framework settings.
+- [libs/nativeweb.signin/README.md](../../libs/nativeweb.signin/README.md) — the relying party that reads the sign-in settings.

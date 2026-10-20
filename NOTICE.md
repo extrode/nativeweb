@@ -1,73 +1,71 @@
 # NOTICE
 
-This file is required by **ISL-NETC 1.1 §3.1(c)**: any copy or substantial portion of this
+**ISL-NETC 1.2 §3.1(c) requires this file to be kept.** Any copy or substantial portion of this
 software, and any derivative work distributed or made available over a network, must retain it.
 
 ```
 Product:                NativeWeb
 Licensor:               Extrode LLC
 Copyright:              Copyright (c) 2026 Extrode LLC. All rights reserved.
-License:                Islamic Software License - Network Copyleft (ISL-NETC), Version 1.1
-SPDX identifier:        LicenseRef-ISL-NETC-1.1
+License:                Islamic Software License - Network Copyleft (ISL-NETC), Version 1.2
+SPDX identifier:        LicenseRef-ISL-NETC-1.2
 Governing jurisdiction: Commonwealth of Virginia
-License text:           ./LICENSE.md   ·   https://islamiclicense.org/isl-netc/1.1/LICENSE.md
+License text:           ./LICENSE.md   ·   https://islamiclicense.org/isl-netc/1.2/LICENSE.md
 ```
 
-The URL is version-pinned on purpose. `https://islamiclicense.org/isl-netc/` serves whichever
-text is current, so it named 1.0 when this file was first written and names 1.1 now; a notice
-that drifts against the `LICENSE.md` beside it is worse than no URL at all.
+The URL names the version on purpose. `https://islamiclicense.org/isl-netc/` always serves the
+newest text, so an unversioned link would drift away from the `LICENSE.md` next to this file.
 
 ## Who the Licensor is
 
-**`LICENSE.md` §1.2 names Extrode LLC.** No override is needed, and none is made here.
-
-ISL-NETC 1.1 §1.2 reads `[LICENSOR]` — a bracketed field the party applying the license fills in.
-Its *Notice on Reproducing This License* says in terms that completing those fields "is not a
-modification of this text for the purposes of this notice", and that a copy so completed "remains
-an unmodified reproduction of this License, and may be published, distributed, and applied to a
-work under its ISL name." So `LICENSE.md` is an unmodified 1.1 reproduction with one field filled;
-it differs from the published text at that line and nowhere else.
-
-Until 2026-08-30 this repository carried 1.0, whose §1.2 hardcoded Ikhbat Foundation because that
-text was drafted as the Foundation's own license. This section then existed to override it, on the
-authority of the ISL-CLA §1.2 note. Version 1.1 exists to retire that workaround, and retiring it
-is why the re-sync happened.
+**`LICENSE.md` §1.2 names Extrode LLC.** ISL-NETC 1.2 leaves §1.2 as a `[LICENSOR]` field for
+whoever applies the license to fill in. Its *Notice on Reproducing This License* says that filling
+in that field is not a modification, so `LICENSE.md` is still an unmodified copy of ISL-NETC 1.2.
+It differs from the published text on that one line.
 
 ## Two copyrights, not one
 
-| what | held by |
+| What | Held by |
 |---|---|
-| the **text of ISL-NETC 1.1** in `LICENSE.md` | Ikhbat Foundation (ikhbat.org), reproduced under its own reproduction notice with §1.2 completed |
-| the **software** the license is applied to | Extrode LLC |
+| The **text of ISL-NETC 1.2** in `LICENSE.md` | Ikhbat Foundation (ikhbat.org), reproduced under its own reproduction notice with §1.2 filled in |
+| The **software** the license is applied to | Extrode LLC |
 
-Ikhbat Foundation is not the author, publisher or endorser of this software. ISL-NETC §12 (No
-Endorsement and Trademarks) applies: applying the license grants no right to use the Foundation's
-or Extrode's names beyond describing the origin of the work and reproducing this file.
+Ikhbat Foundation did not write, publish or endorse this software. ISL-NETC §12 (No Endorsement
+and Trademarks) applies: using the license gives no right to use the Foundation's or Extrode's
+names beyond describing where the work came from and reproducing this file.
 
 ## What binds an operator
 
-ISL-NETC is network copyleft. Two obligations reach further than an ordinary permissive license,
-and neither is waived here:
+ISL-NETC is a network copyleft license. Two obligations reach further than a permissive license
+would, and neither is waived here:
 
-- **§3.6 Remote Network Interaction.** Running a modified version of this software as a hosted or
-  SaaS offering obliges the operator to offer those users the Corresponding Source of *that exact
-  modified version*, at no charge, under ISL-NETC. Never distributing a copy does not avoid it.
+- **§3.6 Remote Network Interaction.** If you run a modified version of this software as a hosted
+  service, you must offer its users the Corresponding Source of *that exact modified version*, at
+  no charge, under ISL-NETC. Never distributing a copy does not get you out of it.
 - **§§4 and 5 Ethical Use Restrictions.** These bind every recipient, every derivative work and
-  every user of a network-operated modified version, and §3.2 forbids relicensing under terms
-  that remove, narrow or waive them downstream.
+  every user of a network-operated modified version. §3.2 forbids relicensing under terms that
+  remove, narrow or waive them.
 
 ## Third-party components
 
-The vendored browser libraries under `libs/nativeweb.assets/` (htmx, Alpine.js) carry their own
-upstream licenses and are not covered by ISL-NETC. **JauntyQ** is used from a local checkout under
-a separate license that permits self-hosted-SaaS use of the generated output only; JauntyQ source
-and binaries are not redistributed with this software, and this software's binary is not shipped
-to third parties.
+These are not covered by ISL-NETC. Each keeps its own license, and a copy of that license sits
+next to the files.
+
+| Component | Where | License |
+|---|---|---|
+| htmx | `apps/sample/wwwroot/vendor/htmx/`, `skeleton/…/vendor/htmx/` | Zero-Clause BSD |
+| Alpine.js | `apps/sample/wwwroot/vendor/alpinejs/`, `skeleton/…/vendor/alpinejs/` | MIT |
+| Instrument Sans, JetBrains Mono, Sora | `apps/sample/wwwroot/vendor/fonts/`, `skeleton/…/vendor/fonts/` | SIL Open Font License 1.1 |
+
+**JauntyQ** is a separate product under ISL-R 1.2 and is not part of this repository. It is
+restored from nuget.org as the `Extrode.JauntyQ.*` packages. Code its generator writes into a
+build is covered by its Output Exception, and `Extrode.JauntyQ.Runtime` may ship inside built
+output under its Redistribution Exception. Nothing else of JauntyQ's is redistributed here.
 
 ## Standing caveat
 
-ISL-NETC 1.1 states of itself that it "is provided as a legal template and should be reviewed by
-a qualified attorney before use in production," and that its drafters assume no liability for its
+ISL-NETC 1.2 says of itself that it "is provided as a legal template and should be reviewed by a
+qualified attorney before use in production," and that its drafters take no liability for its
 legal sufficiency in any jurisdiction. No attorney has reviewed it for Extrode LLC. It is not an
 OSI-approved open-source license and does not claim to be one.
 

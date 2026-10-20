@@ -9,7 +9,7 @@ opening a `.ts` file. That is what this page is for.
 ## What it does, once a night
 
 1. The workstation has pushed a mirror of the repository to the audit host.
-2. At 03:07 the audit host clones that mirror into a temporary directory.
+2. At 03:07 (the hour is `--hour`, default 3) the audit host clones that mirror into a temporary directory.
 3. It picks the **least recently audited slice** — a directory that directly contains source —
    and reads only that. Slices never audited come first.
 4. It runs six mechanical checks over the slice, then, if the slice is under 120 KB and a GLM key
@@ -95,11 +95,11 @@ deno run -A tools/audit/triage.ts --ssh audit-host.local \
 
 # Agree to act on it. Requires a recorded approver.
 deno run -A tools/audit/triage.ts --ssh audit-host.local \
-  --id a1b2c3d4e5f6 --state accepted --reason "broken cross-reference" --approved-by sy
+  --id a1b2c3d4e5f6 --state accepted --reason "broken cross-reference" --approved-by <name>
 
 # Record that it is done.
 deno run -A tools/audit/triage.ts --ssh audit-host.local \
-  --id a1b2c3d4e5f6 --state fixed --reason "landed in 97dc116"
+  --id a1b2c3d4e5f6 --state fixed --reason "landed in <commit>"
 ```
 
 `--id` takes any unambiguous prefix of at least six characters. An ambiguous one is an error, not

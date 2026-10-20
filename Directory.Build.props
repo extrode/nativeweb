@@ -64,8 +64,8 @@
        SIBLING of this repository. The second is two levels deeper, which is where
        a .worktrees/<branch> checkout sits — and without it EVERY worktree build in
        this repository fails at restore, before a line of the branch's own code is
-       compiled. Found on the 009 branch; justsmtp's NativeWebRoot probe has
-       carried the same two-depth pair, for the same reason, since it was written.
+       compiled. Found on the 009 branch; the skeleton's NativeWebRoot probe carries the same
+       two-depth pair, for the same reason.
 
        Both probes are relative to this repository and NAME NO PARENT DIRECTORY.
        They used to hard-code an ancestor literally called `extrode-legacy-org.com`, which

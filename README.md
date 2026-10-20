@@ -1,17 +1,21 @@
 # NativeWeb
 
+<p align="center">
+  <img src="docs/images/nativeweb-mark.svg" alt="NativeWeb" width="140">
+</p>
+
 A server-first web framework for ASP.NET Core. Pages are rendered as HTML on the server, a
 little htmx makes them feel quick, and the whole app compiles to one self-contained native
 binary.
 
-[![CI](https://github.com/extrode/nativeweb/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/extrode/nativeweb/actions/workflows/ci.yml)
-[![License: ISL-NETC](https://img.shields.io/badge/license-ISL--NETC%201.1-blue)](LICENSE.md)
+[![CI](https://github.com/extrode/nativeweb/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/extrode/nativeweb/actions/workflows/ci.yml)
+[![License: ISL-NETC](https://img.shields.io/badge/license-ISL--NETC%201.2-blue)](LICENSE.md)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4)](#requirements)
 [![NativeAOT](https://img.shields.io/badge/NativeAOT-tested%20end%20to%20end-brightgreen)](#how-it-is-built)
 [![Database](https://img.shields.io/badge/database-PostgreSQL-336791)](#how-it-is-built)
 
 > [!IMPORTANT]
-> NativeWeb is source-available, not open source. The [ISL-NETC 1.1](LICENSE.md) license is a
+> NativeWeb is source-available, not open source. The [ISL-NETC 1.2](LICENSE.md) license is a
 > network copyleft: if you run a *modified* copy as a service, you must offer its users the source
 > of that exact version. It also carries ethical-use terms that bind everyone downstream. Read
 > [License](#license) before you build on it.
@@ -69,7 +73,7 @@ opens the page.
 You don't need a database to try it. With no connection string configured, the sample app runs
 on an in-memory store.
 
-```
+```bash
 git clone https://github.com/extrode/nativeweb.git
 cd nativeweb
 dotnet run --project apps/sample
@@ -85,7 +89,7 @@ Then open <http://localhost:5399/>. What you can look at:
 
 To edit and see changes without restarting:
 
-```
+```bash
 dotnet watch run --project apps/sample --no-hot-reload
 ```
 
@@ -113,6 +117,24 @@ generator that writes the boring code at build time.
 | [`nativeweb.signin`](libs/nativeweb.signin/README.md) | Sign-in through any OAuth 2.1 / OpenID Connect provider (PKCE, server-side sessions, refresh, sign-out) |
 | [`nativeweb.security`](libs/nativeweb.security/README.md) | Password hashing (Argon2id), opaque tokens, encryption at rest, blind indexes, masking, bot traps |
 | [`nativeweb.mail`](libs/nativeweb.mail/README.md) | Outbound e-mail over SMTP with recipient validation and header-injection protection |
+
+The arrows are project references. Libraries with a generator ship it alongside the runtime
+library; your app references both.
+
+```mermaid
+flowchart LR
+    web[nativeweb.web] --> render[nativeweb.render]
+    web --> security[nativeweb.security]
+    signin[nativeweb.signin] --> security
+    permissions[nativeweb.permissions] --> scaffold[nativeweb.scaffold]
+    forms[nativeweb.forms]
+    mail[nativeweb.mail]
+
+    render -. generator .- rg([render.generator])
+    forms -. generator .- fg([forms.generator])
+    scaffold -. generator .- sg([scaffold.generator])
+    permissions -. generator .- pg([permissions.generator])
+```
 
 NativeWeb is a framework, not a product. It signs users in through an identity provider, but it
 is not one: there is no token issuer, consent screen or user database here, and there won't be.
@@ -162,6 +184,55 @@ rows to show, in what order, and how they look are product decisions. The
 - **No CDN, no npm.** htmx and Alpine.js are vendored into the repository. Our own JavaScript is a
   few small files served as-is, with no build step.
 
+### At build time
+
+Templates, locale files, queries and attributes all become ordinary C# before the compiler runs,
+so the native compiler sees every call.
+
+```mermaid
+flowchart LR
+    html["templates (.html)<br/>locales"] --> rgen[render generator]
+    sql["queries (.sql)<br/>schema snapshot"] --> jq[JauntyQ generator]
+    attrs["[Form], [Scaffold], [Auth]<br/>attributes"] --> ngen[forms / scaffold /<br/>permissions generators]
+    rgen --> cs[typed C#]
+    jq --> cs
+    ngen --> cs
+    app[your Minimal API code] --> cs
+    cs --> aot[NativeAOT compiler]
+    aot --> bin[one native binary]
+```
+
+A template that names a missing field, or a query against a column the snapshot doesn't have,
+fails here, not in production.
+
+### At request time
+
+One handler serves both a plain browser and htmx. This is the `/articles` filter from the sample:
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant P as nativeweb.web pipeline
+    participant H as Route handler
+    participant Q as JauntyQ query
+    participant D as PostgreSQL
+    B->>P: POST /articles (filter form)
+    P->>P: security headers, antiforgery check
+    P->>H: bound ArticleFilter
+    H->>Q: RecentAsync(take)
+    Q->>D: SQL from the .sql file
+    D-->>Q: rows
+    Q-->>H: typed records
+    alt htmx request (HX-Request header)
+        H-->>B: the results list fragment only
+    else no JavaScript
+        H-->>B: the whole page
+    end
+```
+
+htmx swaps the fragment into the page. Without JavaScript the same form does an ordinary POST and
+gets a full page back, so nothing depends on the script loading.
+
 The reasoning behind each choice is in
 [native-web-architecture.md](docs/01-architecture/native-web-architecture.md).
 
@@ -173,7 +244,7 @@ The reasoning behind each choice is in
 a database migration runner, three test projects, CI and deployment units. Stamp a copy with your
 app's name:
 
-```
+```powershell
 pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe            # dry run
 pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe -Execute
 ```
@@ -195,7 +266,7 @@ bringing individual libraries into an app you already have.
 
 ## Build and test
 
-```
+```bash
 dotnet build
 dotnet test --project tests/nativeweb.render.tests.unit
 ```
@@ -258,8 +329,8 @@ existing app is in [breaking-changes.md](docs/02-reference/breaking-changes.md).
 ## License
 
 Copyright (c) 2026 Extrode LLC. Licensed under the **Islamic Software License - Network Copyleft
-(ISL-NETC), Version 1.1** (SPDX `LicenseRef-ISL-NETC-1.1`). The text is in [LICENSE.md](LICENSE.md),
-also published at <https://islamiclicense.org/isl-netc/1.1/LICENSE.md>.
+(ISL-NETC), Version 1.2** (SPDX `LicenseRef-ISL-NETC-1.2`). The text is in [LICENSE.md](LICENSE.md),
+also published at <https://islamiclicense.org/isl-netc/1.2/LICENSE.md>.
 
 Two things reach further than a permissive license would:
 

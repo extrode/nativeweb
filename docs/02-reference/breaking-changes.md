@@ -4,11 +4,8 @@ Every change that makes a consumer's existing code stop compiling or stop behavi
 newest first. A consumer reads this file top-down from wherever they last upgraded and stops
 when they reach an entry they have already taken.
 
-**Entries are dated and identified by commit.** Every entry below predates the first release, so
-none carries a version: consumers took the framework as a project reference off `dev`, where a
-version number would have been a promise nothing enforced. Spec 028 built the pack and the
-tag-triggered publish, so entries from the first `v*` tag onward name the version they first
-shipped in as well. The dates stay either way.
+**Entries are dated.** Every entry below predates the first release, so none carries a version.
+Entries from the first `v*` tag onward name the version they first shipped in as well.
 
 **What a version promises is in [`versioning.md`](versioning.md)** — what each component means,
 what counts as breaking, how long a released minor is supported, and the deprecation path a
@@ -24,7 +21,6 @@ instead is this file: what changed, why, and the before/after a consumer edits b
 ## 2026-09-05 — four shared templates are delivered by the framework, not vendored
 
 **Seam:** `NativeWeb.Web`'s MSBuild contribution — `libs/nativeweb.web/build/NativeWeb.Web.targets`.
-**Spec:** [029](../specs/029-framework-owned-templates/029-spec.md).
 **Affects:** every product carrying its own `templates/shared/antiforgery.html`,
 `bot-traps.html`, `banner-ok.html` or `banner-error.html`. A product carrying none of them
 takes this change by rebuilding and changes nothing.
@@ -43,14 +39,14 @@ template's name on the part after the last `/templates/` segment of its physical
 
 **Delete your copy.** That is the whole upgrade:
 
-```
+```bash
 rm templates/shared/antiforgery.html templates/shared/bot-traps.html
 rm templates/shared/banner-ok.html templates/shared/banner-error.html
 ```
 
 Leaving one in place is a build error naming the file, not a silent last-wins — the generator
-keys its model dictionary on the logical path, so before this the second file to arrive replaced
-the first and which one that was depended on MSBuild item order.
+keys its model dictionary on the logical path, so the second file to arrive replaced
+the first, and which one that was depended on MSBuild item order.
 
 Two escape hatches, if deleting is not what you want:
 
@@ -74,7 +70,6 @@ site to a framework template fail at compile time with NWT005, which is the righ
 ## 2026-09-01 — `IScaffoldStore<T>.ListAsync` takes an ordering and a cursor
 
 **Seam:** `NativeWeb.Scaffold.IScaffoldStore<T>` — `libs/nativeweb.scaffold/IScaffoldStore.cs`.
-**Spec:** [017](../specs/017-scaffold-sorting-and-cursor-pagination/017-spec.md).
 **Affects:** every hand-written store. Nothing generated changes: the generated endpoints, forms
 and routes are emitted against the new signature and a consumer regenerates by rebuilding.
 
@@ -130,15 +125,16 @@ Callers of `ListAsync` that are not stores — anything that lists rows for its 
 
 ---
 
-## 2026-08-31 — `libs/nativeweb.signin.epass` removed
+## 2026-08-31 — the identity-provider sign-in library removed
 
-**Seam:** the whole library, and the `AddEpass(...)` builder on top of `AddNativeWebSignIn`.
+**Seam:** the identity-provider-specific sign-in library (`libs/nativeweb.signin.<provider>`) and
+its `Add<Provider>(...)` builder on top of `AddNativeWebSignIn`.
 **Commit:** `f743436`. **Decision:**
 [007](../decisions/2026-08-31-007-idp-leaves-nativeweb.md).
-**Affects:** anything registering the epass provider through NativeWeb.
+**Affects:** anything registering that provider through NativeWeb.
 
 `libs/nativeweb.signin` — the generic OIDC/OAuth2 **client**, its session handler, bearer
-introspection filter and store seams — stays and is unchanged. What went is the epass-specific
+introspection filter and store seams — stays and is unchanged. What went is the provider-specific
 client, DTOs and registration built on top of it. A consumer configures the same flow through the
 generic library, supplying the provider's endpoints from configuration instead of getting them
 from a compiled-in provider class.
@@ -156,13 +152,12 @@ provider's integration is a product's.
 **Affects:** anything referencing `TokenIssuer`, `SilentConsent`, `RealmResolver`, `SsoModes`,
 `WebAuthnPolicy`, `ClientAuthenticator`, or the generated accessors over the identity schema.
 
-Removed together with `apps/web`, `db/` (55 migrations of users, realms and refresh tokens) and
-seven test projects. **None of it is ported and there is no replacement here.** epass.io owns
-epass; the copy that lived in this repository was a dead fork, and decision 007 records the
-divergence between the two in detail.
+Removed together with `apps/web` (the identity provider), its `db/` migrations of users, realms
+and refresh tokens, and seven test projects. **None of it is ported and there is no replacement
+here.** The identity provider is a separate product; decision 007 records why.
 
-The pieces of that tree that *are* framework stayed and did not move: password and token hashing,
-opaque token generation, bot traps and the data protector are in `libs/nativeweb.security`.
+The pieces of that tree that *are* framework stayed: password and token hashing, opaque token
+generation, bot traps and the data protector are in `libs/nativeweb.security`.
 
 A consumer that needs an identity provider uses one. A consumer that needs users and passwords
 builds them on the primitives, which is the `contrib.auth` side of the line.

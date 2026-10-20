@@ -25,8 +25,8 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// stamped product pins five <c>NativeWeb.*</c> versions, and a pin naming a
 /// version the framework does not publish fails as NU1101 inside somebody
 /// else's repository, with nothing here to say why. That is the failure
-/// <c>justsmtp.com</c> is living in today, where the pins read <c>0.1.0</c> and
-/// its own comment says those versions "resolve to nothing".
+/// a consumer pinned at <c>0.1.0</c> ran into, where its own comment said those
+/// versions "resolve to nothing".
 /// </para>
 /// </remarks>
 public sealed class PackageVersionTests
