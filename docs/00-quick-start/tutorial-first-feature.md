@@ -301,8 +301,9 @@ you need paging, take a cursor, not a count.
 
 **There is no `RequireAuthorization`, and that is the deliberate half.** The GET changes nothing
 and shows only rows already marked published, so it needs no authentication and no antiforgery
-token. Every other article route in this app redirects an anonymous visitor to `/signin`; this one
-must not, and adding the guard here would be the thing to reconsider rather than omitting it. Two
+token. The admin routes under `/admin` sit behind sign-in and redirect an anonymous visitor to
+`/signin`; this one must not, and adding the guard here would be the thing to reconsider rather
+than omitting it. Two
 tests below exist solely to hold that line, because an absent guard is invisible in a diff.
 
 **There is no output cache on this route either.** The HTML embeds an antiforgery token for the
