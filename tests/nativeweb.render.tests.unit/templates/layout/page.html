@@ -1,0 +1,16 @@
+<!--#template
+  @param string Title
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{Title}}</title>
+  {{slot? Head}}
+</head>
+<body>
+  <main>
+    {{slot Main}}
+  </main>
+</body>
+</html>

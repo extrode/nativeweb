@@ -1,0 +1,116 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible, TreatWarningsAsErrors, EnableConfigurationBindingGenerator
+       and central package management all come from Directory.Build.props /
+       Directory.Packages.props. -->
+  <PropertyGroup>
+    <PublishAot>true</PublishAot>
+    <!-- R36 publish posture: native symbols out of the shipped binary (they
+         land in the sibling .pdb either way), AOT compiler optimizing for
+         speed over size. Lives here, not Directory.Build.props: AOT knobs on
+         a non-AOT project (a netstandard2.0 generator) trip NETSDK1207. -->
+    <StripSymbols>true</StripSymbols>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <RootNamespace>__PRODUCT__</RootNamespace>
+    <UserSecretsId>__product__</UserSecretsId>
+    <!-- Spec 005 R2: /version serves InformationalVersion, which the SDK
+         composes as Version+SourceRevisionId (stamped by the target below). -->
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <!-- Stamps the short git SHA into InformationalVersion at build. Deliberately
+       per-app rather than Directory.Build.props: the libs have no use for it,
+       and a stamped product must carry its own copy. Falls back to "dev" when
+       git is unavailable (e.g. a source tarball), so the build never fails. -->
+  <Target Name="StampSourceRevision" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo">
+    <Exec Command="git rev-parse --short HEAD"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_NwGitSha" />
+      <Output TaskParameter="ExitCode" PropertyName="_NwGitExit" />
+    </Exec>
+    <PropertyGroup>
+      <!-- ConsoleOutput merges stderr into stdout, so a git warning would
+           otherwise produce a semicolon-joined garbage revision: accept only a
+           clean lowercase-hex SHA, fall back to "dev" for everything else. -->
+      <SourceRevisionId Condition="'$(_NwGitExit)' == '0' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(_NwGitSha)', '^[0-9a-f]+$'))">$(_NwGitSha)</SourceRevisionId>
+      <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">dev</SourceRevisionId>
+    </PropertyGroup>
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <!-- R33: metrics + traces behind __PRODUCT__:Telemetry:Enabled (default off).
+         Npgsql needs no instrumentation package; its ActivitySource/Meter are
+         built in and subscribed by name in Program.cs. -->
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- This product's own JauntyQ generated types (db/). -->
+    <ProjectReference Include="..\..\libs\__product__.data\__product__.data.csproj" />
+  </ItemGroup>
+
+  <!-- Framework libs: local checkout via ProjectReference for co-development;
+       pinned NuGet packages in package mode (-p:NativeWebUsePackages=true).
+       Same dual-mode split JauntyQ uses in libs/__product__.data. CI is NOT the
+       package-mode case: .github/workflows/ci.yml checks the framework out as a
+       SIBLING of this repository and builds in checkout mode, because the package
+       feed does not exist. -->
+  <ItemGroup Condition="'$(NativeWebUsePackages)' != 'true'">
+    <!-- Passphrases (Argon2id), OpaqueTokens, Sha256Hex, BotTraps. -->
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.security\nativeweb.security.csproj" />
+    <!-- Compiled-template render engine: runtime + the source generator that
+         turns templates/**/*.html and locales/*.json below into C#. -->
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj" />
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <!-- The request pipeline (spec 015): security headers, the public-page
+         output cache, error and static pages, flash, readiness, CSP reporting.
+         Every one of these was a file in this directory until 2026-08-31, so a
+         fix to any of them could not reach a product already stamped. -->
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.web\nativeweb.web.csproj" />
+    <!-- OAuth sign-in (spec 016): the authorization-code grant with PKCE, the
+         session cookie, and the bearer-introspection filter. Referenced
+         unconditionally rather than behind a stamp-time question, because a
+         product that adds sign-in later would otherwise edit this file to get a
+         scheme RequireAuthorization can challenge with. -->
+    <ProjectReference Include="$(NativeWebRoot)\libs\nativeweb.signin\nativeweb.signin.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(NativeWebUsePackages)' == 'true'">
+    <PackageReference Include="NativeWeb.Security" />
+    <PackageReference Include="NativeWeb.Render" />
+    <PackageReference Include="NativeWeb.Web" />
+    <PackageReference Include="NativeWeb.SignIn" />
+    <!-- The package ships under analyzers/dotnet/cs, which is what makes it a
+         generator; OutputItemType/ReferenceOutputAssembly are ProjectReference
+         metadata and would be ignored here. PrivateAssets keeps it build-only. -->
+    <PackageReference Include="NativeWeb.Render.Generator" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- The framework's browser assets — boot.js and the design-system
+       stylesheets — served under /_nativeweb/ (spec 015 R7). In package mode
+       NuGet imports build/NativeWeb.Web.targets from the package itself, so this
+       line is the checkout mode's half only. The underscore-prefixed base path
+       is what keeps a framework asset from colliding with a file of the same
+       name under this product's own wwwroot: the static web assets pipeline
+       treats two assets at one target path as a build error, not a precedence
+       question. -->
+  <Import Project="$(NativeWebRoot)\libs\nativeweb.web\build\NativeWeb.Web.targets"
+          Condition="'$(NativeWebUsePackages)' != 'true'" />
+
+  <ItemGroup>
+    <AdditionalFiles Include="templates\**\*.html" />
+    <!-- Not **: the generator only accepts files directly under locales/. -->
+    <AdditionalFiles Include="locales\*.json" />
+  </ItemGroup>
+
+</Project>

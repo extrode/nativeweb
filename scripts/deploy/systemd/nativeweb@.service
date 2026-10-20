@@ -1,0 +1,148 @@
+# The NativeWeb app — one instance per release colour. Spec 011 T6 (R2, R3, R18).
+#
+# Two instances run at once, "blue" and "green", on two loopback ports. A deploy
+# stages the new release into whichever colour is idle, starts it, waits for its
+# own /readyz, and only then points Caddy at it. The previous colour keeps
+# running until the next deploy claims it, which is what makes rollback a Caddy
+# reload rather than a redeploy.
+#
+#   systemctl enable --now nativeweb@blue
+#   systemctl status nativeweb@green
+#
+# The port is NOT derived from %i here: systemd does no arithmetic and no string
+# mapping, so a colour's port lives in its own environment file. That keeps the
+# mapping in exactly one place instead of being half in this file and half in
+# the deploy script.
+
+[Unit]
+Description=NativeWeb app (%i)
+Documentation=file:///opt/nativeweb/%i/RELEASE
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+# Crash restarts, but not forever. Without the start limit a binary that dies on
+# a bad connection string restarts several times a second until someone notices
+# the log, which is the failure mode where systemd hides the failure it is
+# reporting. Five attempts in five minutes, then the unit stays failed and says so.
+#
+# These two are [Unit] options, not [Service] ones -- they moved in systemd 229.
+# In [Service] systemd logs "Unknown key name" and IGNORES them, leaving the
+# 10-second DefaultStartLimitIntervalSec, which RestartSec=2s never fills: the
+# ceiling described above would not have existed. Found in review before any
+# host ran this.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# A database that is not up yet must NOT stop this unit: a NativeWeb app starts
+# without a reachable database on purpose and reports it through /readyz, which is a far
+# better signal than a dead process. See Program.cs and the Indeterminate arm of
+# StartupConfigGuards.FirstPartyCheck.
+
+# A colour with no release on disk must be SKIPPED, not attempted. provision.sh
+# enables both colours before either exists so that the first deploy has nothing
+# left to arrange -- and WantedBy=multi-user.target below means a host rebooted
+# between provisioning and the first deploy tries to start both, fails on the
+# missing WorkingDirectory, and burns StartLimitBurst=5 getting there. A unit
+# whose condition is false is inactive and clean; a unit that failed five times
+# needs `systemctl reset-failed` from someone who knows that.
+#
+# [Unit], for the same reason StartLimitIntervalSec is: Condition* are [Unit]
+# options, and in [Service] systemd logs "Unknown key name" and ignores them. This
+# one sat in [Service] until the first real host ran it on 2026-09-01 and the
+# journal printed that warning six times -- the skip described above never
+# happened, on any host, for as long as the file has existed.
+ConditionPathExists=/opt/nativeweb/%i/nativeweb
+
+[Service]
+Type=exec
+User=nativeweb
+Group=nativeweb
+WorkingDirectory=/opt/nativeweb/%i
+
+# Shared non-secret settings, then secrets, then this colour's port. Later files
+# win, so a colour file can override anything above it.
+#
+# EnvironmentFile rather than Environment= deliberately: values set with
+# Environment= are readable by any local user through `systemctl show`, and three
+# of the four required keys here are encryption keys. R18.
+EnvironmentFile=/etc/nativeweb/app.env
+EnvironmentFile=/etc/nativeweb/secrets.env
+EnvironmentFile=/etc/nativeweb/%i.env
+
+ExecStart=/opt/nativeweb/%i/nativeweb
+
+# The start limit these two feed is in [Unit], above.
+Restart=on-failure
+RestartSec=2s
+
+# Data-protection keys are written here. Without this they land 0644 inside a
+# 0750 directory -- the directory saves them, but only until someone widens it.
+UMask=0077
+
+# A refused start is not a crash. StartupConfigGuards exits 78 (sysexits EX_CONFIG)
+# for a misconfigured deployment, and restarting that is pointless: the config will
+# not have changed by the time it comes back. Listed so the unit stops immediately
+# rather than burning its five attempts on a certainty.
+RestartPreventExitStatus=78
+
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+
+# stdout/stderr to the journal; retention is set in journald.conf by provision.sh (R6).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nativeweb-%i
+
+# --- Hardening (R2) ---------------------------------------------------------
+# The service account owns its data directory and nothing else. Everything below
+# is enforced by the kernel rather than by the application behaving itself.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RemoveIPC=yes
+
+# The only writable path. Data-protection keys live here and must survive a
+# release swap, which is why they are NOT under /opt/nativeweb/%i --
+# NativeWeb:DataProtection:KeyDirectory defaults to the app directory, and a
+# blue/green swap would move it out from under every issued antiforgery token.
+ReadWritePaths=/var/lib/nativeweb
+
+# Binds a loopback port and talks to Postgres over TCP and to SMTP outbound.
+# AF_UNIX stays for the journal socket.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# No capability is needed: the ports are above 1024 and Caddy owns 80/443.
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# W^X. NativeAOT has no JIT, so nothing here maps a page both writable and
+# executable. Verified rather than reasoned (T14), 2026-08-27 on Debian 12 under
+# WSL2: a linux-x64 publish started, logged "Now listening", answered /healthz
+# 200 and /readyz 503 (the no-database state) with this on, indistinguishable
+# from the same binary with it off. The one path that could plausibly have
+# tripped it is the lazy dlopen of libsodium.so behind Argon2id, which never runs
+# at startup -- probed separately under the same filter, dlopen succeeded and
+# sodium_init() returned 0.
+#
+# Caveat on the measurement: a --user unit on the WSL2 kernel, not a --system
+# unit on the target host. The seccomp filter is the same; the kernel is not.
+MemoryDenyWriteExecute=yes
+
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

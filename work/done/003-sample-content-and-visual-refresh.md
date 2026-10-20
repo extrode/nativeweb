@@ -1,0 +1,190 @@
+# Previous
+
+The task completed most recently, kept for one rotation so the next one has context.
+
+- **Plan 009 — sample content and a public-site visual refresh** —
+  `feat/024-sample-content-and-visual-refresh`, 2026-09-03, Standard tier. The demo dataset grew
+  from three articles to eight and is written twice -- `db/sample/migrations/0005_seed_demo_content.sql`
+  for PostgreSQL, `Seed.Fill` for the in-memory store -- because until now nothing seeded the
+  database at all, so a deployed host served an empty `/articles` while the same binary with no
+  connection string served three. `SeedParityTests` in the repository tier parses both files and
+  compares every column they share, body and creation timestamp included. The public site got its
+  own palette in `apps/sample/wwwroot/css/sample.css`, overriding the framework's design tokens
+  rather than editing them (`AssetParityTests` stays green), plus a hero, article cards and a tag
+  pill; `tools/contrast-check.ts` measures 40 foreground/background pairs against WCAG 2.1 AA
+  across both themes and holds every declared colour to being either measured or named as
+  unrendered. Both the listing and the article page now date a row by its publication date, which
+  is what `PublishedArticle.PublishedOn()` was added for in spec 023 and what no page had called.
+  Green: repo 148, sample unit 219, render 219, web 164, scaffold unit 246, integration 170,
+  e2e 31, contrast 40 pairs, structure audit 0 errors.
+  - **Review: two lenses, 18 findings, 1 refuted by reading tokens.css (the --rs/--rl/--font-head
+    tokens the consequence lens could not see do exist).** Ten fixed in the branch, including two
+    that would have failed a deploy: `ON CONFLICT (id)` covered the primary key while
+    `articles_slug_key` is a second unique index, and `DO NOTHING` covers no foreign key at all,
+    so a tag deleted through the admin on nw-dev would have rolled back the whole migration on
+    every retry. Also fixed: the article page dated by `created_at` while the listing dated by
+    `published_at`, the tags partial's `<ul>` inside a `<p>`, the home page's `<title>` reduced to
+    the word "Latest", and four holes in the two new test harnesses. Four noted in `work/todo.md`
+    rather than fixed: nothing runs the contrast script, the translucent topbar is measured
+    against a background it does not have, `db/migrate.sh` cannot see a `--` inside a SQL string
+    literal, and no public page names an article's category.
+    Report: `tmp/review-feat-024-sample-content-and-visual-refresh.html` (gitignored).
+
+- **Spec 023 — admin relations and field kinds** — `feat/023-admin-relations-and-field-kinds`,
+  2026-09-03. Eleven tasks ticked, spec `Status: done`. The scaffold generator derives four more
+  controls from the model alone: an enum property is a `<select>` of its members, a `DateOnly`
+  a date input, `[ScaffoldReference(typeof(T))]` a dropdown of T's rows with `(none)` first, and
+  `[ScaffoldRelation(typeof(T))]` a checkbox list or, with `Control = MultiSelect`, a
+  `<select multiple>`; a listed reference cell shows the target's label; four diagnostics refuse
+  a misdeclared target. The sample's `Article` has Status (Draft/Published/Archived, replacing
+  the bool), a nullable publication date the public order uses, a Category reference and Tags as
+  checkboxes; `Tag` edits the same relation from its side as a multi-select. Both store paths
+  persist it all (migration 0004, rehearsed on copies; the real databases await a yes),
+  `ViewCount` is read-only and counted on the held row, and the public site shows only
+  Published. Proved in all three tiers on both stores: scaffold unit 246, sample unit 214,
+  integration 168, e2e 31.
+  - **Review: 21 candidates across two lenses, 1 refuted by the Release publish, 2 refuted by
+    the refuters, 6 confirmed and fixed, 7 confirmed and noted in `work/todo.md`, 3 verified by
+    reading after a refuter batch hit its turn cap.** Fixed: a blank or omitted non-nullable enum
+    was accepted and silently reset a row to its first member (`IsRequiredEnumMember`); the
+    runtime map still mapped a model the generator had refused, burying the NWS diagnostic under
+    CS0103; the memory tag store took a key the SQL CHECK rejects; the two paths listed a
+    relation in different orders; the memory list served tags cached at the last article-side
+    save; and the memory path still lost a view counted while the form was open (`Mutate` under
+    the save lock). Noted: the article-side/tag-side save deadlock (40P01, reproduced with two
+    psql sessions), the memory category cascade's lock, read-only reference columns, an
+    emitted-string-only test, 0004's schema-less guard, the CSV column shift, and the public
+    cache's flash-cookie identity check.
+  - Cleanup: `scripts/cleanup/023-admin-relations-and-field-kinds.ps1` (the two rehearsal
+    databases, the JauntyQ pin worktree behind a second flag, the branch).
+- **Spec 022 — the sample's public site** — `feat/022-sample-public-site`, 2026-09-02 to
+  2026-09-03. Eleven tasks ticked, spec `Status: done`. `/` is a home page rather than a redirect
+  into the admin, every article has a unique slug and a page at `/articles/{slug}` that counts a
+  view per render, `/tags` and `/tags/{slug}` list tags with published counts, and tags plus the
+  article-tag relation persist on both store paths (migration 0003, rehearsed on a copy and then
+  applied to `nativeweb_sample_dev` and `nativeweb_sample_test`). The feed, sitemap, JSON and CSV
+  carry the slug and link to the pages. One framework seam: a store may refuse a save with
+  `ScaffoldRefusedException` and the generated handler re-renders the form with the message.
+  - **Review: 23 candidates across two lenses, 8 confirmed and fixed, 5 refuted by measurement,
+    10 noted in `work/todo.md`.** Fixed: the migration suffixed a duplicate title with the raw id,
+    which a free-text id would have pushed past the CHECK constraint (now eight hex digits of
+    `md5(id)`, proved on `A1`/`demo_2` in a rolled-back transaction); the memory reader broke
+    timestamp ties ascending where the SQL breaks them descending; a remark claimed the SQL path
+    had no admin-edit window over the view count when `Update.sql` writes the posted value; three
+    tests that would have passed with their code broken (the slug column test satisfied by the id
+    column, the tag index test reading no count, the 80-char cap test accepting any shorter
+    length). Refuted: a collation claim about `[a-z]` (measured `é` outside it on
+    `English_United States.1252`), Host-keyed cache poisoning (the output cache's base key carries
+    the host), a lock-lifetime claim (both readers are singletons), `public, max-age` on a
+    signed-in render (the header is set only when the anonymous CSP resolved), and a LIMIT
+    misread on `ListForWindow.sql`.
+  - **The e2e suite's first full run failed for a reason outside the code**: MSB4216, the ILLink
+    task host refusing to start while other `dotnet` builds ran alongside the fixture's AOT
+    publish. Alone, the publish is clean and the suite is 29/29. Two pre-existing e2e expectations
+    moved with the branch: the admin list's Views column is one to the right of the new Slug
+    column, and sign-out now lands on the home page rather than bouncing into the admin.
+  - Final counts: sample unit 183, scaffold integration 145, scaffold unit 202, render 219,
+    web 164, forms 85, sample integration 8, repo 146, e2e 29; Release AOT publish zero warnings;
+    structure audit 0 errors (3 pre-existing naming warnings under `scripts/deploy`).
+  - `nativeweb_sample_dev` never had 0002's three indexes applied (CI never ran it); applied by
+    hand on 2026-09-03 with the user's yes, so dev now carries 0001 through 0003.
+
+- **Spec 021 — response formats and content negotiation** —
+  `feat/021-response-formats-and-negotiation`, 2026-09-02. Twelve tasks ticked, spec
+  `Status: done`. Eight document formats from one call each in `libs/nativeweb.render`,
+  `MapNegotiated` with a stated precedence and stated refusals in `libs/nativeweb.web`, the
+  public-page cache keyed on the chosen format, every format published by `apps/sample` and
+  proved in three tiers. Review: 27 candidates, 13 confirmed and fixed, 8 refuted, 6 noted.
+  - **The finding that mattered most was a cache defect the plan had called a feature.** The
+    plan put `/articles` under the public-page policy expecting its antiforgery cookie to keep it
+    out of the cache. A returning visitor already holds the cookie, so their render sets none, is
+    stored, and the next stranger receives a page whose token cannot match any cookie they hold.
+    Measured through `SampleFactory`: the third visitor got no `Set-Cookie` at all. The listing
+    is uncached now in every representation and a test holds it there; the feed's Atom and RSS
+    representations show per-representation caching instead.
+  - **The chooser was wrong twice at once**: a `q=0` range only vetoed an offer when it was the
+    first match, and specificity never ranked, so `*/*, text/html;q=0` chose HTML. It ranks each
+    offer by its most specific matching range now.
+
+- **Spec 016 — the OAuth relying party** — `feat/016-oauth-relying-party`, 2026-09-01. All 27
+  tasks ticked, spec `Status: done`. **1313 tests across 15 assemblies, 0 failed**; AOT publish
+  gate 21 s with zero IL2xxx/IL3xxx. NativeWeb is the client half and never the server:
+  authorization-code with PKCE, an opaque session cookie over an `ISessionStore` the product
+  implements, silent refresh, sign-out, and a bearer-introspection filter, all behind a real
+  authentication scheme — which is what a scaffolded route's `RequireAuthorization` needed and
+  did not have.
+  - **The pre-merge review found twelve defects and none of them was refuted.** Three rounds,
+    each round's fixes reviewed again, every fix mutation-checked. The one that mattered most is
+    login CSRF: `state` was remembered by the server alone, so an attacker could run the flow in
+    their own browser, keep the callback URL and hand it to a victim, whose browser would then
+    hold a session for the attacker's identity. The state is written to a short-lived `__Host-`
+    cookie now and a callback that cannot show it is refused with `state_mismatch`.
+  - **Three of the twelve were code that no caller reached.** `IntrospectionCache.Sweep` and
+    `ISessionStore.SweepAsync` had no production caller, so expired sessions and stale verdicts
+    accumulated for the life of the process; the sweeper swept login flows alone and is named
+    `SignInSweeper` now for sweeping all three. The failure redirect pointed at `LoginPath`,
+    which is the flow trigger, so a failure restarted the flow and looped the browser —
+    `FailurePath` is a separate option and `Validate()` refuses it if it equals either route
+    the library owns.
+  - **Two concurrency defects, one measured through the refresh path.** The per-session gate was
+    evicted on `SemaphoreSlim.CurrentCount == 1`, which reads the same whether the gate is idle
+    or a thread holding a reference has not yet reached `WaitAsync`; the next arrival built a
+    second gate for the same key and both refreshed at once. It is reference-counted under a
+    lock now. And a CAS conflict returned the winner's record without re-checking whether the
+    winner itself was stale — `ProviderTokens.From` defaults `ExpiresIn` to 0 when the provider
+    omits `expires_in`, so a winner can land already inside `RefreshSkew`. Bounded to two
+    attempts.
+  - **`ClientSecretBasic` sent a raw `id:secret`.** RFC 6749 §2.3.1 requires both halves
+    form-urlencoded before the base64, and a base64-shaped secret carries `+`, `/` and `=`, so
+    any provider reading the header to the letter refused the exchange.
+  - **A publish lock that outlived its publish.** Two e2e tiers publish `apps/sample`; a
+    `dotnet publish` over a running exe fails on Windows, and the earlier reasoning that the
+    second publish is incremental and writes nothing held only while the binary was already
+    current. Measured red once — `Failed: 4, Passed: 0` in the full run against green alone.
+    The lock is held for the test process's lifetime now.
+
+- **Spec 015 — the framework web seam** — `feat/015-framework-web-seam`, 2026-08-31. T1–T10, all
+  ten ticked. **546 facts across eight tiers, 0 failed, 0 skipped**; NativeAOT publish of
+  `apps/sample` clean, 0 IL2xxx/IL3xxx; structure-audit 0 errors, 3 pre-existing naming warnings.
+  Every new fact mutation-checked.
+  - **A product's entry point was 487 lines of framework wiring, and a security fix to any of it
+    could not reach a product already stamped.** Kestrel limits, forwarded headers, telemetry, data
+    protection, antiforgery, bot traps, rate limiting, the output cache, the middleware order,
+    `/healthz`, `/version`, `/readyz`, `/csp-report` and security.txt now live in
+    `libs/nativeweb.web`. The skeleton's `Program.cs` is 39 code lines, and a ceiling test holds it
+    there. Nothing is hidden: every step is a public extension method, and a product needing
+    something between two of them writes the eleven calls out.
+  - **Framework static assets are delivered by MSBuild, not copied into each product.**
+    `build/NativeWeb.Web.targets` contributes `wwwroot/_nativeweb/**` as linked `Content`, which the
+    static web assets pipeline fingerprints and precompresses into the consumer's publish output —
+    measured against a scratch probe before the design was committed. The `/_nativeweb/` base path
+    exists because two assets at one target path is a hard build error, not a precedence question.
+  - **Adopting the seam exposed three defects in one afternoon, each now a test.** Antiforgery's
+    `SecurePolicy.Always` 500s every form page over plain http, so `dotnet run` and Playwright both
+    broke (36 integration failures); `UseAuthentication` after antiforgery validation makes every
+    authenticated form post a 400 (10 more); and the scaffolded admin's inline `onsubmit` cannot run
+    under a nonce CSP, which only the Playwright tier could see (4 e2e).
+  - **The pipeline costs `articles` 66% of its throughput, and it is one middleware.** 18,958.6 →
+    6,440.5 req/s, bisected to response compression: the level makes no difference, the codec does,
+    and compressing strips the `Content-Length` that the 35% chunking fix had just added.
+    `docs/02-reference/performance.md` bottleneck 4 has the four-variant table and the three ways
+    out; `tools/bench/baseline.json` is re-recorded, because a baseline that is red on every run is
+    not a gate.
+  - **`Assembly.Load` by name is gone from the version lookup.** It does work under NativeAOT — the
+    published binary answered `/version` with the stamped value — but a name lookup that catches
+    four exception types and falls back is a silent wrong answer waiting for a rename. A product
+    passes `typeof(Program).Assembly` now.
+  - **The review found eleven things and three were worth fixing.** The data source was registered
+    as a built instance, so the container never disposed it and the pool outlived the host; the
+    Development antiforgery cookie name was composed a second way; and `Telemetry:Enabled` read
+    `1`, `yes` and `on` as off. The rest are in `work/todo.md`, including one finding that
+    contradicts a recorded decision and was left alone for it.
+
+- **Follow-on, same day — `perf/016-compression-placement`.** The compression trade 015 left open,
+  A/B'd against a real Caddy 2.11.4 rather than argued: the edge served the page at 9,002 req/s
+  where the app compressing it managed 6,255, and the composed pipeline recovered `articles` from
+  6,440.5 to **16,528.8 req/s**, putting the whole framework pipeline at 12.8% against Phase 1's
+  close instead of 66%. `UseResponseCompression` is out of `UseNativeWebPipeline`;
+  `encode zstd gzip` is in both deploy Caddyfiles, which validate; `AddNativeWebResponseCompression`
+  stays public for a host with no proxy. **562 facts, 0 failed, 0 skipped.** Brotli is absent
+  because stock Caddy has no encoder for it — `br` fails config validation outright.

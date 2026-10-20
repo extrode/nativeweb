@@ -1,0 +1,338 @@
+# Previous
+
+The task completed most recently, kept for one rotation so the next one has context.
+
+- **The scaffold generator stopped emitting the shapes it cannot express. Done on
+  `fix/scaffold-generator-remaining`, 2026-09-06.**
+
+  The four findings the 2026-09-06 review left open, all pre-existing and all the same family as
+  the three fixed the same day: a silent wrong answer where a build error belonged.
+
+  **The one that cost data again: a property whose setter was not public was skipped.** The emitted
+  `Build` ends in `new() { ... }`, so a property missing from that initializer is left at its
+  default and the store writes the default back over whatever the row held --
+  `{ get; private set; }` lost its column's contents on every edit with nothing reported anywhere.
+  Reachability is now one question asked of the property, both accessors and the constructor
+  alike: `internal` and `protected internal` are reachable from the generated file, which is
+  emitted into the consumer's own assembly, so they are carried from `existing` and never bound
+  from the form; `private`, `protected` and `private protected` are `NWS010` and the model is
+  refused. A private or protected *property* is still skipped rather than refused -- nothing
+  outside the type can see it, so there is no stored value to lose, and refusing one would refuse
+  most models.
+
+  **`NWS009` refuses a declaration the emitter cannot name or construct.** Everything it writes
+  names the model as `Namespace.TypeName` and builds a row with `new()`, so a generic type lost
+  its type arguments (CS0305), a nested one lost its containing declaration (CS0246), and a
+  positional record had no parameterless constructor to reach (CS7036) -- each inside generated
+  source, and none of them naming the cause. Static, abstract, file-local and value types join
+  them. NWF005 is the same guard in the forms generator; the scaffold generator had inherited
+  neither half of it.
+
+  **References resolve against a lookup rebuilt to a fixpoint.** A model refused by its own
+  `ChoicesResolve` failure stayed in the lookup, so a referrer emitted a control against a class
+  that was never generated. Refusing one now refuses the one behind it, and the diagnostics are
+  reported afterwards against the set that survived rather than against a lookup still holding
+  names the compilation was about to drop.
+
+  **The review caught two regressions in the fix and one dead condition.** A `protected internal`
+  constructor is callable from any class in the same assembly, so refusing it broke a model that
+  built the day before; an `internal` property was dropped one level above where the setter fix
+  closed the hole, which is the same silent reset; and only the setter was asked about, so
+  `{ private get; set; }` and a set-only property were emitted and then read in generated source.
+  The dead condition came out of the falsification: `pm.ReadOnly` asked about the property and its
+  setter, and C# permits an accessor modifier only where it is stricter than the declaration, so
+  no input could tell the two halves apart. The mutation that dropped half of it stayed green
+  because it was an equivalent mutation, and the answer was to delete the redundancy rather than
+  to invent a test for an impossible input.
+
+  **Seventeen mutations, sixteen red on an assertion.** Four in round one, six in round two after
+  four of the first eight turned red on `CS0162` rather than on a test -- a compiler refusing the
+  mutation is not a test catching the behaviour -- and seven against the review fixes. Scaffold
+  unit 284 -> 307, integration 196 against a real PostgreSQL, every other tier at its recorded
+  baseline, solution build 0 warnings with `TreatWarningsAsErrors` on.
+
+- **The scaffold generator stopped losing inherited data. Done on
+  `fix/scaffold-generator-defects`, 2026-09-06.**
+
+  Three defects from the 2026-08-31 three-lens audit, each confirmed by reading before the branch
+  started. **The one that cost data: `ScaffoldGenerator.Build` read `type.GetMembers()`**, which
+  returns declared members only, so a `[Scaffold]` model with a base class got no column, no input
+  and -- because the emitter builds an object initializer over exactly that list -- no assignment
+  either. Every save through the scaffold wrote the default over whatever the row held, with
+  nothing reported anywhere. The other two were silent overwrites of a different kind: a second
+  `[ScaffoldKey]` overwrote the first with no diagnostic, against the attribute's own documented
+  promise of one, and two `[Scaffold]` types sharing a short name across namespaces collided on
+  both the hint name and the emitted class name, which is a driver throw and a CS0101 that name
+  nothing. Now `NWS007` and `NWS008`.
+
+  **The fix opened a hole the review caught before it merged.** Reading the most-derived
+  declaration alone drops the base declaration's attributes -- Roslyn does not copy them and every
+  scaffold attribute is `Inherited = false` -- so a base `[ScaffoldReadOnly]` property overridden
+  without restating the attribute would have become editable. That is the mass-assignment hole the
+  attribute exists to close, arrived at silently, and it would have shipped. Fable found it, plus a
+  second cross-model hole: a short-name-collided model still has one key, so it resolved as a
+  reference target while never being emitted, and the referrer emitted a control against a class
+  that does not exist. Both fixed by reading the whole override chain as a group, base declarations
+  first so a restated attribute is the one that lands, and by building the target lookup after the
+  collision map rather than before it.
+
+  **`Enumerable.Reverse` on that group is not a detail.** The attribute loop is last-writer-wins for
+  `[ScaffoldList(Label = ...)]`, so reading most-derived first let the hidden base label overwrite
+  the restated one. The test caught it on the first run; the comment claiming the other precedence
+  was wrong before the code was.
+
+  **Nine mutations, all red**, five against the original three fixes and four against the review
+  fixes, each applied alone and reverted with the tree clean afterwards. Scaffold unit 268 -> 284,
+  integration 196 against a real PostgreSQL, every other tier at its recorded baseline, solution
+  build 0 warnings with `TreatWarningsAsErrors` on.
+
+- **The age key went off-host, and three guards now hold the runbook's claims to the truth. Done
+  on `docs/age-key-off-host` and `test/runbook-requirement-parity`, 2026-09-06.**
+
+  The operator stored the `age` private key off `incus-host`. Four places in the runbook said
+  no such copy existed and one was a literal `WHERE THE OFF-HOST COPY LIVES: NOT YET RECORDED`
+  placeholder. **It closes one of R17b's two blockers, not R17b:** the criterion is that the backup
+  is still readable once the host is gone, readable needs the key and the bytes, and the bytes are
+  still in a MinIO container on the machine being backed up. R14 is location-only and untouched.
+
+  **`RunbookClaimsTests` is the new guard**, three facts: the runbook's gap table and the spec's
+  acceptance addendum name the same unmet requirements; every measured table reports a value
+  carrying a digit; and no markdown in the repository asserts the deployment reference is still
+  unmeasured. The third found two live stale claims when it was first run --
+  `performance.md` and `003-framework-readiness.md` both still said every elapsed time was a
+  placeholder, four days after T15 measured them.
+
+  **Fable's review found seven, and four were defects in the tests themselves.** The parity test
+  read the *first* status line rather than the only one, so a superseded addendum would agree with
+  a stale runbook and pass; the measured-table test asserted the absence of one placeholder
+  spelling rather than the presence of a number, so `TBD`, an em dash, an empty cell and a deleted
+  row all passed; the paragraph splitter never split block quotes, making the runbook's own 37-line
+  opening one block; and the stale-claim sweep was scoped to `docs/` and `work/` with a verb list
+  narrow enough to miss "the runbook still shows". Fixed, and it also caught that
+  `current.md` reported the single point of failure closed while the runbook still said a host
+  loss was unrecoverable.
+
+  **Thirteen mutations, twelve red and one green on purpose.** The negative control is a true
+  past-tense sentence -- "the deployment reference read `NOT YET MEASURED` until 2026-09-05" --
+  which the guard must not convict; `read` is absent from the verb list for that reason. An earlier
+  version of the third test was committed and then rewritten: scanning line by line, it passed a
+  mutation wrapping the stale claim across two lines, which is the exact shape of one of the two
+  real defects it was written for. Tier green at 200.
+
+  **The 2026-09-01 key was printed into a terminal session** and read back out of that session's
+  own output during the drill, so it lives in whatever transcript that session left behind. Fable
+  raised it and the runbook records it; the operator decided on 2026-09-06 not to rotate, that
+  reach being acceptable for `nativeweb-dev`.
+
+- **A fable review of the T15 drill and the credential move found fourteen things, and the one it
+  could not check was a CI breaker. Done on `fix/ci-credential-config-file` and
+  `docs/011-r17-split-and-review-findings`, 2026-09-06.**
+
+  **The breaker:** `dotnet nuget add source --configfile <path>` does not create the file it is
+  given, it exits 1 with "File '...' does not exist." All four credential steps created the
+  directory and not the file, so a runner image with no user-level config would have failed every
+  one of them. Measured both shells against a scratch `HOME` and `APPDATA`: exit 1 before, exit 0
+  after. Fable had listed this as impossible to check without a shell; running it settled it.
+
+  **The guard was worse than the defect.** It banned one spelling of the path, so
+  `--configfile NuGet.Config` passed while resolving into the workspace on a case-insensitive
+  filesystem, and deleting a whole credential step left 194 tests green. Rebuilt around job blocks,
+  it then failed a second review on five more counts -- `$HOME/` is not outside the workspace on
+  ubuntu-latest, `--configfile` was collected job-wide rather than from the `add source`
+  invocation, order was unasserted, the created file was matched as text rather than parsed, and
+  the source-name check read ci.yml alone. **Nine** mutations of `ci.yml` and `publish.yml`
+  are red on it now, five of `skeleton/.github/workflows/ci.yml` on the skeleton guard, and
+  three of `build.sh`'s printed remedy on `DeployTargetTests`. Seventeen, each red on the
+  assertion that names it.
+
+  **The same defect was in two more places, both found by the tests binding to the old form.**
+  `skeleton/.github/workflows/ci.yml` wrote `FRAMEWORK_CHECKOUT_TOKEN` into the stamped product's
+  committed `nuget.config` in both jobs -- a PAT with `read:packages`, longer-lived than a job
+  token, inherited by every product stamped from the skeleton. `build.sh` printed the same command
+  for an operator and told them the token was under `$HOME` while it landed in their checkout.
+
+  **R17 was split and R14 corrected from met to unmet.** R17 read "Given only this repository and
+  offsite backups" and the drill had no offsite backup: the bucket was MinIO on the host being
+  restored. R17a is what the drill proved; R17b, that the backup outlives the machine, follows
+  from R14 and was never rehearsed. The runbook's opening callout still said R16 and R17 were
+  unmet and that the tables below read `NOT YET MEASURED`, 350 lines above tables holding real
+  numbers; the T15 entry was ticked with the pre-drill paragraph kept verbatim beneath it saying
+  the box stays unchecked; and the milestone claimed every `NOT YET MEASURED` was now a number.
+
+  **One process note, for the next time.** Falsification reverts with `git checkout --`, which
+  takes uncommitted work with it -- the skeleton and `build.sh` fixes were wiped mid-run and had
+  to be re-applied. The standing order is green, **commit**, break, revert, and the commit is the
+  part that matters.
+
+- **`Socket.OSSupportsIPv6` was the wrong gate, and justsmtp.com found it. Done on
+  `fix/ipv6-loopback-trial-bind`, 2026-09-05.** Both port allocators skipped the `::1` probe when
+  that flag was false. The flag is computed by creating an IPv6 socket, so it reports that the
+  stack exists, not that the loopback address can be bound: a machine with IPv6 off by group
+  policy answers true and then refuses every bind. All 32 attempts would fail for one cause and
+  throw "No port free on both loopback addresses after 32 attempts", sending whoever debugged it
+  at the exclusion ranges. Both allocators now bind `::1` once at static init and remember the
+  answer, and both `PortAllocationTests` use that same value so a test cannot be stricter than
+  the allocator. The exchange went both ways: this repo sent the wildcard correction that
+  justsmtp had already reproduced independently, and got this back. **"Only half the fix is testable
+  here" was wrong, and the user caught it.** The obstacle was never that this machine has IPv6 --
+  it does, which is precisely why the false branch never runs here. The obstacle was that the
+  decision was hard-wired into the allocator, so a differently-configured machine was the only way
+  in. Both allocators take the `::1` check as a parameter now, on `fix/ipv6-gate-testable`, and
+  both sides are asserted: a predicate that never accepts must exhaust the loop and say
+  "32 attempts" rather than return a port, and `CanBindV6` returning false is proved by holding
+  `::1` on a port and asking about that port, which needs no special host. A platform limit was
+  claimed where there was a design limit -- but only partly, and the fable review said so: the
+  ternary that picks the real probe or a no-op still runs one arm here, so the seam moved the
+  untestable part rather than removing it. The remarks say that now. Fable also killed the
+  always-true test (no mutation kills it that the other two miss) and caught the held-port test
+  binding `::1` in its own arrange step with no gate, which would have made it fail on the one
+  host class this whole change is for -- stricter than the allocator it stands in for, the exact
+  fault this file's remarks warn against. Both fixed; six findings, five acted on, one refuted in
+  part. Scaffold 35/35, sign-in 8/8, permissions 3/3, forms 7/7, sample unit 231, solution build
+  0 warnings, structure-audit 0 errors and the 3 pre-existing kebab-case warnings.
+
+- **No e2e fixture names a port any more, and the sign-in tier's allocator was wrong. Done on
+  `fix/scaffold-e2e-os-allocated-ports`, 2026-09-05.** Five fixtures across three tiers held
+  literals -- 5347, 5348, 5351 in scaffold, 5352 in permissions, 5353 in forms -- all through one
+  linked base class, so one change closed all five. The scaffold tier had been failing 31/31 on
+  `address already in use` because `justsmtp.web.exe` from another repository was listening on
+  5348; it runs 32/32 now with that process still up. The review earned its cost twice. It caught
+  that `TcpListener.Create(0)` is the wrong probe: it binds the dual-stack wildcard, and a
+  deliberate break returning an occupied 5348 was **accepted** by the wildcard and refused by the
+  loopback pair, so the OS can report free a port Kestrel cannot bind. Yesterday's sign-in
+  allocator had that defect and is fixed too. It also caught that three fixtures draw
+  concurrently -- this file's own `PublishedExe` remarks record that xUnit does not serialize a
+  collection's fixtures -- so a process-wide record of handed-out ports guards the window between
+  the probe closing and Kestrel binding. **One test was written and then deleted for lying**: with
+  the dedup guard removed, sixteen sequential draws stayed distinct, because Windows cycles the
+  ephemeral range rather than reissuing what was just released. The guard stays, documented as
+  unproven, rather than carrying a green test that cannot fail. Falsified four ways that do fail:
+  an occupied port, an excluded port, port 0, and an excluded port through the new allocator.
+
+- **The sign-in e2e tier is green for the first time on this workstation. Done on
+  `fix/signin-e2e-excluded-port`, 2026-09-05.** It failed 4/4 with "An attempt was made to access
+  a socket in a way forbidden by its access permissions" and had done since before the xunit v3
+  move. Nothing held the ports: `SignInProcessFixture` named 5349 and 5350, and both sit in this
+  machine's Windows TCP exclusion ranges - on the IPv6 list as well as the IPv4 one, which an
+  IPv4-only probe would have missed. The fixture asks for port 0 twice now, holding both listeners
+  open until both ports are known so the second call cannot be handed the first's port back. It
+  used `TcpListener.Create` when this was written, on the reasoning that a dual-stack probe
+  matches the `localhost` binding it feeds; that was wrong and was corrected later the same day
+  -- see the bullet above. Allocation moved out of the constructor and behind the publish, which had put a
+  30-minute lock wait between observing a port free and binding it. 5/5 in 6.4 s warm, 48 s cold.
+  One review finding was acted on and then reversed by measurement: putting the new port fact in
+  the e2e collection made a broken allocator fail it with the fixture's "Hosting failed to start"
+  rather than the assertion, and the collection already sets `DisableParallelization`, so nothing
+  ran in parallel with it to begin with. **The scaffold e2e tier is red for the same class of
+  reason and was not touched**: it hardcodes 5348, and `justsmtp.web.exe` from another repository
+  was listening on it, so 31/31 failed on `address already in use`. One line in `../todo.md`.
+
+- **`build.sh` names its own remedy when the JauntyQ feed refuses it. Done on
+  `fix/build-sh-jauntyq-credential`, 2026-09-05.** The sharp end of the package-mode default, and
+  measurement moved it: this is not a cold-host risk, it is a release that could not run here. The
+  feed is credentialed in the Windows user-level `NuGet.Config`, so a restore into an empty package
+  folder succeeds on Windows in 11.6 s; `build.sh` runs in WSL, whose profile holds no
+  `packageSourceCredentials` and whose 255 cached packages include no JauntyQ, and a real run died
+  `NU1301` / `401 (Unauthorized)` at 9.57 s. The script now restores before it publishes and, on an
+  auth failure, prints the one `dotnet nuget update source` command that fixes it. It carries no
+  token: a `%VAR%` credential block in `nuget.config` would override the working Windows credential
+  whenever the variable is unset, and having the script credential the source itself would leave a
+  plaintext token under `$HOME` as a silent side effect. Two facts in `DeployTargetTests`, both
+  cross-referential rather than substring checks - the preflight and the publish select the same
+  JauntyQ mode, and the remedy names the source `nuget.config` maps `JauntyQ.*` to. Repo tier 192.
+
+- **JauntyQ package mode is the default. Done on `chore/jauntyq-package-default`, 2026-09-05 (reviewed, two lenses, 2 confirmed defects fixed).**
+  JauntyQ split its generator and runtime out to a public core repository, so `../jauntyq` no
+  longer carries either csproj this repository referenced. Six sites pointed at the half that
+  left, `NativeWeb.slnx` among them, and every local build failed fast until
+  `-p:JauntyQUsePackages=true` was passed by hand. The flip inverts one property: package mode is
+  the default, `-p:JauntyQUsePackages=false` selects a checkout. The probe block and
+  `EnsureJauntyQRoot` are untouched, so checkout mode is intact for the day the public core is
+  cloned. `NativeWeb.slnx` loses its two dead members, which is what makes a root `dotnet build`
+  work at all, and with them go the `dotnet sln remove` / `git checkout --` pair in
+  `.github/workflows/ci.yml` and the `extrode/jauntyq` clone in the skeleton's. Every tier at
+  baseline with no flag on the command line - render 219, forms 148, scaffold 268, permissions
+  151, sample 231, repo 189 (183 plus seven new, minus a merged pair) - and the solution builds 0
+  warnings, which it had never done in package mode. Two things left for the user: the
+  pre-split sentinel, and the `AGENTS.md` licence sentence that no longer describes how we build.
+  Plan in `docs/plans/2026-09-05-011-jauntyq-package-mode-default.md`, decision 012.
+
+- **Ten outdated NuGet pins bumped. Done on `chore/package-bumps`, 2026-09-05.** Raised from the
+  NuGet Solution "Updates" list: AngleSharp, Geralt, Mvc.Testing, TestHost, Logging.Abstractions,
+  Playwright and the four OpenTelemetry packages, in both `Directory.Packages.props` files, plus
+  `Microsoft.CodeAnalysis.Analyzers` 3.11.0 -> 5.9.0 on `chore/analyzers-bump`. Playwright
+  1.49 -> 1.62 is the largest jump and the scaffold e2e tier passes 31/31 on the installed
+  chromium. Every tier re-run at its recorded baseline, repo 183 with the new drift guard.
+
+  **The twelfth was held back for a day and then moved.** `Microsoft.CodeAnalysis.CSharp` stayed
+  at 4.12.0 on 2026-09-05 because the version the four `IsRoslynComponent` projects compile against
+  is a floor on every consumer of the published analyzer packages, and `justsmtp.com` was under it:
+  it pins `NativeWeb.Render.Generator` and its `global.json` had no `sdk` section. That repository
+  pinned `10.0.100` / `latestFeature` the same day, the consumer set was re-checked here (nothing
+  else consumes a generator), and the pin moved to 5.3.0 on `chore/roslyn-csharp-5-3`. 5.9.0 is
+  still out of reach: our SDK runs Roslyn 5.3.0 and refuses a newer analyzer with CS9057. Every
+  generator-backed tier re-ran at baseline - render 219, forms 148, scaffold 268, permissions 151,
+  sample 231, repo 183 - and `apps/sample` builds 0 warnings, which under repo-wide
+  `TreatWarningsAsErrors` is what proves no generator stopped loading.
+
+  The first telling of this lumped `.Analyzers` in with it, and that was wrong: it is
+  `PrivateAssets="all"`, never reaches a consumer, and is a rule pack rather than a compiler API
+  surface, so neither argument touches it. A `qwen-review` audit reached the same conclusion
+  independently; a later `glm-think` pass found the comment block's own account of CS9057
+  incomplete - a consumer that consumes generated symbols does not get a silent green build, it
+  gets CS0103 on its own source for every one of them. Both NU1605 bounds are quoted from the
+  restore output rather than guessed (CSharp 4.12.0 requires Analyzers >= 3.3.4, CSharp 5.3.0
+  requires >= 5.3.0-2.25625.1). Decisions 010 and 011 in `docs/decisions/`; 011 also records the
+  two things 010 got wrong about `justsmtp.com`, both corrected by measurement from that repository.
+
+- **xunit 2.9.3 -> xunit.v3 4.0.0. Done on `chore/xunit-v3`, 2026-09-05.** Not a pin bump: v3 is
+  Microsoft.Testing.Platform, and the .NET 10 SDK will not run it through VSTest, so
+  `Microsoft.NET.Test.Sdk` and `xunit.runner.visualstudio` are dropped and every `dotnet test` in
+  the repository changes shape. 23 test projects, 26 `IAsyncLifetime` signatures to `ValueTask`,
+  and 30 command lines in CI, the docs and `tools/stamp-check.ts`. Every tier green at its recorded
+  baseline (repo 181, web unit 177, sample unit 231, five integration tiers, four e2e tiers), and
+  `tools/stamp-check.ts` proves a stamped product builds and runs 1 unit and 6 integration tests
+  under the new platform. Two things it left: xUnit1051 is suppressed in the two test-tier
+  `Directory.Build.props` with the reason stated, and `nativeweb.signin.tests.e2e` fails 4/4 on a
+  Windows excluded port range, identically on `dev` under the old stack. Both in `../todo.md`.
+  Plan in `docs/plans/2026-09-05-010-xunit-v3.md`.
+
+- **Spec 029 - framework-owned templates. Done on `feat/029-framework-templates`, 2026-09-05.**
+  Applies spec 015 R7's argument to the four HTML partials it stopped short of:
+  `shared/{antiforgery,bot-traps,banner-ok,banner-error}.html` move into `libs/nativeweb.web` and
+  are contributed to every consumer as `AdditionalFiles` by `NativeWeb.Web.targets`, the way that
+  file already contributes `wwwroot/**`. `RenderTemplateGenerator.LogicalPath` keys on the last
+  `/templates/` segment of a physical path, so the logical names and all 11 call sites are
+  unchanged. The reason it matters is `bot-traps.html`, which duplicates five `BotTraps` field-name
+  constants as literal text: rename one and every product's copy stops matching with no compile
+  error, no test failure and no runtime error. Also closes the gap that `apps/sample` cannot render
+  a flash banner at all: the contact form is post-redirect-get now, and `ContactFlashTests` drives
+  both banners through a real request. All eleven tasks done, R2's package half stated as
+  unproven. The one gap the run left open is closed on `chore/029-template-delivery-switch`:
+  `FrameworkTemplateDeliveryTests` runs `dotnet msbuild -getItem:AdditionalFiles` against a
+  throwaway project and pins what `NativeWebImportTemplates` delivers at each setting, which no
+  build in this repository does. Spec, plan and tasks in `docs/specs/029-framework-owned-templates/`.
+
+- **A Fable review of both merged branches, and the twelve fixes it produced.** Fable had not
+  seen either branch: 028 and the stamp check both went to `review` (opus) on two lenses. Its
+  fourteen findings settled to twelve real, one refuted and one not a finding, every one of them
+  verified with a shell rather than taken on trust. Merged on `fix/fable-review-findings`.
+
+- **Milestone 1 - the skeleton builds here, not only in CI. `fix/skeleton-stamp-authorization`,
+  2026-09-05.** `tools/stamp-check.ts` stamps a product, builds it and runs its unit tier against
+  this working tree; the integration tier is opt-in behind `--with-database` because it needs the
+  stamped product's own Postgres role. Its first run found the reason the gap mattered: a stamped
+  product registered the authorization services only when a sign-in provider was configured and
+  died at startup without one. Both are fixed and merged. The half of this that read "nothing
+  replaces `SkeletonParityTests`" was retired on 2026-09-05: that suite compared twenty copied C#
+  files against a twin, spec 015 removed the copies and the twin left with the identity provider,
+  so the invariant is vacuous. What is left of the milestone is the integration tier's database.
+
+- **Spec 028 - versioned package releases. Building on `feat/028-package-releases`, 2026-09-04.**
+  Closes G1 in `docs/architecture/004-consumer-readiness.md` and discharges obligation 2 of
+  `docs/decisions/2026-08-30-004-package-mode-for-consumers.md`: one `VersionPrefix` in
+  `Directory.Build.props` in place of thirteen per-project `<Version>` lines, an opt-in
+  `IsReleaseBuild` that keeps every unmarked pack on `-dev`, repository provenance and the
+  library's own README inside each `.nupkg`, `tools/pack.ts` as the one pack command, a
+  tag-only `publish.yml`, and `docs/02-reference/versioning.md` stating what a version promises.
+  Spec, plan and tasks in `docs/specs/028-versioned-package-releases/`.

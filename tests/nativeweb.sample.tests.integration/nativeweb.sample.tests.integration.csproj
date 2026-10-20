@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.Sample.Tests.Integration</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- Method_Scenario_Expectation is the xUnit convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707;CA1711</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The reference application itself. The scaffolding tiers next door drive the
+         same host for the generated admin; this one is the sample's own tier, and it
+         exists because spec 016 R28 is a claim about the app rather than about any
+         one library. -->
+    <ProjectReference Include="..\..\apps\sample\nativeweb.sample.csproj" />
+  </ItemGroup>
+
+</Project>

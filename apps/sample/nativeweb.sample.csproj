@@ -1,0 +1,124 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- The scaffolding demo (brainstorm 001 T1.3). Two decorated models, no
+       hand-written CRUD code, no templates: everything under /admin is emitted by
+       libs/nativeweb.scaffold.generator at build time.
+
+       TargetFramework, Nullable, ImplicitUsings, IsAotCompatible and
+       TreatWarningsAsErrors come from Directory.Build.props. -->
+  <PropertyGroup>
+    <PublishAot>true</PublishAot>
+    <StripSymbols>true</StripSymbols>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <RootNamespace>NativeWeb.Sample</RootNamespace>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Declarative form binding (spec 014). The generator is referenced with
+         ReferenceOutputAssembly="false" like every other one here: its types are a
+         build-time concern and must not reach the published binary. -->
+    <ProjectReference Include="..\..\libs\nativeweb.forms\nativeweb.forms.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.forms.generator\nativeweb.forms.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+
+    <!-- Spec 027: the contact form sends through the framework mail seam. MailKitLite
+         and MimeKitLite come with it, both AOT-guaranteed variants. -->
+    <ProjectReference Include="..\..\libs\nativeweb.mail\nativeweb.mail.csproj" />
+
+    <ProjectReference Include="..\..\libs\nativeweb.scaffold\nativeweb.scaffold.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.scaffold.generator\nativeweb.scaffold.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <!-- Spec 024. The generator emits the permission constants and the catalog; the
+         library carries the endpoint filter, the per-request held set and the access
+         admin. Same analyzer wiring as the scaffold pair above. -->
+    <ProjectReference Include="..\..\libs\nativeweb.permissions\nativeweb.permissions.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.permissions.generator\nativeweb.permissions.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <!-- The compiled-template render engine, added 2026-08-31. Before it, this app
+         hand-built its HTML in a StringBuilder while the render layer (the largest
+         library in the framework at 3,633 lines) was exercised only by its own unit
+         tier and by the skeleton, which no local build compiles. A reference
+         application that does not use the framework's own renderer demonstrates the
+         wrong thing. -->
+    <ProjectReference Include="..\..\libs\nativeweb.render\nativeweb.render.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+    <!-- The OAuth relying party (spec 016). Referenced so the demo under
+         DemoSignIn.cs can sign a visitor in against a provider; the app registers
+         it only in Development, where the provider is this same process. -->
+    <ProjectReference Include="..\..\libs\nativeweb.signin\nativeweb.signin.csproj" />
+    <!-- The framework's request pipeline (spec 015). -->
+    <ProjectReference Include="..\..\libs\nativeweb.web\nativeweb.web.csproj" />
+  </ItemGroup>
+
+  <!-- The framework's browser assets. NuGet imports this file on its own for a
+       PackageReference; a ProjectReference does not, so it is imported by path.
+       It contributes the files under libs/nativeweb.web/wwwroot/ to this app's
+       static web assets, which is what fingerprints and precompresses them. -->
+  <Import Project="..\..\libs\nativeweb.web\build\NativeWeb.Web.targets" />
+
+  <!-- JauntyQ, hosted here against db/sample/ rather than in a shared library.
+       It read "rather than taken from libs/nativeweb.data" until 2026-08-31, when
+       that library and the identity schema it generated against left with the
+       provider (decision 2026-08-31-007). The reason outlived them: a project
+       declaring its own queries as AdditionalFiles is what a consumer stamping
+       this template does, so the demo shows the shape a product will have. -->
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(JauntyQUsePackages)' == 'false'">
+    <ProjectReference Include="$(JauntyQRoot)\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <ProjectReference Include="$(JauntyQRoot)\src\Extrode.JauntyQ.Runtime\Extrode.JauntyQ.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(JauntyQUsePackages)' != 'false'">
+    <PackageReference Include="Extrode.JauntyQ.Generator" PrivateAssets="all" />
+    <PackageReference Include="Extrode.JauntyQ.Runtime" />
+  </ItemGroup>
+
+  <!-- The store's pure helpers are internal because nothing outside this app has
+       any business calling them; the unit tier is the exception the attribute
+       exists for. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="nativeweb.sample.tests.unit" />
+    <!-- JauntyPermissionStore is the repository's only IPermissionStore over a real
+         database, so the permission layer's integration tier drives it from here
+         rather than writing a second one to test the first against. -->
+    <InternalsVisibleTo Include="nativeweb.permissions.tests.integration" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Templates and the locale catalog, read by nativeweb.render.generator. Not
+         ** on locales: the generator only accepts files directly under locales/. -->
+    <AdditionalFiles Include="templates\**\*.html" />
+    <AdditionalFiles Include="locales\*.json" />
+    <!-- dotnet watch's default globs are the compile items; AdditionalFiles are
+         not among them. Measured on 2026-08-31 by removing these two lines and
+         editing a template: the watcher logged no file-change line at all and the
+         running app kept serving the previous markup, which reads as a caching
+         bug rather than a watcher that was never told.
+
+         These lines are necessary and not sufficient. Hot reload has to be off as
+         well, via the watch flag that disables it: see the command in
+         docs/00-quick-start/getting-started.md, which is the form that works.
+         Under the default hot-reload session this project detected nothing,
+         template or .cs alike, while a scratch console app in the same tree
+         detected both, so the cause is this project's shape, not the machine.
+         (The flag is not spelled here because a double hyphen is illegal inside
+         an XML comment: MSB4025, and the whole project fails to load.) -->
+    <Watch Include="templates\**\*.html" />
+    <Watch Include="locales\*.json" />
+    <AdditionalFiles Include="..\..\db\sample\queries\**\*.sql" />
+    <AdditionalFiles Include="..\..\db\sample\schema\*.schema.json" />
+  </ItemGroup>
+
+</Project>

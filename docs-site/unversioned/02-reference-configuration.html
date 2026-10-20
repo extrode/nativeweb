@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuration reference — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Reference &#8250; Configuration reference</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Quick start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html" class="active" aria-current="page">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#the-section-prefix">The section prefix</a><a class="toc-l2" href="#framework-settings">Framework settings</a><a class="toc-l3" href="#outside-the-section">Outside the section</a><a class="toc-l3" href="#three-that-stop-the-process">Three that stop the process</a><a class="toc-l3" href="#the-reference-applications-own-key">The reference application's own key</a><a class="toc-l2" href="#sign-in-settings">Sign-in settings</a><a class="toc-l2" href="#what-a-provisioned-host-holds">What a provisioned host holds</a><a class="toc-l2" href="#related">Related</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Configuration reference</nav>
+        <article>
+<h1 id="configuration-reference">Configuration reference</h1>
+<p>Every setting the framework reads, what it defaults to, and what a wrong or absent value costs.</p>
+<p><strong>This page is enforced.</strong> <code>tests/nativeweb.repo.tests.unit/DocsClaimsTests.cs</code> extracts the key
+names from the two binders below at run time and fails when this file names a key the code does
+not read, or omits one it does. An earlier version of this page was not enforced, described an
+application that had left the repository, and stayed wrong for months while being served at
+<code>/docs</code>; the guard is the lesson.</p>
+<h2 id="the-section-prefix">The section prefix</h2>
+<p>NativeWeb reads nothing from a fixed key path. Every setting lives under a section the product
+chooses, passed to <code>NativeWebOptions.FromConfiguration(builder.Configuration, &quot;&lt;Name&gt;&quot;)</code>. The
+reference application uses <code>Sample</code> (<code>apps/sample/Program.cs</code>); a product stamped from
+<code>skeleton/</code> uses its own name. Keys below are written section-relative — read <code>{Section}</code> as
+whatever your composition root passed.</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>When</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>appsettings.json</code></td>
+<td>always</td>
+<td>Committed. Never a secret</td>
+</tr>
+<tr>
+<td>User secrets</td>
+<td>Development only</td>
+<td><code>CreateSlimBuilder</code> does not load them; add them explicitly under <code>IsDevelopment()</code></td>
+</tr>
+<tr>
+<td>Environment variables</td>
+<td>always</td>
+<td>The deployment path</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Environment-variable spelling replaces <code>:</code> with <code>__</code>.</strong> <code>Sample:Db:MaxAutoPrepare</code> is
+<code>Sample__Db__MaxAutoPrepare</code>.</p>
+<h2 id="framework-settings">Framework settings</h2>
+<p>Bound by <code>NativeWebOptions.TryFromConfiguration</code> in <code>libs/nativeweb.web/NativeWebOptions.cs</code>.
+The <strong>On a bad value</strong> column is the one to read: three of these stop the process at startup
+with the key named on stderr, and the rest fall back silently.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>On a bad value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{Section}:Db:ConnectionString</code></td>
+<td>none</td>
+<td>Null. The app answers <code>/healthz</code> but reports not-ready</td>
+</tr>
+<tr>
+<td><code>{Section}:Db:CommandTimeoutSeconds</code></td>
+<td>driver default</td>
+<td>Ignored unless a positive integer</td>
+</tr>
+<tr>
+<td><code>{Section}:Db:MaxAutoPrepare</code></td>
+<td><code>20</code></td>
+<td>Falls back to 20</td>
+</tr>
+<tr>
+<td><code>{Section}:ForwardedHeaders:KnownProxies</code></td>
+<td>empty</td>
+<td>Unparseable entries are <strong>skipped, not fatal</strong> — a typo costs a degraded rate-limit partition, not an outage. <strong>Required behind a proxy</strong>: <code>deploy.sh</code> refuses to promote a release without it, because unset means ASP.NET Core trusts loopback only, <code>RemoteIpAddress</code> is the proxy hop, and every client shares one rate-limit partition with nothing logged</td>
+</tr>
+<tr>
+<td><code>{Section}:ForwardedHeaders:ForwardLimit</code></td>
+<td><code>1</code></td>
+<td><strong>Fails startup</strong> unless a positive whole number. The number of proxy hops in front of the app, and separate from <code>KnownProxies</code>: that decides <em>which</em> hops may be unwound, this caps <em>how many</em> are, so a chain longer than the cap stops early however well-trusted its hops are. <code>provision.sh --edge</code> builds two hops and seeds <code>2</code>. Raising it opens no spoofing surface — every step is still gated by the trust check</td>
+</tr>
+<tr>
+<td><code>{Section}:Telemetry:Enabled</code></td>
+<td><code>false</code></td>
+<td><strong>Fails startup.</strong> <code>&quot;1&quot;</code>, <code>&quot;yes&quot;</code> and <code>&quot;Enabled&quot;</code> are all things an operator writes meaning on, and every one of them would read as off under an equality check</td>
+</tr>
+<tr>
+<td><code>{Section}:DataProtection:KeyDirectory</code></td>
+<td>a directory under the process's home</td>
+<td>A <strong>configured</strong> value is taken as given and never probed — an operator's explicit statement, checked instead by <code>deploy.sh</code>'s preflight against <code>ReadWritePaths</code>. Only the fallback is proved, and <strong>fails startup</strong> when there is no home to fall back to</td>
+</tr>
+<tr>
+<td><code>{Section}:Uploads:Directory</code></td>
+<td>an <code>uploads</code> directory beside the data-protection key ring, or under it when that has no parent</td>
+<td>Read as configuration, and <strong>created and probed once at startup, not by the binder</strong>: <code>NativeWebOptions.TryPrepareUploadDirectory</code> makes it if it is absent and <strong>fails startup</strong> when it exists and this process cannot write to it. Unwritable has to be fatal rather than deferred, because otherwise every upload fails after the deploy that made it read-only with nothing reporting it</td>
+</tr>
+<tr>
+<td><code>{Section}:BotTraps:MinAgeSeconds</code></td>
+<td>unset, and the trap still runs: <code>BotTrapOptions.MinAge</code> is 3 s and the binder overrides it only when the key is set</td>
+<td><strong>Fails startup</strong> unless a non-negative number</td>
+</tr>
+<tr>
+<td><code>{Section}:RateLimit:General:PermitLimit</code></td>
+<td><code>120</code></td>
+<td>Falls back to 120; <code>0</code> and negatives take the default rather than opening or closing the policy</td>
+</tr>
+<tr>
+<td><code>{Section}:RateLimit:CspReport:PermitLimit</code></td>
+<td><code>10</code></td>
+<td>Falls back to 10</td>
+</tr>
+<tr>
+<td><code>{Section}:Readiness:CacheSeconds</code></td>
+<td><code>1</code></td>
+<td>Clamped to a 30-second maximum</td>
+</tr>
+<tr>
+<td><code>{Section}:SecurityContact</code></td>
+<td>unset, serves no <code>/security.txt</code></td>
+<td><strong>Fails startup</strong> unless a bare email address or a <code>mailto:</code>, <code>https:</code> or <code>tel:</code> URI on one line</td>
+</tr>
+</tbody>
+</table>
+<h3 id="outside-the-section">Outside the section</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ConnectionStrings:{Section}</code></td>
+<td>none</td>
+<td>What <code>apps/sample</code> reads, in preference to <code>{Section}:Db:ConnectionString</code>. Fill the one your binary uses</td>
+</tr>
+<tr>
+<td><code>OTEL_SERVICE_NAME</code></td>
+<td>the application name</td>
+<td>At the configuration root, not under the section: it is the standard environment variable</td>
+</tr>
+<tr>
+<td><code>OTEL_EXPORTER_OTLP_ENDPOINT</code></td>
+<td>none</td>
+<td>Read by the OpenTelemetry exporter itself. <code>deploy.sh</code> refuses to promote when telemetry is on and this is unset</td>
+</tr>
+</tbody>
+</table>
+<h3 id="three-that-stop-the-process">Three that stop the process</h3>
+<p><code>Telemetry:Enabled</code>, <code>DataProtection:KeyDirectory</code> and <code>SecurityContact</code> fail startup rather
+than defaulting, and each for the same reason: the silent version of the failure is invisible.
+Telemetry an operator believes is exporting and is not; a key ring that cannot persist, so every
+restart remints the antiforgery keys and every form POST answers 400 after a deploy while
+<code>/readyz</code> stays green; a <code>/security.txt</code> nobody can act on. <code>KeyDirectory</code> is the partial case:
+what stops the process is having no usable fallback, not a configured directory that turns out to
+be unwritable, which the deploy preflight catches rather than startup. The exit is code 78 with the key
+named on stderr — never a modal dialog, which under NativeAOT on Windows a supervisor reads as
+a hung service.</p>
+<h3 id="the-reference-applications-own-key">The reference application's own key</h3>
+<p><code>apps/sample</code> reads one setting the framework does not, under its own <code>Sample</code> section.
+It is the sample's, not a framework key: a single shared passphrase in front of one
+product's admin is that product's decision, and a product stamped from <code>skeleton/</code> signs
+in through its OAuth provider instead.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>On a missing value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Sample:Admin:Passphrase</code></td>
+<td>none</td>
+<td><strong>Production fails startup</strong> with the key named, exit 78. Any other environment but Development serves the form at <code>/signin</code> and refuses every attempt. Development ignores it: there <code>/signin</code> signs the visitor in without a form</td>
+</tr>
+</tbody>
+</table>
+<p>On a deployed host it lives in <code>/etc/nativeweb/secrets.env</code> as <code>Sample__Admin__Passphrase</code>,
+which <code>provision.sh</code> seeds blank and <code>deploy.sh</code> refuses to promote without, a quoted empty
+value included. The provisioner writes only a <code>secrets.env</code> that does not exist yet, so a
+host provisioned before the key existed gets the line added by hand. The comparison
+is constant-time over a digest of each side, the POST is rate-limited to 10 attempts per
+client address per minute, and a refusal is one fixed page whatever was typed.</p>
+<h2 id="sign-in-settings">Sign-in settings</h2>
+<p>Bound by <code>SignInConfiguration</code> in <code>libs/nativeweb.signin/SignInConfiguration.cs</code>, under a
+section the product names when it calls <code>AddSignIn</code>. See
+<code>libs/nativeweb.signin/README.md</code> for what the library does with them.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AuthorizationEndpoint</code>, <code>TokenEndpoint</code>, <code>UserInfoEndpoint</code>, <code>IntrospectionEndpoint</code></td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>ClientId</code>, <code>ClientSecret</code>, <code>RedirectUri</code></td>
+<td>empty</td>
+</tr>
+<tr>
+<td><code>ClientAuthentication</code></td>
+<td><code>ClientSecretBasic</code></td>
+</tr>
+<tr>
+<td><code>Scopes</code></td>
+<td>the library's default set, <strong>replaced wholesale</strong> when configured, never merged</td>
+</tr>
+<tr>
+<td><code>CookieName</code></td>
+<td><code>__Host-signin</code></td>
+</tr>
+<tr>
+<td><code>LoginPath</code></td>
+<td><code>/signin</code></td>
+</tr>
+<tr>
+<td><code>CallbackPath</code></td>
+<td><code>/signin/callback</code></td>
+</tr>
+<tr>
+<td><code>LogoutPath</code></td>
+<td><code>/signout</code></td>
+</tr>
+<tr>
+<td><code>SignedOutPath</code>, <code>FailurePath</code>, <code>DefaultReturnPath</code></td>
+<td><code>/</code></td>
+</tr>
+<tr>
+<td><code>FlowLifetimeSeconds</code></td>
+<td>15 minutes</td>
+</tr>
+<tr>
+<td><code>SessionLifetimeSeconds</code></td>
+<td>14 days</td>
+</tr>
+<tr>
+<td><code>RefreshSkewSeconds</code></td>
+<td>2 minutes</td>
+</tr>
+<tr>
+<td><code>IntrospectionCacheLifetimeSeconds</code></td>
+<td>30 seconds</td>
+</tr>
+<tr>
+<td><code>RetainTokens</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>StoreEncryptionKey</code></td>
+<td>none. Base64, because that is what a secret manager hands back and the only encoding that survives an environment variable without a length surprise. It must decode to exactly <code>StoreDataProtector.KeyBytes</code>, and a single repeated byte is refused outright — <code>new byte[32]</code> is what a placeholder and a copied example both look like, and it boots a host whose stored provider tokens anyone can decrypt. Generate one with <code>RandomNumberGenerator.GetBytes(32)</code></td>
+</tr>
+<tr>
+<td><code>AllowEphemeralStoreEncryptionKey</code></td>
+<td><code>false</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-a-provisioned-host-holds">What a provisioned host holds</h2>
+<p><code>scripts/deploy/provision.sh</code> seeds five files under <code>/etc/nativeweb/</code>. It writes them empty
+where a value is a secret: a script that generates a production credential is a script that has
+seen it.</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Mode</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>app.env</code></td>
+<td><code>0644 root:&lt;group&gt;</code></td>
+<td><code>ASPNETCORE_ENVIRONMENT</code>, the forwarded-headers stanza, <code>DataProtection:KeyDirectory</code>, <code>Telemetry:Enabled</code></td>
+</tr>
+<tr>
+<td><code>secrets.env</code></td>
+<td><code>0640 root:&lt;group&gt;</code></td>
+<td>The connection string, in both spellings — fill the one your binary reads and delete the other</td>
+</tr>
+<tr>
+<td><code>blue.env</code>, <code>green.env</code></td>
+<td><code>0644 root:&lt;group&gt;</code></td>
+<td><code>ASPNETCORE_URLS</code> for each colour, ports 5011 and 5012</td>
+</tr>
+<tr>
+<td><code>backup.env</code></td>
+<td><code>0640 root:root</code></td>
+<td>Read by <code>scripts/deploy/backup.sh</code> and <code>scripts/deploy/restore.sh</code>, not by the application</td>
+</tr>
+</tbody>
+</table>
+<p><code>DataProtection:KeyDirectory</code> must stay inside <code>/var/lib/nativeweb</code>: <code>ReadWritePaths</code> in the
+systemd unit names that directory and <code>ProtectSystem=strict</code> makes the rest read-only.</p>
+<h2 id="related">Related</h2>
+<ul>
+<li><code>docs/02-reference/deployment.md</code> — the runbook these files serve.</li>
+<li><code>libs/nativeweb.web/README.md</code> — the pipeline that reads the framework settings.</li>
+<li><code>libs/nativeweb.signin/README.md</code> — the relying party that reads the sign-in settings.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="02-reference-breaking-changes.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Breaking changes</span>
+</a><a class="pn-next" href="02-reference-continuous-audit.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Continuous audit</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

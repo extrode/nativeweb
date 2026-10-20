@@ -1,0 +1,8 @@
+<!--#template
+  @layout layout/page
+  @param string Name
+  @param System.Collections.Generic.IReadOnlyList<NativeWeb.Sample.PublishedArticle> Articles
+-->
+<h1 class="page__title">{{Name}}</h1>
+<p class="page__lede">{{t:tag.lede}}</p>
+{{> articles/results Articles=Articles}}

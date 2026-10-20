@@ -1,0 +1,4 @@
+{
+  "_comment": "Spec 003 R36: budgets for the published AOT binary. maxBytes is the exe size ceiling, maxStartupMs the time-to-/healthz ceiling. The 2026-08-01 close-out baseline (36,918,272 B / 881 ms local win-x64) was apps/web's, and apps/web left with the identity provider on 2026-08-31 (decision 2026-08-31-007). apps/sample is a different and much smaller binary, so its entry is null -- record-only -- until a CI run prints a figure to set a ceiling from. A ported-over ceiling would pass for the wrong reason.",
+  "nativeweb.sample": { "maxBytes": null, "maxStartupMs": null }
+}

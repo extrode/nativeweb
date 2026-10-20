@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deployment runbook — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Reference &#8250; Deployment runbook</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Quick start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html" class="active" aria-current="page">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#shape-of-it">Shape of it</a><a class="toc-l2" href="#decisions-on-record">Decisions on record</a><a class="toc-l2" href="#provisioning-a-host">Provisioning a host</a><a class="toc-l3" href="#required-configuration">Required configuration</a><a class="toc-l2" href="#releasing">Releasing</a><a class="toc-l3" href="#migrations-run-against-the-previous-release">Migrations run against the previous release</a><a class="toc-l3" href="#rolling-back">Rolling back</a><a class="toc-l3" href="#what-is-deployed-right-now">What is deployed right now</a><a class="toc-l3" href="#the-documentation-site-at-docs">The documentation site, at /docs</a><a class="toc-l2" href="#backups">Backups</a><a class="toc-l3" href="#knowing-a-backup-failed">Knowing a backup failed</a><a class="toc-l2" href="#restoring">Restoring</a><a class="toc-l2" href="#disaster-recovery">Disaster recovery</a><a class="toc-l2" href="#known-gaps">Known gaps</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Deployment runbook</nav>
+        <article>
+<h1 id="deployment-runbook">Deployment runbook</h1>
+<blockquote>
+<p><strong>The application this runbook used to deploy left the repository on 2026-08-31</strong>
+(<code>../decisions/2026-08-31-007-idp-leaves-nativeweb.md</code>). <code>scripts/deploy/</code> was retargeted the
+same day: <code>build.sh</code> publishes <code>apps/sample</code> by default and takes <code>PROJECT=&lt;csproj&gt;</code> for a
+stamped product's own app, and it installs the executable under the fixed name <code>nativeweb</code>, so
+nothing downstream — <code>deploy.sh</code>, <code>nativeweb@.service</code>, Caddy — names the project. Since
+2026-09-05 all of it has been run on a real host; what has not is below.</p>
+</blockquote>
+<p>Spec: <code>../specs/011-production-deployment/011-spec.md</code>
+Scripts: <code>../../scripts/deploy/</code></p>
+<p>The one document for provisioning, releasing, rolling back, backing up and
+recovering a NativeWeb production host. Everything here is a command to run or a
+decision with a stated default.</p>
+<blockquote>
+<p><strong>Releasing, restoring and disaster recovery have all now been executed for
+real. What has never been rehearsed is losing the machine.</strong> On 2026-09-01 a
+<code>linux-x64</code> artifact built by <code>build.sh</code> was deployed by <code>deploy.sh</code> to
+<code>nativeweb-dev</code> (Debian 12, a VM guest behind an edge proxy) and promoted to
+blue, and the result was served publicly; that closes R1. On 2026-09-05 a backup was taken, restored into a scratch
+database and served from, and <code>nativeweb-dr</code> was rebuilt from repository plus
+backup in 345 s. That closes R16 and R17a, and every elapsed time below is now
+a measured number rather than a placeholder. Build time is the one it does not
+record: the drill repackaged a running release rather than publishing one.</p>
+<p><strong>R14 and R17b are unmet, and they are the ones that matter most.</strong> The backup
+bucket was a MinIO container on the physical host being backed up, so losing
+that machine loses the guest, the replacement and the bucket together. The
+drill rehearsed recovering a broken guest. The <code>age</code> private key is the one
+part of that set which now survives the host, stored off-host 2026-09-06.
+<strong>R17b had two blockers and now has one.</strong> Its criterion is that the backup is
+still readable after the host is gone, and readable needs both the bytes and the
+key; the key is off the host and the bytes are not. R14 is about location alone,
+so it is untouched. Both stay unmet. R15 is unmet too:
+<code>BACKUP_HEARTBEAT_URL</code> is unset, so a backup that stops running is unnoticed.</p>
+<p><strong>Three attempts were needed and two of them were defects in these scripts,</strong>
+which is what a first real run is for. Both are fixed and both now have a test:
+<code>ConditionPathExists</code> sat in <code>[Service]</code>, where systemd logs &quot;Unknown key name&quot;
+and ignores it, so the skip it promises had never happened on any host; and
+<code>chmod -R g-w,o-rwx</code> could not restore group bits that <code>cp -a</code> from a <code>mktemp -d</code>
+stage never granted, so the release directory arrived <code>drwx------</code> and systemd
+failed the unit at <code>status=200/CHDIR</code>. The third refusal was not a defect — the
+host carried <code>NativeWeb__*</code> keys from a provisioning run predating the config
+prefix, and the preflight said so and stopped, which is the behaviour it is for.</p>
+<p><strong>2026-08-30: an audit sweep read the scripts and found eight defects, four of
+which would have stopped this walkthrough dead on a clean Debian</strong> — Caddy never
+reading the environment file it is told to fill in, a log directory the Caddy
+user cannot write, the firewall skipped on every first provision, and <code>sudo</code>
+refusing the variables <code>deploy.sh</code> passes on its command line. All eight are
+fixed and each has a test. That is a reason to have more confidence in the
+document, and none at all to think it has been run: static reading cannot find
+the ninth.</p>
+</blockquote>
+<h2 id="shape-of-it">Shape of it</h2>
+<p>One Linux host. Caddy terminates TLS on 443 and proxies to whichever release
+colour is live; two systemd instances of <code>nativeweb@.service</code> run on loopback
+ports 5011 (blue) and 5012 (green); PostgreSQL runs on the same box, bound to
+localhost. A deploy stages into the idle colour, migrates, proves readiness, and
+then reloads Caddy — so the live colour serves continuously and a failed release
+never reaches the public.</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/opt/nativeweb/releases/&lt;sha&gt;/</code></td>
+<td>Unpacked releases, root-owned</td>
+</tr>
+<tr>
+<td><code>/opt/nativeweb/{blue,green}</code></td>
+<td>Symlinks into a release</td>
+</tr>
+<tr>
+<td><code>/opt/nativeweb/scripts/</code></td>
+<td><code>backup.sh</code>, <code>restore.sh</code>, <code>rollback.sh</code> on the host</td>
+</tr>
+<tr>
+<td><code>/etc/nativeweb/app.env</code></td>
+<td>Non-secret settings, <code>0644 root:nativeweb</code></td>
+</tr>
+<tr>
+<td><code>/etc/nativeweb/secrets.env</code></td>
+<td><strong>Secrets, <code>0640 root:nativeweb</code></strong></td>
+</tr>
+<tr>
+<td><code>/etc/nativeweb/{blue,green}.env</code></td>
+<td>The colour → port mapping</td>
+</tr>
+<tr>
+<td><code>/etc/nativeweb/backup.env</code></td>
+<td>Backup destination and credentials, <code>0640 root:root</code></td>
+</tr>
+<tr>
+<td><code>/etc/caddy/upstream.caddy</code></td>
+<td>Generated. One line. Which colour is live</td>
+</tr>
+<tr>
+<td><code>/var/lib/nativeweb/keys</code></td>
+<td>Data-protection keys — <strong>must survive a release swap</strong></td>
+</tr>
+<tr>
+<td><code>/var/lib/nativeweb/deployments.log</code></td>
+<td>What was promoted, when, and whether it migrated</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decisions-on-record">Decisions on record</h2>
+<p>Both are R7's, and both are choices rather than defaults.</p>
+<ul>
+<li><strong>Distribution: Debian stable, x86-64.</strong> <code>provision.sh</code> targets apt and systemd;
+Ubuntu LTS works unchanged. <code>TESTED ON: Debian 12 (bookworm), x86-64, 2026-09-01</code> — a VM guest, provisioned and deployed to.</li>
+<li><strong><code>unattended-upgrades</code> is on, security pocket only, and does NOT reboot.</strong>
+There is one host and no failover, so an unattended 03:00 reboot is an
+unannounced outage. Kernel and libc updates therefore wait for an operator:
+check <code>/var/run/reboot-required</code> on a monthly pass and reboot deliberately.</li>
+</ul>
+<h2 id="provisioning-a-host">Provisioning a host</h2>
+<p>Prerequisites: a Debian host, root over SSH, and a DNS A/AAAA record pointing at
+it. Caddy cannot get a certificate before DNS resolves.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sh"><code class="language-sh"><span class="tok-fn">git</span> clone &lt;<span class="tok-fn">this</span> repo&gt; &amp;&amp; <span class="tok-fn">cd</span> nativeweb
+<span class="tok-fn">sudo</span> <span class="tok-fn">scripts/deploy/provision.sh</span>
+</code></pre>
+</div>
+<p>Idempotent — safe to re-run after editing a unit file. Two things it deliberately
+will <strong>not</strong> do on a re-run: overwrite an <code>/etc/nftables.conf</code> <strong>an operator has
+edited</strong> (the ruleset opens with <code>flush ruleset</code>, which would drop every other
+table on the host — it prints what to merge by hand instead), and restart PostgreSQL when
+<code>listen_addresses</code> is already local by any spelling. It installs packages,
+creates the <code>nativeweb</code> system account with no interactive shell, lays out the
+directories, confines PostgreSQL to localhost, installs the units, the nftables
+ruleset and the Caddy config, bounds journal retention, and enables the backup
+timer. It writes <strong>no secrets</strong>; a script that generates production keys is a
+script that has seen them.</p>
+<blockquote>
+<p>The nftables guard used to read <em>absent, or carrying our marker</em>, which never
+fired: this same script installs Debian's <code>nftables</code> package, and that package
+ships <code>/etc/nftables.conf</code> as a conffile. Every <strong>first</strong> provision took the
+&quot;not ours, refusing&quot; branch and left the host with no firewall — R5 unmet, on a
+clean install, with a line of output that read like a considered decision. It
+now also accepts a conffile <code>dpkg --verify</code> reports as unmodified. Found in the
+2026-08-30 audit sweep, one of eight defects in scripts nobody had run yet.</p>
+</blockquote>
+<p>Then, in order:</p>
+<p><strong>Every key below is spelled <code>&lt;Prefix&gt;__…</code>, where <code>&lt;Prefix&gt;</code> is the configuration
+section the deployed binary reads</strong> — <code>Sample</code> for <code>apps/sample</code>, your product's
+own name for anything stamped from <code>skeleton/</code>. Pass it to <code>provision.sh --prefix</code>
+and <code>build.sh</code> stamps the matching <code>config_prefix</code> into the artifact, which is
+where <code>deploy.sh</code> reads it from. Until 2026-08-31 every key here was spelled
+<code>NativeWeb__</code>, a section no binary in this repository binds: the preflight demanded
+nine keys nothing reads and passed on the two that mattered while they stayed unset.</p>
+<ol>
+<li><p><strong>Fill in <code>/etc/nativeweb/secrets.env</code>.</strong> The connection string, and nothing
+else. Two spellings are seeded and one of them applies:
+<code>ConnectionStrings__&lt;Prefix&gt;</code> for <code>apps/sample</code>,
+<code>&lt;Prefix&gt;__Db__ConnectionString</code> for a stamped product. Delete the other.</p>
+</li>
+<li><p><strong>Fill in the blanks in <code>/etc/nativeweb/app.env</code>.</strong> Checklist below.</p>
+</li>
+<li><p><strong>Set <code>NATIVEWEB_HOST</code> and <code>NATIVEWEB_ACME_EMAIL</code></strong> in <code>/etc/default/caddy</code>,
+then <code>systemctl restart caddy</code>.
+<code>deploy.sh</code> refuses to promote while any of the four keys below is blank. An
+<code>EnvironmentFile</code> line with nothing after the <code>=</code> sets the variable to the
+<strong>empty string</strong>, not to absent, so a code fallback does not fire.</p>
+</li>
+<li><p><strong>Generate the backup key.</strong></p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sh"><code class="language-sh"><span class="tok-fn">sudo</span> <span class="tok-fn">age-keygen</span> <span class="tok-attr">-o</span> /etc/nativeweb/backup-age.key
+<span class="tok-fn">sudo</span> <span class="tok-fn">chmod</span> <span class="tok-num">0600</span> /etc/nativeweb/backup-age.key
+</code></pre>
+</div>
+<blockquote>
+<p><strong>Store the private half somewhere that is neither this host nor the backup
+bucket.</strong> This is the single point of failure in the whole design: lose this
+key and every object in the bucket is unreadable noise, and no amount of
+working backups helps. A password manager, a second machine, a printed copy
+in a safe — anywhere, as long as losing the host does not lose the key.
+<strong>Recorded 2026-09-06:</strong> an off-host copy exists, in the operator's own
+store, off the host. Deliberately not named here -- this file is
+in a public repository, and a runbook that names the vault holding the key
+is half of the compromise. Ask the operator.
+<strong>The <code>nativeweb-dev</code> key of 2026-09-01 is not being rotated -- decided by
+the operator, 2026-09-06.</strong> It was printed into a terminal session and read
+back from that session's own output during the 2026-09-05 drill, so it
+exists in whatever transcript, scrollback or shell history that session
+left behind. The operator judged that reach acceptable for <code>nativeweb-dev</code>.
+<strong>Revisit it if that material ever leaves their own machines, and do not
+carry the decision to a production key.</strong> Rotating would mean <code>age-keygen</code>
+afresh, a new <code>BACKUP_AGE_RECIPIENT</code>, and keeping the old private key for
+as long as objects encrypted to the old recipient are inside the retention
+window.</p>
+</blockquote>
+<p>Put the public half in <code>BACKUP_AGE_RECIPIENT</code> in <code>/etc/nativeweb/backup.env</code>,
+along with the bucket, endpoint and access keys.
+<code>provision.sh</code> also adds a <code>pg_ident</code> map so that root — and only root, plus
+each account for its own role — can reach the <code>nativeweb</code> database over the
+unix socket as either <code>nativeweb</code> or <code>postgres</code>. That is how <code>deploy.sh</code>,
+<code>backup.sh</code> and <code>restore.sh</code> authenticate with <strong>no password in any file</strong>.
+Migrations need both: they create objects (and whoever creates them owns them
+— nothing in the migrations issued a <code>GRANT</code>), and migration <code>0002</code> needed a
+superuser for the citext extension.</p>
+</li>
+<li><p><strong>Apply migrations</strong> — the first deploy does this, but a fresh database needs
+the citext extension created by a superuser (migration <code>0002</code>). See
+<code>db/migrate.sh</code>.</p>
+</li>
+</ol>
+<h3 id="required-configuration">Required configuration</h3>
+<p>Four keys, all enforced by <code>deploy.sh</code>'s preflight, all spelled with the prefix
+stamped into the artifact. Every check fails when the app would misbehave and
+passes when it would not — a preflight that passes while the thing it prevents is
+happening is worse than none, because it is also an assurance.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;Prefix&gt;__ForwardedHeaders__KnownProxies</code></td>
+<td>Unset behind Caddy means <code>RemoteIpAddress</code> is the proxy hop and every client in the world shares one rate-limit partition. Nothing errors and nothing logs it</td>
+</tr>
+<tr>
+<td><code>ConnectionStrings__&lt;Prefix&gt;</code> <strong>or</strong> <code>&lt;Prefix&gt;__Db__ConnectionString</code></td>
+<td>Absent, <code>apps/sample</code> serves its in-memory demo store with a green <code>/healthz</code>, and a stamped product times out the <code>/readyz</code> poll with no named cause</td>
+</tr>
+<tr>
+<td><code>&lt;Prefix&gt;__DataProtection__KeyDirectory</code></td>
+<td>Must be under <code>/var/lib/nativeweb</code>. That is the only path <code>ReadWritePaths</code> names, and <code>ProtectSystem=strict</code> makes the rest read-only. Unset, the key ring lands under a read-only working directory and cannot persist: every restart remints the antiforgery keys and every form POST answers 400 after each deploy, with <code>/readyz</code> green. The app now refuses to start rather than doing that silently</td>
+</tr>
+<tr>
+<td><code>OTEL_EXPORTER_OTLP_ENDPOINT</code>, when <code>&lt;Prefix&gt;__Telemetry__Enabled=true</code></td>
+<td>Telemetry is opt-<strong>in</strong>: the framework defaults <code>Enabled</code> to false. The preflight fails only when it is on with nowhere to send. Until 2026-08-31 this gate asserted the opposite, which was true of the app that left the repo and demanded busywork ever after</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Nine keys were deleted from this table on 2026-08-31</strong>: <code>ContactKey</code>,
+<code>StoreEncryptionKey</code>, <code>PairwiseSalt</code>, both <code>Smtp</code> settings, both <code>WebAuthn</code>
+settings, <code>DeviceGrant__VerificationUri</code>, <code>CanonicalBaseUrl</code> and
+<code>FirstPartyClientId</code>. No code in this repository binds any of them — they left
+with the identity provider — and <code>FirstPartyClientId</code> pointed at a row seeded by
+migration <code>0055</code>, which left with <code>db/migrations</code>. The preflight required all of
+them, so deploying the scripts' own default project meant inventing values for a
+departed product's settings.</p>
+<h2 id="releasing">Releasing</h2>
+<p><strong>Build on Linux.</strong> NativeAOT does not cross-compile, so a <code>linux-x64</code> publish
+must happen on Linux. From WSL on the workstation:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sh"><code class="language-sh"><span class="tok-fn">wsl</span>
+<span class="tok-fn">cd</span> /mnt/c/home/code/extrode.com/nativeweb
+<span class="tok-fn">scripts/deploy/build.sh</span>                       <span class="tok-com"># refuses a dirty tree; --force overrides</span>
+<span class="tok-fn">scripts/deploy/deploy.sh</span> <span class="tok-attr">--artifact</span> dist/nativeweb-&lt;<span class="tok-fn">sha</span>&gt;.tar.zst <span class="tok-attr">--host</span> &lt;<span class="tok-fn">host</span>&gt;
+</code></pre>
+</div>
+<p><code>deploy.sh</code> copies itself along with the artifact and re-executes on the host
+under sudo, so the deploy procedure and the release it deploys are always the
+same version.</p>
+<p>What it does, in order — <strong>every step before the last leaves production
+untouched</strong>:</p>
+<ol>
+<li>Refuses if <code>KnownProxies</code> is unset or telemetry has no destination.</li>
+<li>Reads which colour is live from <code>/etc/caddy/upstream.caddy</code>; picks the other.</li>
+<li>Exits 0 unchanged if that release is already live.</li>
+<li>Unpacks into <code>/opt/nativeweb/releases/&lt;sha&gt;</code> and points the idle symlink at it.</li>
+<li>Runs <code>db/migrate.sh</code>. <strong>Aborts on failure</strong>, live colour still serving.</li>
+<li>Starts the idle colour, polls its own <code>/readyz</code>. <strong>Abandons on timeout</strong>,
+stops the idle unit, prints the last 40 journal lines, live colour still serving.</li>
+<li>Rewrites <code>upstream.caddy</code> and <code>systemctl reload caddy</code> — graceful, so
+in-flight requests finish on the old colour.</li>
+<li>Records the promotion and prunes old release directories.</li>
+</ol>
+<p>Measured on the first real release, <code>nativeweb-dev</code>, 2026-09-01 — the fourth
+attempt, after the two defects in the note at the top of this document were
+fixed. A cold host: nothing was serving, so step 3 had no live colour to compare
+against and step 8 had nothing to prune.</p>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deploy.sh</code>, artifact on the host to promoted</td>
+<td><strong>1.774 s</strong></td>
+</tr>
+<tr>
+<td>Release</td>
+<td><code>7436517</code>, promoted to blue</td>
+</tr>
+<tr>
+<td><code>/version</code> after promotion</td>
+<td><code>0.1.0+743651707dbfdce70f3bc723f845446d6128088e</code></td>
+</tr>
+<tr>
+<td><code>/readyz</code> through the public origin</td>
+<td><code>200</code>, body <code>ready</code>, 0.022 s</td>
+</tr>
+<tr>
+<td><code>/healthz</code></td>
+<td><code>200</code>, 0.023 s</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td><code>302</code> to <code>/admin</code>, 0.050 s</td>
+</tr>
+<tr>
+<td>Date last exercised</td>
+<td>2026-09-01</td>
+</tr>
+</tbody>
+</table>
+<p>The timings are from the physical host over the LAN and through the edge, so they
+include Caddy and TLS but not a WAN round trip. Build time is not recorded here:
+the publish ran on a separate build machine rather than the workstation, and one
+measurement on one build box is not a figure this runbook should quote.</p>
+<p>Exit 78 in step 6's log is <code>EX_CONFIG</code>: a configuration error, not a crash. The
+unit will not restart it (<code>RestartPreventExitStatus=78</code>), because the config will
+not have changed by the time it comes back.</p>
+<h3 id="migrations-run-against-the-previous-release">Migrations run against the previous release</h3>
+<p>Step 5 happens while the old binary is still serving. Two consequences:</p>
+<ul>
+<li><strong>Expand now, contract later.</strong> A migration that drops or renames something the
+running version reads takes production down between steps 5 and 7. Additive
+changes only in the release that introduces them; remove the old column in a
+later release.</li>
+<li><strong>Split long migrations.</strong> <code>db/migrate.sh</code> applies each file in one
+transaction, so every lock the file takes is held until its last statement
+commits. Against an idle database that is free; against a live one it blocks
+readers and writers for the file's duration. See
+<a href="02-reference-migration-lock-review.html">migration-lock-review.md</a>.</li>
+</ul>
+<h3 id="rolling-back">Rolling back</h3>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sh"><code class="language-sh"><span class="tok-fn">sudo</span> /opt/nativeweb/scripts/rollback.sh            <span class="tok-com"># dry run</span>
+<span class="tok-fn">sudo</span> /opt/nativeweb/scripts/rollback.sh <span class="tok-attr">--execute</span>
+</code></pre>
+</div>
+<p>A Caddy reload and nothing else — the previous colour is still running, which is
+why <code>deploy.sh</code> leaves it up. <strong>It refuses a release that applied migrations</strong>,
+naming it, because nothing records whether those were an expand or a contract and
+this script must not guess. For a contracting release the way back is a forward
+release that reverses it.</p>
+<h3 id="what-is-deployed-right-now">What is deployed right now</h3>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sh"><code class="language-sh"><span class="tok-fn">curl</span> <span class="tok-attr">-s</span> https://&lt;<span class="tok-fn">host</span>&gt;/version          <span class="tok-com"># from inside the running process</span>
+<span class="tok-fn">cat</span> /opt/nativeweb/blue/RELEASE         <span class="tok-com"># or green — works with nothing running</span>
+<span class="tok-fn">tail</span> /var/lib/nativeweb/deployments.log
+</code></pre>
+</div>
+<h3 id="the-documentation-site-at-docs">The documentation site, at <code>/docs</code></h3>
+<p><code>scripts/build-docs.sh</code> renders <code>docs/</code> into the committed, versioned <code>docs-site/</code>,
+and from there it travels in the artifact exactly as <code>db/</code> does. Nothing extra to
+run at release time:</p>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs-site/</code> in the repo</td>
+<td>the tracked site, one frozen directory per release plus <code>unversioned/</code></td>
+</tr>
+<tr>
+<td><code>docs_dir=</code> in <code>RELEASE</code></td>
+<td><code>docs</code> when this artifact carries a site, empty when it does not</td>
+</tr>
+<tr>
+<td><code>/opt/nativeweb/docs</code></td>
+<td>a symlink to the live colour's <code>docs/</code>, repointed at promotion and at rollback</td>
+</tr>
+<tr>
+<td><code>handle_path /docs/*</code> in the Caddyfile</td>
+<td>serves it; <code>redir /docs /docs/ 308</code> in front, because the index's links are relative</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Absent docs are not an error.</strong> A product that has never run <code>build-docs.sh</code>
+builds and deploys normally, and <code>/docs</code> is a 404 until it does. A <code>DOCS_DIR</code> that
+exists <em>without</em> a <code>versions.json</code> <strong>is</strong> an error: that is either the wrong
+directory or a half-finished build, and shipping it would put a directory listing
+under the product's own hostname.</p>
+<p><strong>The docs follow the release, so a rollback rolls them back too</strong> — which matters
+less than it sounds, because the site is versioned: every release's documentation
+stays in the tree whichever one is serving.</p>
+<p>One thing to know before copying the tracked <code>Caddyfile</code> onto a host: <strong>a guest
+behind an edge proxy needs a different one.</strong> <code>nativeweb-dev</code> has TLS terminated
+at an edge proxy in front of it, so its Caddyfile is <code>auto_https off</code> on <code>:80</code> with
+<code>trusted_proxies</code>, and the <code>/docs</code> block above is the only part the two share
+verbatim.</p>
+<h2 id="backups">Backups</h2>
+<p>Nightly at 03:17 UTC (plus up to 15 minutes of jitter), <code>Persistent=true</code> so a
+host that was off catches up rather than skipping a day silently.
+<code>pg_dump -Fc</code> piped straight into <code>age</code> — the plaintext dump never touches disk —
+then uploaded to the configured S3-compatible endpoint as
+<code>&lt;host&gt;/&lt;UTC timestamp&gt;.dump.age</code>, and objects past the retention period
+(default 30 days) are deleted.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sh"><code class="language-sh"><span class="tok-fn">sudo</span> /opt/nativeweb/scripts/backup.sh            <span class="tok-com"># dry run: what it would do</span>
+<span class="tok-fn">sudo</span> /opt/nativeweb/scripts/backup.sh <span class="tok-attr">--execute</span>
+<span class="tok-fn">systemctl</span> list-timers nativeweb-backup.timer
+</code></pre>
+</div>
+<p><strong>Accepted limit: up to 24 hours of data can be lost.</strong> Nightly granularity is
+the decided recovery point; there is no continuous archiving. On record as a
+decision, not an oversight.</p>
+<h3 id="knowing-a-backup-failed">Knowing a backup failed</h3>
+<p>Two mechanisms, covering two different failures:</p>
+<ul>
+<li>A backup that <strong>runs and fails</strong> triggers <code>nativeweb-backup-failed.service</code>,
+which logs the last 40 lines and pings the heartbeat URL's <code>/fail</code> endpoint.</li>
+<li>A backup that <strong>never runs at all</strong> is invisible to systemd — nothing failed,
+because nothing happened. Only an external dead-man's-switch catches it:
+<code>backup.sh</code> pings <code>BACKUP_HEARTBEAT_URL</code> on success, and the watcher alerts
+when the ping does not arrive.</li>
+</ul>
+<blockquote>
+<p><strong><code>BACKUP_HEARTBEAT_URL</code> is unset, so R15 is not met by this script.</strong> A backup
+that silently stops running will not be noticed. Point it at an external check
+(healthchecks.io or equivalent) to close it. <code>backup.sh</code> says so in its own output
+on every run rather than letting the gap pass quietly.</p>
+</blockquote>
+<h2 id="restoring">Restoring</h2>
+<p><strong>Drill against a scratch database. Never against production by accident</strong> — the
+script requires <code>--overwrite-production</code> on top of <code>--execute</code> for that.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sh"><code class="language-sh"><span class="tok-fn">sudo</span> /opt/nativeweb/scripts/restore.sh <span class="tok-attr">--target</span> nativeweb_drill              <span class="tok-com"># dry run</span>
+<span class="tok-fn">sudo</span> /opt/nativeweb/scripts/restore.sh <span class="tok-attr">--target</span> nativeweb_drill <span class="tok-attr">--execute</span>
+</code></pre>
+</div>
+<blockquote>
+<p>Until 2026-08-30 this drill could not have worked. <code>provision.sh</code> scoped its
+<code>pg_hba</code> peer-map line to the database <code>nativeweb</code>, so <code>createdb</code> (which
+connects to the <code>postgres</code> maintenance database) and the restore itself (which
+connects to <code>nativeweb_drill</code>) both fell through to Debian's default
+<code>local all all peer</code>, where OS root maps to no role. The <code>createdb</code> failure was
+swallowed by <code>2&gt;/dev/null || true</code> and <code>pg_restore</code> died on authentication. The
+production overwrite would have worked and the drill would not — the wrong way
+round for a guard whose whole argument is &quot;practise on the scratch copy&quot;.</p>
+</blockquote>
+<p><code>pg_restore</code> exiting 0 means the rows loaded, not that the application works
+against them. The drill is not finished until you have pointed a NativeWeb
+instance at the restored database and <strong>served a row that existed when the backup
+was taken, while a row written after it is absent</strong>.</p>
+<blockquote>
+<p><strong>That criterion replaced &quot;signed in as an account that existed when the backup
+was taken&quot; on 2026-09-05.</strong> <code>apps/sample</code> keeps no accounts in the database --
+its only sign-in is a passphrase read from <code>secrets.env</code> -- so the old wording
+passed against the drill database, against an empty database, and against no
+restore at all. It tested nothing. The replacement is falsifiable: write a
+marker row <em>after</em> the backup, and the restored database must not have it.</p>
+</blockquote>
+<p>Drill of 2026-09-05, on <code>nativeweb-dev</code>, against MinIO on the same physical host:
+<code>drill-pre-20260905</code> was written before the backup and <code>drill-post-20260905</code>
+after it. The restored database held the first and not the second, and the
+current release served <code>/articles/restore-drill-pre</code> 200 and
+<code>/articles/restore-drill-post</code> 404 against it.</p>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Time to download and restore</td>
+<td><strong>1 s</strong> (10,359-byte dump, 8 MB database)</td>
+</tr>
+<tr>
+<td>Time to a verified serve against restored data</td>
+<td><strong>1 s</strong></td>
+</tr>
+<tr>
+<td>Date of the last successful drill</td>
+<td><strong>2026-09-05</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The dump is small because the database is nearly empty; these figures are a
+floor, not a capacity measurement.</p>
+<h2 id="disaster-recovery">Disaster recovery</h2>
+<p>Losing the host is an outage, not a failover — one host, by decision. This is the
+whole way back, from nothing but this repository and the backup bucket.</p>
+<ol>
+<li>Provision a new host: <strong>Provisioning a host</strong>, above.</li>
+<li>Restore the <code>age</code> private key from the operator's off-host store. Without it,
+stop — the bucket is noise. The key was printed once when <code>nativeweb-dev</code> was
+provisioned; an off-host copy was made on 2026-09-06, so this step now has
+something to read. It did not when the drill below was run, which re-used the
+printed value from the session that generated it.</li>
+<li>Install <code>age</code> and the AWS CLI if the image does not carry them, and make sure the
+backup bucket accepts connections from the new host's address.</li>
+<li>Fill <code>BACKUP_S3_BUCKET</code>, <code>BACKUP_S3_ENDPOINT</code>, <code>AWS_ACCESS_KEY_ID</code> and
+<code>AWS_SECRET_ACCESS_KEY</code> in the <strong>new</strong> host's <code>/etc/nativeweb/backup.env</code>.
+<code>provision.sh</code> seeds them empty and <code>restore.sh</code> dies on the first of them.</li>
+<li>Carry <code>secrets.env</code> and <code>app.env</code> across from wherever they are kept.</li>
+<li>Set the app role's password to match that <code>secrets.env</code>:
+<code>sudo -u postgres psql -c &quot;alter role nativeweb with password '...'&quot;</code>. <code>pg_dump -Fc</code>
+dumps one database, not roles, so the restore does not bring it.</li>
+<li><code>restore.sh --target nativeweb --from-host &lt;old-host&gt; --overwrite-production --execute</code>.
+<strong><code>--from-host</code> is not optional here if the new machine has a different name.</strong>
+<code>backup.sh</code> writes under the <em>writing</em> host's short name, and <code>restore.sh</code>
+derives the same prefix from the host it is running on — so a rebuilt machine
+reports &quot;no backups found&quot; against a bucket that is full of them. Omit the flag
+only when the replacement carries the old hostname.</li>
+<li>Build and deploy the last known-good release: <strong>Releasing</strong>, above.</li>
+<li>Point DNS at the new host and wait for Caddy to obtain a certificate.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Total time, bare host to serving</td>
+<td><strong>345 s</strong> (5 m 45 s)</td>
+</tr>
+<tr>
+<td>Date last exercised</td>
+<td><strong>2026-09-05</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Measured 2026-09-05 rebuilding <code>nativeweb-dr</code> on the same physical host: guest
+created, <code>provision.sh --edge &lt;edge-ip&gt;</code> (26 s), age key installed from the value
+printed when <code>nativeweb-dev</code> was provisioned (no off-host copy existed on the day
+of the drill; one was made 2026-09-06, so step 2 as written above has not itself
+been exercised), <code>restore.sh --target nativeweb --from-host nativeweb-dev --overwrite-production --execute</code>, <code>deploy.sh --incus</code>, then <code>/healthz</code> 200,
+<code>/readyz</code> 200 and the pre-backup article served. <strong>Four caveats on that number:</strong></p>
+<ul>
+<li>The artifact was <strong>not rebuilt</strong>. <code>build.sh</code> needs the JauntyQ feed credential
+(see the gap table below), so the running release was repackaged from
+<code>nativeweb-dev</code> with <code>tar --zstd</code>, the same shape <code>build.sh</code> emits. A real
+rebuild adds however long a publish takes to the 345 s.</li>
+<li>The bucket is MinIO <strong>on the same physical host</strong>. Losing that host
+loses the guest, the replacement guest and the bucket together, so this
+exercises R17a and leaves R17b and R14 unmet. The key was in that set on the day
+and is not any more, which removes one of R17b's two blockers -- readable needs
+the key and the bytes -- and neither of R14's, which is about location alone.</li>
+<li>Four preconditions the numbered list above did not state were found by running
+it: the DR host needs the bucket, endpoint and both AWS keys in its own
+<code>backup.env</code> (<code>provision.sh</code> seeds them empty and <code>restore.sh</code> dies on the
+first), <code>age</code> and the AWS CLI must be installed, the object storage must allow
+the new host's address, and the app role's password must be set to match the
+carried <code>secrets.env</code> -- <code>pg_dump -Fc</code> dumps one database, not roles. They are
+now steps 3 to 6.</li>
+<li><code>provision.sh</code> must run <strong>inside the guest</strong>. On a shared physical host it would
+overwrite <code>/etc/caddy/Caddyfile</code>, which serves every site on the machine, and
+its nftables ruleset opens with <code>flush ruleset</code>.</li>
+</ul>
+<h2 id="known-gaps">Known gaps</h2>
+<table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><del>Provisioning has never been run on a real host</del></td>
+<td><strong>Closed 2026-09-01</strong> — provisioned and deployed to on <code>nativeweb-dev</code>. R1 met</td>
+</tr>
+<tr>
+<td><del>The restore drill has never been run</del></td>
+<td><strong>Closed 2026-09-05</strong> — drilled on <code>nativeweb-dev</code>, R16 met under the amended criterion above</td>
+</tr>
+<tr>
+<td><del>Disaster recovery has never been exercised</del></td>
+<td><strong>Closed 2026-09-05</strong> — <code>nativeweb-dr</code> rebuilt from repo plus backup in 345 s, R17a met with the four caveats above</td>
+</tr>
+<tr>
+<td>No backup is offsite</td>
+<td><strong>R14 and R17b unmet.</strong> Every backup drilled so far lived on the physical host being backed up. Closed when a backup held on separate storage has been restored from</td>
+</tr>
+<tr>
+<td><code>MemoryDenyWriteExecute=yes</code> verified on WSL2, not on the target host</td>
+<td>T14, closed with a caveat — see below</td>
+</tr>
+<tr>
+<td><code>BACKUP_HEARTBEAT_URL</code> unset</td>
+<td>R15 unmet until an operator sets it, for any deployment running <code>backup.sh</code></td>
+</tr>
+<tr>
+<td>The build host needs a JauntyQ feed credential</td>
+<td><code>build.sh</code> pins <strong>package</strong> mode (checkout mode has had no sibling to reference since JauntyQ split on 2026-09-05). The feed needs auth even to read, and WSL has its own NuGet profile, so a credential added on Windows does not reach the shell that builds. The script preflights the restore and prints a <code>dotnet nuget add source --configfile &quot;$HOME/.nuget/NuGet/NuGet.Config&quot;</code> command; an operator runs it once per WSL profile: the file it writes is the user-level</td>
+</tr>
+<tr>
+<td>NuGet config, which persists across shells. It printed <code>update source</code> with no <code>--configfile</code> until 2026-09-06, which writes the token into the checked-out <code>nuget.config</code></td>
+<td></td>
+</tr>
+<tr>
+<td><del>The epass.io cutover scope decision</del></td>
+<td><strong>Closed 2026-08-31, and not a NativeWeb concern at all</strong> — <code>../decisions/2026-08-31-008-epass-cutover-closed.md</code>. Nothing in this runbook is gated on it.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>On <code>MemoryDenyWriteExecute</code>.</strong> Measured 2026-08-27, Debian 12 under WSL2: the
+<code>linux-x64</code> publish started, logged &quot;Now listening&quot;, and answered <code>/healthz</code> 200
+and <code>/readyz</code> 503 — the no-database state — with the filter on, indistinguishable
+from the same binary with it off. The lazy <code>dlopen</code> of <code>libsodium.so</code> behind
+Argon2id never runs at startup, so it was probed separately under the same
+filter: <code>dlopen</code> succeeded and <code>sodium_init()</code> returned 0. What is <strong>not</strong> proven
+is the target host — that was a <code>--user</code> unit on the WSL2 kernel, not a
+<code>--system</code> unit on Debian bare metal. If a first boot there dies without ever
+logging, this line is the first thing to comment out.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="02-reference-continuous-audit.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Continuous audit</span>
+</a><a class="pn-next" href="02-reference-migration-lock-review.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Migration lock duration — review before pointing migrate.sh at a live database</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

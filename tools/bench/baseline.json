@@ -1,0 +1,31 @@
+{
+  "_comment": "Spec 012 R16. Recorded by tools/bench/run.ts --baseline; compared by --check on the same machine and the same harness settings, 20% down on req/s and 25% up on RSS. Measures apps/sample. Not comparable to the section 14 figures in docs/01-architecture, nor to this file's own pre-2026-08-31 figures, which measured apps/web before it left the repository. See tools/bench/README.md.",
+  "recorded": "2026-08-31",
+  "machine": {
+    "hostname": "bench-host",
+    "cpus": 16,
+    "os": "windows",
+    "arch": "x86_64"
+  },
+  "harness": {
+    "concurrency": 16,
+    "durationMs": 10000,
+    "runs": 3
+  },
+  "scenarios": {
+    "healthz": {
+      "rps": 23183.5,
+      "p50Ms": 0.58,
+      "p99Ms": 1.91,
+      "errors": 0,
+      "maxRssBytes": 56614912
+    },
+    "articles": {
+      "rps": 16528.8,
+      "p50Ms": 0.93,
+      "p99Ms": 2.4,
+      "errors": 0,
+      "maxRssBytes": 46211072
+    }
+  }
+}

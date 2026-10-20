@@ -1,0 +1,73 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- Central package versions. Add PackageReference in csproj without Version.
+       Pins are copied from the NativeWeb repo (same machine, same toolchain). -->
+  <ItemGroup>
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <!-- Telemetry (spec 003 R33): metrics + traces, exported over OTLP, gated
+         behind __PRODUCT__:Telemetry:Enabled=false. All four move in lockstep;
+         bump together. -->
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
+  </ItemGroup>
+
+  <!-- Package pins for the source-generator/framework dependencies. The
+       Extrode.JauntyQ.* pair applies to every build: package mode is JauntyQ's
+       default since 2026-09-05. The NativeWeb.* five apply in package mode only
+       (-p:NativeWebUsePackages=true).
+
+       THE NativeWeb.* PINS ARE NOT FREE TEXT. Directory.Build.props in the
+       NativeWeb repository declares one VersionPrefix and every NativeWeb.*
+       package carries it; these five must equal it, and
+       PackageVersionTests.SkeletonPinsMatchTheFrameworkVersion fails naming
+       the offender when they do not. A stamped product is the last place that
+       disagreement should surface, because there it surfaces as NU1101 against
+       a version that was never published.
+
+       KNOWN GAP, and it is now half the size it was: spec 028 built the pack
+       and the tag-triggered publish (.github/workflows/publish.yml), so a
+       release puts these versions on the feed. Until a v0.1.0 tag is pushed
+       nothing is there to restore, and a local sibling checkout of NativeWeb
+       (its checkout mode is still the default) stays the working path. JauntyQ
+       needs no fallback: its core is public on nuget.org as Extrode.JauntyQ.*
+       from 0.5.0, so these two pins restore with no credential. -->
+  <ItemGroup>
+    <PackageVersion Include="Extrode.JauntyQ.Generator" Version="0.5.1" />
+    <PackageVersion Include="Extrode.JauntyQ.Runtime" Version="0.5.1" />
+    <PackageVersion Include="NativeWeb.Security" Version="0.1.0" />
+    <PackageVersion Include="NativeWeb.Render" Version="0.1.0" />
+    <PackageVersion Include="NativeWeb.Render.Generator" Version="0.1.0" />
+    <PackageVersion Include="NativeWeb.Web" Version="0.1.0" />
+    <PackageVersion Include="NativeWeb.SignIn" Version="0.1.0" />
+  </ItemGroup>
+
+  <!-- Test-only packages. Referenced solely by tests/*, never by shipping code. -->
+  <ItemGroup>
+    <!-- xUnit v3, which is Microsoft.Testing.Platform rather than VSTest: the v3
+         packages depend on Microsoft.Testing.Platform and the .NET 10 SDK refuses
+         to drive them through the VSTest target at all. So there is no
+         Microsoft.NET.Test.Sdk and no xunit.runner.visualstudio pin here any more
+         - both were dropped rather than bumped. Each test project sets
+         OutputType=Exe (v3 errors without it) and `dotnet test` reaches them via
+         the opt-in in global.json, which the stamp carries. -->
+    <PackageVersion Include="xunit.v3" Version="4.0.0" />
+    <!-- Integration tests: WebApplicationFactory host. Matched to the
+         AspNetCore 10.0.x line. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
+    <!-- A real HTML parser, so the public-page CSP lockstep can recompute the
+         hash sources from the served response instead of comparing the header
+         against the same build-time constants that produced it. Matches the
+         version NativeWeb's own render tests pin. -->
+    <PackageVersion Include="AngleSharp" Version="1.7.3" />
+    <!-- End-to-end browser tests. -->
+    <PackageVersion Include="Deque.AxeCore.Playwright" Version="4.12.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.62.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+{
+  "chrome": {
+    "skip": "Skip to content",
+    "footer": "__PRODUCT__"
+  },
+  "title": {
+    "home": "__PRODUCT__"
+  },
+  "home": {
+    "title": "__PRODUCT__",
+    "sub": "The app shell is up: pipeline, security headers, localization and the render layer all wired end to end. Replace this page with the real one."
+  }
+}

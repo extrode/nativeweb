@@ -1,0 +1,163 @@
+name: Publish
+
+# Spec 028 R6. A tag and nothing else.
+#
+# No push:branches, no pull_request, no workflow_dispatch. Every one of those
+# would put a package on the feed from a commit nobody decided to release, and
+# a version already on GitHub Packages cannot be replaced -- only deleted and
+# re-pushed, which breaks any consumer that already restored it. The manual
+# trigger is the tempting one to add and the one that most reliably ships
+# something by accident.
+#
+# The pattern requires a bare semver: v0.1.0 publishes, v0.1.0-rc1 and
+# release-0.1.0 do not match and nothing runs at all.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+# packages:write is the whole reason this file is separate from ci.yml. CI runs
+# on every push with packages:read; giving that job write access so it could
+# also publish would mean every branch push held a token that can overwrite the
+# framework's own feed.
+permissions:
+  contents: read
+  packages: write
+
+env:
+  # No JauntyQ sibling checkout on a runner; the pinned packages come from
+  # Directory.Packages.props, the same way ci.yml builds.
+  DOTNET_BUILD_ARGS: -p:JauntyQUsePackages=true
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  publish:
+    runs-on: ${{ vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+
+    steps:
+      # A self-hosted runner keeps $HOME between jobs, and a warm ~/.nuget/packages
+      # is what hid the deleted JauntyQ.* ids for a week (2026-09-17 to 09-24).
+      # RUNNER_TEMP is emptied for every job, so each restore starts cold, as it
+      # does on a hosted runner. The HTTP cache moves too: NuGet trusts it for 30
+      # minutes, long enough to answer for an id the feed no longer serves.
+      # Decision 2026-09-24-014.
+      - name: Cold NuGet cache
+        run: |
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
+          echo "NUGET_HTTP_CACHE_PATH=$RUNNER_TEMP/nuget-http-cache" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v7
+
+      # Deno is not preinstalled on a GitHub runner and denoland/setup-deno is a
+      # `uses:` step, which decision 2026-08-20-001 keeps this repository down to
+      # exactly one of (actions/checkout). The official installer is a plain
+      # `run:` step and pulls a single static binary -- no node, no npm, nothing
+      # resolved from a package registry.
+      #
+      # DENO_VERSION is pinned rather than floating: `| sh` against whatever is
+      # current means a release day upstream can change what publishes here.
+      - name: Install Deno
+        env:
+          DENO_VERSION: v2.9.5
+        run: |
+          curl -fsSL https://deno.land/install.sh | sh -s -- --yes "$DENO_VERSION"
+          echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+
+      # The tag says what is being released and Directory.Build.props says what
+      # will be built. When they disagree the tag is a lie, and the failure has
+      # to happen here rather than after thirteen packages are on the feed under
+      # a version nobody chose.
+      - name: The tag and VersionPrefix agree
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          declared="$(deno run -A tools/pack.ts --print-version --release)"
+          if [ "$tag" != "$declared" ]; then
+            echo "Tag $GITHUB_REF_NAME names $tag; Directory.Build.props declares $declared." >&2
+            echo "Bump VersionPrefix and retag, or tag the version that is declared." >&2
+            exit 1
+          fi
+          echo "Releasing $declared"
+
+      # A package pushed to GitHub Packages is linked to the repository named in
+      # its nuspec <repository url> and inherits that repository's visibility.
+      # The packages are proprietary framework source, so a public repository
+      # would publish them. The visibility is a precondition, checked rather
+      # than assumed.
+      #
+      # Not the JauntyQ licence: no packable library references JauntyQ, only
+      # apps/sample and skeleton/ do, and neither is packed. pack.ts refuses a
+      # package carrying a JauntyQ path, which is what keeps that true.
+      - name: The repository is private
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          private="$(gh api "repos/$GITHUB_REPOSITORY" --jq .private)"
+          if [ "$private" != "true" ]; then
+            echo "$GITHUB_REPOSITORY is public, so every pushed package would be too." >&2
+            echo "AGENTS.md forbids redistributing JauntyQ. Nothing is published." >&2
+            exit 1
+          fi
+
+      # The tag is the only gate on this workflow, and a tag can be placed on any
+      # commit -- including one whose suite never went green. These two are the
+      # guards over this workflow and over the version stamping it depends on, so
+      # they are cheap, need no database, and are the ones whose failure means
+      # the packages about to be built are wrong.
+      - name: The release guards
+        run: |
+          deno test -A tools/pack.test.ts
+          dotnet test --project tests/nativeweb.repo.tests.unit -v q $DOTNET_BUILD_ARGS
+
+      # The guards above are the cheap ones, and they are not the suite. CI runs
+      # the whole thing on every push and its result is attached to the commit,
+      # so requiring it here costs one API call and closes the case a tag on an
+      # untested commit opens. A missing conclusion fails the same as a failing
+      # one: "CI never ran on this commit" is not a reason to publish it.
+      - name: CI passed on this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for job in test aot-publish skeleton-stamp; do
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
+              --jq ".check_runs[] | select(.name==\"$job\") | .conclusion" | head -1)"
+            if [ "$conclusion" != "success" ]; then
+              echo "CI job '$job' on $GITHUB_SHA is '${conclusion:-absent}', not success." >&2
+              echo "Tag a commit CI has passed. Nothing is published." >&2
+              exit 1
+            fi
+            echo "$job: success"
+          done
+
+      - name: Pack
+        run: deno run -A tools/pack.ts --release $DOTNET_BUILD_ARGS
+
+      # repository_owner rather than a literal org. The 2026-08-26 move from
+      # extrode-legacy-org to extrode cost three days of red CI because a feed URL was
+      # written out by hand in one file and not another; OrgReferenceTests bans
+      # the old name, and this form cannot acquire a new one to ban.
+      #
+      # No --skip-duplicate, and that is the deliberate half of this step.
+      #
+      # The flag was here so a publish that died halfway could be re-run. It
+      # also silently permits the case that matters: a v0.1.0 run pushes 7 of
+      # 13 and dies, someone fixes the cause and moves the tag with `git tag -f`,
+      # and the second run skips the 7 already on the feed and pushes 6 built
+      # from a different commit. One version then exists whose packages carry
+      # two <repository commit> values and were never built together, which is
+      # the lockstep invariant docs/02-reference/versioning.md rests on. Nothing
+      # in the run can see it: verify reads local files only.
+      #
+      # Without the flag a partial publish fails loudly on the second attempt,
+      # and recovery is a human decision: delete the partial version from the
+      # feed, then re-run the tag. That is the right cost. A version already
+      # restored by a consumer cannot be fixed by pushing over it either way.
+      #
+      # The glob is safe because pack.ts refuses to run when the output directory
+      # holds a .nupkg it will not produce: everything matched here has been
+      # packed and verified by the step above.
+      - name: Push
+        run: >
+          dotnet nuget push "artifacts/packages/*.nupkg"
+          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          --api-key ${{ secrets.GITHUB_TOKEN }}

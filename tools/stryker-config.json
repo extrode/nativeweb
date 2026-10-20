@@ -1,0 +1,6 @@
+{
+	"stryker-config": {
+		"ignore-methods": ["ConfigureAwait"],
+		"additional-timeout": 30000
+	}
+}

@@ -1,0 +1,99 @@
+# NativeWeb reverse proxy. Spec 011 T7 (R4, R6).
+#
+# Caddy terminates TLS and proxies to whichever release colour is live. It gets
+# and renews certificates itself over ACME, so R4's "no operator action" is a
+# property of this file rather than a calendar reminder -- there is no certbot,
+# no cron entry and no renewal step in the runbook.
+#
+# {$NATIVEWEB_HOST} comes from /etc/default/caddy, written by provision.sh. Kept
+# out of this file so the same tracked config serves a staging host and the
+# production one, which is the same reason NativeWeb:CanonicalBaseUrl exists.
+
+{
+	# Where Let's Encrypt sends expiry warnings if renewal ever stops working.
+	# Also set in /etc/default/caddy rather than here.
+	email {$NATIVEWEB_ACME_EMAIL}
+
+	# Access logs are bounded on disk (R6). The application's own logs go to the
+	# journal, whose retention provision.sh sets separately -- two log sources,
+	# two retention settings, neither able to fill the disk.
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10MiB
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format json
+	}
+}
+
+# Plaintext HTTP exists only to be redirected. Caddy does this automatically for
+# any site with a hostname, so it is stated here rather than configured -- and
+# the ACME HTTP-01 challenge path is served from under it without a hole being
+# punched by hand.
+{$NATIVEWEB_HOST} {
+	# HSTS. Note the app sets its own Strict-Transport-Security through
+	# SecurityHeadersMiddleware; this is the hop that actually terminates TLS,
+	# so the header it emits is the one a browser sees on a redirect that never
+	# reaches the app.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	# Compression happens here and not in the app, measured 2026-08-31: this hop
+	# served the same page at 9,002 req/s where the app compressing it managed
+	# 6,255, and compressing in-process also strips the Content-Length the
+	# renderer declares and re-runs on every output-cache hit. See
+	# docs/02-reference/performance.md, bottleneck 4.
+	#
+	# zstd first: it is what a current browser prefers. Brotli is absent because
+	# stock Caddy has no encoder for it -- adding br to this line fails config
+	# validation outright, "module not registered: http.encoders.br" -- so it is
+	# unavailable rather than declined. gzip is the floor for everything older.
+	encode zstd gzip
+
+	# The rendered documentation site, under the product's own hostname rather
+	# than a docs subdomain: one certificate, one origin, and a link from the app
+	# to its own docs is same-origin.
+	#
+	# Static files served here and never by the app. The app has no static-docs
+	# path, adding one would put 500 KB of HTML behind a rate limiter and a CSP
+	# built for an application, and this hop is already the one that compresses
+	# (see `encode` above). handle_path strips /docs before the file server sees
+	# it, which works because every href and src the generator emits is relative
+	# -- so the same site serves from a root, a prefix, or a file:// checkout.
+	#
+	# /opt/nativeweb/docs is a symlink to the live colour's docs/, repointed by
+	# deploy.sh at promotion and by rollback.sh on the way back, so the docs
+	# always describe the release that is serving. It does not exist until the
+	# first deploy of an artifact that carries docs; `file_server` on a missing
+	# root is a 404, which is the right answer to "the docs are not deployed yet".
+	# /docs and /docs/ are not the same document. handle_path strips the prefix,
+	# so a request for /docs reaches file_server as "/" and is served the index
+	# directly -- no directory redirect, because file_server never sees a
+	# directory path to redirect. The index is a meta-refresh to a RELATIVE
+	# target, which the browser then resolves against /docs rather than /docs/
+	# and lands one level too high. Measured on the dev host, 2026-09-01: /docs
+	# served 200 and the link it carried 404'd.
+	#
+	# 308 rather than 301: the method is preserved, and this is a permanent fact
+	# about the shape of the URL rather than a decision that might be revisited.
+	redir /docs /docs/ 308
+
+	handle_path /docs/* {
+		root * /opt/nativeweb/docs
+		file_server
+	}
+
+	# Everything else. The live colour is one line in the imported file:
+	# `reverse_proxy 127.0.0.1:5011` or :5012. deploy.sh rewrites it and reloads;
+	# rollback.sh rewrites it back. Nothing else in this file changes between
+	# releases.
+	#
+	# Wrapped in handle rather than left at site level so that the two are
+	# mutually exclusive by construction. Caddy sorts directives by its own fixed
+	# order rather than by the order they are written, so a bare reverse_proxy
+	# beside a handle_path is a question about that table; two handle blocks are
+	# not a question at all.
+	handle {
+		import /etc/caddy/upstream.caddy
+	}
+}

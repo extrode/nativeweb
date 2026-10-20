@@ -1,0 +1,580 @@
+{
+  "dialect": "postgres",
+  "tables": {
+    "article_tags": {
+      "name": "article_tags",
+      "columns": {
+        "article_id": {
+          "name": "article_id",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "tag_slug": {
+          "name": "tag_slug",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "article_tags_pkey",
+          "columns": [
+            "article_id",
+            "tag_slug"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "article_tags_tag_slug_article_id_idx",
+          "columns": [
+            "tag_slug",
+            "article_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
+    "articles": {
+      "name": "articles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "title": {
+          "name": "title",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "author": {
+          "name": "author",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "body": {
+          "name": "body",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "view_count": {
+          "name": "view_count",
+          "dbType": "integer",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "slug": {
+          "name": "slug",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "status": {
+          "name": "status",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "dbType": "date",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "category_key": {
+          "name": "category_key",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "articles_author_id_idx",
+          "columns": [
+            "author",
+            "id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "articles_category_key_idx",
+          "columns": [
+            "category_key"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "articles_created_at_id_idx",
+          "columns": [
+            "created_at",
+            "id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "articles_pkey",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "articles_public_order_idx",
+          "columns": [
+            "created_at",
+            "id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": true
+        },
+        {
+          "name": "articles_slug_key",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "articles_title_id_idx",
+          "columns": [
+            "title",
+            "id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
+    "categories": {
+      "name": "categories",
+      "columns": {
+        "key": {
+          "name": "key",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "categories_name_key_idx",
+          "columns": [
+            "name",
+            "key"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "categories_pkey",
+          "columns": [
+            "key"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
+    "nw_group": {
+      "name": "nw_group",
+      "columns": {
+        "id": {
+          "name": "id",
+          "dbType": "bigint",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "nw_group_name_key",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "nw_group_pkey",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
+    "nw_group_grant": {
+      "name": "nw_group_grant",
+      "columns": {
+        "group_id": {
+          "name": "group_id",
+          "dbType": "bigint",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "permission": {
+          "name": "permission",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "nw_group_grant_pkey",
+          "columns": [
+            "group_id",
+            "permission"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
+    "nw_group_member": {
+      "name": "nw_group_member",
+      "columns": {
+        "subject": {
+          "name": "subject",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "group_id": {
+          "name": "group_id",
+          "dbType": "bigint",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "nw_group_member_group_id_idx",
+          "columns": [
+            "group_id"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "nw_group_member_pkey",
+          "columns": [
+            "subject",
+            "group_id"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
+    "nw_subject": {
+      "name": "nw_subject",
+      "columns": {
+        "subject": {
+          "name": "subject",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "first_seen": {
+          "name": "first_seen",
+          "dbType": "timestamp with time zone",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "nw_subject_pkey",
+          "columns": [
+            "subject"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
+    "nw_subject_grant": {
+      "name": "nw_subject_grant",
+      "columns": {
+        "subject": {
+          "name": "subject",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "permission": {
+          "name": "permission",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "nw_subject_grant_pkey",
+          "columns": [
+            "subject",
+            "permission"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    },
+    "tags": {
+      "name": "tags",
+      "columns": {
+        "slug": {
+          "name": "slug",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": true,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "name": {
+          "name": "name",
+          "dbType": "text",
+          "isNullable": false,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        },
+        "color": {
+          "name": "color",
+          "dbType": "text",
+          "isNullable": true,
+          "isPrimaryKey": false,
+          "isIdentity": false,
+          "isUnicode": true,
+          "isRowVersion": false,
+          "isComputed": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "tags_name_slug_idx",
+          "columns": [
+            "name",
+            "slug"
+          ],
+          "isUnique": false,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        },
+        {
+          "name": "tags_pkey",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": true,
+          "hasPrefixKeyPart": false,
+          "hasExpressionKeyPart": false
+        }
+      ],
+      "isView": false
+    }
+  },
+  "foreignKeys": [
+    {
+      "fromTable": "article_tags",
+      "fromColumn": "article_id",
+      "toTable": "articles",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "article_tags",
+      "fromColumn": "tag_slug",
+      "toTable": "tags",
+      "toColumn": "slug"
+    },
+    {
+      "fromTable": "articles",
+      "fromColumn": "category_key",
+      "toTable": "categories",
+      "toColumn": "key"
+    },
+    {
+      "fromTable": "nw_group_grant",
+      "fromColumn": "group_id",
+      "toTable": "nw_group",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "nw_group_member",
+      "fromColumn": "group_id",
+      "toTable": "nw_group",
+      "toColumn": "id"
+    },
+    {
+      "fromTable": "nw_group_member",
+      "fromColumn": "subject",
+      "toTable": "nw_subject",
+      "toColumn": "subject"
+    },
+    {
+      "fromTable": "nw_subject_grant",
+      "fromColumn": "subject",
+      "toTable": "nw_subject",
+      "toColumn": "subject"
+    }
+  ],
+  "procedures": {},
+  "sequences": {},
+  "enums": {},
+  "functions": {},
+  "userTypes": {}
+}

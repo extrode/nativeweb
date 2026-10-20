@@ -1,0 +1,327 @@
+name: CI
+
+on:
+  push:
+    branches-ignore: [main, dev]
+  pull_request:
+
+env:
+  # ---------------------------------------------------------------------------
+  # This workflow resolves NativeWeb in CHECKOUT mode and JauntyQ in PACKAGE
+  # mode -- the same split a developer machine uses, and the only combination
+  # that resolves today.
+  #
+  # It used to force package mode for BOTH (-p:NativeWebUsePackages=true
+  # -p:JauntyQUsePackages=true) and could not pass: the private NativeWeb.* /
+  # JauntyQ.* feed does not exist, so `dotnet restore` died and every later step
+  # -- the CVE gate included -- never ran. NativeWeb package mode is still
+  # available (pass that one flag yourself) for the day those packages publish.
+  #
+  # JauntyQ went the other way on 2026-09-05: package mode is its default and
+  # needs no clone and no JauntyQRoot. Since 2026-09-24 it needs no token either:
+  # the pins are Extrode.JauntyQ.*, public on nuget.org since core 0.5.0. The
+  # "Authenticate to GitHub Packages" step in each job below is kept for
+  # NativeWeb.* package mode only; retiring it is a work/todo.md item in the
+  # framework repository. The clone step and the JauntyQRoot variable were removed.
+  #
+  # A runner has no sibling checkout for the `$(NativeWebRoot)` probe in
+  # Directory.Build.props, so the step below clones the framework and that
+  # variable points the probe at it.
+  #
+  # THE PRODUCT IS CHECKED OUT INTO product/, NOT the workspace root, so that the
+  # framework clones are its SIBLINGS rather than its children. That is not
+  # cosmetic. Nested under the product, `Directory.Packages.props` discovery walks
+  # up out of the clone and finds the PRODUCT's copy, which sets
+  # ManagePackageVersionsCentrally=true; jauntyq ships no Directory.Packages.props
+  # of its own and its PackageReferences carry Version attributes, so central
+  # package management switches on underneath it and restore dies. Measured
+  # 2026-08-17 in exactly this layout: NU1008 on JauntyQ.Generator and
+  # JauntyQ.Runtime, naming eleven and four packages. The sibling layout builds
+  # clean. `defaults.run.working-directory` below is what keeps every run: step
+  # pointed at the product.
+  #
+  # They are BARE variables, not -p: flags, on purpose: MSBuild
+  # reads bare environment variables as properties, so one definition here reaches
+  # `dotnet restore`, `dotnet build`, `dotnet test`, `dotnet list package` (which
+  # accepts no -p: at all) and the NativeAOT publish the e2e fixture spawns as a
+  # CHILD process. A -p: flag reaches only the command it is written on, which is
+  # what made the old file need four separate copies of the same setting.
+  #
+  # Both are absolute, via github.workspace: MSBuild resolves a relative root
+  # against each project's own directory, not the repo root.
+  #
+  # Strictly, NativeWebRoot is not load-bearing on a runner: the sibling layout
+  # happens to be exactly what Directory.Build.props's NativeWebRoot probes
+  # (..\nativeweb then ..\NativeWeb, one level up from the product) already
+  # resolve to. It is set anyway, because resolution that works by coincidence of
+  # layout is the kind that breaks silently when the layout is next edited -- and
+  # on this runner it would break by CASE, which no Windows machine can
+  # reproduce. Both spellings are probed for that reason; setting the root
+  # explicitly here means CI does not depend on which one is right.
+  #
+  # If the checkout is wrong or missing the build FAILS LOUDLY -- EnsureNativeWebRoot
+  # in Directory.Build.props probes for a sentinel csproj, so an empty or stale
+  # directory is an error rather than a silently-skipped ProjectReference and a
+  # pile of CS0246s. Verified 2026-08-17 against a product stamped from this
+  # skeleton, in this workspace layout: correct roots build clean, a bogus
+  # NativeWebRoot produces 10 "NativeWeb checkout not found" errors.
+  # ---------------------------------------------------------------------------
+  NativeWebRoot: ${{ github.workspace }}/NativeWeb
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+# Every `run:` step operates on the product, which the checkout steps place in
+# product/ rather than at the workspace root. Action steps are unaffected --
+# actions/checkout takes its own `path:`. (Do not write the u-s-e-s key inside a
+# comment in this file: ActionPinTests scans for it without skipping comments and
+# reads a mention as an unpinned action.)
+defaults:
+  run:
+    working-directory: product
+
+jobs:
+  test:
+    # Unit/integration/e2e are plain JIT test hosts, not AOT publishes, so
+    # they don't need the Windows-only MSVC toolchain -- Postgres service
+    # containers are also Linux-runner-only in GitHub Actions.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          # The container's POSTGRES_USER is a superuser; the product's own
+          # database and app role are provisioned from it below, mirroring
+          # local dev (db/README.md).
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      __PRODUCT____Db__ConnectionString: "Host=localhost;Database=__product___test;Username=__product___app;Password=ci_test_password"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: product
+
+      # The framework, as a checkout rather than as packages -- this is what makes
+      # the NativeWebRoot variable at the top of this file resolve. JauntyQ needs
+      # no equivalent step; it resolves from packages.
+      #
+      # The repository is private, so actions/checkout's default GITHUB_TOKEN,
+      # which is scoped to THIS repository alone, cannot read it:
+      # FRAMEWORK_CHECKOUT_TOKEN must be a repository secret holding a token with
+      # read access to it. Without it the step fails with "Repository not found",
+      # and that is the right failure -- there is no arrangement here where a green
+      # run silently skipped the framework.
+      #
+      # `ref` is a moving branch because the framework repository publishes no
+      # tags yet (NativeWeb has no `main` at all as of 2026-08-17). Pin to a tag
+      # as soon as it does: on a branch, a push to the framework can turn this
+      # product's CI red with nothing having changed here.
+      #
+      # LICENCE: JauntyQ's generated output is licensed for self-hosted-SaaS use
+      # only, and that applies to the packages this build restores exactly as it
+      # applied to the checkout it used to clone. Do not enable this workflow in a
+      # repository outside those terms, and never ship the resulting binary to a
+      # third party.
+      - name: Check out the framework (NativeWeb)
+        uses: actions/checkout@v7
+        with:
+          repository: extrode/nativeweb
+          ref: dev
+          path: NativeWeb
+          token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+          persist-credentials: false
+
+      # No setup-dotnet step: the hosted images already ship the 10.0.x SDKs, so the
+      # action installed nothing. global.json at the product root pins which band is
+      # acceptable, and it travels with the stamped product rather than living only
+      # in a workflow the generated repo's owner may never read.
+
+      - name: Provision __PRODUCT__ database
+        run: |
+          PGPASSWORD=ci_test_password psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE __product___app LOGIN PASSWORD 'ci_test_password';" \
+            -c "CREATE DATABASE __product___test OWNER __product___app;"
+
+      - name: Apply migrations
+        # Through the shipped runner, not an inline loop, so CI exercises the
+        # same migrate.sh (superuser-for-extensions split, schema_migrations
+        # tracking) a deployment uses.
+        env:
+          PGHOST: localhost
+          PGDATABASE: __product___test
+          APP_ROLE: __product___app
+          SUPERUSER_ROLE: postgres
+          PGPASSWORD: ci_test_password
+        run: bash db/migrate.sh
+
+      # Until 2026-09-24 JauntyQ resolved from framework-github, which needs auth
+      # even to READ, and without this step `dotnet restore` died NU1301/401 on
+      # JauntyQ.Generator. The pins are now Extrode.JauntyQ.* on nuget.org, so the
+      # default restore no longer needs it; it stays for NativeWeb.* package mode.
+      #
+      # FRAMEWORK_CHECKOUT_TOKEN is reused rather than GITHUB_TOKEN on purpose:
+      # this product lives in its own repository, so the automatic token is
+      # scoped THERE and cannot read extrode's packages whatever its permissions
+      # block says. The secret must therefore carry `read:packages` alongside the
+      # repository read it already needs for the framework checkout above.
+      # The credential goes to the runner's OWN user-level config, never to the
+      # checked-out nuget.config. `update source` with no --configfile writes to
+      # the nearest config that declares the source, which in a checkout is the
+      # committed one -- and this token is a PAT carrying read:packages, so it is
+      # longer-lived than the automatic GITHUB_TOKEN and worse to leave sitting in
+      # a workspace. `add` rather than `update`, because `update source
+      # --configfile` throws "Object reference not set to an instance of an
+      # object" against a file that does not already declare the source. The file
+      # is created first because `add source --configfile` does not create it: it
+      # exits 1 with "File '...' does not exist."
+      - name: Authenticate to GitHub Packages
+        run: |
+          mkdir -p "$HOME/.nuget/NuGet"
+          [ -f "$HOME/.nuget/NuGet/NuGet.Config" ] \
+            || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
+          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
+            --name framework-github \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }} \
+            --store-password-in-clear-text \
+            --configfile "$HOME/.nuget/NuGet/NuGet.Config"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      # Spec 003 R31: fail the build when any resolved package (direct or
+      # transitive) has a known CVE. `dotnet list` takes no -p: properties -- the
+      # reason NativeWebRoot is a workflow-level environment
+      # variable, which MSBuild reads as a property, so evaluation here resolves
+      # the same way the restore above did. It reports the SOLUTION's projects, so
+      # framework packages appear only where they flow through an ordinary
+      # ProjectReference; anything the framework marks PrivateAssets="all" -- the
+      # JauntyQ generator's whole dependency graph, for one -- contributes nothing
+      # here and has to be audited where it is built.
+      #
+      # The command exits 0 either way, so the gate is two greps: fail on any
+      # "> PackageName" finding line, and fail if the positive "no vulnerable
+      # packages" confirmation never appears -- an audit that evaluated nothing
+      # (broken sources, format change) must not pass silently.
+      - name: Vulnerable package gate
+        run: |
+          out=$(dotnet list package --vulnerable --include-transitive)
+          echo "$out"
+          if echo "$out" | grep -Eq '^\s*>'; then
+            echo '::error::Vulnerable package(s) found -- see the list above.'
+            exit 1
+          fi
+          if ! echo "$out" | grep -q 'has no vulnerable packages'; then
+            echo '::error::Vulnerability audit produced no per-project confirmation -- treating as failed.'
+            exit 1
+          fi
+
+      - name: Install Playwright browsers
+        run: pwsh tests/__product__.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Unit tests
+        run: dotnet test --project tests/__product__.tests.unit --no-build
+
+      - name: Integration tests
+        run: dotnet test --project tests/__product__.tests.integration --no-build
+
+      - name: Install NativeAOT link prerequisites
+        # The e2e fixture's inner publish does a full NativeAOT link on this
+        # Linux runner, which needs clang and zlib headers.
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: E2E tests
+        # __PRODUCT__ProcessFixture publishes apps/__product__ itself (Release,
+        # no --no-build shortcut applies to that inner publish). That inner
+        # publish is a CHILD process, so it inherits the workflow-level
+        # NativeWebRoot environment variable and resolves the framework the same
+        # way -- which is precisely why that is an environment variable rather
+        # than a -p: flag on the outer command.
+        run: dotnet test --project tests/__product__.tests.e2e --no-build
+
+  aot-publish:
+    # The NativeAOT gate: MSVC's cl.exe/link.exe (via vcvars) are only
+    # available in the Windows Developer environment that windows-latest
+    # runners ship preinstalled (VS2022 Build Tools) -- this job proves
+    # apps/__product__ still links and stays warning-free under
+    # TreatWarningsAsErrors for AOT/trim analysis. It doesn't need Postgres:
+    # publish only compiles, it never runs the app.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: product
+
+      # Same framework checkout as the test job, and for the same reason -- this
+      # job resolves NativeWebRoot from the workflow-level variable too. See the
+      # long note on that step above for the token, the ref pinning and the
+      # JauntyQ licence constraint.
+      - name: Check out the framework (NativeWeb)
+        uses: actions/checkout@v7
+        with:
+          repository: extrode/nativeweb
+          ref: dev
+          path: NativeWeb
+          token: ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }}
+          persist-credentials: false
+
+      # Same as the test job: preinstalled SDK, global.json pins the band.
+
+      # No step sets up MSVC, and none is needed: the ILCompiler runs its own
+      # bundled findvcvarsall.bat, which asks vswhere for the C++ tools and hands
+      # the linker an absolute path. See this repo's own ci.yml for the detail --
+      # a stamped product inherits whatever this file says, and what it used to
+      # say was a third-party action that was redundant and broke the publish
+      # path. If the tools are genuinely absent the publish fails with a named
+      # error, never a silent fallback.
+      # Until 2026-09-24 JauntyQ resolved from framework-github, which needs auth
+      # even to READ, and without this step `dotnet restore` died NU1301/401 on
+      # JauntyQ.Generator. The pins are now Extrode.JauntyQ.* on nuget.org, so the
+      # default restore no longer needs it; it stays for NativeWeb.* package mode.
+      #
+      # FRAMEWORK_CHECKOUT_TOKEN is reused rather than GITHUB_TOKEN on purpose:
+      # this product lives in its own repository, so the automatic token is
+      # scoped THERE and cannot read extrode's packages whatever its permissions
+      # block says. The secret must therefore carry `read:packages` alongside the
+      # repository read it already needs for the framework checkout above.
+      # The credential goes to the runner's OWN user-level config, never to the
+      # checked-out nuget.config. `update source` with no --configfile writes to
+      # the nearest config that declares the source, which in a checkout is the
+      # committed one -- and this token is a PAT carrying read:packages, so it is
+      # longer-lived than the automatic GITHUB_TOKEN and worse to leave sitting in
+      # a workspace. `add` rather than `update`, because `update source
+      # --configfile` throws "Object reference not set to an instance of an
+      # object" against a file that does not already declare the source. The file
+      # is created first because `add source --configfile` does not create it: it
+      # exits 1 with "File '...' does not exist."
+      # This job is windows-latest, where the default shell is pwsh and NuGet reads its
+      # user config from %APPDATA%\NuGet\NuGet.Config rather than ~/.nuget. A bash body
+      # here is a parse error before the first command runs, and a credential written
+      # under $HOME is written to a file the SDK never loads -- a publish that 401s with
+      # a green-looking authentication step above it.
+      - name: Authenticate to GitHub Packages
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:APPDATA\NuGet" | Out-Null
+          if (-not (Test-Path "$env:APPDATA\NuGet\NuGet.Config")) {
+            Set-Content -Path "$env:APPDATA\NuGet\NuGet.Config" -Value '<?xml version="1.0" encoding="utf-8"?><configuration />'
+          }
+          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json `
+            --name framework-github `
+            --username ${{ github.actor }} `
+            --password ${{ secrets.FRAMEWORK_CHECKOUT_TOKEN }} `
+            --store-password-in-clear-text `
+            --configfile "$env:APPDATA\NuGet\NuGet.Config"
+
+      - name: Publish (NativeAOT)
+        run: dotnet publish apps/__product__/__product__.csproj -c Release

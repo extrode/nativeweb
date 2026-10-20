@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runtime half of the compiled-template render engine (spec 003 R10/R41):
+       TemplateWriter (UTF-8, encode-by-default), the Html raw-markup gate, and
+       the IResult adapter. The build-time half is libs/nativeweb.render.generator. -->
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.Render</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Pack metadata (spec 003 R1): private-feed consumption only; see the
+       note in nativeweb.security.csproj. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Render</PackageId>
+    <Description>NativeWeb framework: compiled-template render runtime (TemplateWriter, Html, IResult adapters, locale tables).</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- IResult / HttpContext for the response adapter. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Negotiation internals are unit-tested directly. -->
+    <InternalsVisibleTo Include="nativeweb.render.tests.unit" />
+  </ItemGroup>
+</Project>

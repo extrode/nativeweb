@@ -1,0 +1,31 @@
+<Project>
+
+  <!-- The Directory.Build.props one level up is not imported automatically once
+       this file exists: MSBuild stops at the first one it finds walking up, so
+       without this line every project under tests/ loses TargetFramework,
+       TreatWarningsAsErrors and the JauntyQ resolution and fails NETSDK1013.
+       Named outright rather than through GetPathOfFileAbove, which searches
+       strictly above the directory it is given and so walks past the repository
+       root. -->
+  <Import Project="$(MSBuildThisFileDirectory)../Directory.Build.props" />
+
+  <PropertyGroup>
+    <!-- xUnit1051 ships with xunit.analyzers 2.0.0, which arrived with xunit.v3,
+         and TreatWarningsAsErrors is on repo-wide, so it is a build failure rather
+         than advice. It wants TestContext.Current.CancellationToken threaded into
+         every call that accepts one: 468 call sites across these tiers on the day
+         the upgrade landed, in HttpClient calls, Npgsql commands and Playwright
+         navigations alike.
+
+         Suppressed rather than satisfied because doing it is a change to what the
+         tests DO, not to how they are built (every one of them becomes
+         cancellable), and that belongs in its own branch with its own review, not
+         inside a package upgrade. Recorded in work/todo.md so the suppression is a
+         decision with a follow-up rather than a rule quietly switched off.
+
+         Scoped to the test tiers. The libraries under libs/ never see this rule,
+         and nothing here weakens a diagnostic that applies to shipping code. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runtime half of declarative form binding (spec 014, brainstorm 001 T1.2):
+       the attributes a consumer decorates a form record with, plus the two things
+       the generated BindAsync and the route both have to agree on: the 415 throw
+       and the antiforgery metadata. The build-time half is
+       libs/nativeweb.forms.generator.
+
+       Same split, and the same reason, as nativeweb.scaffold: everything that can
+       be generated is generated, and what lives here is only the shared contract. -->
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.Forms</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Forms</PackageId>
+    <Description>NativeWeb framework: declarative form-binding attributes and the guards the generated binder attaches.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>

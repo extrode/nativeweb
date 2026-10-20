@@ -1,0 +1,26 @@
+<!--#template
+  @layout layout/page
+  @param string Query
+  @param int Take
+  @param string AntiforgeryFieldName
+  @param string AntiforgeryToken
+  @param System.Collections.Generic.IReadOnlyList<NativeWeb.Sample.PublishedArticle> Articles
+-->
+<h1 class="page__title">{{t:articles.title}}</h1>
+<p class="page__lede">{{t:articles.lede}}</p>
+{{if AntiforgeryToken.Length != 0}}
+<form class="articles__filter" method="post" action="/articles"
+      hx-post="/articles" hx-target="#results" hx-select="#results" hx-swap="outerHTML">
+{{> shared/antiforgery FieldName=AntiforgeryFieldName Token=AntiforgeryToken}}
+<div class="field">
+<label class="field__label" for="q">{{t:articles.filter}}</label>
+<input class="input" id="q" name="query" type="search" placeholder="{{t:articles.placeholder}}" value="{{Query}}">
+</div>
+<div class="field">
+<label class="field__label" for="max">{{t:articles.max}}</label>
+<input class="input" id="max" name="max" type="number" min="1" max="100" value="{{Take}}">
+</div>
+<button class="btn btn--primary" type="submit">{{t:articles.submit}}</button>
+</form>
+{{/if}}
+{{> articles/results Articles=Articles}}

@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Build-time half of declarative form binding (spec 014, brainstorm 001 T1.2):
+       an incremental source generator that turns a [Form]-decorated partial record
+       into the BindAsync of §12's variant 5b, plus the analyzer that makes
+       forgetting the antiforgery metadata a build error. Same wiring pattern as
+       nativeweb.scaffold.generator and nativeweb.render.generator: netstandard2.0,
+       referenced with OutputItemType="Analyzer" ReferenceOutputAssembly="false". -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>NativeWeb.Forms.Generator</RootNamespace>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Forms.Generator</PackageId>
+    <Description>NativeWeb framework: declarative form-binding source generator and the missing-antiforgery analyzer.</Description>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- FormModel's structural equality is what makes the incremental cache hit, and
+         a reference-equality regression is invisible from the emitted source: the
+         generator stays correct and does the work of a non-incremental one. The unit
+         tests assert Equals/GetHashCode directly, which needs the internals. -->
+    <InternalsVisibleTo Include="nativeweb.forms.tests.unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

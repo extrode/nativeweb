@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security baseline (spec 003, R29) — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Reference &#8250; Security baseline (spec 003, R29)</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Quick start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html" class="active" aria-current="page">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#v2--authentication">V2 — Authentication</a><a class="toc-l2" href="#v3--session-management">V3 — Session management</a><a class="toc-l2" href="#v4--access-control">V4 — Access control</a><a class="toc-l2" href="#v5--input-handling">V5 — Input handling</a><a class="toc-l2" href="#v13v14--http-security-configuration">V13/V14 — HTTP security configuration</a><a class="toc-l2" href="#v7v16--logging-and-auditing">V7/V16 — Logging and auditing</a><a class="toc-l2" href="#v10v1--dependencies-and-build">V10/V1 — Dependencies and build</a><a class="toc-l2" href="#known-open-items">Known-open items</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Security baseline (spec 003, R29)</nav>
+        <article>
+<h1 id="security-baseline-spec-003-r29">Security baseline (spec 003, R29)</h1>
+<blockquote>
+<p><strong>Read this as inherited posture, not as a checklist over code in this repository.</strong> It was
+written against <code>apps/web</code>, the identity provider, which left on 2026-08-31
+(<code>../decisions/2026-08-31-007-idp-leaves-nativeweb.md</code>). <strong>Every row citing <code>apps/web/Auth/*</code>,
+<code>db/queries/*</code> or a migration number describes code that is no longer here</strong>, and those controls
+were verified against it rather than against the framework. What survives in this repository is
+the primitives layer — <code>libs/nativeweb.security</code> (<code>Passphrases</code>, <code>OpaqueTokens</code>, <code>Sha256Hex</code>,
+<code>BotTraps</code>, <code>ContactProtector</code>, <code>StoreDataProtector</code>) and the response hardening in
+<code>skeleton/</code>'s middleware — plus whatever a stamped product builds on it. Deciding which rows are
+framework posture and which left with the application is an open item in <code>work/todo.md</code>.</p>
+</blockquote>
+<p>ASVS-derived checklist for the NativeWeb reference architecture, written as part of V6
+(<code>feat/security-baseline</code>). Scope as written: <code>apps/web</code>, the IdP. The first product (DevMarks) was
+extracted to the manzil.my repo in V10 and carries its own copy of this checklist.
+Each row names where the control lived so a reviewer could verify it rather than trust
+this document. Items marked ☐ are known-open, with the reason.</p>
+<h2 id="v2--authentication">V2 — Authentication</h2>
+<table>
+<thead>
+<tr>
+<th>✓</th>
+<th>Control</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>☑</td>
+<td>Passphrases hashed with Argon2id, fixed cost parameters</td>
+<td><code>libs/nativeweb.security/Passphrases.cs</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Breach checking on set + sign-in (offline common-password list + HIBP k-anonymity, kill-switch)</td>
+<td><code>CompositeBreachChecker</code>; <code>NativeWeb:BreachCheck:Hibp</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Generic failure message; fake-identifier responses prevent user enumeration</td>
+<td><code>FakeIdentifierResponses</code>, sign-in/reset endpoints</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Timing parity: unknown-user and bot-trapped paths pay the same Argon2id cost</td>
+<td>V5 review fixes in <code>SignInEndpoints</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Account lockout / throttle on failed sign-ins</td>
+<td><code>LockoutPolicy</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>TOTP two-factor with recovery codes; WebAuthn (passkeys) incl. UserVerification step-up</td>
+<td><code>apps/web/Auth/TwoFactor*</code>, <code>WebAuthn*</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Forced-passphrase-reset confinement, operator lift control</td>
+<td><code>ForcedPassphraseResetMiddleware</code>, admin endpoints</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Bot defense: 4 honeypots + signed time canary on every human form, per-endpoint fake successes</td>
+<td><code>libs/nativeweb.security/BotTraps.cs</code> (V5)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="v3--session-management">V3 — Session management</h2>
+<table>
+<thead>
+<tr>
+<th>✓</th>
+<th>Control</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>☑</td>
+<td>Opaque server-side sessions (no stateful token on the client), single-DELETE revocation</td>
+<td><code>bff_store</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td><code>__Host-</code> prefixed cookie: Secure always, <code>Path=/</code>, no Domain, HttpOnly, SameSite=Lax</td>
+<td><code>Auth/SessionAuth.cs</code> (V6)</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Sign-out deletes the server row and expires the cookie with matching attributes</td>
+<td><code>SignInEndpoints</code> + <code>SessionAuth.DeleteSessionCookie</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Fixed session lifetime 14 d</td>
+<td><code>SessionAuthDefaults.Lifetime</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Antiforgery token on every state-changing form post</td>
+<td><code>AddAntiforgery</code> + per-endpoint validation</td>
+</tr>
+</tbody>
+</table>
+<h2 id="v4--access-control">V4 — Access control</h2>
+<table>
+<thead>
+<tr>
+<th>✓</th>
+<th>Control</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>☑</td>
+<td>Operator gate derived per request from the user row, not baked into the session</td>
+<td><code>SessionClaimTypes.Operator</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Admin surface requires operator; audited (below)</td>
+<td><code>AdminEndpoints</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>OAuth: PKCE, exact redirect-URI match, pairwise subjects, client auth on machine endpoints</td>
+<td><code>apps/web/Auth/OAuth*</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="v5--input-handling">V5 — Input handling</h2>
+<table>
+<thead>
+<tr>
+<th>✓</th>
+<th>Control</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>☑</td>
+<td>Global request-body ceiling 128 KB at Kestrel; endpoints raise it explicitly where needed (none do today)</td>
+<td><code>Program.cs</code> (V6)</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Request timeout default 30 s</td>
+<td><code>Program.cs</code>, <code>AddRequestTimeouts</code> (V6)</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Rate limiting: per-IP fixed windows on auth/oauth/oauth-authorize/admin/csp-report</td>
+<td><code>Program.cs</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>HTML output encoded by default; raw output only via the grep-able <code>Html.Raw</code></td>
+<td><code>libs/nativeweb.render</code> (V2)</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>No reflection-based JSON deserialization of attacker input (AOT source-generated contexts only)</td>
+<td>repo-wide; <code>/csp-report</code> reads raw bytes</td>
+</tr>
+</tbody>
+</table>
+<h2 id="v13v14--http-security-configuration">V13/V14 — HTTP security configuration</h2>
+<table>
+<thead>
+<tr>
+<th>✓</th>
+<th>Control</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>☑</td>
+<td>CSP: default-src 'self', per-request nonce for scripts/styles, frame-ancestors 'none'</td>
+<td><code>SecurityHeadersMiddleware</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Static pages (V8): stricter nonce-free CSP branch — default-src 'none', no script-src at all, form-action 'none'; error pages use the same branch</td>
+<td><code>SecurityHeadersMiddleware.StaticPageCsp</code>, marker set by <code>StaticPagesMiddleware</code>/<code>ErrorPageMiddleware</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>CSP violation reporting: report-uri + Reporting-Endpoints → rate-limited <code>POST /csp-report</code>, logged raw, never deserialized</td>
+<td><code>CspReportEndpoint.cs</code> (V6)</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>HSTS 1 y includeSubDomains, non-Development only</td>
+<td><code>SecurityHeadersMiddleware</code> (V6)</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Permissions-Policy denying unused powerful features (WebAuthn's stay at default 'self')</td>
+<td><code>SecurityHeadersMiddleware</code> (V6)</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>X-Content-Type-Options, X-Frame-Options, Referrer-Policy</td>
+<td><code>SecurityHeadersMiddleware</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td><code>no-store</code> + <code>Pragma: no-cache</code> on sensitive content types and secret-bearing redirects (incl. HX-Redirect)</td>
+<td><code>SecurityHeadersMiddleware</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td><code>security.txt</code> (RFC 9116) at /.well-known/, served only when <code>NativeWeb:SecurityContact</code> names a mailbox — <strong>unset serves no file, by design</strong></td>
+<td><code>SecurityTxtEndpoint.cs</code> (V6, address made configuration 2026-08-29)</td>
+</tr>
+<tr>
+<td>☐</td>
+<td><code>Expires</code> is a source literal and needs a yearly bump; currently <code>2027-08-01</code></td>
+<td><code>SecurityTxtEndpoint.cs</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="v7v16--logging-and-auditing">V7/V16 — Logging and auditing</h2>
+<table>
+<thead>
+<tr>
+<th>✓</th>
+<th>Control</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>☑</td>
+<td>Append-only <code>audit_log</code> (trigger-rejected UPDATE/DELETE), one row per mutating admin action, written on success only</td>
+<td>migration <code>0052</code>, <code>db/queries/AuditLog/Insert.sql</code>, <code>AdminEndpoints.WriteAuditAsync</code> (V6)</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Audit detail never carries secret material (rotate-secret logs the fact, not the secret)</td>
+<td><code>AdminEndpoints</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Structured trap events on every honeypot trip</td>
+<td><code>BotTraps.LogTripped</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Request logging without bodies or credentials</td>
+<td><code>RequestLoggingMiddleware</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="v10v1--dependencies-and-build">V10/V1 — Dependencies and build</h2>
+<table>
+<thead>
+<tr>
+<th>✓</th>
+<th>Control</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>▢</td>
+<td>CI CVE gate: <code>dotnet list package --vulnerable --include-transitive</code> fails the build on any finding or on a vacuous audit. Wired in V6 but unverifiable until the CI package-feed gap below is closed -- the job dies at restore before the gate runs</td>
+<td><code>.github/workflows/ci.yml</code> (V6)</td>
+</tr>
+<tr>
+<td>☑</td>
+<td><code>TreatWarningsAsErrors</code> repo-wide incl. trim/AOT analyzers</td>
+<td><code>Directory.Build.props</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Central package versions, vendored htmx/Alpine (no CDN)</td>
+<td><code>Directory.Packages.props</code>, <code>wwwroot/vendor</code></td>
+</tr>
+<tr>
+<td>☑</td>
+<td>No page HTML cached in <code>localStorage</code>. htmx 2 kept a snapshot cache there to restore pages on back-navigation, which put rendered authenticated markup in origin-scoped storage that survives sign-out and is readable by any script that gets execution on the origin. <strong>htmx 4.0 removed it</strong> — back-navigation re-fetches instead. The <code>hx-history-cache</code> extension restores the old behaviour and is deliberately not vendored (spec 012 non-goal)</td>
+<td><code>wwwroot/vendor/htmx</code>, spec 012</td>
+</tr>
+<tr>
+<td>☑</td>
+<td>Guard responses are not swapped into the page. htmx 4 swaps 4xx/5xx bodies into the target by default; <code>noSwap: [204, 304, &quot;4xx&quot;, &quot;5xx&quot;]</code> keeps a 415 or 400 guard body from rendering inside an authenticated page</td>
+<td><code>Render/Layout.cs</code> htmx-config meta</td>
+</tr>
+</tbody>
+</table>
+<h2 id="known-open-items">Known-open items</h2>
+<ul>
+<li><strong>security.txt contact address</strong> — no longer a placeholder in source. <code>security@epass.io</code> was a
+literal until 2026-08-29; it is now <code>NativeWeb:SecurityContact</code>, and unset means no file is
+served rather than a file naming the wrong mailbox. Still open as an <strong>operator</strong> item: a
+deployment that wants a <code>security.txt</code> must set the key, and nothing warns when it has not.
+Deliberately not a startup guard — refusing to boot without a security contact would be a
+larger claim than this baseline makes.</li>
+<li><strong>Canary replay breadth</strong> — the bot-trap canary is app-bound, not session/path/single-use;
+documented as an accepted bypass in <code>BotTraps.IssueCanary</code>.</li>
+<li><strong>CI package-mode feed gap</strong> — the CVE gate runs against the package-mode restore, which CI
+cannot currently complete (known JauntyQ feed gap, tracked in memory/README).</li>
+<li><strong>Collector address</strong> — telemetry is on by default (2026-08-17) but
+<code>OTEL_EXPORTER_OTLP_ENDPOINT</code> is unset, so it exports to <code>localhost:4317</code> and fails in the
+background. Where the collector lives is an operator decision still open.</li>
+</ul>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="02-reference-performance.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Performance log</span>
+</a><a class="pn-next" href="02-reference-template-diagnostics.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">NWT template diagnostics</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

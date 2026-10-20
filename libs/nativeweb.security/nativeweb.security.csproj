@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pack metadata (spec 003 R1): products consume the framework libs either
+       as a sibling checkout via $(NativeWebRoot) ProjectReferences or as these
+       packages from a PRIVATE feed. Never publish publicly: the packages are
+       proprietary framework source.
+
+       This comment used to add that NativeWeb.Data and its dependents embed
+       JauntyQ-generated output. Data and Auth left with the identity provider
+       on 2026-08-31 and no packable library references JauntyQ today, so the
+       reason is the proprietary one alone. tools/pack.ts refuses a package
+       carrying a JauntyQ path, which is what keeps that so. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Security</PackageId>
+    <Description>NativeWeb framework: Argon2id passphrases, opaque tokens, bot traps, security primitives.</Description>
+  </PropertyGroup>
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible and analyzer settings come from Directory.Build.props. -->
+
+  <ItemGroup>
+    <!-- Geralt: libsodium wrapper. Provides Argon2id (PHC strings) and a
+         cryptographically secure RNG. Version pinned in Directory.Packages.props. -->
+    <PackageReference Include="Geralt" />
+    <!-- BotTraps reads HttpContext/IFormCollection and uses the app's data
+         protection stack for the signed render-timestamp canary. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

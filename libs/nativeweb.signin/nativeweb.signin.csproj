@@ -1,0 +1,88 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The relying-party half of OAuth 2.0 (spec 016): begin an authorization-code
+       flow with PKCE, take the callback, hold a session, refresh, sign out, and
+       check a bearer token by introspection.
+
+       This is the recovered generic three-quarters of the provider-specific
+       project that left with the identity provider on 2026-08-31
+       (docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md). The name carries
+       no provider now, and that is the point: spec R17 forbids a provider name,
+       host, path or vendor field anywhere in a type name, namespace or default
+       value, and tests/nativeweb.repo.tests.unit/ProviderNeutralityTests.cs
+       asserts it over this project's whole source, this comment included, which
+       is why the old project is described here rather than named.
+
+       The dependency edge that matters is still the one that is ABSENT. There is
+       no reference to any identity-provider library, because none exists here any
+       more and none may return: NativeWeb is the client and never the server. An
+       issuer, a consent screen, a realm resolver or a client registry arriving in
+       this project is the scope boundary in AGENTS.md being crossed. -->
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.SignIn</RootNamespace>
+    <!-- The Request Delegate Generator, which the Web SDK turns on and this one
+         does not. Without it every Map* call in SignInEndpoints binds the
+         reflection-based Delegate overload and reports IL2026/IL3050 — and
+         reports them in the CONSUMER'S publish rather than here, where the code
+         that caused them is. The generator only sees Map* calls written literally
+         in this assembly's own syntax trees, which is why they are written out
+         one by one rather than built in a loop. -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <!-- Interceptors have to be opted into by namespace as well; nativeweb.web
+         learned this the same way, when four IL2026/IL3050 appeared the moment
+         its endpoints left the product. -->
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.AspNetCore.Http.Generated</InterceptorsNamespaces>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.SignIn</PackageId>
+    <Description>NativeWeb framework: the OAuth 2.0 relying party — authorization-code with PKCE, a server-side session, silent refresh, and bearer introspection. Client only; never an issuer.</Description>
+  </PropertyGroup>
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible and analyzer settings come from Directory.Build.props. -->
+
+  <ItemGroup>
+    <!-- OpaqueTokens.Generate/Hash for the session token and its at-rest key, and
+         StoreDataProtector for the provider tokens in the store row. Ring 0,
+         BCL-only. -->
+    <ProjectReference Include="..\nativeweb.security\nativeweb.security.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The unit tier tests ReturnPath.Sanitise, the wire DTOs and the
+         SignInResult factories, all of which are internal on purpose: Sanitise
+         must not be reachable as an opt-out helper a consumer can decline to
+         call, and the DTOs are provider wire format rather than our contract. -->
+    <InternalsVisibleTo Include="nativeweb.signin.tests.unit" />
+
+    <!-- Spec 016 R20, inherited from spec 009 R3. A consumer's integration tests
+         need a signed-in browser, and the only honest way to get one is this
+         library's own minting code: the alternative, which justsmtp did under
+         008, is a test that reimplements the session format by hand and therefore
+         keeps passing when the format changes.
+
+         The grant is to one assembly, and that assembly sets
+         DevelopmentDependency=true, so NuGet installs it with PrivateAssets=all:
+         a consumer's test project gets it, nothing downstream of that project
+         does. That property is the bound — IsAotCompatible=false does not
+         propagate to consumers, and carrying xunit only deters.
+
+         Minting stays internal for everyone else, because a public mint is an
+         authentication bypass any consumer can call with any subject it likes.
+
+         Note the grant is by SIMPLE NAME: neither assembly is strong-named, so
+         the guarantee is the compiler's against an accident and not against
+         someone who names an assembly nativeweb.signin.testing on purpose.
+         Strong-naming is a repo-wide decision, on work/todo.md. -->
+    <InternalsVisibleTo Include="nativeweb.signin.testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AuthenticationHandler, HttpContext, endpoint routing, IEndpointFilter,
+         IHostedService, IHttpClientFactory. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

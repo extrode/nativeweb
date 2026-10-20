@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Named, not defaulted. The assembly name is lower case, so without this
+         the entry point xunit.v3 generates lands in a namespace differing from
+         the test classes' only by case, which is CA1708 and so a build error. -->
+    <RootNamespace>__PRODUCT__.Tests.Integration</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- CA1707 forbids underscores in identifiers; Method_Scenario_Expectation
+         is the standard xUnit test-naming convention, not a naming defect.
+         CA1711 objects to "Collection" as a type-name suffix (assuming it
+         should implement ICollection<T>); xUnit's own [CollectionDefinition]
+         marker-class convention names them exactly that. -->
+    <NoWarn>$(NoWarn);CA1707;CA1711</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <!-- TestDatabase talks to Postgres directly; declared, not left to flow
+         transitively from the app reference. -->
+    <PackageReference Include="Npgsql" />
+    <!-- The public-page CSP lockstep parses the served HTML with a real parser
+         rather than trusting the build-time scan that produced the header. -->
+    <PackageReference Include="AngleSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\apps\__product__\__product__.csproj" />
+  </ItemGroup>
+
+</Project>

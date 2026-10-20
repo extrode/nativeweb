@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- __PRODUCT__, not NativeWeb.Web.Tests.Unit, because the render generator
+         emits Locales into build_property.RootNamespace and this tier needs a
+         locale catalog the way a product has one: Chrome takes a LocaleCatalog
+         and the caller is what knows where it came from. Test files declare
+         their own namespace, so this affects only where the generated code
+         lands. -->
+    <RootNamespace>__PRODUCT__</RootNamespace>
+    <!-- Same test-project conventions as the sibling suites. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- The Web SDK's implicit usings, restated. The pipeline this tier composes
+         is written the way a web application writes one; this project is
+         Microsoft.NET.Sdk, because a test project is not a web application and
+         switching SDKs to borrow eight using directives would bring an apphost,
+         a launch profile and a static-web-assets pipeline with it. -->
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <!-- The subject under test.
+       Until spec 015 T4 this was a <Compile Include> of the sources where they
+       lived, under skeleton/apps/__product__/, because the invariants had to be
+       asserted BEFORE the files moved: a test written after a move asserts what
+       the moved code does, which begs the question it is meant to answer. The
+       move happened; this line replaced that ItemGroup, and no test file
+       changed. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\nativeweb.web\nativeweb.web.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.render\nativeweb.render.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.security\nativeweb.security.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.render.generator\nativeweb.render.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="locales\*.json" />
+    <!-- StaticErrorShell.Load and StaticPagesMiddleware's route map both read
+         the web root at startup, so the composed pipeline needs one on disk
+         beside the test assembly. -->
+    <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Repository-level guards: the workflow files, nuget.config, the solution,
+       Directory.Build.props, .editorconfig, the pack metadata and the skeleton's
+       framework resolution. Every one of them asserts about a FILE rather than
+       about a type, so this project references no production project at all and
+       walks up to NativeWeb.slnx to find the repository root.
+
+       It exists because these tests used to live in
+       tests/nativeweb.web.tests.unit, which covered the identity provider and was
+       deleted with it on 2026-08-31 (docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md).
+       None of them was ever about the identity provider; they were there because
+       that was the repository's only unit tier. Housed on their own now, so the
+       next thing to leave cannot take them with it. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Named, not defaulted. The assembly name is lower case, so without this
+         the entry point xunit.v3 generates lands in a namespace differing from
+         the test classes' only by case, which is CA1708 and so a build error. -->
+    <RootNamespace>NativeWeb.Repo.Tests.Unit</RootNamespace>
+    <!-- Test SDK/xUnit adapter pull in reflection-heavy paths that aren't
+         trim/AOT-analyzed; these projects are never published, only run
+         under the JIT via `dotnet test`. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- CA1707 forbids underscores in identifiers; Method_Scenario_Expectation
+         is the standard xUnit test-naming convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NativeWeb.Permissions.Tests.Unit</RootNamespace>
+    <!-- Same test-project conventions as the sibling suites. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- EndpointFilterInvocationContext and DefaultHttpContext. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <!-- CSharpGeneratorDriver, to drive the permissions generator directly. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <!-- TestServer, so the access admin's routes are exercised as routes. -->
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\nativeweb.permissions\nativeweb.permissions.csproj" />
+    <!-- ReferenceOutputAssembly=true so the generator type itself is callable from
+         the diagnostic and emitted-source tests, same as the scaffold suite. -->
+    <ProjectReference Include="..\..\libs\nativeweb.permissions.generator\nativeweb.permissions.generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="true" />
+  </ItemGroup>
+
+</Project>

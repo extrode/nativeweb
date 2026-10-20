@@ -1,0 +1,152 @@
+<Project>
+
+  <!-- Shared settings for every .NET project in the repo. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Treat trim/AOT analyzer findings as build-breaking so an
+         AOT-incompatible reference is caught early, not at publish.
+         Test projects self-override IsAotCompatible=false in their own
+         csproj (same convention as the sibling repos); nothing to exclude
+         here. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Style rules in .editorconfig at :warning severity fail the build (via
+         TreatWarningsAsErrors), so code style is enforced, not IDE-advisory. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!-- Source-generate the options binder so IConfiguration.Get<T>()/Bind()
+         work without reflection under NativeAOT. -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- The framework's version, in one place (spec 028 R1/R2).
+
+       It used to be thirteen places: every packable csproj under libs/ carried
+       its own <Version>0.1.0</Version>, which is the shape that already went
+       wrong once here with <Authors> ; ten copies said the retired org name for
+       three days after the rename because nothing made them move together.
+       PackageVersionTests bans a per-project <Version> for that reason.
+
+       VersionPrefix lives in this file rather than in Directory.Build.targets
+       beside the pack metadata, because it is unconditional: every project has a
+       version, packable or not. The pack block over there is conditioned on
+       IsPackable, which is set by each csproj and so is not answerable until
+       after the csproj is imported.
+
+       A RELEASE IS OPT-IN, and the direction is the point. IsReleaseBuild=true
+       clears the suffix and produces the stable version; every other build
+       produces X.Y.Z;dev. The other way round ; stable by default, suffixed when
+       something marks the build as local ; makes an unmarked pack
+       indistinguishable from a release, and a package that claims to be a
+       release and is not is the one thing a feed must never receive. Only
+       .github/workflows/publish.yml sets it, and only after checking the tag
+       against VersionPrefix.
+
+       (XML forbids a double hyphen inside a comment, as nuget.config also notes.
+       Dashes are written as semicolons above.) -->
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix Condition="'$(IsReleaseBuild)' != 'true'">dev</VersionSuffix>
+  </PropertyGroup>
+
+  <!-- Local checkout of JauntyQ (data-access source generator), referenced by
+       project in checkout mode only; the default is the nuget.org packages.
+       Two probes, not one. The first is the ordinary checkout: jauntyq as a
+       SIBLING of this repository. The second is two levels deeper, which is where
+       a .worktrees/<branch> checkout sits — and without it EVERY worktree build in
+       this repository fails at restore, before a line of the branch's own code is
+       compiled. Found on the 009 branch; justsmtp's NativeWebRoot probe has
+       carried the same two-depth pair, for the same reason, since it was written.
+
+       Both probes are relative to this repository and NAME NO PARENT DIRECTORY.
+       They used to hard-code an ancestor literally called `extrode-legacy-org.com`, which
+       broke twice in one move on 2026-08-26: the org directory was renamed to
+       `extrode.com` AND jauntyq moved with it, so both probes pointed at a path
+       that no longer existed and every local-checkout build needed
+       -p:JauntyQRoot to work at all. A relative probe survives the next rename.
+       JauntyQRootProbeTests pins it.
+
+       Each probe is guarded by Exists() so the property is only assigned when the
+       path is real: a bare assignment would set JauntyQRoot to a directory that
+       does not exist and defeat EnsureJauntyQRoot below, whose whole job is to
+       name the wrong root rather than let it fail later as CS0246.
+
+       Override with -p:JauntyQRoot=... if your checkout lives elsewhere. -->
+  <PropertyGroup>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\jauntyq')">$(MSBuildThisFileDirectory)..\jauntyq</JauntyQRoot>
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\..\jauntyq')">$(MSBuildThisFileDirectory)..\..\..\jauntyq</JauntyQRoot>
+
+    <!-- Neither probe matched. Assign the single-depth path anyway so
+         EnsureJauntyQRoot reports a concrete path rather than an empty string —
+         "not found at ''" tells a reader nothing about where it looked. -->
+    <JauntyQRoot Condition="'$(JauntyQRoot)' == ''">$(MSBuildThisFileDirectory)..\jauntyq</JauntyQRoot>
+  </PropertyGroup>
+
+  <!-- Dual-mode JauntyQ resolution:
+       - the default => PackageReference to the pinned Extrode.JauntyQ.* packages
+         (versions in Directory.Packages.props);
+       - -p:JauntyQUsePackages=false => ProjectReference into a local checkout,
+         for co-development.
+
+       CHECKOUT MODE IS THE OPT-IN, and it was the default until 2026-09-05.
+       JauntyQ split: the generator and runtime sources moved to a public core
+       repository, and ../jauntyq then held only the premium half
+       (Extrode.JauntyQ.Registry, .Schema.Contract, .Explain, .Licensing and
+       .Cli.Premium). Both csproj paths this repository referenced are gone from
+       it, so the sentinel below matched nothing and EVERY build failed fast
+       until -p:JauntyQUsePackages=true was passed by hand. The package IDs were
+       unchanged by the split, so package mode kept working throughout, which is
+       why it is now the default rather than the exception.
+       docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md. Core 0.5.0
+       renamed them later (Directory.Packages.props has the pin and why).
+
+       The probe block above is deliberately untouched. It is correct; it simply
+       stops firing on the default path, and it is what checkout mode needs the
+       day the public core is cloned as a sibling. -->
+  <PropertyGroup>
+    <JauntyQUsePackages Condition="'$(JauntyQUsePackages)' == ''">true</JauntyQUsePackages>
+  </PropertyGroup>
+
+  <!-- MSBuild only warns (MSB9008) and silently skips missing ProjectReferences,
+       which turns an unresolved JauntyQRoot into downstream CS0246s. Fail fast —
+       but only in checkout mode; package mode has no path to validate.
+
+       Probe the generator csproj rather than the directory: an empty or
+       partially-cloned jauntyq/ passes a bare Exists() and then fails as
+       CS0246, which is the error this target exists to pre-empt. Sentinel-file
+       probe, same as skeleton/Directory.Build.props.
+
+       The sentinel names the public core's layout, verified 2026-09-24 against
+       a sibling clone of it (core 0.5.1): src/Extrode.JauntyQ.Generator/. It
+       named the pre-split path until then, unguessed, because a probe pointing
+       at a path nobody verified is the extrode-legacy-org.com breakage
+       JauntyQRootProbeTests exists to prevent. -->
+  <Target Name="EnsureJauntyQRoot" BeforeTargets="BeforeBuild"
+          Condition="'$(JauntyQUsePackages)' == 'false' and !Exists('$(JauntyQRoot)\src\Extrode.JauntyQ.Generator\Extrode.JauntyQ.Generator.csproj')">
+    <Error Text="JauntyQ checkout not found at '$(JauntyQRoot)'. Pass -p:JauntyQRoot=&lt;path&gt;, or drop -p:JauntyQUsePackages=false to build against the pinned packages." />
+  </Target>
+
+  <!-- Which mode resolved, in the build log rather than inferred from whether it
+       worked. Mirrors ReportFrameworkResolution in skeleton/Directory.Build.props;
+       MSBuild also reads bare environment variables as properties, so an ambient
+       JauntyQUsePackages flips the mode with nothing on the command line to show
+       for it. -->
+  <Target Name="ReportJauntyQResolution" BeforeTargets="BeforeBuild">
+    <Message Importance="high"
+             Condition="'$(JauntyQUsePackages)' != 'false'"
+             Text="JauntyQ: packages (pinned in Directory.Packages.props)." />
+    <Message Importance="high"
+             Condition="'$(JauntyQUsePackages)' == 'false'"
+             Text="JauntyQ: checkout at '$(JauntyQRoot)'." />
+  </Target>
+
+</Project>

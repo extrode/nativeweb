@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NativeWeb.Scaffold.Tests.Integration</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- Method_Scenario_Expectation is the xUnit convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707;CA1711</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The scaffolding demo, which is the only thing in the repo that exercises
+         the generated endpoints end to end. Its store is in-memory, so this suite
+         needs no database. -->
+    <ProjectReference Include="..\..\apps\sample\nativeweb.sample.csproj" />
+  </ItemGroup>
+
+</Project>

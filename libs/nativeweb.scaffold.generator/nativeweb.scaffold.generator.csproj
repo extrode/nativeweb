@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Build-time half of the scaffolding feature (brainstorm 001 T1.3): an
+       incremental source generator that turns a [Scaffold]-decorated model into a
+       working CRUD route group plus the HTML for every view. Same wiring pattern
+       as nativeweb.render.generator and JauntyQ.Generator: netstandard2.0,
+       referenced with OutputItemType="Analyzer" ReferenceOutputAssembly="false". -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>NativeWeb.Scaffold.Generator</RootNamespace>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Scaffold.Generator</PackageId>
+    <Description>NativeWeb framework: build-time CRUD scaffolding source generator.</Description>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The permission naming rule, compiled in rather than referenced. This
+         generator has to name the same constant the permissions generator emits,
+         and a generator cannot see another generator's output in the same
+         compilation, so both derive it. Linking the one file is what stops that
+         being two rules that agree today. See spec 024. -->
+    <Compile Include="..\nativeweb.permissions.generator\PermissionNaming.cs"
+             Link="PermissionNaming.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

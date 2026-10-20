@@ -1,0 +1,60 @@
+<!--#template
+  @param string Title
+  @param NativeWeb.Web.AssetUrls Assets
+  @param string Nonce
+  @param string AntiforgeryFieldName
+  @param string BotCanary
+  @param string AntiforgeryToken
+  @param string FlashOk
+  @param string FlashError
+-->
+<!DOCTYPE html>
+<html lang="{{locale.Lang}}" dir="{{locale.Dir}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{if AntiforgeryToken.Length != 0}}<meta name="request-verification-token" content="{{AntiforgeryToken}}">{{/if}}
+<meta name="htmx-config" content='{"includeIndicatorCSS":false,"noSwap":[204,304,"4xx","5xx"]}'>
+<title>{{Title}}</title>
+<script{{if Nonce.Length != 0}} nonce="{{Nonce}}"{{/if}}>
+      (function(){
+        try {
+          var stored = localStorage.getItem('theme');
+          var theme = stored === 'light' || stored === 'dark'
+            ? stored
+            : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
+<link rel="stylesheet" href="{{Assets.Resolve("/_nativeweb/css/tokens.css")}}">
+<link rel="stylesheet" href="{{Assets.Resolve("/_nativeweb/css/base.css")}}">
+<link rel="stylesheet" href="{{Assets.Resolve("/_nativeweb/css/components.css")}}">
+<link rel="stylesheet" href="{{Assets.Resolve("/css/__product__.css")}}">
+<link rel="stylesheet" href="{{Assets.Resolve("/vendor/fonts/fonts.css")}}">
+<link rel="icon" type="image/svg+xml" href="{{Assets.Resolve("/img/logo.svg")}}">
+<script src="{{Assets.Resolve("/_nativeweb/boot.js")}}" defer></script>
+<script src="{{Assets.Resolve("/vendor/htmx/htmx.min.js")}}" defer></script>
+<script src="{{Assets.Resolve("/vendor/alpinejs/alpine.min.js")}}" defer></script>
+<script{{if Nonce.Length != 0}} nonce="{{Nonce}}"{{/if}}>
+      document.addEventListener('htmx:config:request', function (event) {
+        var meta = document.querySelector('meta[name="request-verification-token"]');
+        if (meta) {
+          event.detail.ctx.request.headers['RequestVerificationToken'] = meta.content;
+        }
+      });
+    </script>
+</head>
+<body>
+<a class="skip-link" href="#main">{{t:chrome.skip}}</a>
+<header class="topbar">
+<a class="topbar__brand" href="/"><img class="topbar__logo" src="{{Assets.Resolve("/img/logo.svg")}}" alt="">__PRODUCT__</a>
+</header>
+<main id="main" tabindex="-1">
+{{if FlashOk.Length != 0}}{{> shared/banner-ok Message=FlashOk}}{{/if}}
+{{if FlashError.Length != 0}}{{> shared/banner-error Message=FlashError}}{{/if}}
+{{slot Main}}
+</main>
+<footer class="foot">{{t:chrome.footer}}</footer>
+</body>
+</html>

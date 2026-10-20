@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, InvariantGlobalization,
+       IsAotCompatible and analyzer settings come from Directory.Build.props. -->
+
+  <!-- Pack metadata (spec 003 R1): private-feed consumption only; see the
+       note in nativeweb.security.csproj. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Mail</PackageId>
+    <Description>NativeWeb framework: AOT-safe SMTP transport and email templating.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- AOT-guaranteed SMTP submission (Lite variants). -->
+    <PackageReference Include="MailKitLite" />
+    <PackageReference Include="MimeKitLite" />
+    <!-- ILogger abstractions for the SMTP code sender's warning path. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+</Project>

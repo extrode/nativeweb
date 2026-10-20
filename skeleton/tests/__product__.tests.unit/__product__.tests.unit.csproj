@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Named, not defaulted. The assembly name is lower case, so without this
+         the entry point xunit.v3 generates lands in a namespace differing from
+         the test classes' only by case, which is CA1708 and so a build error. -->
+    <RootNamespace>__PRODUCT__.Tests.Unit</RootNamespace>
+    <!-- Test SDK/xUnit adapter pull in reflection-heavy paths that aren't
+         trim/AOT-analyzed; these projects are never published, only run
+         under the JIT via `dotnet test` (same convention as the sibling
+         repos referenced in Directory.Build.props). -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- CA1707 forbids underscores in identifiers; Method_Scenario_Expectation
+         is the standard xUnit test-naming convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\apps\__product__\__product__.csproj" />
+  </ItemGroup>
+
+</Project>

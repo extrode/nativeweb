@@ -1,0 +1,119 @@
+<Project>
+
+  <!-- Debug only: do not build the precompressed (.gz) static-asset variants.
+
+       The defect. MapStaticAssets in Development attaches
+       StaticAssetDevelopmentRuntimeHandler, which re-stats each asset per request
+       so an edit is picked up without a rebuild. It resolves the file as
+       wwwroot + route, but the compressed variants are not in wwwroot: the SDK
+       writes them under obj/<config>/<tfm>/compressed/ with hashed names.
+       FileInfo.Length therefore throws FileNotFoundException for every one of
+       them. To a gzip-accepting client, which is any real browser, that surfaces
+       as HTTP 200 with a zero-length body and no Content-Type, so a Debug run
+       serves every stylesheet and script empty and the app renders unstyled.
+       Requesting a .gz route directly returns 500 with the FileNotFoundException
+       in the log; same defect, unswallowed. Neither curl's default (which sends
+       no Accept-Encoding) nor the e2e suite's identity override asks for gzip,
+       which is how it survived on dev.
+
+       The switch. In SDK 10.0.203 DisableBuildCompression gates only
+       ResolveBuildRelatedStaticWebAssetsDependsOn
+       (Microsoft.NET.Sdk.StaticWebAssets.Compression.targets:185). The publish
+       hook at :204 is ungated, so dotnet publish still emits and serves the
+       compressed variants: Release is unaffected, which matches the observed
+       behaviour that the defect only ever reproduced in Debug.
+
+       Why this file and not Directory.Build.props. Configuration is not defined
+       when Directory.Build.props is evaluated; the SDK defaults it afterwards.
+       A Condition on it there is therefore false on a bare `dotnet build` or
+       `dotnet test` and true only when -c Debug is passed explicitly, so the
+       property appeared to work by hand and silently did nothing under the test
+       run. Directory.Build.targets is imported after the SDK targets, by which
+       point Configuration is set. Verified both ways: with the condition in
+       .props a bare build emitted 96 gzip endpoints and -c Debug emitted 0.
+
+       Remove this once the framework resolves the compressed variant through the
+       manifest content roots rather than wwwroot.
+
+       Note for editors: MSBuild comments are XML, so a doubled hyphen anywhere in
+       this block makes the file unparseable, and the failure surfaces as an
+       unrelated NETSDK1207 rather than as a syntax error. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DisableBuildCompression>true</DisableBuildCompression>
+  </PropertyGroup>
+
+  <!-- License metadata for the packable libs (spec: the ISL-NETC adoption).
+
+       PackageLicenseFile, not PackageLicenseExpression: NuGet validates an
+       expression against the SPDX license list and rejects a LicenseRef, so
+       LicenseRef-ISL-NETC-1.1 can only travel as the file plus the
+       PackageLicenseFile pointer. NOTICE.md ships beside it because ISL-NETC
+       3.1(c) requires any copy of the software to retain it, and a .nupkg is a
+       copy.
+
+       Why this file and not Directory.Build.props: IsPackable is set in each
+       csproj, which is imported after the props and before the targets, so the
+       condition below is only answerable here. In .props it would be false for
+       every project and pack would emit NU5030 for a license file it was told
+       about but never packed. -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <Copyright>Copyright (c) 2026 Extrode LLC. All rights reserved.</Copyright>
+    <!-- Central, like Copyright beside it, and for the reason the nine per-project
+         copies of this proved: they said `extrode-legacy-org` for three days after the
+         2026-08-26 rename, sitting one line above a Copyright that already said
+         Extrode LLC. Nine strings drift; one does not. This file is imported
+         after each csproj, so a stray per-project <Authors> is silently
+         overridden rather than merged; PackageMetadataTests bans one for that
+         reason, since a value that has no effect is worse than no value.
+
+         (XML forbids a double hyphen inside a comment, as skeleton/nuget.config
+         also notes. Write dashes as semicolons or commas here.) -->
+    <Authors>Extrode LLC</Authors>
+    <PackageProjectUrl>https://github.com/extrode/nativeweb</PackageProjectUrl>
+
+    <!-- Provenance (spec 028 R3). The nuspec already carried a `commit` before
+         this line existed, because the SDK picks SourceRevisionId up on its own ;
+         it carried no `url`, so a package named a revision with nothing to
+         resolve it against. Both halves or neither is the useful state.
+
+         RepositoryUrl is the same string as PackageProjectUrl above and is
+         deliberately not factored into one property: they answer different
+         questions (where the project lives for a reader, which repository this
+         binary came from) and a fork or a mirror separates them. -->
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/extrode/nativeweb</RepositoryUrl>
+
+    <!-- Deterministic paths on a runner, so two builds of the same commit
+         produce the same bytes. Off locally, because it rewrites source paths
+         into the PDB and breaks stepping into the library from a sibling
+         checkout ; which is the whole point of checkout mode. GitHub Actions
+         sets CI=true; so does every other runner worth naming. -->
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- The library's own README travels with the package (spec 028 R4).
+
+       Guarded by Exists rather than set unconditionally: nine of the thirteen
+       packable projects have a README.md and the four generators do not, and
+       naming a readme file that is not packed is NU5039, which under
+       TreatWarningsAsErrors is a build failure rather than a nag.
+
+       MSBuildProjectDirectory, not MSBuildThisFileDirectory: this file is
+       imported into every project, so the path has to resolve per project.
+       LICENSE.md and NOTICE.md below are the opposite case ; one repository
+       file, shipped in every package. -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true' and Exists('$(MSBuildProjectDirectory)\README.md')">
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(PackageReadmeFile)' != ''">
+    <None Include="$(MSBuildProjectDirectory)\README.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)NOTICE.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+
+</Project>

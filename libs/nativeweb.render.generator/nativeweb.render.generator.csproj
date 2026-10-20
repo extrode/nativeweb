@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Build-time half of the render engine (spec 003 R10–R12): an incremental
+       source generator that compiles templates/**/*.html (AdditionalFiles) into
+       static render classes writing UTF-8 through nativeweb.render's
+       TemplateWriter. Same wiring pattern as JauntyQ.Generator: netstandard2.0,
+       referenced with OutputItemType="Analyzer" ReferenceOutputAssembly="false". -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>NativeWeb.Render.Generator</RootNamespace>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <!-- RS2008: analyzer release tracking files — not used, same call as JauntyQ. -->
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+    <!-- netstandard2.0 has no AOT analyzers; the generator never ships in the app. -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <!-- Pack metadata (spec 003 R1): private-feed consumption only; see the
+       note in nativeweb.security.csproj. Packs as an ANALYZER package: no lib/
+       output, the generator dll under analyzers/dotnet/cs, same shape as
+       Roslyn generator packages (and JauntyQ.Generator's). -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Render.Generator</PackageId>
+    <Description>NativeWeb framework: build-time template + locale-catalog source generator.</Description>
+    <!-- Analyzer semantics for consumers: no transitive flow, no lib dependency. -->
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <!-- NU5128: no lib/ entry for the TFM is exactly what an analyzer package looks like. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

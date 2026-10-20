@@ -1,0 +1,495 @@
+name: CI
+
+on:
+  push:
+    # Every branch, dev and main included. They used to be excluded, on the
+    # theory that anything reaching them had already been verified on its
+    # feature branch -- but the merge itself is what nothing verified, and a
+    # push straight to dev (the ordinary end state of finished work here) ran
+    # no CI at all.
+  pull_request:
+
+# Least privilege, and packages:read is the point: skeleton-stamp restores the
+# stamped product from the framework feed on GitHub Packages, which requires
+# auth even for a public feed. Until 2026-09-24 this repository's own JauntyQ.*
+# restore read that feed too, which worked with the job's own GITHUB_TOKEN only
+# because the extrode org granted this repo read access to the jauntyq
+# packages; without that grant the restore 401s.
+#
+# That grant is per-repository and does not survive an org move. Both repos
+# moved from extrode-legacy-org to extrode on 2026-08-26, the packages did not follow --
+# they stayed under extrode-legacy-org, unlinked from any repository -- and every run from
+# then until 2026-08-27 died with NU1301 "403 (Forbidden)" against the old org's
+# feed. The URL itself is not repeated here: OrgReferenceTests bans that host
+# string outright, because in a workflow file a feed host cannot be told apart
+# from a live pointer. A GITHUB_TOKEN is scoped to its own repository,
+# so it can never read a private package owned by a different org, which is why
+# the fix was to republish under extrode rather than to widen a token. The
+# packages stay PRIVATE: AGENTS.md forbids redistributing JauntyQ binaries, so
+# a public feed is not an available shortcut here.
+permissions:
+  contents: read
+  packages: read
+
+env:
+  # No JauntyQ sibling checkout exists in CI. Package mode is the default now, so
+  # this flag states the mode rather than selecting it: the build takes the pinned
+  # Extrode.JauntyQ.Generator and Extrode.JauntyQ.Runtime versions from
+  # Directory.Packages.props either way (see Directory.Build.props's dual-mode
+  # resolution). Those resolve from nuget.org since core 0.5.0; the old JauntyQ.*
+  # ids this comment named until 2026-09-24 were deleted from the extrode feed.
+  DOTNET_BUILD_ARGS: -p:JauntyQUsePackages=true
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+  # Keys for ContactProtector and StoreDataProtector, which are framework
+  # primitives in libs/nativeweb.security and outlived the identity provider that
+  # used to consume them here. No suite in this repository reads them today, and
+  # neither primitive reads configuration at all -- both take their key from the
+  # caller -- so the `NativeWeb__` spelling binds nothing and a suite that needed
+  # one of these would spell it with its own product's section, the way apps/sample
+  # spells everything `Sample__`. They stay as the shape a stamped product's
+  # workflow inherits, and as the record that these are test values; they are not a
+  # working configuration for anything. Noted 2026-08-31 after the deploy preflight
+  # was found demanding the same departed spelling.
+  #
+  # These are test values and deliberately not secrets, which is why they are
+  # here in the clear rather than in the secret store. DeriveKey SHA256s
+  # anything that is not already a 32-byte encoded key, so they only have to be
+  # stable and non-empty. Do not reuse either value anywhere real.
+  NativeWeb__ContactKey: ci-test-contact-key-not-a-secret
+  NativeWeb__StoreEncryptionKey: ci-test-store-encryption-key-not-a-secret
+
+jobs:
+  test:
+    # Unit/integration/e2e are plain JIT test hosts, not AOT publishes, so
+    # they don't need the Windows-only MSVC toolchain -- Postgres service
+    # containers are also Linux-runner-only in GitHub Actions.
+    runs-on: ${{ vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          # nativeweb_app completes the neutral-naming rename (spec 002 R11):
+          # no migration references the role by name, so CI just provisions
+          # the neutral name and local dev carries a nativeweb_app role that
+          # owns nativeweb_dev (created 2026-07-31; epass_app itself was left
+          # untouched because it also owns other projects' local
+          # databases).
+          POSTGRES_USER: nativeweb_app
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: nativeweb_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # The scaffolding demo's database, and since 2026-08-31 the only one this
+      # repository has. ConnectionStrings__NativeWeb pointed at the identity
+      # schema and went with it. Both the scaffold integration and e2e tiers read
+      # this name.
+      #
+      # It is exported job-wide, which the in-memory halves of those tiers have to
+      # defend against rather than merely ignore: configuration reads environment
+      # variables, and the e2e fixture launches its child with
+      # UseShellExecute=false, which copies this whole environment. SampleFactory
+      # pins the key empty and SampleProcessFixture removes it from the child.
+      # Without those two lines this variable moves the in-memory tests onto
+      # PostgreSQL, where the rows they assert on do not exist -- measured, 8
+      # integration and 2 e2e failures.
+      ConnectionStrings__Sample: "Host=localhost;Database=nativeweb_sample_test;Username=nativeweb_app;Password=ci_test_password"
+    steps:
+      # A self-hosted runner keeps $HOME between jobs, and a warm ~/.nuget/packages
+      # is what hid the deleted JauntyQ.* ids for a week (2026-09-17 to 09-24).
+      # RUNNER_TEMP is emptied for every job, so each restore starts cold, as it
+      # does on a hosted runner. The HTTP cache moves too: NuGet trusts it for 30
+      # minutes, long enough to answer for an id the feed no longer serves.
+      # Decision 2026-09-24-014.
+      - name: Cold NuGet cache
+        run: |
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
+          echo "NUGET_HTTP_CACHE_PATH=$RUNNER_TEMP/nuget-http-cache" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v7
+
+      # No setup-dotnet step: ubuntu-latest (Ubuntu 24.04) ships .NET SDK 10.0.110,
+      # 10.0.204 and 10.0.302 preinstalled, so the action installed nothing and only
+      # cost a node process. global.json at the repo root is what pins the band --
+      # 10.0.100 with rollForward: latestFeature, so any 10.0.x satisfies it and an
+      # image without one fails by name instead of rolling forward to 9.x.
+
+      # db/sample/ is the only schema this repository has since the identity
+      # provider left it (decision 2026-08-31-007): db/migrations, db/queries,
+      # db/schema and db/seed were the IdP's and went with it, so there is no
+      # "apply migrations" step above this one any more.
+      - name: Provision the scaffolding demo database
+        run: |
+          PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE nativeweb_sample_test;"
+          for migration in db/sample/migrations/*.sql; do
+            PGPASSWORD=ci_test_password psql -h localhost -U nativeweb_app -d nativeweb_sample_test -v ON_ERROR_STOP=1 \
+              -f "$migration"
+          done
+
+      # No credential step: nuget.config declares nuget.org alone since
+      # 2026-09-24, when the jauntyq-github source was retired. The vulnerable
+      # package gate below queries every declared source, and this job's token
+      # got 403 (Forbidden) from that one.
+      - name: Restore
+        run: dotnet restore $DOTNET_BUILD_ARGS
+
+      - name: Build
+        run: dotnet build --no-restore $DOTNET_BUILD_ARGS
+
+      # Spec 003 R31: fail the build when any resolved package (direct or
+      # transitive) has a known CVE. `dotnet list` takes no -p: properties, but
+      # MSBuild reads properties from the environment, so JauntyQUsePackages as
+      # an env var makes project evaluation here match the package-mode restore
+      # above (without it, evaluation falls back to checkout mode and a JauntyQ
+      # sibling dir that does not exist on the runner). The command exits 0
+      # whether or not it finds anything, so the gate is two greps: fail on any
+      # "> PackageName" finding line, and fail if the positive "no vulnerable
+      # packages" confirmation never appears -- an audit that evaluated nothing
+      # (broken sources, format change) must not pass silently.
+      # It exits non-zero when it cannot query a source, and prints why on
+      # stdout. Under bash -e a bare `out=$(...)` then ends the step before the
+      # echo, leaving "exit code 1" and no reason in the log (2026-09-24).
+      - name: Vulnerable package gate
+        env:
+          JauntyQUsePackages: "true"
+        run: |
+          out=$(dotnet list package --vulnerable --include-transitive 2>&1) || {
+            echo "$out"
+            echo '::error::dotnet list package failed -- see its output above.'
+            exit 1
+          }
+          echo "$out"
+          if echo "$out" | grep -Eq '^\s*>'; then
+            echo '::error::Vulnerable package(s) found -- see the list above.'
+            exit 1
+          fi
+          if ! echo "$out" | grep -q 'has no vulnerable packages'; then
+            echo '::error::Vulnerability audit produced no per-project confirmation -- treating as failed.'
+            exit 1
+          fi
+
+      # Deno is not preinstalled on a GitHub runner, and denoland/setup-deno is
+      # a `uses:` step -- decision 2026-08-20-001 keeps this repository down to
+      # exactly one of those. The official installer is a plain `run:` step
+      # fetching a single static binary: no node, no npm, no package registry.
+      # Pinned rather than floating, so an upstream release day cannot change
+      # what runs here.
+      - name: Install Deno
+        env:
+          DENO_VERSION: v2.9.5
+        run: |
+          curl -fsSL https://deno.land/install.sh | sh -s -- --yes "$DENO_VERSION"
+          echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+
+      - name: Pack tool tests
+        run: deno test -A tools/pack.test.ts
+
+      # tools/stamp-check.ts is the local half of the skeleton-stamp job below:
+      # the job proves the skeleton end to end on a runner, and the script lets a
+      # person prove it here before pushing. This step runs the script's own
+      # suite, not the script -- the stamp itself is the job below, which has the
+      # Postgres service and the git identity a stamp needs. What the suite
+      # covers is the argument handling and the environment the script assembles;
+      # nothing here reads that job's `env:` block, so the two staying in step is
+      # a thing to check by hand when either changes.
+      - name: Stamp check tool tests
+        run: deno test -A tools/stamp-check.test.ts
+
+      # Spec 028 R5: prove the pack path on every push, publishing nothing. The
+      # release version is produced only by publish.yml, so what this builds is
+      # X.Y.Z-dev and goes no further than the runner's disk. Without it the
+      # publish workflow would be the first place a pack failure was ever seen,
+      # which is the worst place: mid-release, with a tag already pushed.
+      - name: Pack every library
+        run: deno run -A tools/pack.ts $DOTNET_BUILD_ARGS
+
+      - name: Install Playwright browsers
+        run: pwsh tests/nativeweb.scaffold.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+
+      # Every suite is listed by name rather than globbed, so a suite that stops
+      # being discovered fails by name instead of vanishing quietly from the run.
+      # The web and sign-in tiers that used to head this list left with the
+      # identity provider (decision 2026-08-31-007).
+      # First, because it is the tier that asserts about this file. It guards the workflow's own
+      # action pinning, nuget.config, the solution, Directory.Build.props, .editorconfig, the pack
+      # metadata and the skeleton's framework resolution -- none of which any other suite reads.
+      - name: Repository guards
+        run: dotnet test --project tests/nativeweb.repo.tests.unit --no-build $DOTNET_BUILD_ARGS
+
+      - name: Render unit tests
+        run: dotnet test --project tests/nativeweb.render.tests.unit --no-build $DOTNET_BUILD_ARGS
+
+      - name: Forms unit tests
+        run: dotnet test --project tests/nativeweb.forms.tests.unit --no-build $DOTNET_BUILD_ARGS
+
+      - name: Scaffolding unit tests
+        run: dotnet test --project tests/nativeweb.scaffold.tests.unit --no-build $DOTNET_BUILD_ARGS
+
+      - name: Sample unit tests
+        run: dotnet test --project tests/nativeweb.sample.tests.unit --no-build $DOTNET_BUILD_ARGS
+
+      - name: Scaffolding integration tests
+        run: dotnet test --project tests/nativeweb.scaffold.tests.integration --no-build $DOTNET_BUILD_ARGS
+
+      - name: Install NativeAOT link prerequisites
+        # The e2e fixture's inner publish does a full NativeAOT link on this
+        # Linux runner, which needs clang and zlib headers.
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Scaffolding E2E tests
+        # SampleProcessFixture publishes apps/sample itself (Release; the outer
+        # --no-build does not apply to that inner publish), and that inner publish
+        # inherits this environment variable rather than the outer command's -p:
+        # flag -- MSBuild reads bare environment variables as properties. Without
+        # it the inner publish evaluates in checkout mode and EnsureJauntyQRoot
+        # fails the tier on a runner that has no jauntyq sibling.
+        env:
+          JauntyQUsePackages: "true"
+        run: dotnet test --project tests/nativeweb.scaffold.tests.e2e --no-build $DOTNET_BUILD_ARGS
+
+  aot-publish:
+    # The NativeAOT gate: the native link needs MSVC's link.exe, which
+    # windows-latest ships preinstalled (VS2022, Desktop development with
+    # C++) and which the ILCompiler locates itself -- this job proves
+    # apps/sample still links and stays warning-free under TreatWarningsAsErrors
+    # for AOT/trim analysis, matching the local publish gate used throughout
+    # Phase 0. It doesn't need Postgres: publish only compiles, it never runs
+    # the app.
+    runs-on: ${{ vars.CI_WINDOWS_RUNNER || 'windows-latest' }}
+    steps:
+      # A self-hosted runner keeps its profile between jobs, and a warm NuGet
+      # cache is what hid the deleted JauntyQ.* ids for a week (2026-09-17 to
+      # 09-24). RUNNER_TEMP is emptied for every job, so each restore starts
+      # cold, as it does on a hosted runner. The HTTP cache moves too: NuGet
+      # trusts it for 30 minutes. Decision 2026-09-24-014.
+      - name: Cold NuGet cache
+        run: |
+          Add-Content -Path $env:GITHUB_ENV -Value "NUGET_PACKAGES=$env:RUNNER_TEMP\nuget-packages"
+          Add-Content -Path $env:GITHUB_ENV -Value "NUGET_HTTP_CACHE_PATH=$env:RUNNER_TEMP\nuget-http-cache"
+
+      - uses: actions/checkout@v7
+
+      # Same as the test job: windows-latest (Windows Server 2025) already ships the
+      # 10.0.x SDKs, and global.json pins which band is acceptable.
+
+      # There is deliberately no MSVC setup step. This job used to run
+      # ilammy/msvc-dev-cmd, and it needed neither the action nor the developer
+      # environment: microsoft.dotnet.ilcompiler's own
+      # Microsoft.NETCore.Native.Windows.targets shells its bundled
+      # findvcvarsall.bat, which asks vswhere for the VC.Tools component and sets
+      # CppLinker to an absolute link.exe. Measured 2026-08-20: a full AOT publish
+      # of an app from a shell with no VCINSTALLDIR and no cl.exe on PATH links
+      # and exits 0 in 56s (measured against apps/web, which has since left this
+      # repository; the toolchain fact is about the runner, not the project). If the tools really are missing the publish stops with
+      # "Platform linker not found", so the failure is named, not silent.
+      #
+      # Removing it also removed a defect: the action exported Platform=x64, which
+      # MSBuild reads as a property like any other environment variable, and that
+      # inserted an extra x64 segment into the publish path.
+      #
+      # There is no credential step either, for the reason the test job gives.
+      #
+      # -o pins the output path. Without it the publish directory is not
+      # knowable from here: PublishAot infers a RuntimeIdentifier at publish
+      # time, adding a win-x64 segment that is not visible to static evaluation.
+      # It was worse while msvc-dev-cmd ran: that action exported Platform=x64,
+      # MSBuild read it as a property, and the runner wrote to
+      # bin\x64\Release\net10.0\win-x64\publish\ while the budget step below
+      # looked in bin/Release/net10.0/win-x64/publish/. The action is gone and
+      # -o stays, because the RID segment alone is reason enough to pin.
+      - name: Publish (NativeAOT)
+        run: dotnet publish apps/sample/nativeweb.sample.csproj -c Release -p:JauntyQUsePackages=true -o publish/sample
+
+      # Spec 003 R36: size + time-to-/healthz against scripts/ci/publish-budgets.json.
+      # Budgets are null (record-only) until the close-out baseline is recorded.
+      - name: Publish budgets (sample)
+        run: pwsh scripts/ci/check-publish-budgets.ps1 -ExePath publish/sample/nativeweb.sample.exe -Name nativeweb.sample -Port 5998 -ConfigPrefix Sample
+
+  # ---------------------------------------------------------------------------
+  # The skeleton, exercised the only way that proves anything: by stamping a
+  # product from it and running that product's own three tiers.
+  #
+  # skeleton/ ships a complete product including its own ci.yml, and until now
+  # none of it had ever run anywhere. The suites are not this repo's -- they are
+  # what every stamped product inherits on day one -- so a break in them is
+  # invisible here and lands on whoever stamps next. Verified locally first, on
+  # 2026-08-25: a stamp into a sibling directory builds clean in checkout mode and
+  # passes 47 unit, 7 integration and 2 e2e facts.
+  #
+  # This job does NOT run skeleton/.github/workflows/ci.yml. That file is the
+  # stamped product's own workflow, it clones both framework repositories with a
+  # token this repository does not have, and a workflow cannot invoke another
+  # repository's workflow file from a working directory anyway. What is checked
+  # here is the thing that file assumes: that the skeleton stamps into something
+  # that builds and passes.
+  # ---------------------------------------------------------------------------
+  skeleton-stamp:
+    runs-on: ${{ vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # MIXED MODE, and deliberately so. NativeWeb resolves by CHECKOUT, because
+      # this repository is the thing under test and packages would test a
+      # published artifact instead of this commit. JauntyQ resolves by PACKAGES,
+      # because no jauntyq checkout exists on this runner and cloning it needs a
+      # cross-repository token the test job above already avoids needing.
+      # skeleton/Directory.Build.props makes the two independent, which is what
+      # allows the combination.
+      #
+      # Bare variables, not -p: flags, for the reason the skeleton's own workflow
+      # spells out: MSBuild reads them as properties, so they reach `dotnet
+      # restore`, `dotnet build`, `dotnet test`, and the NativeAOT publish that
+      # the e2e fixture spawns as a CHILD process. A -p: flag reaches only the
+      # command it is written on, and the inner publish is not that command.
+      NativeWebRoot: ${{ github.workspace }}/NativeWeb
+      JauntyQUsePackages: "true"
+      Ciprobe__Db__ConnectionString: "Host=localhost;Database=ciprobe_test;Username=ciprobe_app;Password=ci_test_password"
+    steps:
+      # Into NativeWeb/, not the workspace root. The stamped product must be a
+      # SIBLING of the framework checkout, not its parent: nested the other way,
+      # Directory.Packages.props discovery walks up out of the framework clone and
+      # finds the product's copy, which switches central package management on
+      # underneath it and kills the restore. The skeleton's own workflow carries
+      # the measurement (NU1008, 2026-08-17); the same trap applies here with the
+      # roles reversed.
+      # A self-hosted runner keeps $HOME between jobs, and a warm ~/.nuget/packages
+      # is what hid the deleted JauntyQ.* ids for a week (2026-09-17 to 09-24).
+      # RUNNER_TEMP is emptied for every job, so each restore starts cold, as it
+      # does on a hosted runner. The HTTP cache moves too: NuGet trusts it for 30
+      # minutes, long enough to answer for an id the feed no longer serves.
+      # Decision 2026-09-24-014.
+      - name: Cold NuGet cache
+        run: |
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
+          echo "NUGET_HTTP_CACHE_PATH=$RUNNER_TEMP/nuget-http-cache" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v7
+        with:
+          path: NativeWeb
+
+      - name: Provision the stamped product's database
+        run: |
+          PGPASSWORD=ci_test_password psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE ciprobe_app LOGIN PASSWORD 'ci_test_password';" \
+            -c "CREATE DATABASE ciprobe_test OWNER ciprobe_app;"
+
+      # new-product.ps1 ends by making the stamped product's first commit, and a
+      # GitHub runner has no git identity at all: the commit stops with "empty
+      # ident name" and the whole job fails before a single test runs. Set it
+      # here rather than in the script, which refuses on purpose -- its
+      # Invoke-Git names "no user.email" as a failure it must not print success
+      # over, and inventing an author for someone's new product repository would
+      # write this runner's name into that repository's first commit forever.
+      # The identity is the runner's own, and nothing here is ever pushed.
+      - name: Give the runner a git identity for the stamp commit
+        run: |
+          git config --global user.name  'nativeweb-ci'
+          git config --global user.email 'nativeweb-ci@users.noreply.github.com'
+
+      # -Execute, because a dry run exits 0 having written nothing and would make
+      # every step after this one a test of an empty directory.
+      # ciprobe/ sits beside the NativeWeb checkout, so actions/checkout never
+      # cleans it, and on a self-hosted runner it survives into the next job;
+      # new-product.ps1 refuses a destination that is not empty.
+      - name: Clear an earlier job's stamp
+        run: rm -rf "$GITHUB_WORKSPACE/ciprobe"
+
+      - name: Stamp a product from the skeleton
+        working-directory: NativeWeb
+        run: >
+          pwsh tools/new-product.ps1
+          -Name Ciprobe -Slug ciprobe
+          -Destination ${{ github.workspace }}/ciprobe
+          -Execute
+
+      - name: Apply the stamped product's migrations
+        working-directory: ciprobe
+        # Through the shipped runner, so CI exercises the same migrate.sh a
+        # deployment uses rather than an inline loop that resembles it.
+        env:
+          PGHOST: localhost
+          PGDATABASE: ciprobe_test
+          APP_ROLE: ciprobe_app
+          SUPERUSER_ROLE: postgres
+          PGPASSWORD: ci_test_password
+        run: bash db/migrate.sh
+
+      # The stamped product's nuget.config names its framework feed
+      # "framework-github" -- it is a generic product config, not this
+      # repository's, which declares nuget.org alone since 2026-09-24, so this is
+      # the one job that needs a credential. Package source mapping sends JauntyQ.* and
+      # NativeWeb.* there and everything else to nuget.org, and the feed needs
+      # auth even to read.
+      # Written to the runner's user-level NuGet config, never to a file in the
+      # workspace. `dotnet nuget update source` with no --configfile writes to the
+      # nearest config that declares the source -- which is this repository's
+      # committed one -- so the token sat in the checkout for the rest of the job.
+      # It has to be `add`, not `update`: update with --configfile throws
+      # "Object reference not set to an instance of an object" when the target file
+      # does not already declare that source. Verified locally 2026-09-05.
+      - name: Authenticate to GitHub Packages
+        working-directory: ciprobe
+        run: |
+          mkdir -p "$HOME/.nuget/NuGet"
+          # `add source --configfile` does not create the file: it exits 1 with
+          # "File '...' does not exist." A runner image is not guaranteed to have
+          # a user-level config, so write a minimal one. The sources it would
+          # otherwise carry are irrelevant here; nuget.config clears them before
+          # declaring its own.
+          # Written fresh every job, not only when absent: a self-hosted runner
+          # keeps this file between jobs, and `add` exits 1 on a URL an earlier
+          # job's entry already holds, under whatever name that job gave it.
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
+          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
+            --name framework-github \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.GITHUB_TOKEN }} \
+            --store-password-in-clear-text \
+            --configfile "$HOME/.nuget/NuGet/NuGet.Config"
+
+      - name: Restore
+        working-directory: ciprobe
+        run: dotnet restore
+
+      - name: Build
+        working-directory: ciprobe
+        run: dotnet build --no-restore
+
+      - name: Install Playwright browsers
+        working-directory: ciprobe
+        run: pwsh tests/ciprobe.tests.e2e/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Unit tests
+        working-directory: ciprobe
+        run: dotnet test --project tests/ciprobe.tests.unit --no-build
+
+      - name: Integration tests
+        working-directory: ciprobe
+        run: dotnet test --project tests/ciprobe.tests.integration --no-build
+
+      - name: Install NativeAOT link prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: E2E tests
+        working-directory: ciprobe
+        run: dotnet test --project tests/ciprobe.tests.e2e --no-build

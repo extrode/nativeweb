@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NativeWeb.Scaffold.Tests.E2e</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- CA1707 forbids underscores in identifiers; Method_Scenario_Expectation is
+         the standard xUnit test-naming convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Playwright" />
+    <!-- The side channel only. These tests assert on what the browser caused
+         PostgreSQL to hold, and reading that back through the app would just be
+         the app agreeing with itself. -->
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+  <!-- No ProjectReference to apps/sample on purpose. This tier drives the
+       published binary out-of-process over a real socket; referencing the
+       assembly would only invite a test to reach into the store directly and
+       assert on something the browser never saw. The fixture finds the exe by
+       path and publishes it itself. -->
+
+</Project>

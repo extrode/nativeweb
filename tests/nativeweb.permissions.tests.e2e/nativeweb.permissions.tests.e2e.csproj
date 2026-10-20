@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NativeWeb.Permissions.Tests.E2e</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- Method_Scenario_Expectation is the xUnit convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The scaffolding e2e tier's process fixture, linked rather than copied. It
+         publishes apps/sample, launches the binary, and holds the cross-process
+         publish lock that keeps three test assemblies from overwriting a running
+         image; a second copy of that logic would be a second thing to keep right.
+         Same <Compile Include> device the two generators use for PermissionNaming.
+
+         Its BrowserFixture is NOT linked: that file also defines a collection over
+         all three sample fixtures, and referencing it would start three more
+         processes this tier has no use for. -->
+    <Compile Include="..\nativeweb.scaffold.tests.e2e\SampleProcessFixture.cs"
+             Link="SampleProcessFixture.cs" />
+  </ItemGroup>
+
+  <!-- No ProjectReference to apps/sample, for the reason the scaffolding tier
+       gives: this drives the published binary over a real socket, and a reference
+       would only invite a test to reach past the browser into the store. -->
+
+</Project>

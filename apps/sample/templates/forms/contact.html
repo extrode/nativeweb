@@ -1,0 +1,29 @@
+<!--#template
+  @layout layout/page
+  @param string AntiforgeryFieldName
+  @param string BotCanary
+  @param string Error
+  @param string Name
+  @param string Email
+  @param string Message
+-->
+<h1 class="page__title">{{t:contact.title}}</h1>
+<p class="page__lede">{{t:contact.lede}}</p>
+{{if Error.Length != 0}}<p class="notice notice--error">{{Error}}</p>{{/if}}
+<form class="form" method="post" action="/contact">
+{{> shared/antiforgery FieldName=AntiforgeryFieldName Token=AntiforgeryToken}}
+{{> shared/bot-traps Canary=BotCanary}}
+<div class="field">
+<label class="field__label" for="name">{{t:contact.name}}</label>
+<input class="input" id="name" name="name" type="text" value="{{Name}}" required>
+</div>
+<div class="field">
+<label class="field__label" for="email">{{t:contact.email}}</label>
+<input class="input" id="email" name="email" type="email" value="{{Email}}" required>
+</div>
+<div class="field">
+<label class="field__label" for="message">{{t:contact.message}}</label>
+<textarea class="input" id="message" name="message" rows="6" required>{{Message}}</textarea>
+</div>
+<button class="btn btn--primary" type="submit">{{t:contact.submit}}</button>
+</form>

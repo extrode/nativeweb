@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "nativeweb.sample": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "articles",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:5399"
+    }
+  }
+}

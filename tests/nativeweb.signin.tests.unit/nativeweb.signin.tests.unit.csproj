@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Named, not defaulted. The assembly name is lower case, so without this
+         the entry point xunit.v3 generates lands in a namespace differing from
+         the test classes' only by case, which is CA1708 and so a build error. -->
+    <RootNamespace>NativeWeb.SignIn.Tests.Unit</RootNamespace>
+    <!-- Same test-project conventions as the sibling suites. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- The Web SDK's implicit usings, restated. The endpoints and the
+         authentication handler under test are written the way a web application
+         writes them; this project is Microsoft.NET.Sdk, because a test project is
+         not a web application and switching SDKs to borrow eight using
+         directives would bring an apphost, a launch profile and a
+         static-web-assets pipeline with it. -->
+    <Using Include="Microsoft.AspNetCore.Builder" />
+    <Using Include="Microsoft.AspNetCore.Hosting" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.Routing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\nativeweb.signin\nativeweb.signin.csproj" />
+    <ProjectReference Include="..\..\libs\nativeweb.security\nativeweb.security.csproj" />
+
+    <!-- The testing package proves itself here: the conformance suites are run
+         against the library's own in-memory stores, which is the only way to know
+         a consumer deriving them gets fixtures that can pass. -->
+    <ProjectReference Include="..\..\libs\nativeweb.signin.testing\nativeweb.signin.testing.csproj" />
+  </ItemGroup>
+
+</Project>

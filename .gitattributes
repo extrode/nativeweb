@@ -1,0 +1,37 @@
+# Normalize line endings: LF in the repo, auto on checkout.
+* text=auto eol=lf
+
+# Force LF on text formats that break with CRLF.
+*.cs      text eol=lf
+*.csproj  text eol=lf
+*.props   text eol=lf
+*.targets text eol=lf
+*.slnx    text eol=lf
+*.json    text eol=lf
+*.sql     text eol=lf
+*.sh      text eol=lf
+*.js      text eol=lf
+*.css     text eol=lf
+*.html    text eol=lf
+*.md      text eol=lf
+
+# One deliberate exception: a fixture whose whole point is CRLF line endings
+# inside an inline script, proving the CSP hash generator normalizes them the
+# way the browser does. Normalizing it to LF would silently make the test
+# assert nothing.
+tests/nativeweb.render.tests.unit/templates/csp/crlf.html -text
+
+# Windows scripts stay CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary assets (vendored logo, icons, fonts).
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.woff  binary
+*.woff2 binary
+*.pdf  binary

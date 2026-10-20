@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Getting started — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Quick start &#8250; Getting started</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Quick start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html" class="active" aria-current="page">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#before-you-start">Before you start</a><a class="toc-l2" href="#1-clone">1. Clone</a><a class="toc-l2" href="#2-build">2. Build</a><a class="toc-l2" href="#3-run-it-with-no-database-at-all">3. Run it, with no database at all</a><a class="toc-l2" href="#4-run-the-tests">4. Run the tests</a><a class="toc-l2" href="#next">Next</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Quick start &#8250; Getting started</nav>
+        <article>
+<h1 id="getting-started">Getting started</h1>
+<p>From a clean clone to a running application and a green suite. Every command below was executed in
+the form written before it was written down; the verification block at the end says on what.</p>
+<p><strong>There is one path here now.</strong> Until 2026-08-31 this guide forked between stamping your own
+product and maintaining <code>apps/web</code>, the epass.io identity provider that lived in this repository.
+It left, permanently, and was not ported anywhere in this tree — see
+<code>docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md</code>.
+NativeWeb is a template; you stamp a new product out of <code>skeleton/</code> and work in that, not here.</p>
+<h2 id="before-you-start">Before you start</h2>
+<p>Prerequisites are in the README. Read that table now — the
+JauntyQ row needs nothing from you since 2026-09-24: its packages are public on nuget.org.</p>
+<h2 id="1-clone">1. Clone</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">git clone &lt;this repository&gt; NativeWeb
+cd NativeWeb
+</code></pre>
+</div>
+<p>Anywhere you like. There is no layout requirement: JauntyQ resolves from packages, so nothing
+here probes for a sibling unless you ask for checkout mode with <code>-p:JauntyQUsePackages=false</code>.</p>
+<p><strong>On the name:</strong> the command above clones into <code>NativeWeb</code>, and the repository itself is
+<code>nativeweb</code>. Both spellings work, and a stamped product probes for both, so nothing here depends
+on which you pick. It only matters on a case-sensitive filesystem, and only for a <em>third</em> name —
+if you clone under something else on Linux, set <code>NativeWebRoot</code> rather than relying on the probe.</p>
+<h2 id="2-build">2. Build</h2>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet build
+</code></pre>
+</div>
+<p>Roughly a minute cold, and it needs no <code>jauntyq</code> beside it: JauntyQ resolves from the pinned
+<code>Extrode.JauntyQ.*</code> packages on nuget.org by default, with no credential. If restore fails with
+<code>NU1101</code> naming <code>JauntyQ.Generator</code> without the <code>Extrode.</code> prefix, your branch predates
+2026-09-24: those ids were deleted from the feed, so rebase onto <code>dev</code>.</p>
+<h2 id="3-run-it-with-no-database-at-all">3. Run it, with no database at all</h2>
+<p>This is the checkpoint worth reaching first, because it removes PostgreSQL from the list of things
+that can be wrong.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet run --project apps/sample
+</code></pre>
+</div>
+<p>Then open <code>http://localhost:5399/</code> — the home page, the newest published articles rendered through
+the framework's own compiled templates. Each title links to <code>/articles/{slug}</code>, each tag to
+<code>/tags/{slug}</code>, and <code>/tags</code> lists every tag with its count. <code>/articles</code> is the same listing with the
+filter posting over htmx and swapping only the list, and it also answers as JSON and CSV.
+<code>http://localhost:5399/admin/articles</code> is the scaffolded CRUD behind the demo sign-in, where an
+article's slug is derived from its title when left blank.</p>
+<p><strong>To edit and see the change without restarting</strong>, one command:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet watch run --project apps/sample --no-hot-reload
+</code></pre>
+</div>
+<p>Both halves of that line were measured on 2026-08-31 and neither is decoration:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Without it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--no-hot-reload</code></td>
+<td>The watcher logs nothing on any change, template or <code>.cs</code>, and the app keeps serving the previous markup. A scratch console app in the same tree rebuilt on both, so the cause is this project rather than the machine.</td>
+</tr>
+<tr>
+<td><code>&lt;Watch Include=&quot;templates\**\*.html&quot; /&gt;</code> in <code>nativeweb.sample.csproj</code></td>
+<td>Templates are <code>AdditionalFiles</code>, which <code>dotnet watch</code>'s default globs do not cover. Editing one produced no file-change line at all.</td>
+</tr>
+</tbody>
+</table>
+<p>A template edit is a source-generator re-run, so the loop is a rebuild and a restart — a few
+seconds, not the sub-second swap hot reload advertises. The alternative is not a faster loop; it
+is a loop that silently does nothing.</p>
+<p><strong>A missing connection string is not an error
+here</strong> — it selects an in-memory store, deliberately, so that the demo, the integration tier and
+the browser tier all work with no database. That is a development convenience and a design
+statement, not a supported deployment mode; the moment you configure <code>ConnectionStrings:Sample</code>,
+the same code paths run against PostgreSQL through JauntyQ instead. <code>apps/sample/Program.cs</code>
+carries the comment explaining why the choice is made in the application rather than in a library.</p>
+<p><code>apps/sample</code> is the only deployable project in the tree, runs over plain HTTP, and has no
+<code>Secure</code>-always cookie policy, so there is no HTTPS step here.</p>
+<h2 id="4-run-the-tests">4. Run the tests</h2>
+<p>Three tiers per app, and the project requires all three for every feature — see
+<code>AGENTS.md</code>. What each is for:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>What it proves</th>
+<th>Needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unit</strong> (xUnit)</td>
+<td>one unit against its own inputs, failure paths included</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><strong>Integration</strong> (<code>WebApplicationFactory</code>)</td>
+<td>the real pipeline, real routing, real middleware</td>
+<td>PostgreSQL for the tiers that use it</td>
+</tr>
+<tr>
+<td><strong>End-to-end</strong> (Playwright)</td>
+<td>a real browser against a real server, including the no-JavaScript path</td>
+<td>Chromium, installed once</td>
+</tr>
+</tbody>
+</table>
+<p>Install the browser once:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">pwsh tests/nativeweb.scaffold.tests.e2e/bin/Debug/net10.0/playwright.ps1 install chromium
+</code></pre>
+</div>
+<p>Then run a tier at a time. Naming a tier rather than globbing is deliberate: a suite that stops
+being discovered fails by name instead of vanishing from the run.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">dotnet test --project tests/nativeweb.repo.tests.unit
+dotnet test --project tests/nativeweb.render.tests.unit
+dotnet test --project tests/nativeweb.web.tests.unit
+dotnet test --project tests/nativeweb.forms.tests.unit
+dotnet test --project tests/nativeweb.security.tests.unit
+dotnet test --project tests/nativeweb.mail.tests.unit
+dotnet test --project tests/nativeweb.scaffold.tests.unit
+dotnet test --project tests/nativeweb.scaffold.tests.integration
+dotnet test --project tests/nativeweb.scaffold.tests.e2e
+dotnet test --project tests/nativeweb.sample.tests.unit
+</code></pre>
+</div>
+<p>The full set, and what each returned on the verification run:</p>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Facts</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/nativeweb.repo.tests.unit</code></td>
+<td>87</td>
+<td>the repository's own build, CI and deploy files</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.render.tests.unit</code></td>
+<td>161</td>
+<td>the template generator and its runtime</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.web.tests.unit</code></td>
+<td>94</td>
+<td>the pipeline, middleware and startup guards</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.forms.tests.unit</code></td>
+<td>85</td>
+<td>form binding and the antiforgery analyzer</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.security.tests.unit</code></td>
+<td>175</td>
+<td>Argon2id, AES-GCM, opaque tokens, blind indexes, bot traps</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.mail.tests.unit</code></td>
+<td>53</td>
+<td>address parsing, header-injection defence, SMTP options</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.scaffold.tests.unit</code></td>
+<td>109</td>
+<td>the CRUD generator</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.scaffold.tests.integration</code></td>
+<td>60</td>
+<td>the generated admin through a real pipeline</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.scaffold.tests.e2e</code></td>
+<td>14</td>
+<td>a real browser, including the no-JavaScript path</td>
+</tr>
+<tr>
+<td><code>tests/nativeweb.sample.tests.unit</code></td>
+<td>47</td>
+<td>the reference application</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>885 — 0 failed, 0 skipped</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Measured 2026-08-31 from a clean tree, one tier at a time. The ten projects above are every test
+project in <code>NativeWeb.slnx</code>; nothing else under <code>tests/</code> is real.</p>
+<p>The security and mail tiers were written on 2026-08-31 and are new: those two libraries had no
+coverage at all between the identity provider taking their old suites with it and that date. Three
+defects turned up in the writing and are fixed in the same branch — <code>Passphrases.Verify</code> throwing
+instead of returning false for a stored hash under 45 characters, <code>Masking.IpAddress</code> returning
+an IPv4 address unmasked when it carried a port, and <code>EmailTemplates.ParseRecipient</code> accepting a
+line break before the <code>@</code> (which MimeKit folds away, so the parsed address is still clean — the
+test asserts that rather than a rejection that does not happen).</p>
+<p>A count that has drifted from this table is not automatically a problem; a <em>failure</em> is.</p>
+<p><strong>Run one tier at a time, as written above.</strong> Running several e2e projects back-to-back in a
+single shell can make them contend. Check a wholly-failing e2e tier alone before believing it.</p>
+<hr />
+<h1 id="build-your-own-product">Build your own product</h1>
+<p><code>skeleton/</code> is a tokenized product shell: app pipeline, templates, static pages, migration runner,
+three test tiers, CI, deploy units and the repo operating files, with <code>__PRODUCT__</code>/<code>__product__</code>
+where your name goes. <code>tools/new-product.ps1</code> stamps a copy.</p>
+<p><strong>1. Stamp it.</strong> Bare invocation is the dry run; <code>-Execute</code> acts.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe
+pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe -Execute
+</code></pre>
+</div>
+<p>The dry run lists every file it would copy, stamp and rename — 168 files, from what git tracks or
+does not ignore. It also does <code>git init</code>, an initial commit, and a <code>dev</code> branch, so what you get is
+a repository rather than a directory.</p>
+<p><strong>Two things the stamp needs that nothing else tells you.</strong> A global protected-branch git hook
+refuses the stamped product's first commit on its own <code>main</code>, which fails the stamp with every file
+already written; prefix the command with <code>GIT_ALLOW_PROTECTED=1</code> if you have one. And a runner with
+no git identity fails the same step, which is why CI sets one.</p>
+<p><strong>Or let the check do all of it.</strong> <code>tools/stamp-check.ts</code> stamps into <code>tmp/</code>, builds and runs the
+stamped unit tier, and adds the integration tier with <code>--with-database</code> once its role and database
+exist. It is how you tell whether <code>skeleton/</code> still builds before you stamp the product you mean to
+keep -- measured 2026-09-05 at 2.6 s to stamp, 4 to 10 s to build depending on how warm the
+framework's own output is, and under 2 s per tier. It prints the test count beside each tier:
+1 unit and 6 of the 7 integration facts, the seventh being the one that opens a database.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">deno run -A tools/stamp-check.ts
+</code></pre>
+</div>
+<p><strong>Put it beside your NativeWeb checkout</strong>, as <code>../probe</code> above does. The stamped product resolves
+the framework libraries from that sibling by default, and step 4 below is much harder if you skip
+this. JauntyQ needs no such adjacency — it resolves from packages.</p>
+<p><strong>2. Create the role and database.</strong> Substitute your slug for <code>probe</code> throughout.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">SQL</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="sql"><code class="language-sql"><span class="tok-kw">CREATE</span> ROLE probe_app LOGIN PASSWORD <span class="tok-str">'...'</span>;
+<span class="tok-kw">CREATE</span> DATABASE probe_dev OWNER probe_app;
+</code></pre>
+</div>
+<p><strong>3. Apply the schema.</strong> <code>migrate.sh</code> takes its settings from the environment and defaults to the
+local dev names, so this usually needs nothing but a password:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">cd ../probe
+PGPASSWORD=... bash db/migrate.sh
+</code></pre>
+</div>
+<p>The first migration runs as <code>postgres</code> because it creates the <code>citext</code> extension, which the app
+role may not; every later one runs as the app role. Re-runs skip what is already applied.</p>
+<p><strong>4. Build and test.</strong> Two things here are not obvious, and both were found by running this rather
+than by reading it:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">export Probe__Db__ConnectionString=&quot;Host=127.0.0.1;Database=probe_dev;Username=probe_app;Password=...&quot;
+dotnet build
+dotnet test --project tests/probe.tests.unit
+dotnet test --project tests/probe.tests.integration
+dotnet test --project tests/probe.tests.e2e
+</code></pre>
+</div>
+<ul>
+<li><p><strong>The integration tier needs <code>&lt;Product&gt;__Db__ConnectionString</code> in the environment.</strong> Without it
+the tier still runs, but <code>/readyz</code> reports <code>ServiceUnavailable</code> and one fact fails. The
+double-underscore spelling is the environment form of <code>Probe:Db:ConnectionString</code>.</p>
+</li>
+<li><p><strong>If your product is <em>not</em> beside NativeWeb, set the root as an environment variable, not a
+<code>-p:</code> flag.</strong> <code>-p:NativeWebRoot=...</code> works for <code>dotnet build</code> and then fails the e2e tier,
+because that tier's fixture shells out to its own <code>dotnet publish</code> and command-line properties
+do not cross into a child process. Environment variables do:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">export NativeWebRoot=/path/to/NativeWeb
+</code></pre>
+</div>
+<p>The symptom if you get this wrong is a publish failure inside the e2e fixture reading
+<em>&quot;Skipping project … because it was not found&quot;</em>, which names NativeWeb's libraries and looks
+nothing like a path-resolution problem.</p>
+</li>
+</ul>
+<p>A freshly stamped product on the verification run: <strong>47 unit, 7 integration, 2 e2e — 56 facts,
+0 failed.</strong></p>
+<p><strong>5. Now work in your product, not here.</strong> Its own <code>README.md</code> and <code>AGENTS.md</code> are yours to fill
+in — the one-sentence placeholder at the top of its README is addressed to you. Come back to this
+repository only to pick up framework changes.</p>
+<p><strong>Then read these, in this order</strong>, rather than discovering them by directory listing:
+<a href="01-architecture-native-web-architecture.html">the architecture</a> for why any of this is shaped as it is,
+<a href="02-reference-security-baseline.html">the security baseline</a> for the posture your product inherits, and
+<a href="01-architecture-progressive-enhancement.html">progressive enhancement</a> before touching a template. The full index is
+<code>docs/README.md</code>.</p>
+<h2 id="next">Next</h2>
+<p><a href="00-quick-start-tutorial-first-feature.html"><code>docs/00-quick-start/tutorial-first-feature.md</code></a> walks one feature through every layer
+— endpoint, template, query, and a test at each of the three tiers.</p>
+<hr />
+<p><strong>Verified.</strong> Every command on this page was executed in the form written, from a clean clone, on
+<strong>2026-08-25</strong> — Windows 11 (10.0.26200.8457), .NET SDK 10.0.203, PostgreSQL 18.2, PowerShell
+7.6.4, Playwright's bundled Chromium.</p>
+<p>The product-stamping path was walked end to end, not read: stamping a product into <code>../probe</code> with
+its own role and database and running its three tiers (47 unit, 7 integration, 2 e2e — 56 facts, 0
+failed). The two footnotes — the <code>&lt;Product&gt;__Db__ConnectionString</code> requirement and environment
+variables rather than <code>-p:</code> flags — are both findings from that run rather than inferences from the
+build files.</p>
+<p>The counts table for this repository's own six suites was re-measured on <strong>2026-08-31</strong>, after
+<code>apps/web</code> and the seven test projects that covered it left — see
+<code>docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md</code>.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="00-quick-start-adopting-in-an-existing-app.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Adopting NativeWeb in an existing application</span>
+</a><a class="pn-next" href="00-quick-start-tutorial-first-feature.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Tutorial — build your first feature</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

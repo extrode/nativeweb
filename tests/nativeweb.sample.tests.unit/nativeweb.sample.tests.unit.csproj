@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>NativeWeb.Sample.Tests.Unit</RootNamespace>
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- Method_Scenario_Expectation is the xUnit convention, not a naming defect. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <!-- Generators and shrinking for the paging seam's property tests. -->
+    <PackageReference Include="CsCheck" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- apps/sample, for the store's pure helpers. Nothing here touches a
+         database: what needs one is in the integration and e2e tiers. -->
+    <ProjectReference Include="..\..\apps\sample\nativeweb.sample.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en" class="jt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Breaking changes — nativeweb docs</title>
+<link rel="stylesheet" href="site.css">
+<script>
+/* Inline, in the head, and before anything paints. A saved preference applied
+   from nav.js would arrive after the first frame, and the reader would watch
+   the page flash the wrong theme on every navigation. */
+(function () {
+  var d = document.documentElement;
+  var KEYS = ['theme', 'fs', 'nav-w', 'toc', 'nav'];
+  /* Over file:// Firefox gives every page its own empty localStorage, so the link
+     that brought the reader here carries the preferences too: ?dg=nav-w:336,ts:…
+     The newer of the two wins, by the ts each side records at its last change, so
+     a reload after a change keeps the change and a stale bookmark loses to storage. */
+  var fromLink = {};
+  var m = /[?&]dg=([^&#]*)/.exec(location.search);
+  if (m) decodeURIComponent(m[1]).split(',').forEach(function (kv) {
+    var i = kv.indexOf(':');
+    if (i > 0) fromLink[kv.slice(0, i)] = kv.slice(i + 1);
+  });
+  var pref = {};
+  try {
+    var stored = parseInt(localStorage.getItem('dg-ts'), 10) || 0;
+    var linked = parseInt(fromLink.ts, 10) || 0;
+    if (m && linked >= stored) {
+      KEYS.forEach(function (k) {
+        pref[k] = fromLink[k] || null;
+        if (pref[k]) localStorage.setItem('dg-' + k, pref[k]); else localStorage.removeItem('dg-' + k);
+      });
+      localStorage.setItem('dg-ts', String(linked));
+    } else {
+      KEYS.forEach(function (k) { pref[k] = localStorage.getItem('dg-' + k); });
+    }
+  } catch (e) { /* private mode, file:// with storage denied -- the link still counts */
+    KEYS.forEach(function (k) { pref[k] = fromLink[k] || null; });
+  }
+  if (pref.theme === 'light' || pref.theme === 'dark') d.setAttribute('data-theme', pref.theme);
+  var s = parseFloat(pref.fs);
+  if (s >= 0.75 && s <= 1.75) d.style.setProperty('--fs-scale', String(s));
+  var w = parseInt(pref['nav-w'], 10);
+  if (w >= 180 && w <= 480) d.style.setProperty('--nav-w', w + 'px');
+  if (pref.toc === 'hidden') d.setAttribute('data-toc', 'hidden');
+  if (pref.nav === 'hidden') d.setAttribute('data-nav', 'hidden');
+})();
+</script>
+</head>
+<body class="jt">
+<div class="jt-shell">
+
+  <!-- ===== header ===== -->
+  <header class="jt-header">
+    <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
+    <div class="header-brand">
+      <span class="brand-name">nativeweb</span>
+      <span class="brand-crumb">Reference &#8250; Breaking changes</span>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-tools">
+      <details class="version-switcher">
+        <summary class="tool-btn" title="Documentation version">unversioned</summary>
+        <ul class="version-list">
+          <li aria-current="page"><span>unversioned</span></li>
+        </ul>
+      </details>
+      <button class="tool-btn search-btn" type="button" onclick="openSearch()" title="Search (/)">
+        <span class="search-word">search</span><kbd>/</kbd>
+      </button>
+      <div class="fs-group" role="group" aria-label="Text size">
+        <button class="tool-btn" onclick="fontSize(-1)" title="Smaller text">A&#8722;</button>
+        <button class="tool-btn" onclick="fontSize(0)" title="Reset text size">A</button>
+        <button class="tool-btn" onclick="fontSize(1)" title="Larger text">A+</button>
+      </div>
+      <button class="tool-btn theme-btn" id="theme-btn" onclick="cycleTheme()"
+              title="Colour scheme" aria-live="polite">auto</button>
+    </div>
+  </header>
+
+  <!-- ===== body ===== -->
+  <div class="jt-body">
+
+    <!-- sidebar backdrop (mobile) -->
+    <div class="nav-backdrop" id="nav-backdrop" onclick="toggleNav()"></div>
+
+    <!-- sidebar -->
+    <nav class="jt-sidebar" id="jt-sidebar" aria-label="Documentation navigation">
+      <div class="sidebar-filter">
+        <span class="filter-icon">/</span>
+        <input type="text" id="nav-filter" placeholder="filter nav" oninput="filterNav(this.value)" autocomplete="off">
+      </div>
+      <div class="sidebar-scroll" id="sidebar-scroll">
+        <div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">General</span>
+  </div>
+  <div class="nav-group-items">  <a href="constitution.html">Constitution — NativeWeb</a>  <a href="conventions.html">Conventions — NativeWeb</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Quick start</span>
+  </div>
+  <div class="nav-group-items">  <a href="00-quick-start-readme.html">NativeWeb</a>  <a href="00-quick-start-adopting-in-an-existing-app.html">Adopting NativeWeb in an existing application</a>  <a href="00-quick-start-getting-started.html">Getting started</a>  <a href="00-quick-start-tutorial-first-feature.html">Tutorial — build your first feature</a>  </div>
+</div>
+<div class="nav-group" data-group>
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Architecture</span>
+  </div>
+  <div class="nav-group-items">  <a href="01-architecture-native-web-architecture.html">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</a>  <a href="01-architecture-progressive-enhancement.html">Lean Native Web: Progressive Enhancement Layer</a>  </div>
+</div>
+<div class="nav-group" data-group data-open="true">
+  <div class="nav-group-header" onclick="toggleGroup(this)">
+    <span class="nav-chev">›</span>
+    <span class="nav-group-label">Reference</span>
+  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html" class="active" aria-current="page">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+</div>
+
+      </div>
+      <div class="nav-resizer" id="nav-resizer" title="Drag to resize, double-click to reset"></div>
+    </nav>
+
+    <!-- content -->
+    <main class="jt-content has-toc" id="jt-content">
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</a><a class="toc-l2" href="#2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — IScaffoldStore&lt;T&gt;.ListAsync takes an ordering and a cursor</a><a class="toc-l3" href="#what-a-consumer-does">What a consumer does</a><a class="toc-l2" href="#2026-08-31--libsnativewebsigninepass-removed">2026-08-31 — libs/nativeweb.signin.epass removed</a><a class="toc-l2" href="#2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — libs/nativeweb.auth and libs/nativeweb.data removed</a></nav>
+      <div class="content-inner">
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Breaking changes</nav>
+        <article>
+<h1 id="breaking-changes">Breaking changes</h1>
+<p>Every change that makes a consumer's existing code stop compiling or stop behaving as it did,
+newest first. A consumer reads this file top-down from wherever they last upgraded and stops
+when they reach an entry they have already taken.</p>
+<p><strong>Entries are dated and identified by commit.</strong> Every entry below predates the first release, so
+none carries a version: consumers took the framework as a project reference off <code>dev</code>, where a
+version number would have been a promise nothing enforced. Spec 028 built the pack and the
+tag-triggered publish, so entries from the first <code>v*</code> tag onward name the version they first
+shipped in as well. The dates stay either way.</p>
+<p><strong>What a version promises is in <a href="02-reference-versioning.html"><code>versioning.md</code></a></strong> — what each component means,
+what counts as breaking, how long a released minor is supported, and the deprecation path a
+library takes before it is removed.</p>
+<p><strong>A breaking change is not a defect.</strong> This repository would rather break a seam than carry a
+shim that makes the wrong shape survivable, because a shim outlives the reason for it and the
+next reader cannot tell which of the two overloads is the one to write against. What is owed
+instead is this file: what changed, why, and the before/after a consumer edits by.</p>
+<hr />
+<h2 id="2026-09-05--four-shared-templates-are-delivered-by-the-framework-not-vendored">2026-09-05 — four shared templates are delivered by the framework, not vendored</h2>
+<p><strong>Seam:</strong> <code>NativeWeb.Web</code>'s MSBuild contribution — <code>libs/nativeweb.web/build/NativeWeb.Web.targets</code>.
+<strong>Spec:</strong> 029.
+<strong>Affects:</strong> every product carrying its own <code>templates/shared/antiforgery.html</code>,
+<code>bot-traps.html</code>, <code>banner-ok.html</code> or <code>banner-error.html</code>. A product carrying none of them
+takes this change by rebuilding and changes nothing.</p>
+<p>These four render framework markup from framework code: <code>Chrome.For</code> fills the antiforgery
+input and issues the bot-trap canary, and <code>Flash.Take</code> feeds the two banners. As per-product
+copies they were a fix that could not ship. <code>bot-traps.html</code> was the sharp end — it spells five
+<code>BotTraps</code> field names as literal text, and a renamed constant left every vendored copy
+rendering fields the inspector no longer reads, with no compile error, no test failure and no
+runtime error. Bot detection just stopped.</p>
+<p>They now live at <code>libs/nativeweb.web/templates/shared/</code> and are contributed as <code>AdditionalFiles</code>
+by <code>NativeWeb.Web.targets</code>. The logical names are unchanged — the render generator keys a
+template's name on the part after the last <code>/templates/</code> segment of its physical path — so
+<strong>no call site changes</strong>: <code>{{&gt; shared/bot-traps Canary=BotCanary}}</code> resolves as it always did.</p>
+<p><strong>Delete your copy.</strong> That is the whole upgrade:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="text"><code class="language-text">rm templates/shared/antiforgery.html templates/shared/bot-traps.html
+rm templates/shared/banner-ok.html templates/shared/banner-error.html
+</code></pre>
+</div>
+<p>Leaving one in place is a build error naming the file, not a silent last-wins — the generator
+keys its model dictionary on the logical path, so before this the second file to arrive replaced
+the first and which one that was depended on MSBuild item order.</p>
+<p>Two escape hatches, if deleting is not what you want:</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">XML</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="xml"><code class="language-xml"><span class="tok-com">&lt;!-- keep your own copy of one, and say so --&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">NativeWebTemplateOverride</span> <span class="tok-attr">Include</span>=<span class="tok-str">&quot;shared\bot-traps.html&quot;</span> <span class="tok-punc">/&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">ItemGroup</span><span class="tok-punc">&gt;</span>
+
+<span class="tok-com">&lt;!-- take none of them --&gt;</span>
+<span class="tok-punc">&lt;</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+  <span class="tok-punc">&lt;</span><span class="tok-tag">NativeWebImportTemplates</span><span class="tok-punc">&gt;</span>false<span class="tok-punc">&lt;/</span><span class="tok-tag">NativeWebImportTemplates</span><span class="tok-punc">&gt;</span>
+<span class="tok-punc">&lt;/</span><span class="tok-tag">PropertyGroup</span><span class="tok-punc">&gt;</span>
+</code></pre>
+</div>
+<p>An override logs a message naming what it replaced. Turning the import off entirely makes a call
+site to a framework template fail at compile time with NWT005, which is the right failure.</p>
+<hr />
+<h2 id="2026-09-01--iscaffoldstoretlistasync-takes-an-ordering-and-a-cursor">2026-09-01 — <code>IScaffoldStore&lt;T&gt;.ListAsync</code> takes an ordering and a cursor</h2>
+<p><strong>Seam:</strong> <code>NativeWeb.Scaffold.IScaffoldStore&lt;T&gt;</code> — <code>libs/nativeweb.scaffold/IScaffoldStore.cs</code>.
+<strong>Spec:</strong> 017.
+<strong>Affects:</strong> every hand-written store. Nothing generated changes: the generated endpoints, forms
+and routes are emitted against the new signature and a consumer regenerates by rebuilding.</p>
+<p>Offset paging is gone from the seam and from the generated list. A scaffolded list could not be
+ordered at all, and it paged by <code>skip</code>/<code>take</code>, which means a row inserted ahead of a reader
+pushes one row from the page they are on to the page they are about to request and they never
+see it.</p>
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-lang">C#</span>
+    <button class="copy-btn" type="button" onclick="copyCode(this)">copy</button>
+  </div>
+  <pre data-lang="csharp"><code class="language-csharp"><span class="tok-com">// before</span>
+<span class="tok-type">ValueTask</span>&lt;<span class="tok-type">IReadOnlyList</span>&lt;<span class="tok-type">T</span>&gt;&gt; <span class="tok-fn">ListAsync</span>(
+    <span class="tok-kw">string</span>? search, <span class="tok-type">IReadOnlyList</span>&lt;<span class="tok-kw">string</span>&gt; searchFields, <span class="tok-kw">int</span> skip, <span class="tok-kw">int</span> take, <span class="tok-type">CancellationToken</span> ct);
+
+<span class="tok-com">// after</span>
+<span class="tok-type">ValueTask</span>&lt;<span class="tok-type">IReadOnlyList</span>&lt;<span class="tok-type">T</span>&gt;&gt; <span class="tok-fn">ListAsync</span>(
+    <span class="tok-kw">string</span>? search,
+    <span class="tok-type">IReadOnlyList</span>&lt;<span class="tok-kw">string</span>&gt; searchFields,
+    <span class="tok-type">ScaffoldSortSpec</span>? sort,
+    <span class="tok-type">IReadOnlyList</span>&lt;<span class="tok-kw">string</span>&gt; sortFields,
+    <span class="tok-type">ScaffoldCursor</span>? after,
+    <span class="tok-kw">int</span> take,
+    <span class="tok-type">CancellationToken</span> ct);
+</code></pre>
+</div>
+<p><code>CountAsync</code>, <code>GetAsync</code>, <code>CreateAsync</code>, <code>UpdateAsync</code> and <code>DeleteAsync</code> are unchanged.</p>
+<h3 id="what-a-consumer-does">What a consumer does</h3>
+<ol>
+<li><strong>Take the new parameters.</strong> <code>sort</code> is a property name the generated endpoint has already
+checked against the model's <code>[ScaffoldSort]</code> set, so a store does not re-validate it; a name it
+does not recognise falls back to the key order rather than throwing, because the only way that
+happens is a hand-written caller. <code>sortFields</code> is that allow-list, for a store that wants it.</li>
+<li><strong>Page from <code>after</code> instead of <code>skip</code>.</strong> <code>after</code> is null for the first page. Otherwise it
+carries the boundary row's sort value (as text, or null for SQL <code>NULL</code>), its key, and whether
+the reader is travelling backwards. A backward page returns the rows <em>before</em> the boundary,
+still in display order — mirror the comparison and the <code>ORDER BY</code>, then reverse the rows.</li>
+<li><strong>End every order with the key.</strong> The framework cannot enforce this and every guarantee it
+makes depends on it: a page boundary inside a block of equal sort values has no single answer
+without a tiebreaker, and the rows there repeat.</li>
+<li><strong>Fix where NULLs go on a nullable sorted column</strong>, in the query rather than by default.
+<code>(author, id) &gt; (@a, @id)</code> evaluates to <code>NULL</code> — not true — for an author-less row, so <code>WHERE</code>
+drops it and every page after the first silently omits every one of them. The reference app's
+<code>db/sample/queries/Articles/ListByAuthorAsc.sql</code> carries the widened predicate and the whole
+explanation. <strong>This is invisible on a table small enough to fit one page.</strong></li>
+<li><strong>Mark sortable columns.</strong> A column with no <code>[ScaffoldSort]</code> renders as an inert heading, which
+is how a reader tells what can order the list. The key is always sortable.</li>
+</ol>
+<p>A store with no ordering to give can satisfy the seam by ignoring <code>sort</code> and paging on the key
+alone; it will be correct, just not sortable.</p>
+<p>Callers of <code>ListAsync</code> that are not stores — anything that lists rows for its own purposes — pass
+<code>(null, [], null, [], null, take, ct)</code>.</p>
+<hr />
+<h2 id="2026-08-31--libsnativewebsigninepass-removed">2026-08-31 — <code>libs/nativeweb.signin.epass</code> removed</h2>
+<p><strong>Seam:</strong> the whole library, and the <code>AddEpass(...)</code> builder on top of <code>AddNativeWebSignIn</code>.
+<strong>Commit:</strong> <code>f743436</code>. <strong>Decision:</strong>
+007.
+<strong>Affects:</strong> anything registering the epass provider through NativeWeb.</p>
+<p><code>libs/nativeweb.signin</code> — the generic OIDC/OAuth2 <strong>client</strong>, its session handler, bearer
+introspection filter and store seams — stays and is unchanged. What went is the epass-specific
+client, DTOs and registration built on top of it. A consumer configures the same flow through the
+generic library, supplying the provider's endpoints from configuration instead of getting them
+from a compiled-in provider class.</p>
+<p>This is the scope boundary the repository holds: Django ships <code>contrib.auth</code> and leaves the
+OAuth2/OIDC server to a third-party package. A sign-in <strong>client</strong> is framework; a named
+provider's integration is a product's.</p>
+<hr />
+<h2 id="2026-08-31--libsnativewebauth-and-libsnativewebdata-removed">2026-08-31 — <code>libs/nativeweb.auth</code> and <code>libs/nativeweb.data</code> removed</h2>
+<p><strong>Commit:</strong> <code>f743436</code>. <strong>Decision:</strong>
+007.
+<strong>Affects:</strong> anything referencing <code>TokenIssuer</code>, <code>SilentConsent</code>, <code>RealmResolver</code>, <code>SsoModes</code>,
+<code>WebAuthnPolicy</code>, <code>ClientAuthenticator</code>, or the generated accessors over the identity schema.</p>
+<p>Removed together with <code>apps/web</code>, <code>db/</code> (55 migrations of users, realms and refresh tokens) and
+seven test projects. <strong>None of it is ported and there is no replacement here.</strong> epass.io owns
+epass; the copy that lived in this repository was a dead fork, and decision 007 records the
+divergence between the two in detail.</p>
+<p>The pieces of that tree that <em>are</em> framework stayed and did not move: password and token hashing,
+opaque token generation, bot traps and the data protector are in <code>libs/nativeweb.security</code>.</p>
+<p>A consumer that needs an identity provider uses one. A consumer that needs users and passwords
+builds them on the primitives, which is the <code>contrib.auth</code> side of the line.</p>
+
+        </article>
+        <div class="page-nav" id="page-nav">
+          <div class="prev-next"><a class="pn-prev" href="01-architecture-progressive-enhancement.html">
+  <span class="pn-label">&#8592; prev</span>
+  <span class="pn-title">Lean Native Web: Progressive Enhancement Layer</span>
+</a><a class="pn-next" href="02-reference-configuration.html">
+  <span class="pn-label">next &#8594;</span>
+  <span class="pn-title">Configuration reference</span>
+</a></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== status bar ===== -->
+  <footer class="jt-statusbar">
+    <span class="status-dot">&#9679; nativeweb docs</span><span class="status-version">unversioned</span>
+    <span class="status-spacer"></span>
+    <button class="status-kbd" type="button" onclick="toggleHelp()"><kbd>?</kbd> shortcuts</button>
+  </footer>
+</div>
+
+<!-- ===== search (opened with / or Ctrl+K; the index loads on first use) ===== -->
+<div class="search-overlay" id="search-overlay" hidden>
+  <div class="search-box" role="dialog" aria-label="Search the docs">
+    <input type="search" id="search-input" placeholder="search the docs" autocomplete="off"
+           spellcheck="false" oninput="runSearch(this.value)">
+    <div class="search-results" id="search-results" role="listbox"></div>
+    <div class="search-foot"><kbd>&#8593;</kbd><kbd>&#8595;</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<!-- ===== keyboard shortcuts ===== -->
+<div class="kbd-help" id="kbd-help" hidden>
+  <div class="kbd-box" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="kbd-title">Keyboard shortcuts</div>
+    <table>
+      <tr><td><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>search</td></tr>
+      <tr><td><kbd>f</kbd></td><td>filter the sidebar; <kbd>Enter</kbd> opens the first match, <kbd>Esc</kbd> clears</td></tr>
+      <tr><td><kbd>h</kbd></td><td>home</td></tr>
+      <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>previous / next page</td></tr>
+      <tr><td><kbd>j</kbd> <kbd>k</kbd></td><td>next / previous heading</td></tr>
+      <tr><td><kbd>b</kbd></td><td>toggle the sidebar</td></tr>
+      <tr><td><kbd>w</kbd></td><td>reset the sidebar width</td></tr>
+      <tr><td><kbd>o</kbd></td><td>toggle "on this page"</td></tr>
+      <tr><td><kbd>t</kbd></td><td>colour scheme: auto, light, dark</td></tr>
+      <tr><td><kbd>-</kbd> <kbd>=</kbd> <kbd>0</kbd></td><td>text smaller / larger / reset</td></tr>
+      <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>close</td></tr>
+    </table>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runtime half of the scaffolding feature (brainstorm 001 T1.3): the
+       attributes a consumer decorates a model with, and the small store contract
+       the generated endpoints call. The build-time half is
+       libs/nativeweb.scaffold.generator.
+
+       Deliberately tiny. Everything that could be generated is generated; what
+       lives here is only what the generated code and the consumer both have to
+       agree on. -->
+  <PropertyGroup>
+    <RootNamespace>NativeWeb.Scaffold</RootNamespace>
+    <!-- CA1720 bans a type name in an identifier. ScaffoldValues is a table of
+         converters keyed by target type, where Int32/Int64/Decimal/Double IS the
+         clearest name and the generator picks one by the property's type. Renaming
+         them to synonyms would make the emitter's mapping harder to read, not
+         easier. Scoped to this project. -->
+    <NoWarn>$(NoWarn);CA1720</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>NativeWeb.Scaffold</PackageId>
+    <Description>NativeWeb framework: scaffolding attributes and the store contract the generated CRUD endpoints call.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/apps/">
+    <Project Path="apps/__product__/__product__.csproj" />
+  </Folder>
+  <Folder Name="/libs/">
+    <Project Path="libs/__product__.data/__product__.data.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/__product__.tests.unit/__product__.tests.unit.csproj" />
+    <Project Path="tests/__product__.tests.integration/__product__.tests.integration.csproj" />
+    <Project Path="tests/__product__.tests.e2e/__product__.tests.e2e.csproj" />
+  </Folder>
+</Solution>
