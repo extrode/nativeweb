@@ -121,15 +121,13 @@ jobs:
       # run silently skipped the framework.
       #
       # `ref` is a moving branch because the framework repository publishes no
-      # tags yet (NativeWeb has no `main` at all as of 2026-08-17). Pin to a tag
-      # as soon as it does: on a branch, a push to the framework can turn this
+      # tags yet. Pin to a tag as soon as it does: on a branch, a push to the framework can turn this
       # product's CI red with nothing having changed here.
       #
-      # LICENCE: JauntyQ's generated output is licensed for self-hosted-SaaS use
-      # only, and that applies to the packages this build restores exactly as it
-      # applied to the checkout it used to clone. Do not enable this workflow in a
-      # repository outside those terms, and never ship the resulting binary to a
-      # third party.
+      # LICENCE: JauntyQ is under ISL-R 1.2. Code its generator emits is yours
+      # under its Output Exception, and Extrode.JauntyQ.Runtime may ship inside
+      # the built binary under its Redistribution Exception. Nothing else of
+      # JauntyQ's may be committed or redistributed from this repository.
       - name: Check out the framework (NativeWeb)
         uses: actions/checkout@v7
         with:
