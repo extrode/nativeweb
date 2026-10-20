@@ -9,7 +9,7 @@
 # Only one of the two is ever installed. provision.sh --edge picks this one.
 #
 # Why keep a Caddy in the guest at all, when the edge could proxy straight to the
-# app port the way auth.epass.io does? Because deploy.sh promotes a release by
+# app port the way some deployments do? Because deploy.sh promotes a release by
 # rewriting upstream.caddy and reloading THIS Caddy, and a reload is graceful --
 # in-flight requests finish on the old upstream and new ones land on the new one.
 # That is R10's gapless swap. Pointing the edge at the app directly would move the
