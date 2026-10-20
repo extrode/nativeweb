@@ -106,11 +106,9 @@ Read these when you want to know **why**, not **what**.
 - [`../work/`](../work/) — what is being built right now: `tasklist.md`, `status/`, `todo.md`.
   The only part of this list that changes daily.
 
-Two files here are superseded rather than current, kept because the reasoning in them is still
+One file here is superseded rather than current, kept because the reasoning in it is still
 cited: [`brainstorms/002-native-web-architecture.md`](brainstorms/002-native-web-architecture.md) is
-the draft that `01-architecture/native-web-architecture.md` replaced, and
-[`design-prototypes/`](design-prototypes/) holds the epass v2 visual prototype rather than
-prose.
+the draft that `01-architecture/native-web-architecture.md` replaced.
 
 ---
 
