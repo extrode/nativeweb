@@ -1,26 +1,21 @@
 # db/sample
 
-The scaffolding demo's schema, kept apart from the identity schema next door.
+The scaffolding demo's schema. It is the schema a product stamped from the skeleton would write for
+its own tables, at demo scale.
 
-```
+```text
 migrations/  0001 the table, 0002 the sort indexes, 0003 slugs and tags,
-             0004 status, dates and categories, 0005 the demo articles
-             -- applied in order
+             0004 status, dates and categories, 0005 the demo articles,
+             0006 the permission tables -- applied in order
 queries/     inline .sql the JauntyQ generator turns into typed C#
 schema/      sample.schema.json -- the committed snapshot, from `jaunty schema pull`
 ```
 
-## Why this is not in `db/migrations`
+## Why the demo owns its schema
 
-`db/` proper is epass.io's identity schema, and `db/schema/jaunty.schema.json` is
-its committed snapshot. A demo `articles` table added there would ship to
-production and turn up in the generated data layer of every consumer of
-`libs/nativeweb.data`. The demo owns its own database, its own migration and its
-own snapshot instead, and `apps/sample` hosts the generator itself rather than
-referencing `nativeweb.data`.
-
-That separation is also the more honest demonstration: it is exactly what a
-product stamped from this template does with its own tables.
+A framework ships no schema. The demo has its own database, its own migrations and its own
+snapshot, and `apps/sample` hosts the JauntyQ generator itself. That is also what a product
+stamped from this template does with its own tables.
 
 ## Setting up locally
 
