@@ -13,9 +13,10 @@ env:
   #
   # It used to force package mode for BOTH (-p:NativeWebUsePackages=true
   # -p:JauntyQUsePackages=true) and could not pass: the private NativeWeb.* /
-  # JauntyQ.* feed does not exist, so `dotnet restore` died and every later step
-  # -- the CVE gate included -- never ran. NativeWeb package mode is still
-  # available (pass that one flag yourself) for the day those packages publish.
+  # JauntyQ.* feed did not exist, so `dotnet restore` died and every later step
+  # -- the CVE gate included -- never ran. The framework now publishes as
+  # Extrode.NativeWeb.* on nuget.org from a v* tag; pass
+  # -p:NativeWebUsePackages=true yourself once a release you want is out.
   #
   # JauntyQ went the other way on 2026-09-05: package mode is its default and
   # needs no clone and no JauntyQRoot. Since 2026-09-24 it needs no token either:

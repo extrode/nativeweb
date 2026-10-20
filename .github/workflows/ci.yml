@@ -9,27 +9,12 @@ on:
     # no CI at all.
   pull_request:
 
-# Least privilege, and packages:read is the point: skeleton-stamp restores the
-# stamped product from the framework feed on GitHub Packages, which requires
-# auth even for a public feed. Until 2026-09-24 this repository's own JauntyQ.*
-# restore read that feed too, which worked with the job's own GITHUB_TOKEN only
-# because the extrode org granted this repo read access to the jauntyq
-# packages; without that grant the restore 401s.
-#
-# That grant is per-repository and does not survive an org move. Both repos
-# moved from extrode-legacy-org to extrode on 2026-08-26, the packages did not follow --
-# they stayed under extrode-legacy-org, unlinked from any repository -- and every run from
-# then until 2026-08-27 died with NU1301 "403 (Forbidden)" against the old org's
-# feed. The URL itself is not repeated here: OrgReferenceTests bans that host
-# string outright, because in a workflow file a feed host cannot be told apart
-# from a live pointer. A GITHUB_TOKEN is scoped to its own repository,
-# so it can never read a private package owned by a different org, which is why
-# the fix was to republish under extrode rather than to widen a token. The
-# packages stay PRIVATE: AGENTS.md forbids redistributing JauntyQ binaries, so
-# a public feed is not an available shortcut here.
+# Least privilege. No job reads a package feed that needs a credential: since
+# 2026-10-20 every framework package, like every JauntyQ one, is on nuget.org,
+# so packages:read went with the GitHub Packages feed it served.
+# OrgReferenceTests fails if a GitHub Packages feed host comes back.
 permissions:
   contents: read
-  packages: read
 
 env:
   # No JauntyQ sibling checkout exists in CI. Package mode is the default now, so

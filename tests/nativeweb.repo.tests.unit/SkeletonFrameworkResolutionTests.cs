@@ -206,17 +206,15 @@ public sealed partial class SkeletonFrameworkResolutionTests
         {
             string name = match.Groups[1].Value;
 
-            // HOME is the runner's, not the workflow's, and it is the whole point of the
-            // credential step: the token is written under it precisely so it does not land in
-            // the checkout. So the assertion inverts rather than being skipped -- a workflow
-            // that sets HOME itself could point it back inside the workspace, which is the
-            // defect this file exists to prevent, dressed as configuration.
+            // HOME is the runner's, not the workflow's. The credential step that wrote a token
+            // under it is gone, but the assertion inverts rather than being skipped: a workflow
+            // that sets HOME itself could point any later credential back inside the workspace.
             if (name == "HOME")
             {
                 Assert.True(
                     EnvValue(workflow, name) is null,
-                    "skeleton ci.yml defines HOME itself, which can point the credential it "
-                        + "writes under $HOME back inside the checkout.");
+                    "skeleton ci.yml defines HOME itself, which can point a credential written "
+                        + "under $HOME back inside the checkout.");
                 continue;
             }
 
@@ -373,40 +371,29 @@ public sealed partial class SkeletonFrameworkResolutionTests
             p => (string?)p.Attribute("pattern") == "*");
     }
 
-    /// <summary>
-    /// Only the framework source may claim a NativeWeb.* or JauntyQ.* pattern, and it must be
-    /// a source the file declares.
-    /// </summary>
+    /// <summary>nuget.org is the only source the skeleton declares.</summary>
     /// <remarks>
-    /// The dependency-confusion shape, and the one mis-edit NuGet accepts without complaint:
-    /// mapping resolves by most specific pattern, so the same pattern added under nuget.org
-    /// puts a public package in play for a private id with restore staying green. The
-    /// declared-source half catches the other silent case, a mapping key that matches no
-    /// source, which resolves nothing for every id under it.
+    /// Since 2026-10-20 every pin, <c>Extrode.NativeWeb.*</c> and <c>Extrode.JauntyQ.*</c>, is
+    /// published to nuget.org, so a stamped product restores with no credential. A second
+    /// source would bring back a feed that needs one, and the dependency-confusion question
+    /// of which source may claim which ids.
     /// </remarks>
     [Fact]
-    public void SkeletonNuGetConfig_ConfinesFrameworkIdsToADeclaredPrivateSource()
+    public void SkeletonNuGetConfig_DeclaresNuGetOrgAlone()
     {
         var config = XDocument.Load(Path.Combine(SkeletonRoot(), "nuget.config"));
 
-        var declared = config.Descendants("packageSources")
+        string[] declared = config.Descendants("packageSources")
             .Elements("add")
-            .Select(e => (string?)e.Attribute("key"))
-            .Where(k => k is not null)
-            .Select(k => k!)
-            .ToHashSet(StringComparer.Ordinal);
-
-        string[] claimants = config.Descendants("packageSourceMapping")
+            .Select(e => (string?)e.Attribute("key") ?? string.Empty)
+            .ToArray();
+        string[] mapped = config.Descendants("packageSourceMapping")
             .Elements("packageSource")
-            .Where(s => s.Elements("package").Any(p => FrameworkPattern().IsMatch((string?)p.Attribute("pattern") ?? string.Empty)))
             .Select(s => (string?)s.Attribute("key") ?? string.Empty)
             .ToArray();
 
-        Assert.True(
-            claimants.Length == 1,
-            "exactly one source may map NativeWeb.*/JauntyQ.*; mapped by: " + string.Join(", ", claimants));
-        Assert.Contains(claimants[0], declared, StringComparer.Ordinal);
-        Assert.NotEqual("nuget.org", claimants[0]);
+        Assert.Equal(["nuget.org"], declared);
+        Assert.Equal(["nuget.org"], mapped);
     }
 
     private sealed record Checkout(string Repository, string Path, string? Ref, string? Token, string? PersistCredentials);
@@ -512,9 +499,6 @@ public sealed partial class SkeletonFrameworkResolutionTests
     // expression syntax and is substituted before the shell ever sees it.
     [GeneratedRegex(@"\$(?!\{\{)\{?([A-Za-z_][A-Za-z_0-9]*)\}?")]
     private static partial Regex ShellVariablePattern();
-
-    [GeneratedRegex(@"^(NativeWeb|JauntyQ)", RegexOptions.IgnoreCase)]
-    private static partial Regex FrameworkPattern();
 
     private static string RepoRoot()
     {

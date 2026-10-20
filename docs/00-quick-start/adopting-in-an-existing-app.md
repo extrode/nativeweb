@@ -66,9 +66,10 @@ worktree fails:
 
 The thirteen packable projects under `libs/` carry `IsPackable` and a `PackageId`, and
 `skeleton/Directory.Build.props` already has a `-p:NativeWebUsePackages=true` mode. **Do not use
-it yet.** The packages will be on nuget.org as `Extrode.NativeWeb.*`, but none has been released,
-so package mode has never restored end to end, and the repository has no release process for a consumed library — no stated semver guarantee, no
-support window, no deprecation path. See
+it yet.** The packages publish to nuget.org as `Extrode.NativeWeb.*` from a `v*` tag
+([`../02-reference/versioning.md`](../02-reference/versioning.md)), but none has been released, so
+package mode has never restored end to end. There is also no stated semver guarantee, support
+window or deprecation path for a consumed library yet. See
 [`../decisions/2026-08-30-004-package-mode-for-consumers.md`](../decisions/2026-08-30-004-package-mode-for-consumers.md)
 for what it obliges. Until that lands, a checkout is the supported model and you upgrade by
 pulling.

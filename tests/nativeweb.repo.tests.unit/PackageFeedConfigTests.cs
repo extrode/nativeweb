@@ -94,16 +94,16 @@ public sealed partial class PackageFeedConfigTests
     }
 
     /// <summary>
-    /// GitHub Packages requires auth even to read. A `permissions:` block that
-    /// omits packages leaves GITHUB_TOKEN unable to read the feed, and the
-    /// failure is a 401 during restore rather than anything naming permissions.
+    /// ci.yml grants no packages scope. It used to need packages:read for the GitHub
+    /// Packages feed the skeleton restored from; since 2026-10-20 every restore is from
+    /// nuget.org, and a scope nothing uses is privilege for nothing.
     /// </summary>
     [Fact]
-    public void Workflow_GrantsThePackagesReadScopeTheRestoreNeeds()
+    public void Workflow_GrantsNoPackagesScope()
     {
         string workflow = File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "ci.yml"));
 
-        Assert.Matches(PackagesReadPattern(), workflow);
+        Assert.DoesNotMatch(PackagesScopePattern(), workflow);
     }
 
     /// <summary>
@@ -160,8 +160,8 @@ public sealed partial class PackageFeedConfigTests
     [GeneratedRegex(@"<Project\s+Path=""([^""]+)""")]
     private static partial Regex SolutionProjectPattern();
 
-    [GeneratedRegex(@"(?m)^\s*packages:\s*read\s*$")]
-    private static partial Regex PackagesReadPattern();
+    [GeneratedRegex(@"(?m)^\s*packages:\s*\S")]
+    private static partial Regex PackagesScopePattern();
 
     /// <summary>
     /// A feed credential must never be written to a file inside the checkout.
