@@ -1,143 +1,284 @@
 # NativeWeb
 
-NativeWeb is a reference implementation and reusable template for the **Lean Native Web**
-architecture — ASP.NET Core Minimal APIs serving server-rendered HTML enhanced with HTMX and
-Alpine.js, compiled to a single self-contained NativeAOT binary, with all data access flowing
-through the JauntyQ source-generated layer over PostgreSQL — for developers who want a small,
-fast, dependency-light web application without a SPA build pipeline.
+A server-first web framework for ASP.NET Core. Pages are rendered as HTML on the server, a
+little htmx makes them feel quick, and the whole app compiles to one self-contained native
+binary.
 
-**New here?** [`docs/00-quick-start/getting-started.md`](docs/00-quick-start/getting-started.md) is the ordered path from a
-clean clone to a running application and a green suite. [`docs/README.md`](docs/README.md) indexes
-everything else.
+[![CI](https://github.com/extrode/nativeweb/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/extrode/nativeweb/actions/workflows/ci.yml)
+[![License: ISL-NETC](https://img.shields.io/badge/license-ISL--NETC%201.1-blue)](LICENSE.md)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4)](#requirements)
+[![NativeAOT](https://img.shields.io/badge/NativeAOT-tested%20end%20to%20end-brightgreen)](#how-it-is-built)
+[![Database](https://img.shields.io/badge/database-PostgreSQL-336791)](#how-it-is-built)
 
-## Prerequisites
+> [!IMPORTANT]
+> NativeWeb is source-available, not open source. The [ISL-NETC 1.1](LICENSE.md) license is a
+> network copyleft: if you run a *modified* copy as a service, you must offer its users the source
+> of that exact version. It also carries ethical-use terms that bind everyone downstream. Read
+> [License](#license) before you build on it.
 
-| | Required | Verified against |
-|---|---|---|
-| .NET SDK | `10.0.100` or later feature band (`global.json`) | 10.0.203 |
-| PostgreSQL | any recent server; **optional to start**, see below | psql 18.2 |
-| PowerShell | 7+, for `tools/` and `scripts/` | 7.6.4 |
-| The JauntyQ packages | public on nuget.org, no credential | `Extrode.JauntyQ.*` 0.5.1 |
+If you have built an ASP.NET Core app with Minimal APIs, you already know most of NativeWeb. A
+page is an HTML template:
 
-**JauntyQ is load-bearing and needs no checkout.** All data access goes through its source
-generator, so nothing here builds without it. Its generated output is ours to ship under
-JauntyQ's Output Exception (`AGENTS.md`). Since 2026-09-05 it resolves **from packages by default**:
-`dotnet build` at the root or on any project just works, and no sibling `jauntyq/` is expected or
-probed. Decision `docs/decisions/2026-09-05-012-jauntyq-package-mode-default.md` records why the
-default moved — JauntyQ split its generator and runtime out to a public core repository, and the
-sibling checkout stopped carrying either project this repository referenced.
-
-Two things follow, each verified rather than assumed:
-
-- **Restore needs no credential.** JauntyQ core 0.5.0 (2026-09-17) renamed every package id and
-  the generated namespace to `Extrode.JauntyQ.*` / `Extrode.JauntyQ.Generated`, and publishes them
-  on nuget.org. The old `JauntyQ.*` ids were deleted from the `jauntyq-github` feed, which
-  `nuget.config` no longer declares; a machine whose NuGet cache still holds them will keep
-  building until the cache is cleared, then fail with `NU1101`.
-- **Checkout mode is still there, behind `-p:JauntyQUsePackages=false`.** It expects `jauntyq`
-  (the public core, `github.com/extrode/jauntyq`) as a sibling; `Directory.Build.props` probes
-  `..\jauntyq` and `..\..\..\jauntyq`, the second being the depth a `.worktrees/<branch>` or
-  `.claude/worktrees/<name>` checkout sits at, and neither names an ancestor directory.
-  `-p:JauntyQRoot=<path>` overrides the location. Verified building against core 0.5.1 on
-  2026-09-24.
-
-## Run it
-
-`apps/sample` needs no database to start: a missing connection string selects an in-memory store
-rather than failing, which makes this the fastest way to see the thing work.
-
-```
-dotnet run --project apps/sample                          # http://localhost:5399/
-dotnet watch run --project apps/sample --no-hot-reload    # the edit-and-see-it loop
+```html
+<!--#template
+  @layout layout/page
+  @param IReadOnlyList<PublishedArticle> Articles
+-->
+<h1>{{t:home.title}}</h1>
+{{> articles/results Articles=Articles}}
 ```
 
-`--no-hot-reload` is required, not a preference: under the default hot-reload session this project
-detects no change at all. `getting-started.md` has the measurement and the matching csproj `Watch`
-items that templates need.
+and a plain `MapGet` that fills it in:
 
-It is the framework's reference application and the only deployable project here. `apps/web`, an
-identity provider, used to sit beside it and left on 2026-08-31 —
-[decision 007](docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md) says why, and epass.io owns
-epass now.
+```csharp
+endpoints.MapGet("/", async (IPublishedArticles articles, HttpContext http) =>
+{
+    IReadOnlyList<PublishedArticle> recent = await articles.RecentAsync(20, http.RequestAborted);
+    return Templates.Site.Home.Result(locale: Locales.Get(http.GetLocale()), Articles: recent);
+});
+```
+
+Both are trimmed from the home page in [`apps/sample`](apps/sample/PublicSite.cs). The template is
+compiled into C# at build time, so `Templates.Site.Home.Result` is a real method with typed
+parameters. The data comes from a `.sql` file that [JauntyQ](https://github.com/extrode/jauntyq)
+also turns into a typed method at build time. There is
+no SPA, no JavaScript build step, no MVC and no Razor. When something is wrong (a missing column, a
+template referring to a field that doesn't exist), you find out when you build, not when a user
+opens the page.
+
+---
+
+## Contents
+
+- [Quick start](#quick-start)
+- [What's in the box](#whats-in-the-box)
+- [Admin screens for free](#admin-screens-for-free)
+- [How it is built](#how-it-is-built)
+- [Start your own app](#start-your-own-app)
+- [Build and test](#build-and-test)
+- [Requirements](#requirements)
+- [Repository layout](#repository-layout)
+- [Documentation](#documentation)
+- [License](#license)
+- [Contributing](#contributing)
+
+---
+
+## Quick start
+
+You don't need a database to try it. With no connection string configured, the sample app runs
+on an in-memory store.
+
+```
+git clone https://github.com/extrode/nativeweb.git
+cd nativeweb
+dotnet run --project apps/sample
+```
+
+Then open <http://localhost:5399/>. What you can look at:
+
+- `/` and `/articles`: published articles. The filter on `/articles` posts over htmx and swaps
+  only the list. The same URL also answers as JSON and CSV.
+- `/articles/{slug}` and `/tags`: article and tag pages.
+- `/admin/articles`: a full create/edit/delete admin, generated from attributes on one class.
+  It sits behind a demo sign-in.
+
+To edit and see changes without restarting:
+
+```
+dotnet watch run --project apps/sample --no-hot-reload
+```
+
+Keep `--no-hot-reload`. Without it the watcher misses template changes, and the app keeps serving
+the old markup.
+
+To run against PostgreSQL, set `ConnectionStrings:Sample` and the same code runs through JauntyQ
+instead of the in-memory store. [`db/sample/README.md`](db/sample/README.md) has the setup.
+
+---
+
+## What's in the box
+
+Take the libraries you need. Most stand alone; `web`, `signin` and `permissions` pull in the
+one or two others they build on. Several come in two halves: a runtime library and a source
+generator that writes the boring code at build time.
+
+| Library | What it gives you |
+|---|---|
+| [`nativeweb.web`](libs/nativeweb.web/README.md) | The pipeline in front of your routes: security headers, antiforgery, rate limiting, output caching, forwarded headers, telemetry, flash messages, cache-busting asset URLs |
+| [`nativeweb.render`](libs/nativeweb.render/README.md) | HTML templates and locale files compiled into C#, written straight to the response with no whole-page string |
+| [`nativeweb.forms`](libs/nativeweb.forms/README.md) | Mark a record `[Form]` and get a generated binder and a POST route with antiforgery and bot checks already attached |
+| [`nativeweb.scaffold`](libs/nativeweb.scaffold/README.md) | Admin CRUD screens generated from attributes on a model |
+| [`nativeweb.permissions`](libs/nativeweb.permissions/README.md) | Per-model, per-operation permissions with groups, enforced by the generated admin |
+| [`nativeweb.signin`](libs/nativeweb.signin/README.md) | Sign-in through any OAuth 2.1 / OpenID Connect provider (PKCE, server-side sessions, refresh, sign-out) |
+| [`nativeweb.security`](libs/nativeweb.security/README.md) | Password hashing (Argon2id), opaque tokens, encryption at rest, blind indexes, masking, bot traps |
+| [`nativeweb.mail`](libs/nativeweb.mail/README.md) | Outbound e-mail over SMTP with recipient validation and header-injection protection |
+
+NativeWeb is a framework, not a product. It signs users in through an identity provider, but it
+is not one: there is no token issuer, consent screen or user database here, and there won't be.
+
+---
+
+## Admin screens for free
+
+Decorate a model:
+
+```csharp
+[Scaffold(Display = "Articles", Route = "articles")]
+[Auth(Role = "admin", Delete = "owner")]
+public sealed class Article
+{
+    [ScaffoldKey]                        public string Id { get; set; } = "";
+    [ScaffoldList][ScaffoldSearch]
+    [ScaffoldSort]                       public string Title { get; set; } = "";
+    [ScaffoldMultiline]                  public string Body { get; set; } = "";
+    [ScaffoldList]                       public ArticleStatus Status { get; set; }
+    [ScaffoldList]                       public DateOnly? PublishedAt { get; set; }
+}
+```
+
+implement `IScaffoldStore<Article>` (six methods), register it, and call `app.MapScaffolding()`.
+You get a searchable, sortable, paged list, plus create, edit and delete forms under
+`/admin/articles`, each checking the role you named.
+
+Scaffolding is for the CRUD screens only. The public side of an app is hand-written, because which
+rows to show, in what order, and how they look are product decisions. The
+[tutorial](docs/00-quick-start/tutorial-first-feature.md) builds one such page end to end.
+
+---
+
+## How it is built
+
+- **.NET 10, Minimal APIs, NativeAOT.** Every app publishes as one self-contained native binary.
+  The end-to-end tests run against that binary, not the JIT build, so anything that breaks under
+  trimming breaks a test. Warnings are errors across the repository.
+- **Server-rendered HTML first.** Every page works without JavaScript. htmx is layered on top for
+  partial updates, following the rules in
+  [progressive enhancement](docs/01-architecture/progressive-enhancement.md). Alpine.js is vendored
+  and loaded but not used by the sample yet.
+- **JauntyQ for all data access.** Queries are real `.sql` files, checked against a committed schema
+  snapshot when you build. There's no EF Core, no Dapper and no hand-written ADO.NET.
+- **PostgreSQL** is the database the sample and the test suites run against.
+- **No CDN, no npm.** htmx and Alpine.js are vendored into the repository. Our own JavaScript is a
+  few small files served as-is, with no build step.
+
+The reasoning behind each choice is in
+[native-web-architecture.md](docs/01-architecture/native-web-architecture.md).
+
+---
+
+## Start your own app
+
+`skeleton/` is a ready-made app shell: the request pipeline, templates and locales, static pages,
+a database migration runner, three test projects, CI and deployment units. Stamp a copy with your
+app's name:
+
+```
+pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe            # dry run
+pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe -Execute
+```
+
+By default the stamped app references the NativeWeb libraries from a checkout of this repository
+sitting next to it. It can switch to NuGet packages with `-p:NativeWebUsePackages=true`, but those
+packages aren't published yet, so the checkout is the way for now. JauntyQ comes from nuget.org
+and needs no checkout.
+
+To check that `skeleton/` still builds before you stamp the app you mean to keep,
+`deno run -A tools/stamp-check.ts` stamps a throwaway copy into `tmp/`, builds it and runs its
+tests.
+
+[Getting started](docs/00-quick-start/getting-started.md) walks through stamping and running your
+first app. [Adopting in an existing app](docs/00-quick-start/adopting-in-an-existing-app.md) covers
+bringing individual libraries into an app you already have.
+
+---
 
 ## Build and test
 
 ```
-dotnet build                                    # the whole solution
-dotnet build apps/sample                        # one project
-dotnet test --project tests/nativeweb.render.tests.unit   # one tier; the full list is in getting-started
+dotnet build
+dotnet test --project tests/nativeweb.render.tests.unit
 ```
 
-Every command on this page was executed in the form written, from a fresh clone, on
-2026-08-25 — Windows 11 (10.0.26200.8457), .NET SDK 10.0.203, PostgreSQL 18.2, PowerShell 7.6.4.
-
-A read-only nightly audit runs on a separate host and reports defects for a human to triage; it
-never writes to this repository. Provisioning, reading a digest and triaging are in
-[`continuous-audit.md`](docs/02-reference/continuous-audit.md).
-
-## Layout
-
-| Path | What |
-|---|---|
-| `apps/` | Deployable services. `apps/sample` is the reference application |
-| `libs/` | Framework libraries: render, forms, scaffold and their generators, security, mail, assets |
-| `tests/` | Up to three tiers per library: `*.tests.unit`, `*.tests.integration`, `*.tests.e2e` |
-| `work/` | Current work: tasklist, status window, backlog, milestones |
-| `docs/` | Specs, plans, architecture, decisions, conventions, lessons, [`configuration.md`](docs/02-reference/configuration.md) and [`breaking-changes.md`](docs/02-reference/breaking-changes.md) |
-| `scripts/` | Operational scripts. `scripts/cleanup/` is written but never run |
-
-Agent instructions are in `AGENTS.md`. `CLAUDE.md` is a one-line shim that imports it.
-
-## Stamping a new product
-
-`skeleton/` is a tokenized product shell (spec 003 R2): app pipeline, templates/locales,
-static pages, db migration runner, three test tiers, CI, deploy units, and the repo
-operating files, with `__PRODUCT__`/`__product__` tokens where the product name goes. Its
-`README.md` and `AGENTS.md` are the *stamped product's* files, not documentation of the
-skeleton itself.
-
-```
-pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination C:\path\to\manzil.my           # dry run
-pwsh tools/new-product.ps1 -Name Manzil -Slug manzil -Destination C:\path\to\manzil.my -Execute
-```
-
-A stamped product consumes the framework libs dual-mode (spec 003 R1): sibling checkout via
-`$(NativeWebRoot)` for co-development, or the `NativeWeb.*` packages with
-`-p:NativeWebUsePackages=true`. `dotnet pack` on `libs/nativeweb.*` produces the packages, but no
-`NativeWeb.*` package has published yet (known gap, see the stamped README), so checkout mode
-is the working path for the framework. Its JauntyQ half went the other way on 2026-09-05 and
-resolves from packages by default, needing no checkout at all.
-
-## License
-
-**Islamic Software License - Network Copyleft (ISL-NETC), Version 1.1** —
-SPDX `LicenseRef-ISL-NETC-1.1`. Copyright (c) 2026 Extrode LLC.
-
-| file | what it is |
-|---|---|
-| [`LICENSE.md`](LICENSE.md) | the [ISL-NETC 1.1 text](https://islamiclicense.org/isl-netc/1.1/LICENSE.md), with §1.2 `[LICENSOR]` completed as Extrode LLC and unmodified otherwise |
-| [`NOTICE.md`](NOTICE.md) | who the Licensor is, the two copyrights, and what binds an operator — **required to be retained by §3.1(c)** |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | ISL-CLA 1.1 adoption, including the **no-AI-contributions** rule |
-
-Two consequences that reach further than a permissive license: **§3.6** obliges anyone running a
-*modified* version as a network service to offer its users the corresponding source of that exact
-version, at no charge, under the same license — never distributing a copy does not avoid it; and
-**§§4 and 5** carry ethical use restrictions that bind every recipient and every user downstream
-and cannot be relicensed away. This is a source-available license, not an open-source one, and it
-is not OSI-approved. Read `LICENSE.md` before depending on this.
-
-**Contributions are not accepted yet**, and AI-generated ones will not be at all — bug reports,
-reproduction steps and written design proposals are the route. See `CONTRIBUTING.md`.
-Security issues go through private reporting, not issues: see [`.github/SECURITY.md`](.github/SECURITY.md).
-
-## Status
-
-See `work/status/current.md` for what is being worked on right now, and `CHANGELOG.md` for
-what has shipped.
+Each library has up to three test tiers: unit (xUnit), integration (`WebApplicationFactory`
+against a real PostgreSQL) and end-to-end (Playwright, against the NativeAOT binary). The
+integration and end-to-end tiers need a test database and a Playwright browser install; both are
+covered in [getting started](docs/00-quick-start/getting-started.md).
 
 ---
 
-**Local READMEs.** Any directory whose purpose is not obvious from its name gets its own
-`README.md`, kept to a few lines: what belongs here, what does not, and the naming rule if
-there is one. The test is simple — if someone would have to open three files to work out what
-a directory is for, it needs one.
+## Requirements
+
+| | Version |
+|---|---|
+| .NET SDK | 10.0.100 or later (pinned in `global.json`) |
+| PostgreSQL | any recent version; optional for the sample app |
+| PowerShell | 7 or later, for the scripts in `tools/` and `scripts/` |
+
+The [JauntyQ](https://github.com/extrode/jauntyq) packages restore from nuget.org with no
+credentials. If you're working on JauntyQ itself, build against a local checkout with
+`-p:JauntyQUsePackages=false`. It looks for a `jauntyq` folder next to this repository (or three
+levels up, for a worktree), and `-p:JauntyQRoot=<path>` points it elsewhere.
+
+---
+
+## Repository layout
+
+| Path | What's there |
+|---|---|
+| `apps/sample` | The reference app, and the only deployable project |
+| `libs/` | The framework libraries and their source generators |
+| `tests/` | Unit, integration and end-to-end tests, per library |
+| `skeleton/` | The app shell `tools/new-product.ps1` stamps |
+| `db/sample` | The sample app's schema, migrations and queries |
+| `docs/` | Guides, reference, architecture, specs and decisions |
+| `tools/`, `scripts/` | Developer tooling and operational scripts |
+| `work/` | Current work: task list, status, backlog |
+
+---
+
+## Documentation
+
+- [Getting started](docs/00-quick-start/getting-started.md): from a clean clone to a running app
+  and a green test suite.
+- [Tutorial: your first feature](docs/00-quick-start/tutorial-first-feature.md): a query, a
+  template, a route and a test at every tier.
+- [Architecture](docs/01-architecture/native-web-architecture.md): why the stack is what it is.
+- [Configuration](docs/02-reference/configuration.md): every setting, its default, and what a
+  wrong value costs.
+- [Security baseline](docs/02-reference/security-baseline.md) and
+  [template diagnostics](docs/02-reference/template-diagnostics.md).
+- [`docs/README.md`](docs/README.md) indexes the rest.
+
+What changed and when is in [CHANGELOG.md](CHANGELOG.md), and anything that will break an
+existing app is in [breaking-changes.md](docs/02-reference/breaking-changes.md).
+
+---
+
+## License
+
+Copyright (c) 2026 Extrode LLC. Licensed under the **Islamic Software License - Network Copyleft
+(ISL-NETC), Version 1.1** (SPDX `LicenseRef-ISL-NETC-1.1`). The text is in [LICENSE.md](LICENSE.md),
+also published at <https://islamiclicense.org/isl-netc/1.1/LICENSE.md>.
+
+Two things reach further than a permissive license would:
+
+- **Running a modified version as a network service** obliges you to offer its users the
+  corresponding source of that exact version, free of charge, under the same license (§3.6). Not
+  distributing copies doesn't get you out of it.
+- **Ethical-use restrictions** (§§4 and 5) bind every recipient and every user downstream, and can't
+  be relicensed away.
+
+It is not an OSI-approved open-source license. [NOTICE.md](NOTICE.md) names the Licensor and must be
+kept with any copy (§3.1(c)).
+
+---
+
+## Contributing
+
+Bug reports, reproduction steps and design proposals are welcome as GitHub issues. Code
+contributions aren't accepted yet, and AI-generated contributions won't be accepted at all; see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+Please report security issues privately, not as public issues: see
+[SECURITY.md](.github/SECURITY.md).
