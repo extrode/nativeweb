@@ -13,7 +13,7 @@ over PostgreSQL.
 - Every change starts on a named branch off `dev`: `git switch -c <type>/<name>`.
 - Commit often with clear messages.
 - Open work as a PR / merge to `dev` with `--no-ff` — never fast-forward, never squash.
-- Get a Fable code review before merging.
+- Get a code review before merging.
 - Branch prefixes: `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`.
 - Release: `dev` -> `main` with `--no-ff` + a semver tag.
 - No AI attribution in commit messages.
@@ -55,8 +55,10 @@ Every feature ships with all three layers of coverage:
 - End-to-end tests (Playwright).
 
 ## JauntyQ license constraint
-Permitted use of JauntyQ is self-hosted-SaaS use of the generated output. Never redistribute JauntyQ source or binaries, and never ship this product's
-binary to third parties.
+JauntyQ's source and packages are under ISL-R 1.2. Code its generator emits into this repository is
+ours under its Output Exception, and `Extrode.JauntyQ.Runtime` may ship inside built output under
+its Redistribution Exception. Nothing else of JauntyQ's may be committed, vendored or
+redistributed from here.
 
 ## Layout
 Flat convention: `apps/` (deployable services), `libs/` (shared libraries), `tests/`, `db/`, `deploy/`.
