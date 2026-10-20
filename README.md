@@ -5,13 +5,13 @@ little htmx makes them feel quick, and the whole app compiles to one self-contai
 binary.
 
 [![CI](https://github.com/extrode/nativeweb/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/extrode/nativeweb/actions/workflows/ci.yml)
-[![License: ISL-NETC](https://img.shields.io/badge/license-ISL--NETC%201.1-blue)](LICENSE.md)
+[![License: ISL-NETC](https://img.shields.io/badge/license-ISL--NETC%201.2-blue)](LICENSE.md)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4)](#requirements)
 [![NativeAOT](https://img.shields.io/badge/NativeAOT-tested%20end%20to%20end-brightgreen)](#how-it-is-built)
 [![Database](https://img.shields.io/badge/database-PostgreSQL-336791)](#how-it-is-built)
 
 > [!IMPORTANT]
-> NativeWeb is source-available, not open source. The [ISL-NETC 1.1](LICENSE.md) license is a
+> NativeWeb is source-available, not open source. The [ISL-NETC 1.2](LICENSE.md) license is a
 > network copyleft: if you run a *modified* copy as a service, you must offer its users the source
 > of that exact version. It also carries ethical-use terms that bind everyone downstream. Read
 > [License](#license) before you build on it.
@@ -258,8 +258,8 @@ existing app is in [breaking-changes.md](docs/02-reference/breaking-changes.md).
 ## License
 
 Copyright (c) 2026 Extrode LLC. Licensed under the **Islamic Software License - Network Copyleft
-(ISL-NETC), Version 1.1** (SPDX `LicenseRef-ISL-NETC-1.1`). The text is in [LICENSE.md](LICENSE.md),
-also published at <https://islamiclicense.org/isl-netc/1.1/LICENSE.md>.
+(ISL-NETC), Version 1.2** (SPDX `LicenseRef-ISL-NETC-1.2`). The text is in [LICENSE.md](LICENSE.md),
+also published at <https://islamiclicense.org/isl-netc/1.2/LICENSE.md>.
 
 Two things reach further than a permissive license would:
 

@@ -15,22 +15,18 @@ Version 1.1**, by reference. The text is at <https://islamiclicense.org/isl-cla/
 not reproduced or edited here — the agreement is adopted whole or not at all, and deleting a clause
 would produce a modified ISL-CLA, which its reproduction notice forbids.
 
-**Why 1.1 and not 1.0.** Adoption is by name *and version*, so the version has to name the text
-whose requirements are met below. ISL-CLA 1.0 was twice revised in place — a §9.2 forum clause and
-a fifth adoption item, then a rewritten item (d) — and on 2026-08-29 its drafters undid that:
-`ISL-CLA-1.0.md` was frozen back to its original **four**-item text with a single §9.2 placeholder,
-and the revisions became 1.1. The five statements below, and the forum in particular, exist only in
-1.1.
+It is ISL-CLA 1.1 and not 1.0 because the five statements below, the forum in particular, exist
+only in 1.1.
 
 Its *How a Project adopts this Agreement* section requires a project to state five things. They
 are stated here:
 
 | required statement | NativeWeb |
 |---|---|
-| **(a)** which ISL variant the project is licensed under | **ISL-NETC 1.1** — see [`LICENSE.md`](./LICENSE.md). Not ISL-R, so **§2 (Limited Consent to Modify) does not apply**: ISL-NETC permits modification already, and §2 is inert here. |
+| **(a)** which ISL variant the project is licensed under | **ISL-NETC 1.2** — see [`LICENSE.md`](./LICENSE.md). Not ISL-R, so **§2 (Limited Consent to Modify) does not apply**: ISL-NETC permits modification already, and §2 is inert here. |
 | **(b)** whether the project adopts optional **§6 (No AI-Generated Contributions)** | **Adopted.** §6 applies in full to every contribution to this project. |
 | **(c)** the jurisdiction whose law governs the agreement, which **§9.2** leaves to the Licensor to state here | **Commonwealth of Virginia**, matching the jurisdiction Extrode LLC's other licenses use. |
-| **(d)** who the Licensor is | **Extrode LLC**, stated in [`LICENSE.md`](./LICENSE.md) §1.2 itself. ISL-NETC 1.1 makes §1.2 a `[LICENSOR]` placeholder the adopter completes, and its reproduction notice puts completing it outside the definition of a modification, so the second limb of (d) — the reading that rescued a Foundation-named §1.2 — is no longer relied on here. [`NOTICE.md`](./NOTICE.md) records the re-sync rather than an override. |
+| **(d)** who the Licensor is | **Extrode LLC**, named in [`LICENSE.md`](./LICENSE.md) §1.2. ISL-NETC 1.2 leaves §1.2 as a `[LICENSOR]` field the adopter fills in, and its reproduction notice says filling it in is not a modification. [`NOTICE.md`](./NOTICE.md) explains this further. |
 | **(e)** the forum in which disputes are brought, which the second sentence of **§9.2** likewise leaves to the Licensor to state here | **The courts located in the Commonwealth of Virginia**, matching the forum clause in Extrode LLC's other licenses. |
 
 Absent (b), §6 would not apply and the AI prohibition below would bind nobody. A project that
