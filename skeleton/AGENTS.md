@@ -5,7 +5,7 @@ __PRODUCT__ is <one paragraph: what the product does, who it is for, and what it
 enables>. It is built on the "Lean Native Web" architecture: ASP.NET Core Minimal APIs serving
 server-rendered HTML enhanced with HTMX and Alpine.js, compiled to a single self-contained
 NativeAOT binary, with all data access flowing through the JauntyQ source-generated data layer
-over PostgreSQL. It was stamped from the NativeWeb skeleton (spec 003).
+over PostgreSQL.
 
 ## Git workflow (MANDATORY)
 - `main` is release-only. Never touch except release + versioning.
@@ -55,8 +55,7 @@ Every feature ships with all three layers of coverage:
 - End-to-end tests (Playwright).
 
 ## JauntyQ license constraint
-JauntyQ is used from a local checkout only. Permitted use is self-hosted-SaaS use of the
-generated output. Never redistribute JauntyQ source or binaries, and never ship this product's
+Permitted use of JauntyQ is self-hosted-SaaS use of the generated output. Never redistribute JauntyQ source or binaries, and never ship this product's
 binary to third parties.
 
 ## Layout
