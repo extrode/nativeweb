@@ -80,7 +80,9 @@ branches=(
     chore/worker-nw-docs-c
     chore/worker-nw-docs-d
     chore/worker-nw-ci
+    chore/worker-nw-ci2
     chore/worker-nw-pkg
+    chore/public-repo-followups
 )
 git worktree prune
 for target in "${branches[@]}"; do
@@ -102,7 +104,7 @@ done
 
 printf '\n-- remaining --\n'
 git status --short -- "${targets[@]%%|*}" 2>/dev/null || true
-git branch --list 'chore/worker-nw-*' 'docs/stale-docs-sweep' 'chore/isl-netc-1.2'
+git branch --list 'chore/worker-nw-*' 'docs/stale-docs-sweep' 'chore/isl-netc-1.2' 'chore/public-repo-followups'
 if [ "$execute" -eq 1 ] && [ "$git_rm" -eq 1 ]; then
     printf '\nNext: dotnet build && dotnet test --project tests/nativeweb.repo.tests.unit, then commit.\n'
 fi
