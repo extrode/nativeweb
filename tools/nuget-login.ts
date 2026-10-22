@@ -7,7 +7,7 @@
  * The same two requests NuGet/login@v1 makes (its src/index.ts at 8d19675),
  * done here because that action is a node24 `uses:` step and decision
  * 2026-08-20-001 keeps this repository to one of those (actions/checkout).
- * jaunty and jauntyq publish through the action itself.
+ * JauntyQ publishes through the action itself.
  *
  * Needs `id-token: write` on the job, which is what puts
  * ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN in the

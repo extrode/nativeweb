@@ -331,13 +331,30 @@ public sealed partial class SkeletonFrameworkResolutionTests
     [Fact]
     public void NoSkeletonJob_AuthenticatesToGitHubPackages()
     {
-        string workflow = SkeletonWorkflow();
+        string[] offenders = [.. SkeletonWorkflow()
+            .Split('\n')
+            .Where(line => !line.TrimStart().StartsWith('#'))
+            .Where(line => FeedCredentialPattern().IsMatch(line))
+            .Select(line => line.Trim())];
 
-        Assert.DoesNotContain("nuget.pkg.github.com", workflow, StringComparison.Ordinal);
-        Assert.DoesNotContain("dotnet nuget add source", workflow, StringComparison.Ordinal);
-        Assert.DoesNotContain("dotnet nuget update source", workflow, StringComparison.Ordinal);
-        Assert.DoesNotContain("secrets.", workflow, StringComparison.Ordinal);
+        Assert.Empty(offenders);
     }
+
+    [Theory]
+    [InlineData("        run: dotnet nuget add source https://example/index.json -n feed")]
+    [InlineData("        run: dotnet nuget sources add -n feed -s https://example/index.json")]
+    [InlineData("        run: dotnet nuget update source feed -p x")]
+    [InlineData("          TOKEN: ${{ secrets.FEED_PAT }}")]
+    [InlineData("          TOKEN: ${{ secrets['FEED_PAT'] }}")]
+    [InlineData("          SOURCE: https://nuget.pkg.github.com/extrode/index.json")]
+    public void FeedCredentialPattern_MatchesEverySpelling(string line) =>
+        Assert.Matches(FeedCredentialPattern(), line);
+
+    [Theory]
+    [InlineData("        run: dotnet restore")]
+    [InlineData("          token: ${{ github.token }}")]
+    public void FeedCredentialPattern_PassesAStepWithNoCredential(string line) =>
+        Assert.DoesNotMatch(FeedCredentialPattern(), line);
 
     /// <summary>The skeleton ships a nuget.config, and its mapping is total.</summary>
     /// <remarks>
@@ -499,6 +516,11 @@ public sealed partial class SkeletonFrameworkResolutionTests
     // expression syntax and is substituted before the shell ever sees it.
     [GeneratedRegex(@"\$(?!\{\{)\{?([A-Za-z_][A-Za-z_0-9]*)\}?")]
     private static partial Regex ShellVariablePattern();
+
+    // A feed registration in either CLI spelling, a GitHub Packages host, or any stored
+    // secret in dotted or indexed form. GITHUB_TOKEN reaches checkout as github.token.
+    [GeneratedRegex(@"dotnet\s+nuget\s+(add\s+source|sources?\s+add|update\s+source)|nuget\.pkg\.github\.com|secrets\s*(\.|\[)")]
+    private static partial Regex FeedCredentialPattern();
 
     private static string RepoRoot()
     {

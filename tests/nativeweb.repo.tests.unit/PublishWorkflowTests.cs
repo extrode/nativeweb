@@ -85,16 +85,43 @@ public sealed partial class PublishWorkflowTests
     }
 
     [Fact]
+    public void TheCiGateReadsEveryCheckRunNotOnlyTheLatest()
+    {
+        string[] queries = [.. File
+            .ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))
+            .Where(line => !line.TrimStart().StartsWith('#'))
+            .Select(line => CheckRunsQuery().Match(line))
+            .Where(match => match.Success)
+            .Select(match => match.Groups[1].Value)];
+
+        string query = Assert.Single(queries);
+
+        Assert.Contains("filter=all", query.Split('&'));
+    }
+
+    [Theory]
+    [InlineData("${{ secrets.NUGET_API_KEY }}", "NUGET_API_KEY")]
+    [InlineData("${{ secrets['NUGET_API_KEY'] }}", "NUGET_API_KEY")]
+    [InlineData("${{ secrets[\"NUGET_API_KEY\"] }}", "NUGET_API_KEY")]
+    public void SecretReference_ReadsEverySpelling(string line, string name) =>
+        Assert.Equal(name, SecretReference().Match(line).Groups[1].Value);
+
+    [Fact]
     public void ThePushSpendsAKeyMintedInTheSameStep()
     {
         string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))];
 
         int push = Array.FindIndex(lines, IsANuGetPush);
+
+        Assert.True(push >= 0, "The workflow has no nuget push.");
+
         int step = Array.FindLastIndex(lines, push, line => line.TrimStart().StartsWith("- name:", StringComparison.Ordinal));
+
+        Assert.True(step >= 0, "The nuget push sits in no named step.");
+
         int login = Array.FindIndex(lines, step, line => !line.TrimStart().StartsWith('#')
             && line.Contains("tools/nuget-login.ts", StringComparison.Ordinal));
 
-        Assert.True(push >= 0, "The workflow has no nuget push.");
         Assert.True(
             login > step && login < push,
             "The push step does not mint its own key with tools/nuget-login.ts before pushing.");
@@ -244,8 +271,11 @@ public sealed partial class PublishWorkflowTests
             .Select(line => line.Trim().Split(':')[0])
             .Order(StringComparer.Ordinal);
 
-    [GeneratedRegex(@"secrets\.([A-Za-z_][A-Za-z0-9_]*)")]
+    [GeneratedRegex(@"secrets\s*(?:\.\s*|\[\s*['""])([A-Za-z_][A-Za-z0-9_]*)")]
     private static partial Regex SecretReference();
+
+    [GeneratedRegex(@"/check-runs(?:\?([^""\s]*))?")]
+    private static partial Regex CheckRunsQuery();
 
     private static string RepoRoot()
     {
