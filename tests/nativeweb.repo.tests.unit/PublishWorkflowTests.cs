@@ -99,6 +99,17 @@ public sealed partial class PublishWorkflowTests
         Assert.Contains("filter=all", query.Split('&'));
     }
 
+    [Fact]
+    public void CiRunsOnBranchPushesNotOnTheReleaseTag()
+    {
+        string on = TopLevelBlock(
+            File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "ci.yml")),
+            "on");
+
+        Assert.Equal(["pull_request", "push"], Keys(on, indent: 2));
+        Assert.Equal(["branches"], Keys(on, indent: 4));
+    }
+
     [Theory]
     [InlineData("${{ secrets.NUGET_API_KEY }}", "NUGET_API_KEY")]
     [InlineData("${{ secrets['NUGET_API_KEY'] }}", "NUGET_API_KEY")]
@@ -271,7 +282,7 @@ public sealed partial class PublishWorkflowTests
             .Select(line => line.Trim().Split(':')[0])
             .Order(StringComparer.Ordinal);
 
-    [GeneratedRegex(@"secrets\s*(?:\.\s*|\[\s*['""])([A-Za-z_][A-Za-z0-9_]*)")]
+    [GeneratedRegex(@"secrets\s*(?:\.|\[\s*['""])([A-Za-z_][A-Za-z0-9_]*)")]
     private static partial Regex SecretReference();
 
     [GeneratedRegex(@"/check-runs(?:\?([^""\s]*))?")]

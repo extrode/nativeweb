@@ -107,19 +107,19 @@ jobs:
       # untested commit opens. A missing conclusion fails the same as a failing
       # one: "CI never ran on this commit" is not a reason to publish it.
       #
-      # filter=all, and any success counts. ci.yml runs on every push, the tag
-      # push included, so the tagged commit carries the branch run that passed
-      # and a tag run still in progress. The default filter=latest can return
-      # only the second, whose conclusion is empty while this step reads it.
+      # The verdict is the newest COMPLETED run of each job, from GitHub Actions
+      # alone. filter=all, because the default filter=latest can hand back a
+      # re-run still in progress, whose conclusion is empty. Completed only, for
+      # the same reason. Actions only, because another app may report a check of
+      # the same name. Newest, so a red re-run outranks an older green one.
       - name: CI passed on this commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for job in test aot-publish skeleton-stamp; do
-            conclusions="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?filter=all&per_page=100" \
-              --jq ".check_runs[] | select(.name==\"$job\") | .conclusion")"
-            if ! grep -qx success <<< "$conclusions"; then
-              conclusion="$(echo $conclusions)"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?filter=all&per_page=100" \
+              --jq "[.check_runs[] | select(.name==\"$job\" and .app.slug==\"github-actions\" and .conclusion != null)] | sort_by(.completed_at) | last | .conclusion // empty")"
+            if [ "$conclusion" != "success" ]; then
               echo "CI job '$job' on $GITHUB_SHA is '${conclusion:-absent}', not success." >&2
               echo "Tag a commit CI has passed. Nothing is published." >&2
               exit 1

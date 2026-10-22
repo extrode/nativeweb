@@ -7,6 +7,11 @@ on:
     # feature branch -- but the merge itself is what nothing verified, and a
     # push straight to dev (the ordinary end state of finished work here) ran
     # no CI at all.
+    #
+    # Branches only, so a tag push runs nothing here. The tagged commit already
+    # passed on the branch it was tagged from, and publish.yml's gate reads that
+    # run; a second run started by the tag would race the gate with no result.
+    branches: ["**"]
   pull_request:
 
 # Least privilege. No job reads a package feed that needs a credential: since
