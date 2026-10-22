@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace NativeWeb.Repo.Tests.Unit;
@@ -29,7 +30,7 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// what this class is named for.
 /// </para>
 /// </remarks>
-public sealed class PublishWorkflowTests
+public sealed partial class PublishWorkflowTests
 {
     private const string PublishWorkflow = ".github/workflows/publish.yml";
 
@@ -56,7 +57,7 @@ public sealed class PublishWorkflowTests
     }
 
     [Fact]
-    public void PublishHoldsReadAccessToContentsAndNothingMore()
+    public void PublishHoldsReadAccessAndAnOidcTokenAndNothingMore()
     {
         string permissions = TopLevelBlock(
             File.ReadAllText(Path.Combine(RepoRoot(), PublishWorkflow)),
@@ -67,7 +68,36 @@ public sealed class PublishWorkflowTests
             .Select(line => line.Trim())
             .Where(line => line.Length > 0 && !line.StartsWith('#'))];
 
-        Assert.Equal(["contents: read"], granted);
+        Assert.Equal(["contents: read", "id-token: write"], granted);
+    }
+
+    [Fact]
+    public void PublishReadsNoStoredSecretButGitHubsOwnToken()
+    {
+        string[] secrets = [.. File
+            .ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))
+            .Where(line => !line.TrimStart().StartsWith('#'))
+            .SelectMany(line => SecretReference().Matches(line))
+            .Select(match => match.Groups[1].Value)
+            .Distinct()];
+
+        Assert.Equal(["GITHUB_TOKEN"], secrets);
+    }
+
+    [Fact]
+    public void ThePushSpendsAKeyMintedInTheSameStep()
+    {
+        string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))];
+
+        int push = Array.FindIndex(lines, IsANuGetPush);
+        int step = Array.FindLastIndex(lines, push, line => line.TrimStart().StartsWith("- name:", StringComparison.Ordinal));
+        int login = Array.FindIndex(lines, step, line => !line.TrimStart().StartsWith('#')
+            && line.Contains("tools/nuget-login.ts", StringComparison.Ordinal));
+
+        Assert.True(push >= 0, "The workflow has no nuget push.");
+        Assert.True(
+            login > step && login < push,
+            "The push step does not mint its own key with tools/nuget-login.ts before pushing.");
     }
 
     /// <summary>
@@ -213,6 +243,9 @@ public sealed class PublishWorkflowTests
                 && line.Contains(':', StringComparison.Ordinal))
             .Select(line => line.Trim().Split(':')[0])
             .Order(StringComparer.Ordinal);
+
+    [GeneratedRegex(@"secrets\.([A-Za-z_][A-Za-z0-9_]*)")]
+    private static partial Regex SecretReference();
 
     private static string RepoRoot()
     {

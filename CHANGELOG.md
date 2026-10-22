@@ -15,9 +15,10 @@ sections that apply; drop the empty ones rather than leaving them blank.
 
 - **Package ids are `Extrode.NativeWeb.*`.** Every packable library under `libs/` changes its
   `PackageId` from `NativeWeb.X` to `Extrode.NativeWeb.X`, matching JauntyQ's `Extrode.JauntyQ.*`.
-  Namespaces and assembly names stay `NativeWeb.*`. `publish.yml` pushes to nuget.org with the
-  `NUGET_API_KEY` secret instead of GitHub Packages, and `skeleton/nuget.config` declares
-  nuget.org alone. Nothing had been published under the old ids. See
+  Namespaces and assembly names stay `NativeWeb.*`. `publish.yml` pushes to nuget.org instead of
+  GitHub Packages, by trusted publishing (OIDC) through `tools/nuget-login.ts` rather than a
+  stored key; it needs a nuget.org policy for `publish.yml` and the `NUGET_USER` variable.
+  `skeleton/nuget.config` declares nuget.org alone. Nothing had been published under the old ids. See
   `docs/02-reference/breaking-changes.md`.
 
 ### Added
