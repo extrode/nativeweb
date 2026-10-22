@@ -16,7 +16,7 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
-# Trusted publishing (OIDC), as jaunty and jauntyq publish: there is no stored
+# Trusted publishing (OIDC), as JauntyQ publishes: there is no stored
 # nuget.org key to rotate or leak. tools/nuget-login.ts trades this job's OIDC
 # token for a key valid one hour, at the push step. id-token: write only lets
 # the job ask for that token; nuget.org decides whether to honour it by matching
@@ -106,13 +106,19 @@ jobs:
       # so requiring it here costs one API call and closes the case a tag on an
       # untested commit opens. A missing conclusion fails the same as a failing
       # one: "CI never ran on this commit" is not a reason to publish it.
+      #
+      # The verdict is the newest COMPLETED run of each job, from GitHub Actions
+      # alone. filter=all, because the default filter=latest can hand back a
+      # re-run still in progress, whose conclusion is empty. Completed only, for
+      # the same reason. Actions only, because another app may report a check of
+      # the same name. Newest, so a red re-run outranks an older green one.
       - name: CI passed on this commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for job in test aot-publish skeleton-stamp; do
-            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
-              --jq ".check_runs[] | select(.name==\"$job\") | .conclusion" | head -1)"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?filter=all&per_page=100" \
+              --jq "[.check_runs[] | select(.name==\"$job\" and .app.slug==\"github-actions\" and .conclusion != null)] | sort_by(.completed_at) | last | .conclusion // empty")"
             if [ "$conclusion" != "success" ]; then
               echo "CI job '$job' on $GITHUB_SHA is '${conclusion:-absent}', not success." >&2
               echo "Tag a commit CI has passed. Nothing is published." >&2
@@ -146,7 +152,10 @@ jobs:
       #
       # The key is minted here, in the step that spends it, so it lives in one
       # shell variable for one step and never reaches $GITHUB_ENV or an output.
-      # It is masked before anything could print it. NUGET_USER is the nuget.org
+      # It is masked before anything could print it. That confines the key, not
+      # the right to mint one: id-token: write is granted per job, so every step
+      # above, the Deno installer and the restore's packages included, could ask
+      # nuget.org for a key of its own. NUGET_USER is the nuget.org
       # profile name that created the policy, not an email address.
       - name: Push
         env:

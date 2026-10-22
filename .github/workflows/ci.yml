@@ -7,6 +7,11 @@ on:
     # feature branch -- but the merge itself is what nothing verified, and a
     # push straight to dev (the ordinary end state of finished work here) ran
     # no CI at all.
+    #
+    # Branches only, so a tag push runs nothing here. The tagged commit already
+    # passed on the branch it was tagged from, and publish.yml's gate reads that
+    # run; a second run started by the tag would race the gate with no result.
+    branches: ["**"]
   pull_request:
 
 # Least privilege. No job reads a package feed that needs a credential: since
@@ -308,9 +313,9 @@ jobs:
   # passes 47 unit, 7 integration and 2 e2e facts.
   #
   # This job does NOT run skeleton/.github/workflows/ci.yml. That file is the
-  # stamped product's own workflow, it clones both framework repositories with a
-  # token this repository does not have, and a workflow cannot invoke another
-  # repository's workflow file from a working directory anyway. What is checked
+  # stamped product's own workflow, it clones the framework from the public
+  # repository at main rather than testing this commit, and a workflow cannot
+  # invoke another repository's workflow file from a working directory anyway. What is checked
   # here is the thing that file assumes: that the skeleton stamps into something
   # that builds and passes.
   # ---------------------------------------------------------------------------

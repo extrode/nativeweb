@@ -100,7 +100,7 @@ skipped these steps.
 ## Where the packages go, and where they do not
 
 `.github/workflows/publish.yml` pushes to nuget.org (`https://api.nuget.org/v3/index.json`) by
-trusted publishing, as jaunty and jauntyq do: `tools/nuget-login.ts` trades the job's GitHub OIDC
+trusted publishing, as JauntyQ does: `tools/nuget-login.ts` trades the job's GitHub OIDC
 token for a key valid one hour, so no API key is stored anywhere. It needs a trusted-publishing
 policy on nuget.org naming this repository, workflow file `publish.yml` and no environment, and the
 `NUGET_USER` repository variable set to the nuget.org profile name that created it. The package ids are `Extrode.NativeWeb.*`, matching

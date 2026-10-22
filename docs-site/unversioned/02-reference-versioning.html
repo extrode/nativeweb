@@ -243,7 +243,7 @@ Decision 007 records a removal that
 skipped these steps.</p>
 <h2 id="where-the-packages-go-and-where-they-do-not">Where the packages go, and where they do not</h2>
 <p><code>.github/workflows/publish.yml</code> pushes to nuget.org (<code>https://api.nuget.org/v3/index.json</code>) by
-trusted publishing, as jaunty and jauntyq do: <code>tools/nuget-login.ts</code> trades the job's GitHub OIDC
+trusted publishing, as JauntyQ does: <code>tools/nuget-login.ts</code> trades the job's GitHub OIDC
 token for a key valid one hour, so no API key is stored anywhere. It needs a trusted-publishing
 policy on nuget.org naming this repository, workflow file <code>publish.yml</code> and no environment, and the
 <code>NUGET_USER</code> repository variable set to the nuget.org profile name that created it. The package ids are <code>Extrode.NativeWeb.*</code>, matching
