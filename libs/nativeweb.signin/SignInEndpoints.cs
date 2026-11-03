@@ -239,7 +239,7 @@ public static partial class SignInEndpoints
         // here and never reaches the token endpoint.
         string expected = context.Request.Cookies[SessionManager.FlowCookieName(options)] ?? "";
         bool matches = expected.Length > 0
-            && state.Length > 0
+            && !string.IsNullOrWhiteSpace(state)
             && CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(state));
 
@@ -250,7 +250,7 @@ public static partial class SignInEndpoints
             SessionManager.ClearFlowCookie(context, options);
         }
 
-        if (code.Length == 0 || state.Length == 0)
+        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
         {
             return Results.Redirect(Failure(options, SignInFailureCode.CallbackIncomplete));
         }
