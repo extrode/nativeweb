@@ -26,7 +26,10 @@ on:
 # The grant is the whole reason this file is separate from ci.yml. CI runs on
 # every push; giving it id-token: write so it could also publish would let every
 # branch push mint a key that can put a permanent version on nuget.org.
-# GITHUB_TOKEN needs only to read the repository and its check runs.
+# In the publish job GITHUB_TOKEN needs only to read the repository and its
+# check runs. The github job below writes, and it restates its own permissions
+# without id-token, so no job holds both a write token and the right to mint a
+# nuget.org key.
 permissions:
   contents: read
   id-token: write
@@ -99,6 +102,8 @@ jobs:
         run: |
           deno test -A tools/pack.test.ts
           deno test -A tools/nuget-login.test.ts
+          deno test -A tools/release-notes.test.ts
+          deno run -A tools/release-notes.ts "${GITHUB_REF_NAME#v}" > /dev/null
           dotnet test --project tests/nativeweb.repo.tests.unit -v q $DOTNET_BUILD_ARGS
 
       # The guards above are the cheap ones, and they are not the suite. CI runs
@@ -166,3 +171,68 @@ jobs:
           dotnet nuget push "artifacts/packages/*.nupkg" \
             --source https://api.nuget.org/v3/index.json \
             --api-key "$key"
+
+  # The GitHub side of a release: the packages under the repository's Packages
+  # sidebar, and a GitHub Release whose notes are the version's CHANGELOG.md
+  # section, as JauntyQ releases. It runs only after the nuget.org push
+  # succeeded, so a failed publish leaves no release that names packages
+  # nuget.org does not have.
+  #
+  # It packs again rather than receiving the publish job's packages, because
+  # passing files between jobs is actions/upload-artifact, a `uses:` step that
+  # decision 2026-08-20-001 rules out. Same commit, same VersionPrefix, the same
+  # verify; nuget.org adds its own repository signature to its copies anyway,
+  # so the two feeds never held identical bytes.
+  #
+  # No --skip-duplicate, as above. A re-run after the release step failed finds
+  # the packages already on GitHub Packages and fails at the push: delete that
+  # version's packages under the repository's Packages tab, then re-run.
+  github:
+    needs: publish
+    runs-on: ${{ vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+
+    # Restated in full: a job-level block replaces the top-level one, which is
+    # what keeps id-token: write out of this job.
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Cold NuGet cache
+        run: |
+          echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
+          echo "NUGET_HTTP_CACHE_PATH=$RUNNER_TEMP/nuget-http-cache" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v7
+
+      - name: Install Deno
+        env:
+          DENO_VERSION: v2.9.5
+        run: |
+          curl -fsSL https://deno.land/install.sh | sh -s -- --yes "$DENO_VERSION"
+          echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+
+      - name: Pack
+        run: deno run -A tools/pack.ts --release $DOTNET_BUILD_ARGS
+
+      - name: Push to GitHub Packages
+        env:
+          FEED_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dotnet nuget push "artifacts/packages/*.nupkg" \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --api-key "$FEED_TOKEN"
+
+      # Pre-1.0 (v0.*) is marked pre-release, as JauntyQ marks it, so no 0.x
+      # release shows as Latest.
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          deno run -A tools/release-notes.ts "${GITHUB_REF_NAME#v}" > "$RUNNER_TEMP/notes.md"
+          prerelease=""
+          case "$GITHUB_REF_NAME" in
+            v0.*) prerelease="--prerelease" ;;
+          esac
+          gh release create "$GITHUB_REF_NAME" artifacts/packages/*.nupkg \
+            --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag $prerelease
