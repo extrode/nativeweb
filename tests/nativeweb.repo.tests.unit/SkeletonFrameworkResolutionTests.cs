@@ -6,187 +6,70 @@ using Xunit;
 namespace NativeWeb.Repo.Tests.Unit;
 
 /// <summary>
-/// The skeleton's CI resolves the framework from a checkout it clones itself, and every
-/// piece of that wiring has to point at the same place.
+/// The skeleton's CI resolves the framework the way a stamped product does by default: from the
+/// pinned packages on nuget.org, with no framework checkout.
 /// </summary>
 /// <remarks>
 /// <para>
 /// It used to force package mode (<c>-p:NativeWebUsePackages=true -p:JauntyQUsePackages=true</c>)
-/// against a private feed that does not exist, so every run died at Restore and no later
-/// step -- the CVE gate included -- ever executed. The workflow header said so and told the
-/// reader not to remove the flags, because removing them alone would have left the build
-/// probing for sibling checkouts a runner does not have. The fix is to provide the checkouts.
+/// against a private feed that did not exist, so every run died at Restore. It then cloned the
+/// framework from <c>main</c> and built in checkout mode, which ran but tested the framework's
+/// release branch on the day rather than the version the product pins.
 /// </para>
 /// <para>
-/// Only NativeWeb's, since 2026-09-05. JauntyQ split its generator and runtime out to a public
-/// core repository, so cloning <c>extrode/jauntyq</c> stopped yielding either csproj a product
-/// references; it resolves from packages now, and the clone step and <c>JauntyQRoot</c> went
-/// with the change.
-/// </para>
-/// <para>
-/// What can rot, all of it silent on a developer machine and fatal on a runner: the roots
-/// and the clone paths drift apart, so <c>Ensure*Root</c> fails on a directory nothing
-/// filled; a job gains a build step without the checkout steps; the roots go back to being
-/// <c>-p:</c> flags, which reach the command they are written on and NOT
-/// <c>dotnet list package</c> (no <c>-p:</c> at all) or the NativeAOT publish the e2e fixture
-/// spawns as a child; or the framework moves back inside the product's directory, where the
-/// product's <c>Directory.Packages.props</c> reaches it.
-/// </para>
-/// <para>
-/// Measured 2026-08-17 against a product stamped from this skeleton: with the framework as a
-/// sibling, correct roots build clean, passed either as <c>-p:</c> flags or as bare
-/// environment variables; a bogus <c>NativeWebRoot</c> produces 10 "NativeWeb checkout not
-/// found" errors rather than a silently-skipped ProjectReference; and the same clones nested
-/// under the product instead fail NU1008 on both JauntyQ projects.
+/// JauntyQ moved to packages on 2026-09-05 and NativeWeb on 2026-11-04, once
+/// <c>Extrode.NativeWeb.*</c> was on nuget.org. Package mode is the default in
+/// <c>Directory.Build.props</c>, so the workflow selects nothing, and what can rot is a clone, a
+/// root or a checkout-mode switch coming back.
 /// </para>
 /// </remarks>
 public sealed partial class SkeletonFrameworkResolutionTests
 {
-    /// <summary>
-    /// The two roots are declared, and declared as environment variables.
-    /// </summary>
+    /// <summary>No job clones a framework repository.</summary>
     /// <remarks>
-    /// Workflow-level <c>env:</c> is not a style choice here. MSBuild reads bare environment
-    /// variables as properties, so one definition covers restore, build, test,
-    /// <c>dotnet list package</c> and any child process; a <c>-p:</c> flag covers exactly the
-    /// command it sits on. The old file needed four copies of the same setting for that
-    /// reason, and four copies is three chances to update one of them.
+    /// A clone is only read in checkout mode, so one left behind is a step that does nothing until
+    /// someone also flips the mode, and then the product's CI builds a framework branch instead of
+    /// its pins.
     /// </remarks>
     [Fact]
-    public void SkeletonCi_DeclaresBothFrameworkRootsAsWorkflowEnvironmentVariables()
+    public void SkeletonCi_ChecksOutNoFrameworkRepository()
     {
         string workflow = SkeletonWorkflow();
+        (string Name, string Body)[] jobs = [.. Jobs(workflow)];
 
-        string? root = WorkflowEnvValue(workflow, "NativeWebRoot");
-        Assert.True(
-            root is not null,
-            "skeleton ci.yml declares no workflow-level NativeWebRoot; either the framework will "
-                + "not resolve, or it resolves for only one of the two jobs.");
-        Assert.StartsWith("${{ github.workspace }}/", root!, StringComparison.Ordinal);
-
-        // JauntyQRoot is deliberately absent, and its absence is a fact worth pinning: JauntyQ
-        // resolves from packages by default since the 2026-09-05 split, so a root reintroduced
-        // here would point at a clone that no longer carries either referenced csproj.
-        Assert.Null(WorkflowEnvValue(workflow, "JauntyQRoot"));
-    }
-
-    /// <summary>
-    /// Each root points at the directory the workflow actually clones into.
-    /// </summary>
-    /// <remarks>
-    /// The rename-one-side failure. <c>Ensure*Root</c> probes for a sentinel csproj, so a
-    /// drifted path is a loud error rather than a silent skip -- but it is an error on every
-    /// run of every stamped product, discovered by whoever pushed next rather than here.
-    /// </remarks>
-    [Fact]
-    public void SkeletonCi_PointsEachRootAtAPathItActuallyChecksOut()
-    {
-        string workflow = SkeletonWorkflow();
-        List<Checkout> checkouts = FrameworkCheckouts(workflow);
-
-        Assert.True(checkouts.Count > 0, "skeleton ci.yml checks out no framework repository at all.");
-
-        // Asserted rather than dereferenced: a missing root is the neighbouring test's
-        // finding, and a NullReferenceException here would report it as a crash.
-        string? value = WorkflowEnvValue(workflow, "NativeWebRoot");
-        Assert.True(value is not null, "skeleton ci.yml declares no workflow-level NativeWebRoot.");
-
-        string relative = value!.Replace("${{ github.workspace }}/", string.Empty, StringComparison.Ordinal);
-
-        Assert.True(
-            checkouts.Any(c => string.Equals(c.Path, relative, StringComparison.Ordinal)),
-            $"NativeWebRoot resolves to '{relative}', which no checkout step writes to. Cloned instead: "
-                + string.Join(", ", checkouts.Select(c => c.Path)));
-    }
-
-    /// <summary>
-    /// Every job that builds clones the framework first.
-    /// </summary>
-    /// <remarks>
-    /// <c>aot-publish</c> is the job this catches. It runs on a different runner with its own
-    /// step list, so it needs its own checkout step; the workflow-level env var it inherits
-    /// points at a directory that would otherwise be empty.
-    /// </remarks>
-    [Fact]
-    public void EverySkeletonJobThatBuilds_ChecksOutTheFramework()
-    {
-        string workflow = SkeletonWorkflow();
-        (string Name, string Body)[] jobs = Jobs(workflow).ToArray();
-
-        // Anti-vacuity, and not a theoretical one. This test passed with the aot-publish
-        // job's checkout steps deleted, because the perturbation rewrote the file with CRLF
-        // endings and the job-header pattern's `$` would not step over the \r -- so Jobs()
-        // returned nothing, the loop below never ran, and "found no jobs" read as "every job
-        // is wired correctly". Same shape as the grep that SIGABRTed inside an `if` and
-        // reported safe. A parse that finds nothing must fail, never pass.
         Assert.True(
             jobs.Length >= 2,
-            $"parsed {jobs.Length} jobs out of skeleton ci.yml; the sweep below would assert nothing.");
-
-        foreach ((string job, string body) in jobs)
-        {
-            if (!DotnetBuildStepPattern().IsMatch(body))
-            {
-                continue;
-            }
-
-            var paths = FrameworkCheckouts(body).Select(c => c.Path).ToHashSet(StringComparer.Ordinal);
-
-            // One, not two: JauntyQ resolves from packages since the 2026-09-05 split and is
-            // not cloned at all.
-            Assert.True(
-                paths.Count >= 1,
-                $"job '{job}' runs a dotnet build/publish/test but checks out no framework "
-                    + "repository. It needs NativeWeb, in its own step list.");
-        }
+            $"parsed {jobs.Length} jobs out of skeleton ci.yml; the assertion below would assert nothing.");
+        Assert.Empty(FrameworkCheckouts(workflow));
     }
 
-    /// <summary>Every framework checkout reads the public repository's release branch with the default token.</summary>
-    /// <remarks>
-    /// The framework repository is public, so actions/checkout's default GITHUB_TOKEN reads it
-    /// and no repository secret is needed. <c>main</c> is its release branch; it publishes no
-    /// tags yet.
-    /// </remarks>
+    /// <summary>Neither framework root is declared, at any scope.</summary>
     [Fact]
-    public void EveryFrameworkCheckout_ReadsMainWithTheDefaultToken()
+    public void SkeletonCi_DeclaresNoFrameworkRoot()
     {
         string workflow = SkeletonWorkflow();
-        List<Checkout> checkouts = FrameworkCheckouts(workflow);
 
-        // A bare foreach over an empty list passes having asserted nothing -- the CRLF
-        // failure mode again. One repository, in each of the two jobs; it was two of each
-        // until JauntyQ stopped being cloned on 2026-09-05.
-        Assert.Equal(2, checkouts.Count);
-
-        foreach (Checkout checkout in checkouts)
-        {
-            Assert.Null(checkout.Token);
-            Assert.Equal("main", checkout.Ref);
-        }
-
-        Assert.DoesNotContain("FRAMEWORK_CHECKOUT_TOKEN", workflow, StringComparison.Ordinal);
+        Assert.Null(EnvValue(workflow, "NativeWebRoot"));
+        Assert.Null(EnvValue(workflow, "JauntyQRoot"));
     }
 
-    /// <summary>Package mode is available but must not be what CI depends on.</summary>
+    /// <summary>No step asks for checkout mode.</summary>
     /// <remarks>
-    /// The feed carrying NativeWeb.* / JauntyQ.* does not exist. A flag reintroduced anywhere
-    /// in a run step puts the whole workflow back to dying at Restore, which is the exact
-    /// state this change ended. Comments are exempt: the header explains the history.
+    /// Checkout mode with no clone fails at <c>EnsureNativeWebRoot</c> on every run. Comments are
+    /// exempt: the header explains how to opt in.
     /// </remarks>
     [Fact]
-    public void NoSkeletonCiCommand_ForcesPackageMode()
+    public void NoSkeletonCiCommand_ForcesCheckoutMode()
     {
-        foreach (string line in SkeletonWorkflow().Split('\n'))
-        {
-            string trimmed = line.TrimStart();
-            if (trimmed.StartsWith('#'))
-            {
-                continue;
-            }
+        string[] offenders = [.. SkeletonWorkflow()
+            .Split('\n')
+            .Where(line => !line.TrimStart().StartsWith('#'))
+            .Where(line => line.Contains("UsePackages=false", StringComparison.Ordinal)
+                || line.Contains("UsePackages: \"false\"", StringComparison.Ordinal)
+                || line.Contains("UsePackages: false", StringComparison.Ordinal))
+            .Select(line => line.Trim())];
 
-            Assert.DoesNotContain("UsePackages=true", line, StringComparison.Ordinal);
-            Assert.DoesNotContain("UsePackages: \"true\"", line, StringComparison.Ordinal);
-        }
+        Assert.Empty(offenders);
     }
 
     /// <summary>
@@ -230,52 +113,6 @@ public sealed partial class SkeletonFrameworkResolutionTests
         }
     }
 
-    /// <summary>
-    /// The framework is checked out BESIDE the product, never inside it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The expensive one, and the reason the product is checked out into <c>product/</c>
-    /// rather than at the workspace root. MSBuild and NuGet find
-    /// <c>Directory.Packages.props</c> by walking up from each project, and the walk does not
-    /// stop at a repository boundary -- there is no such thing. A framework clone nested
-    /// under the product therefore inherits the PRODUCT's copy, which sets
-    /// <c>ManagePackageVersionsCentrally=true</c>. jauntyq ships no
-    /// <c>Directory.Packages.props</c> of its own and its PackageReferences carry Version
-    /// attributes, so central package management switches on underneath it and restore dies.
-    /// </para>
-    /// <para>
-    /// Measured 2026-08-17, both layouts, same clones: nested under the product gives NU1008
-    /// on JauntyQ.Generator (eleven packages) and JauntyQ.Runtime (four). Siblings build
-    /// clean. Nothing about the nesting is visible in the workflow's own text, which is why
-    /// it is asserted here rather than left to a reviewer to notice.
-    /// </para>
-    /// </remarks>
-    [Fact]
-    public void SkeletonCi_ChecksOutTheFrameworkBesideTheProduct_NotInsideIt()
-    {
-        string workflow = SkeletonWorkflow();
-        string? product = ProductCheckoutPath(workflow);
-
-        Assert.True(
-            product is not null,
-            "skeleton ci.yml checks the product out at the workspace root; a framework clone "
-                + "under it inherits the product's Directory.Packages.props and restore fails NU1008.");
-
-        List<Checkout> checkouts = FrameworkCheckouts(workflow);
-        Assert.True(checkouts.Count > 0, "skeleton ci.yml checks out no framework repository at all.");
-
-        foreach (Checkout checkout in checkouts)
-        {
-            Assert.False(
-                checkout.Path.StartsWith(product + "/", StringComparison.Ordinal)
-                    || string.Equals(checkout.Path, product, StringComparison.Ordinal),
-                $"'{checkout.Repository}' is cloned to '{checkout.Path}', inside the product at "
-                    + $"'{product}'. It must be a sibling: nested, the product's "
-                    + "Directory.Packages.props turns central package management on underneath it.");
-        }
-    }
-
     /// <summary>Every `run:` step is pointed at the product.</summary>
     /// <remarks>
     /// The other half of the sibling layout. The product is no longer at the workspace root,
@@ -301,26 +138,6 @@ public sealed partial class SkeletonFrameworkResolutionTests
                 $@"(?m)^defaults:[ \t\r]*$\r?\n(?:[ \t]*#.*\r?\n)*  run:[ \t\r]*$\r?\n"
                     + $@"(?:[ \t]*#.*\r?\n)*    working-directory: {Regex.Escape(product)}[ \t\r]*$"),
             workflow);
-    }
-
-    /// <summary>The framework token is not left behind in the clone's git config.</summary>
-    /// <remarks>
-    /// actions/checkout persists the credential it authenticated with into
-    /// <c>.git/config</c> by default, so it stays readable for the rest of the job -- through
-    /// the test steps, which execute the product's and the framework's code and the whole
-    /// transitive package graph. Nothing in this workflow pushes to the framework, so there is
-    /// nothing to trade for the exposure.
-    /// </remarks>
-    [Fact]
-    public void NoFrameworkCheckout_LeavesItsCredentialInTheWorkspace()
-    {
-        List<Checkout> checkouts = FrameworkCheckouts(SkeletonWorkflow());
-        Assert.Equal(2, checkouts.Count);
-
-        foreach (Checkout checkout in checkouts)
-        {
-            Assert.Equal("false", checkout.PersistCredentials);
-        }
     }
 
     /// <summary>No skeleton job authenticates to GitHub Packages.</summary>

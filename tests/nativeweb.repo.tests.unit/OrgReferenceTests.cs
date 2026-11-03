@@ -49,8 +49,6 @@ public sealed partial class OrgReferenceTests
 
         (string File, string Owner)[] checkouts = OwnersIn(root, workflows, RepositoryReferencePattern());
 
-        Assert.NotEmpty(checkouts);
-
         string[] offenders = [.. checkouts.Where(c => c.Owner != Org).Select(c => $"{c.File} ({c.Owner})")];
 
         Assert.True(
@@ -60,15 +58,24 @@ public sealed partial class OrgReferenceTests
                 + "GitHub's redirect only for as long as GitHub keeps redirecting it.");
     }
 
+    [Theory]
+    [InlineData("          repository: extrode/nativeweb", "extrode")]
+    [InlineData("        repository: other-org/repo", "other-org")]
+    public void RepositoryReferencePattern_ReadsTheOwner(string line, string owner) =>
+        Assert.Equal(owner, RepositoryReferencePattern().Match(line).Groups["owner"].Value);
+
     /// <remarks>
     /// The packages moved to nuget.org on 2026-10-20, so no committed config or workflow
-    /// names a GitHub Packages feed at all, in any org.
+    /// restores from a GitHub Packages feed, in any org. release.yml is the one file left out:
+    /// its github job pushes each release to the repository's own feed, which
+    /// ReleaseWorkflowTests covers, and nothing restores from there.
     /// </remarks>
     [Fact]
     public void NoPackageFeedIsOnGitHubPackages()
     {
         string root = RepoRoot();
-        string[] candidates = [.. NuGetConfigFiles(root), .. WorkflowFiles(root)];
+        string[] candidates = [.. NuGetConfigFiles(root), .. WorkflowFiles(root)
+            .Where(p => Path.GetFileName(p) != "release.yml")];
 
         (string File, string Owner)[] feeds = OwnersIn(root, candidates, FeedHostPattern());
 
@@ -155,8 +162,14 @@ public sealed partial class OrgReferenceTests
     private static partial Regex RepositoryReferencePattern();
 
     /// <summary>A GitHub Packages feed host, not a mention of the org.</summary>
-    [GeneratedRegex(@"nuget\.pkg\.github\.com/(?<owner>[A-Za-z0-9_.-]+)")]
+    [GeneratedRegex(@"nuget\.pkg\.github\.com/(?<owner>\$\{\{[^}]*\}\}|[A-Za-z0-9_.-]+)")]
     private static partial Regex FeedHostPattern();
+
+    [Theory]
+    [InlineData("https://nuget.pkg.github.com/extrode/index.json", "extrode")]
+    [InlineData("https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json", "${{ github.repository_owner }}")]
+    public void FeedHostPattern_ReadsALiteralOrAnExpressionOwner(string line, string owner) =>
+        Assert.Equal(owner, FeedHostPattern().Match(line).Groups["owner"].Value);
 
     private static string RepoRoot()
     {

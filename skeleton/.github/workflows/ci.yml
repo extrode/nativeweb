@@ -7,64 +7,30 @@ on:
 
 env:
   # ---------------------------------------------------------------------------
-  # This workflow resolves NativeWeb in CHECKOUT mode and JauntyQ in PACKAGE
-  # mode -- the same split a developer machine uses, and the only combination
-  # that resolves today.
+  # Both frameworks resolve from PACKAGES, the pinned Extrode.NativeWeb.* and
+  # Extrode.JauntyQ.* versions in Directory.Packages.props, from nuget.org with
+  # no credential. That is the default in Directory.Build.props, so nothing here
+  # selects it: CI builds the same thing a developer machine builds.
   #
-  # It used to force package mode for BOTH (-p:NativeWebUsePackages=true
-  # -p:JauntyQUsePackages=true) and could not pass: the private NativeWeb.* /
-  # JauntyQ.* feed did not exist, so `dotnet restore` died and every later step
-  # -- the CVE gate included -- never ran. The framework now publishes as
-  # Extrode.NativeWeb.* on nuget.org from a v* tag; pass
-  # -p:NativeWebUsePackages=true yourself once a release you want is out.
+  # Until 2026-11-04 this workflow cloned the framework from its `main` branch
+  # and built in checkout mode, because no Extrode.NativeWeb.* version had been
+  # published. That tested whatever the framework's release branch held that
+  # day, not the version this product pins, so a framework push could turn this
+  # product red with nothing changed here. Pinned packages cannot.
   #
-  # JauntyQ went the other way on 2026-09-05: package mode is its default and
-  # needs no clone and no JauntyQRoot. Since 2026-09-24 it needs no token either:
-  # the pins are Extrode.JauntyQ.*, public on nuget.org since core 0.5.0. The clone step and the JauntyQRoot variable were removed.
+  # THE PRODUCT IS CHECKED OUT INTO product/, NOT the workspace root. That layout
+  # kept a framework clone beside the product rather than under it, where the
+  # product's Directory.Packages.props reached the clone and restore died NU1008
+  # (measured 2026-08-17). No clone remains, but a product that adds one back,
+  # to build against an unreleased framework change, needs the same layout, and
+  # `defaults.run.working-directory` below keeps every run: step in product/.
   #
-  # A runner has no sibling checkout for the `$(NativeWebRoot)` probe in
-  # Directory.Build.props, so the step below clones the framework and that
-  # variable points the probe at it.
-  #
-  # THE PRODUCT IS CHECKED OUT INTO product/, NOT the workspace root, so that the
-  # framework clones are its SIBLINGS rather than its children. That is not
-  # cosmetic. Nested under the product, `Directory.Packages.props` discovery walks
-  # up out of the clone and finds the PRODUCT's copy, which sets
-  # ManagePackageVersionsCentrally=true; jauntyq ships no Directory.Packages.props
-  # of its own and its PackageReferences carry Version attributes, so central
-  # package management switches on underneath it and restore dies. Measured
-  # 2026-08-17 in exactly this layout: NU1008 on JauntyQ.Generator and
-  # JauntyQ.Runtime, naming eleven and four packages. The sibling layout builds
-  # clean. `defaults.run.working-directory` below is what keeps every run: step
-  # pointed at the product.
-  #
-  # They are BARE variables, not -p: flags, on purpose: MSBuild
-  # reads bare environment variables as properties, so one definition here reaches
-  # `dotnet restore`, `dotnet build`, `dotnet test`, `dotnet list package` (which
-  # accepts no -p: at all) and the NativeAOT publish the e2e fixture spawns as a
-  # CHILD process. A -p: flag reaches only the command it is written on, which is
-  # what made the old file need four separate copies of the same setting.
-  #
-  # Both are absolute, via github.workspace: MSBuild resolves a relative root
-  # against each project's own directory, not the repo root.
-  #
-  # Strictly, NativeWebRoot is not load-bearing on a runner: the sibling layout
-  # happens to be exactly what Directory.Build.props's NativeWebRoot probes
-  # (..\nativeweb then ..\NativeWeb, one level up from the product) already
-  # resolve to. It is set anyway, because resolution that works by coincidence of
-  # layout is the kind that breaks silently when the layout is next edited -- and
-  # on this runner it would break by CASE, which no Windows machine can
-  # reproduce. Both spellings are probed for that reason; setting the root
-  # explicitly here means CI does not depend on which one is right.
-  #
-  # If the checkout is wrong or missing the build FAILS LOUDLY -- EnsureNativeWebRoot
-  # in Directory.Build.props probes for a sentinel csproj, so an empty or stale
-  # directory is an error rather than a silently-skipped ProjectReference and a
-  # pile of CS0246s. Verified 2026-08-17 against a product stamped from this
-  # skeleton, in this workspace layout: correct roots build clean, a bogus
-  # NativeWebRoot produces 10 "NativeWeb checkout not found" errors.
+  # To build against a framework checkout instead, check it out beside product/
+  # and set NativeWebUsePackages: "false" and NativeWebRoot here, as bare
+  # variables rather than -p: flags: MSBuild reads them as properties, so they
+  # reach `dotnet list package` (which takes no -p:) and the NativeAOT publish
+  # the e2e fixture spawns as a child process.
   # ---------------------------------------------------------------------------
-  NativeWebRoot: ${{ github.workspace }}/NativeWeb
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
@@ -107,27 +73,6 @@ jobs:
         with:
           path: product
 
-      # The framework, as a checkout rather than as packages -- this is what makes
-      # the NativeWebRoot variable at the top of this file resolve. JauntyQ needs
-      # no equivalent step; it resolves from packages. The repository is public,
-      # so actions/checkout's default GITHUB_TOKEN reads it.
-      #
-      # `ref` is the framework's release branch, a moving one, because the framework
-      # repository publishes no tags yet. Pin to a tag as soon as it does: on a branch, a push to the framework can turn this
-      # product's CI red with nothing having changed here.
-      #
-      # LICENCE: JauntyQ is under ISL-R 1.2. Code its generator emits is yours
-      # under its Output Exception, and Extrode.JauntyQ.Runtime may ship inside
-      # the built binary under its Redistribution Exception. Nothing else of
-      # JauntyQ's may be committed or redistributed from this repository.
-      - name: Check out the framework (NativeWeb)
-        uses: actions/checkout@v7
-        with:
-          repository: extrode/nativeweb
-          ref: main
-          path: NativeWeb
-          persist-credentials: false
-
       # No setup-dotnet step: the hosted images already ship the 10.0.x SDKs, so the
       # action installed nothing. global.json at the product root pins which band is
       # acceptable, and it travels with the stamped product rather than living only
@@ -158,14 +103,13 @@ jobs:
         run: dotnet build --no-restore
 
       # Spec 003 R31: fail the build when any resolved package (direct or
-      # transitive) has a known CVE. `dotnet list` takes no -p: properties -- the
-      # reason NativeWebRoot is a workflow-level environment
-      # variable, which MSBuild reads as a property, so evaluation here resolves
-      # the same way the restore above did. It reports the SOLUTION's projects, so
-      # framework packages appear only where they flow through an ordinary
-      # ProjectReference; anything the framework marks PrivateAssets="all" -- the
-      # JauntyQ generator's whole dependency graph, for one -- contributes nothing
-      # here and has to be audited where it is built.
+      # transitive) has a known CVE. `dotnet list` takes no -p: properties, which
+      # is why any mode switch belongs in a workflow-level environment variable
+      # rather than a flag. It reports the SOLUTION's projects: the
+      # Extrode.NativeWeb.* packages and what they depend on are listed, but
+      # anything marked PrivateAssets="all" -- the JauntyQ generator's whole
+      # dependency graph, for one -- contributes nothing here and has to be
+      # audited where it is built.
       #
       # The command exits 0 either way, so the gate is two greps: fail on any
       # "> PackageName" finding line, and fail if the positive "no vulnerable
@@ -201,10 +145,9 @@ jobs:
       - name: E2E tests
         # __PRODUCT__ProcessFixture publishes apps/__product__ itself (Release,
         # no --no-build shortcut applies to that inner publish). That inner
-        # publish is a CHILD process, so it inherits the workflow-level
-        # NativeWebRoot environment variable and resolves the framework the same
-        # way -- which is precisely why that is an environment variable rather
-        # than a -p: flag on the outer command.
+        # publish is a CHILD process: it resolves the framework from the same
+        # pinned packages by default, and it would see a workflow-level
+        # environment variable but never a -p: flag on the outer command.
         run: dotnet test --project tests/__product__.tests.e2e --no-build
 
   aot-publish:
@@ -219,18 +162,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: product
-
-      # Same framework checkout as the test job, and for the same reason -- this
-      # job resolves NativeWebRoot from the workflow-level variable too. See the
-      # long note on that step above for the ref pinning and the
-      # JauntyQ licence constraint.
-      - name: Check out the framework (NativeWeb)
-        uses: actions/checkout@v7
-        with:
-          repository: extrode/nativeweb
-          ref: main
-          path: NativeWeb
-          persist-credentials: false
 
       # Same as the test job: preinstalled SDK, global.json pins the band.
 
