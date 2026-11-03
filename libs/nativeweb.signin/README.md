@@ -79,7 +79,7 @@ that will not parse throws at startup naming its own full path, not at the first
 | `SignedOutPath` | no | `/` | Where sign-out lands. |
 | `DefaultReturnPath` | no | `/` | Where a sign-in with no `returnTo` lands. |
 | `FailurePath` | no | `/` | Where a FAILED sign-in lands, carrying `?error=`. Cannot be `LoginPath` or `CallbackPath`; startup refuses either. |
-| `FlowLifetimeSeconds` | no | 900 | How long an in-flight sign-in may take. |
+| `FlowLifetimeSeconds` | no | 1800 | How long an in-flight sign-in may take. |
 | `SessionLifetimeSeconds` | no | 1209600 | Fourteen days. |
 | `RefreshSkewSeconds` | no | 120 | How early an access token is refreshed. |
 | `IntrospectionCacheLifetimeSeconds` | no | 30 | Short on purpose: a revoked token stays live for this long. |

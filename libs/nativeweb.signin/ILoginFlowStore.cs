@@ -47,8 +47,8 @@ public interface ILoginFlowStore
 
     /// <summary>
     /// Consumes the flow for <paramref name="state"/>, atomically. A second call for the
-    /// same state must return <see cref="FlowTake.AlreadyUsed"/>, including when the two
-    /// calls race.
+    /// same state must return <see cref="FlowTake.AlreadyUsed"/> or <see cref="FlowTake.Unknown"/>
+    /// (the store's choice), never <see cref="FlowTake.Taken"/>, including when the two calls race.
     /// </summary>
     /// <param name="state">The state parameter returned by the provider.</param>
     /// <param name="ct">Cancellation token.</param>

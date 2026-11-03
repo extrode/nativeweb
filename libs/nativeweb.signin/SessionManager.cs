@@ -553,19 +553,22 @@ public sealed partial class SessionManager(
     /// <param name="context">The response to write the cookie onto.</param>
     /// <param name="options">The scheme's options.</param>
     /// <param name="state">The state minted for this flow.</param>
-    /// <param name="expiresAt">When the flow itself expires.</param>
+    /// <param name="expiresAt">
+    /// When the flow itself expires. The cookie outlives it by <c>FlowLifetime</c>, so a callback
+    /// that arrives after the row expired still carries the cookie and is restarted, not refused.
+    /// </param>
     internal static void WriteFlowCookie(
         HttpContext context, SignInOptions options, string state, DateTimeOffset expiresAt)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
 
-        context.Response.Cookies.Append(FlowCookieName(options), state, CookieOptionsFor(expiresAt));
+        context.Response.Cookies.Append(FlowCookieName(options), state, CookieOptionsFor(expiresAt + options.FlowLifetime));
     }
 
     /// <summary>
-    /// Deletes the flow cookie. Called on EVERY exit from the callback, taken or refused, so one
-    /// abandoned attempt cannot supply the correlator for the next.
+    /// Deletes the flow cookie. Called by the callback only when its state matches the cookie, so
+    /// a stale or forced callback cannot end the newer flow the cookie points at.
     /// </summary>
     /// <param name="context">The response to write the deletion onto.</param>
     /// <param name="options">The scheme's options.</param>
