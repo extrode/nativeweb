@@ -104,8 +104,8 @@ trusted publishing, as JauntyQ does: `tools/nuget-login.ts` trades the job's Git
 token for a key valid one hour, so no API key is stored anywhere. It needs a trusted-publishing
 policy on nuget.org naming this repository, workflow file `release.yml` and no environment, and the
 `NUGET_USER` repository variable set to the nuget.org profile name that created it. The package ids are `Extrode.NativeWeb.*`, matching
-JauntyQ's `Extrode.JauntyQ.*`; namespaces and assembly names stay `NativeWeb.*`. No version has
-been published yet.
+JauntyQ's `Extrode.JauntyQ.*`; namespaces and assembly names stay `NativeWeb.*`. The first release,
+`0.1.0`, was published from tag `v0.1.0` on 2026-11-04 (all 13 packages).
 
 **No packable library carries JauntyQ-generated output.** `grep -rn -i jauntyq libs/ --include=*.csproj`
 finds comments only; the two projects that reference JauntyQ are `apps/sample` and the stamped
