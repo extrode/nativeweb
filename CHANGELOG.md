@@ -20,6 +20,14 @@ sections that apply; drop the empty ones rather than leaving them blank.
   stored key; it needs a nuget.org policy for `publish.yml` and the `NUGET_USER` variable.
   `skeleton/nuget.config` declares nuget.org alone. Nothing had been published under the old ids. See
   `docs/02-reference/breaking-changes.md`.
+- **`nativeweb.signin`: the newest sign-in wins.** `GET LoginPath` consumes the browser's unfinished
+  flow before starting a new one, and the callback clears the flow cookie only when its state
+  matches, so a stale or forced callback no longer ends the flow in progress. A callback for this
+  browser's own expired flow restarts sign-in at `LoginPath` (landing on `DefaultReturnPath`)
+  instead of failing; `state_expired` is now reported only when the flow cookie is missing.
+  `InMemoryLoginFlowStore` reports a missing row as `state_unknown`, not `state_used`.
+  `FlowLifetime` defaults to 30 minutes (was 15), and the flow cookie outlives the flow by one
+  `FlowLifetime`. Plan: `docs/plans/2026-11-03-015-signin-newest-flow-wins.md`.
 
 ### Added
 

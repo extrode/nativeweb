@@ -563,7 +563,8 @@ public sealed partial class SessionManager(
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
 
-        context.Response.Cookies.Append(FlowCookieName(options), state, CookieOptionsFor(expiresAt + options.FlowLifetime));
+        context.Response.Cookies.Append(
+            FlowCookieName(options), state, CookieOptionsFor(expiresAt + options.FlowLifetime));
     }
 
     /// <summary>
