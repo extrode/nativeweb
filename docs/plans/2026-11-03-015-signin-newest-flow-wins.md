@@ -33,6 +33,10 @@ sign-in succeeds, only the current request is served.
    expired flow's state matched the cookie). No returnTo: `FlowTakeResult.Expired()` carries no
    flow and the conformance suite pins that, so the restarted sign-in lands on the default return
    path. Carrying it would need a store-contract change (follow-up if it matters).
+   Restart dropped on review (2026-11-03): the sweeper removes expired rows within 5 minutes and an
+   unbounded restart can loop; expired now reports `state_expired`. The flow cookie still lives
+   `expiresAt + FlowLifetime`, so a late callback within that window reports `state_expired` or
+   `state_unknown` rather than `state_mismatch`.
 4. `InMemoryLoginFlowStore.TakeAsync` on a missing row → `Unknown`.
 5. `SignInOptions.FlowLifetime` default 30 min.
 

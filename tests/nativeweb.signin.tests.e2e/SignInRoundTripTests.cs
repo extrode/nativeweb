@@ -43,6 +43,16 @@ public sealed class SignInRoundTripTests(SignInProcessFixture app, SignInBrowser
         return cookies.FirstOrDefault(cookie => cookie.Name == SessionCookie);
     }
 
+    private static async Task<string> CallbackUrlAsync(IBrowserContext context)
+    {
+        IAPIResponse login = await context.APIRequest.GetAsync(
+            "/oauth/signin", new APIRequestContextOptions { MaxRedirects = 0 });
+        IAPIResponse authorize = await context.APIRequest.GetAsync(
+            login.Headers["location"], new APIRequestContextOptions { MaxRedirects = 0 });
+
+        return authorize.Headers["location"];
+    }
+
     [Fact]
     public async Task TheRoundTrip_CompletesInABrowserAndArrivesWhereItWasGoing()
     {
@@ -92,6 +102,25 @@ public sealed class SignInRoundTripTests(SignInProcessFixture app, SignInBrowser
         Assert.Null(second.Request.RedirectedFrom);
         Assert.Equal(Subject, await page.InnerTextAsync("#subject"));
         Assert.Equal(first, (await SessionAsync(page.Context))?.Value);
+    }
+
+    [Fact]
+    public async Task ASecondSignIn_RefusesTheFirstCallbackAndCompletesItsOwn()
+    {
+        IPage page = await FreshPageAsync();
+
+        string first = await CallbackUrlAsync(page.Context);
+        string second = await CallbackUrlAsync(page.Context);
+
+        await page.GotoAsync(first);
+
+        Assert.Equal($"{app.BaseUrl}/welcome?error=state_mismatch", page.Url);
+        Assert.Null(await SessionAsync(page.Context));
+
+        await page.GotoAsync(second);
+
+        Assert.Equal($"{app.BaseUrl}/account", page.Url);
+        Assert.Equal(Subject, await page.InnerTextAsync("#subject"));
     }
 
     [Fact]

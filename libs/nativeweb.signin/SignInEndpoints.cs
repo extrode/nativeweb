@@ -295,11 +295,7 @@ public static partial class SignInEndpoints
                 return Results.Redirect(Failure(options, SignInFailureCode.StateUsed));
 
             case FlowTake.Expired:
-                // This browser's own flow ran out of time: restart it rather than show a failure.
-                // One hop, not a loop: the cookie was cleared above, and only a matching cookie
-                // gets here. An expired row carries no flow, so the return path is not recoverable
-                // and the restart lands on the default.
-                return Results.Redirect(options.LoginPath);
+                return Results.Redirect(Failure(options, SignInFailureCode.StateExpired));
 
             default:
                 return Results.Redirect(Failure(options, SignInFailureCode.StateUnknown));
@@ -531,13 +527,20 @@ public static class SignInFailureCode
     /// <summary>The callback arrived without a code or without a state.</summary>
     public const string CallbackIncomplete = "callback_incomplete";
 
-    /// <summary>The state had already been consumed. A callback works exactly once.</summary>
+    /// <summary>
+    /// A store that tracks consumed rows reported a second take of the state. A callback works
+    /// exactly once. The in-memory store reports <c>state_unknown</c> instead.
+    /// </summary>
     public const string StateUsed = "state_used";
 
-    /// <summary>The state was never used but its lifetime had passed.</summary>
+    /// <summary>The flow's lifetime had passed.</summary>
     public const string StateExpired = "state_expired";
 
-    /// <summary>No such flow: never started, already swept, or fabricated.</summary>
+    /// <summary>
+    /// No such flow: never started, already swept, or fabricated. Also a flow already consumed
+    /// (replayed) by a store that does not keep consumed rows, or replaced by a newer sign-in from
+    /// the same browser.
+    /// </summary>
     public const string StateUnknown = "state_unknown";
 
     /// <summary>The provider answered and declined. Retrying the same callback changes nothing.</summary>
