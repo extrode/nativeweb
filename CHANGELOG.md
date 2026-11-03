@@ -9,7 +9,7 @@ An entry is added when `dev` merges to `main` and gets its semver tag. Work that
 Format is [Keep a Changelog](https://keepachangelog.com/), versions are semver. Use only the
 sections that apply; drop the empty ones rather than leaving them blank.
 
-## [Unreleased]
+## [0.1.0] — 2026-11-04
 
 ### Changed
 
@@ -1924,10 +1924,3 @@ Merged into `dev`, not yet tagged.
   fixture's `DisposeAsync` goes through the same hardened stop path as the failure paths rather
   than repeating the unguarded kill it documents as unsafe; and the log tail is its own type so
   its bound is tested by pushing past it rather than by hoping the app logged enough.
-
----
-
-## [0.1.0] — <date>
-
-### Added
-- (nothing yet)
