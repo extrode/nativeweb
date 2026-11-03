@@ -49,7 +49,7 @@ public sealed class InMemoryLoginFlowStore(TimeProvider clock) : ILoginFlowStore
         {
             // Never started, already taken, or swept. Which of those it was is not recoverable
             // once the row is gone, and the seam's contract says it need not be.
-            return Task.FromResult(FlowTakeResult.AlreadyUsed());
+            return Task.FromResult(FlowTakeResult.Unknown());
         }
 
         return Task.FromResult(

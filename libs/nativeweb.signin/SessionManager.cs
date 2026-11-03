@@ -564,8 +564,8 @@ public sealed partial class SessionManager(
     }
 
     /// <summary>
-    /// Deletes the flow cookie. Called on EVERY exit from the callback, taken or refused, so one
-    /// abandoned attempt cannot supply the correlator for the next.
+    /// Deletes the flow cookie. Called by the callback only when its state matches the cookie, so
+    /// a stale or forced callback cannot end the newer flow the cookie points at.
     /// </summary>
     /// <param name="context">The response to write the deletion onto.</param>
     /// <param name="options">The scheme's options.</param>
