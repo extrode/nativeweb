@@ -20,6 +20,7 @@
  *   deno run -A tools/stamp-check.ts --with-database
  *   deno run -A tools/stamp-check.ts --name Widgets --slug widgets
  *   deno run -A tools/stamp-check.ts --packages
+ *   deno run -A tools/stamp-check.ts --packages-from artifacts/packages
  *
  * `--packages` is milestone 6's check instead: NativeWeb by PACKAGES as well,
  * the pinned `Extrode.NativeWeb.*` versions restored from nuget.org into a cold
@@ -29,6 +30,13 @@
  * `Extrode.NativeWeb.*` id and version is in that cold cache afterwards. It
  * tests what is published, not this working tree, so it fails between a
  * VersionPrefix bump and that version's release.
+ *
+ * `--packages-from <dir>` is the same check against packages that are not
+ * published yet: release.yml runs it on what it just packed, before the push, so
+ * a package nuget.org would accept and no product could build from is caught
+ * while its version number is still unspent. The stamped throwaway's
+ * nuget.config gains `<dir>` as a source mapped to `Extrode.NativeWeb.*`, and the
+ * run fails unless each pin's cache entry records that directory as its source.
  *
  * This script writes and never deletes. It refuses a destination that already
  * holds anything and names it, because removing someone's directory to make room
@@ -43,6 +51,7 @@ export interface Options {
   destination: string | null;
   withDatabase: boolean;
   packages: boolean;
+  packagesFrom: string | null;
 }
 
 export function parseArgs(argv: string[]): Options {
@@ -52,6 +61,7 @@ export function parseArgs(argv: string[]): Options {
     destination: null,
     withDatabase: false,
     packages: false,
+    packagesFrom: null,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -77,6 +87,10 @@ export function parseArgs(argv: string[]): Options {
       case "--packages":
         options.packages = true;
         break;
+      case "--packages-from":
+        options.packages = true;
+        options.packagesFrom = value();
+        break;
       default:
         throw new Error(`Unrecognised argument ${argv[i]}.`);
     }
@@ -101,18 +115,15 @@ export function stampEnvironment(repoRoot: string): Record<string, string> {
     NativeWebRoot: repoRoot,
     JauntyQUsePackages: "true",
 
-    // Blanked, not omitted. `Deno.Command` merges the parent environment rather
-    // than replacing it, and MSBuild reads every one of these as a property, so
-    // a shell that exports NativeWebUsePackages=true would flip this run to
-    // published packages while the output still said it was testing this
-    // checkout. An empty value is false to `'$(X)' == 'true'`, which is the form
-    // the skeleton's props file tests for NativeWeb.
-    //
-    // JauntyQ is the other way round since 2026-09-05: package mode is the
-    // default there, so blanking would not select checkout mode -- only
-    // `-p:JauntyQUsePackages=false` does. JauntyQRoot is blanked anyway, so a
-    // shell exporting a root cannot make the resolved mode ambiguous in the log.
-    NativeWebUsePackages: "",
+    // "false", not blank and not omitted. `Deno.Command` merges the parent
+    // environment rather than replacing it, and MSBuild reads every one of these
+    // as a property, so a shell exporting NativeWebUsePackages=true would flip
+    // this run to published packages while the output still said it was testing
+    // this checkout. Blank is no longer enough either: package mode is the
+    // skeleton's default for NativeWeb since 2026-11-04, as it is for JauntyQ
+    // since 2026-09-05, so a blank resolves to packages. JauntyQRoot is blanked
+    // so a shell exporting a root cannot make the resolved mode ambiguous.
+    NativeWebUsePackages: "false",
     JauntyQRoot: "",
 
     DOTNET_NOLOGO: "1",
@@ -155,20 +166,66 @@ export function nativeWebPins(props: string): Pin[] {
   )].map((match) => ({ id: match[1], version: match[2] }));
 }
 
-/** The pins a restore did not put in the cache, as `id version`. */
-export async function missingFromCache(pins: Pin[], packagesDir: string): Promise<string[]> {
+/**
+ * The pins a restore did not put in the cache from `source`, as `id version`, or
+ * `id version (from <other>)` for one restored from somewhere else.
+ *
+ * NuGet writes `.nupkg.metadata` beside each package it extracts, and its
+ * `source` field is the feed the package came from.
+ */
+export async function missingFromCache(
+  pins: Pin[],
+  packagesDir: string,
+  source: string,
+): Promise<string[]> {
   const missing: string[] = [];
+  const expected = sourceKey(source);
 
   for (const pin of pins) {
+    const metadata = join(packagesDir, pin.id.toLowerCase(), pin.version.toLowerCase(), ".nupkg.metadata");
+    let actual: string | undefined;
+
     try {
-      await Deno.stat(join(packagesDir, pin.id.toLowerCase(), pin.version.toLowerCase()));
+      actual = JSON.parse(await Deno.readTextFile(metadata)).source;
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) throw error;
       missing.push(`${pin.id} ${pin.version}`);
+      continue;
+    }
+
+    if (actual === undefined || sourceKey(actual) !== expected) {
+      missing.push(`${pin.id} ${pin.version} (from ${actual ?? "an unrecorded source"})`);
     }
   }
 
   return missing;
+}
+
+/** A source as NuGet records it, compared without case or a trailing separator. */
+function sourceKey(source: string): string {
+  return source.replace(/[\\/]+$/, "").toLowerCase();
+}
+
+export const NUGET_ORG = "https://api.nuget.org/v3/index.json";
+
+/**
+ * The stamped product's nuget.config with `dir` added as a source that alone
+ * serves `Extrode.NativeWeb.*`. NuGet's most specific pattern wins, so the
+ * catch-all `*` on nuget.org still serves everything else, JauntyQ included.
+ */
+export function withLocalFeed(config: string, dir: string): string {
+  const source = `    <add key="local-packages" value="${dir}" />\n`;
+  const mapping = `    <packageSource key="local-packages">\n` +
+    `      <package pattern="Extrode.NativeWeb.*" />\n` +
+    `    </packageSource>\n`;
+
+  if (!config.includes("</packageSources>") || !config.includes("</packageSourceMapping>")) {
+    throw new Error("The stamped nuget.config has no packageSources and packageSourceMapping to extend.");
+  }
+
+  return config
+    .replace("  </packageSources>", `${source}  </packageSources>`)
+    .replace("  </packageSourceMapping>", `${mapping}  </packageSourceMapping>`);
 }
 
 /**
@@ -376,6 +433,14 @@ async function main(argv: string[]): Promise<number> {
     ], root, stampStepEnvironment(root)),
   );
 
+  const source = options.packagesFrom === null ? NUGET_ORG : resolve(options.packagesFrom);
+
+  if (options.packagesFrom !== null && steps.at(-1)?.code === 0) {
+    const config = join(destination, "nuget.config");
+
+    await Deno.writeTextFile(config, withLocalFeed(await Deno.readTextFile(config), source));
+  }
+
   if (steps[0].code === 0) {
     steps.push(
       await run("build", "dotnet", [
@@ -391,13 +456,13 @@ async function main(argv: string[]): Promise<number> {
   if (options.packages && steps.at(-1)?.code === 0) {
     const started = performance.now();
     const pins = nativeWebPins(await Deno.readTextFile(join(destination, "Directory.Packages.props")));
-    const missing = await missingFromCache(pins, env.NUGET_PACKAGES);
+    const missing = await missingFromCache(pins, env.NUGET_PACKAGES, source);
     const failure = pins.length === 0
       ? "The stamped Directory.Packages.props pins no Extrode.NativeWeb.* package."
-      : `Not restored from the feed, so the build used something else: ${missing.join(", ")}`;
+      : `Not restored from ${source}, so the build used something else: ${missing.join(", ")}`;
 
     steps.push({
-      label: `${pins.length} Extrode.NativeWeb.* pins restored from the feed`,
+      label: `${pins.length} Extrode.NativeWeb.* pins restored from ${source}`,
       code: pins.length > 0 && missing.length === 0 ? 0 : 1,
       output: pins.length > 0 && missing.length === 0 ? "" : failure,
       seconds: (performance.now() - started) / 1000,

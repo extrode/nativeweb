@@ -103,6 +103,7 @@ jobs:
           deno test -A tools/pack.test.ts
           deno test -A tools/nuget-login.test.ts
           deno test -A tools/release-notes.test.ts
+          deno test -A tools/stamp-check.test.ts
           deno run -A tools/release-notes.ts "${GITHUB_REF_NAME#v}" > /dev/null
           dotnet test --project tests/nativeweb.repo.tests.unit -v q $DOTNET_BUILD_ARGS
 
@@ -134,6 +135,20 @@ jobs:
 
       - name: Pack
         run: deno run -A tools/pack.ts --release $DOTNET_BUILD_ARGS
+
+      # A package nuget.org accepts can still be one no product builds from: a
+      # generator left out of its analyzers folder, a dependency left out of the
+      # nuspec. Once pushed, that version number is spent. So a product is
+      # stamped from the skeleton and built from the packages just packed,
+      # through a local source mapped to Extrode.NativeWeb.* alone, with its unit
+      # and database-free integration tiers run, before anything is pushed. The
+      # stamp commits, and a runner has no git identity; the one set here is
+      # the runner's own and nothing is pushed from it.
+      - name: A stamped product builds from these packages
+        run: |
+          git config --global user.name  'nativeweb-release'
+          git config --global user.email 'nativeweb-release@users.noreply.github.com'
+          deno run -A tools/stamp-check.ts --packages-from artifacts/packages --dest "$RUNNER_TEMP/stamp/releasecheck" --name Releasecheck --slug releasecheck
 
       # No --skip-duplicate, and that is the deliberate half of this step.
       #
