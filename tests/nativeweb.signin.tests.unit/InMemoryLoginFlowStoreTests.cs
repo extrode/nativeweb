@@ -43,6 +43,15 @@ public sealed class InMemoryLoginFlowStoreTests
     }
 
     [Fact]
+    public async Task TakeAsync_MissingRow_IsUnknown()
+    {
+        FlowTakeResult taken = await Store().TakeAsync("never-started", default);
+
+        Assert.Equal(FlowTake.Unknown, taken.Outcome);
+        Assert.Null(taken.Flow);
+    }
+
+    [Fact]
     public async Task TakeAsync_PastItsExpiry_IsExpiredAndCarriesNoFlow()
     {
         InMemoryLoginFlowStore store = Store();

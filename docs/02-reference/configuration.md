@@ -100,7 +100,7 @@ section the product names when it calls `AddSignIn`. See
 | `CallbackPath` | `/signin/callback` |
 | `LogoutPath` | `/signout` |
 | `SignedOutPath`, `FailurePath`, `DefaultReturnPath` | `/` |
-| `FlowLifetimeSeconds` | 15 minutes |
+| `FlowLifetimeSeconds` | 30 minutes |
 | `SessionLifetimeSeconds` | 14 days |
 | `RefreshSkewSeconds` | 2 minutes |
 | `IntrospectionCacheLifetimeSeconds` | 30 seconds |

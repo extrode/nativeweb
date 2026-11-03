@@ -180,6 +180,16 @@ public static partial class SignInEndpoints
         // a store never has to reach into this library's options to discover what it is.
         DateTimeOffset expiresAt = time.GetUtcNow() + options.FlowLifetime;
 
+        // Newest flow wins. A sign-in this browser started and never finished is consumed before
+        // the new one is recorded, so its callback can no longer complete. The outcome is ignored:
+        // taken, used, expired or unknown, the old row is unusable afterwards either way.
+        string previous = context.Request.Cookies[SessionManager.FlowCookieName(options)] ?? "";
+
+        if (!string.IsNullOrWhiteSpace(previous) && previous.Length <= MaxCallbackFieldLength)
+        {
+            await flows.TakeAsync(previous, context.RequestAborted).ConfigureAwait(false);
+        }
+
         await flows.StartAsync(
             state,
             verifier,
@@ -224,25 +234,25 @@ public static partial class SignInEndpoints
             return Results.Redirect(Failure(options, SignInFailureCode.SignInFailed));
         }
 
-        // Cleared on every exit below, taken or refused: one abandoned attempt must not leave a
-        // correlator lying about for the next callback to match against.
+        // The browser that finishes the flow must be the browser that started it. A callback
+        // carrying somebody else's state - the whole shape of login CSRF - has no matching cookie
+        // here and never reaches the token endpoint.
         string expected = context.Request.Cookies[SessionManager.FlowCookieName(options)] ?? "";
-        SessionManager.ClearFlowCookie(context, options);
+        bool matches = expected.Length > 0
+            && state.Length > 0
+            && CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(state));
+
+        // Cleared only when this callback belongs to the cookie's flow. A stale or forced callback
+        // carrying any other state leaves the cookie, and the newer flow it points at, intact.
+        if (matches)
+        {
+            SessionManager.ClearFlowCookie(context, options);
+        }
 
         if (code.Length == 0 || state.Length == 0)
         {
             return Results.Redirect(Failure(options, SignInFailureCode.CallbackIncomplete));
-        }
-
-        // The browser that finishes the flow must be the browser that started it. A callback
-        // carrying somebody else's state - the whole shape of login CSRF - has no matching cookie
-        // here and never reaches the token endpoint.
-        if (expected.Length == 0
-            || !CryptographicOperations.FixedTimeEquals(
-                Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(state)))
-        {
-            LogFlowCookieMismatch(logger);
-            return Results.Redirect(Failure(options, SignInFailureCode.StateMismatch));
         }
 
         // Bounded before either value reaches the consumer's store or the provider. A query string
@@ -251,6 +261,26 @@ public static partial class SignInEndpoints
         if (code.Length > MaxCallbackFieldLength || state.Length > MaxCallbackFieldLength)
         {
             return Results.Redirect(Failure(options, SignInFailureCode.CallbackIncomplete));
+        }
+
+        if (!matches)
+        {
+            // No cookie at all: the flow is consumed so it cannot be finished later, and an expired
+            // one is reported as such. A live one is still refused, since without the cookie
+            // nothing binds it to this browser.
+            if (expected.Length == 0)
+            {
+                FlowTakeResult orphan = await flows
+                    .TakeAsync(state, context.RequestAborted).ConfigureAwait(false);
+
+                if (orphan.Outcome == FlowTake.Expired)
+                {
+                    return Results.Redirect(Failure(options, SignInFailureCode.StateExpired));
+                }
+            }
+
+            LogFlowCookieMismatch(logger);
+            return Results.Redirect(Failure(options, SignInFailureCode.StateMismatch));
         }
 
         FlowTakeResult taken = await flows.TakeAsync(state, context.RequestAborted).ConfigureAwait(false);
@@ -265,7 +295,11 @@ public static partial class SignInEndpoints
                 return Results.Redirect(Failure(options, SignInFailureCode.StateUsed));
 
             case FlowTake.Expired:
-                return Results.Redirect(Failure(options, SignInFailureCode.StateExpired));
+                // This browser's own flow ran out of time: restart it rather than show a failure.
+                // One hop, not a loop: the cookie was cleared above, and only a matching cookie
+                // gets here. An expired row carries no flow, so the return path is not recoverable
+                // and the restart lands on the default.
+                return Results.Redirect(options.LoginPath);
 
             default:
                 return Results.Redirect(Failure(options, SignInFailureCode.StateUnknown));
