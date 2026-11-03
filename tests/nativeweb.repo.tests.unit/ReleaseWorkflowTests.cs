@@ -235,6 +235,60 @@ public sealed partial class ReleaseWorkflowTests
     /// <summary>
     /// A `dotnet nuget push` in an executable position, not in a comment.
     /// </summary>
+    [Fact]
+    public void TheGitHubJobWritesButCannotMintANuGetKey()
+    {
+        string yaml = File.ReadAllText(Path.Combine(RepoRoot(), ReleaseWorkflow));
+
+        Assert.Equal(["contents: write", "packages: write"], Granted(JobBlock(yaml, "github"), 4));
+        Assert.Empty(Granted(JobBlock(yaml, "publish"), 4));
+    }
+
+    [Fact]
+    public void TheGitHubJobRunsOnlyAfterThePublishJob()
+    {
+        string[] needs = [.. JobBlock(File.ReadAllText(Path.Combine(RepoRoot(), ReleaseWorkflow)), "github")
+            .Split('\n')
+            .Where(line => line.StartsWith("    needs:", StringComparison.Ordinal))
+            .Select(line => line.Split(':', 2)[1].Trim())];
+
+        Assert.Equal(["publish"], needs);
+    }
+
+    /// <summary>
+    /// The lines of one job under <c>jobs:</c>, up to the next job.
+    /// </summary>
+    private static string JobBlock(string yaml, string job)
+    {
+        string[] lines = TopLevelBlock(yaml, "jobs").Split('\n');
+        int start = Array.FindIndex(lines, line => line == $"  {job}:");
+
+        Assert.True(start >= 0, $"{ReleaseWorkflow} declares no job '{job}'.");
+
+        int end = Array.FindIndex(lines, start + 1, line => line.Length > 2
+            && line[..2] == "  " && !char.IsWhiteSpace(line[2]) && line[2] != '#');
+
+        return string.Join('\n', lines[(start + 1)..(end < 0 ? lines.Length : end)]);
+    }
+
+    /// <summary>
+    /// The grants under a job's <c>permissions:</c> key at the given indent, none when it has no such key.
+    /// </summary>
+    private static string[] Granted(string job, int indent)
+    {
+        string[] lines = job.Split('\n');
+        string key = $"{new string(' ', indent)}permissions:";
+        int start = Array.FindIndex(lines, line => line.TrimEnd() == key);
+
+        return start < 0
+            ? []
+            : [.. lines[(start + 1)..]
+                .Where(line => !line.TrimStart().StartsWith('#'))
+                .TakeWhile(line => line.Trim().Length == 0 || line.Length - line.TrimStart().Length > indent)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)];
+    }
+
     private static bool IsANuGetPush(string line)
     {
         string trimmed = line.TrimStart();

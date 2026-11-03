@@ -180,6 +180,9 @@ jobs:
       - name: Pack tool tests
         run: deno test -A tools/pack.test.ts
 
+      - name: Release notes tool tests
+        run: deno test -A tools/release-notes.test.ts
+
       # tools/stamp-check.ts is the local half of the skeleton-stamp job below:
       # the job proves the skeleton end to end on a runner, and the script lets a
       # person prove it here before pushing. This step runs the script's own

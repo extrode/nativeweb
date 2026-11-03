@@ -9,6 +9,20 @@ An entry is added when `dev` merges to `main` and gets its semver tag. Work that
 Format is [Keep a Changelog](https://keepachangelog.com/), versions are semver. Use only the
 sections that apply; drop the empty ones rather than leaving them blank.
 
+## [0.1.1] — 2026-11-04
+
+### Added
+
+- **Package icon.** Every `Extrode.NativeWeb.*` package carries `nativeweb-icon-128.png`, rendered
+  from `docs/images/nativeweb-mark.svg`, so nuget.org shows the NativeWeb mark instead of its
+  default. `tools/pack.ts` refuses a package whose nuspec names no icon or does not contain it.
+- **GitHub Release and GitHub Packages.** `release.yml` gains a `github` job that runs after the
+  nuget.org push: it pushes the same version to GitHub Packages, so the packages show under the
+  repository, and creates the tag's GitHub Release with the packages attached and the version's
+  `CHANGELOG.md` section as its notes (`tools/release-notes.ts`; a v0.* release is marked
+  pre-release). The job holds `contents: write` and `packages: write` and no `id-token`, so no job
+  can both write the repository and mint a nuget.org key.
+
 ## [0.1.0] — 2026-11-04
 
 ### Changed

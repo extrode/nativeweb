@@ -85,6 +85,7 @@ export interface NuspecFacts {
   id: string;
   version: string;
   readme: string | null;
+  icon: string | null;
   repositoryUrl: string | null;
   repositoryCommit: string | null;
 }
@@ -108,6 +109,7 @@ export function nuspecFacts(nuspecXml: string): NuspecFacts {
     id,
     version,
     readme: one("readme"),
+    icon: one("icon"),
     repositoryUrl: attribute("url"),
     repositoryCommit: attribute("commit"),
   };
@@ -539,6 +541,13 @@ const requiredPackagePaths: Record<string, string[]> = {
   ],
 };
 
+/** Null when the nuspec names an icon and the package carries that file. */
+export function iconProblem(facts: NuspecFacts, files: ReadonlySet<string>): string | null {
+  if (facts.icon === null) return "nuspec names no <icon>; nuget.org would show its default.";
+  if (!files.has(facts.icon)) return `the nuspec names icon ${facts.icon} and the package does not contain it.`;
+  return null;
+}
+
 /** Everything spec 028 asks a produced package to carry. Null means it does. */
 export async function verify(
   project: PackableProject,
@@ -589,6 +598,10 @@ export async function verify(
   for (const required of ["LICENSE.md", "NOTICE.md"]) {
     if (!files.has(required)) return `package contains no ${required}.`;
   }
+
+  const icon = iconProblem(facts, new Set(files.keys()));
+
+  if (icon !== null) return icon;
 
   // AGENTS.md: JauntyQ may never be redistributed, and a package pushed to the
   // feed is redistribution. Package mode makes it a dependency the consumer
