@@ -339,8 +339,6 @@ public sealed class SignInCallbackTests
     [Fact]
     public async Task Callback_StaleState_LeavesTheFlowCookieAndTheNewerFlow()
     {
-        // A stale or forced cross-site callback for some other state must not end the flow this
-        // browser is in the middle of.
         Fixture fixture = await Started();
 
         DefaultHttpContext context = await fixture.Callback(

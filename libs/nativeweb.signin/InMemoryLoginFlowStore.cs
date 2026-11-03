@@ -15,8 +15,9 @@ namespace NativeWeb.SignIn;
 /// <see cref="TakeAsync"/> removes the row before judging it, which is what makes a second call
 /// refuse even when the two race: the loser gets nothing back from
 /// <see cref="ConcurrentDictionary{TKey, TValue}.TryRemove(TKey, out TValue)"/> and reports
-/// <see cref="FlowTake.Unknown"/>, since a missing row is indistinguishable from one never started. Judging first and removing second passes every
-/// single-threaded test and lets two concurrent callbacks both consume one flow.
+/// <see cref="FlowTake.Unknown"/>, since a missing row is indistinguishable from one never started.
+/// Judging first and removing second passes every single-threaded test and lets two concurrent
+/// callbacks both consume one flow.
 /// </para>
 /// </remarks>
 /// <param name="clock">The clock expiry is judged against.</param>
