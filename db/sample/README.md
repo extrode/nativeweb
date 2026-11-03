@@ -22,6 +22,10 @@ stamped from this template does with its own tables.
 Two databases, both owned by `nativeweb_app`:
 
 ```bash
+# the role both are owned by; the tests' fallback connection string gives it no
+# password, so either trust localhost in pg_hba.conf or set ConnectionStrings__Sample
+psql -U postgres -c "CREATE ROLE nativeweb_app LOGIN"
+
 # the one `dotnet run` uses when you configure a connection string
 psql -U postgres -c "CREATE DATABASE nativeweb_sample_dev OWNER nativeweb_app"
 for f in db/sample/migrations/*.sql; do psql -U nativeweb_app -d nativeweb_sample_dev -v ON_ERROR_STOP=1 -f "$f"; done
