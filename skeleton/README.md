@@ -123,8 +123,6 @@ The stamp leaves deliberate placeholders. Replace every one before the product f
 - `nuget.config` — nuget.org alone, with a `*` source mapping. Every pin, `Extrode.NativeWeb.*`
   and `Extrode.JauntyQ.*`, restores from it with no credential. Add a mapping for any source you
   add beside it.
-- `.github/workflows/ci.yml` — the `extrode/nativeweb` checkout target and its `ref: main`. Pin
-  that to a tag once the framework publishes one.
 
 ## Status
 

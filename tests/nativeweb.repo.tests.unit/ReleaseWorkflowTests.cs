@@ -258,6 +258,15 @@ public sealed partial class ReleaseWorkflowTests
     /// <summary>
     /// The lines of one job under <c>jobs:</c>, up to the next job.
     /// </summary>
+    [Fact]
+    public void NoReleaseStepWritesTheRunnersGitConfig()
+    {
+        string[] writes = [.. File.ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))
+            .Where(l => !l.TrimStart().StartsWith('#') && l.Contains("git config --global", StringComparison.Ordinal))];
+
+        Assert.Empty(writes);
+    }
+
     private static string JobBlock(string yaml, string job)
     {
         string[] lines = TopLevelBlock(yaml, "jobs").Split('\n');

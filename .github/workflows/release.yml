@@ -142,12 +142,17 @@ jobs:
       # stamped from the skeleton and built from the packages just packed,
       # through a local source mapped to Extrode.NativeWeb.* alone, with its unit
       # and database-free integration tiers run, before anything is pushed. The
-      # stamp commits, and a runner has no git identity; the one set here is
-      # the runner's own and nothing is pushed from it.
+      # stamp commits, and a runner has no git identity. The identity is set
+      # for this step alone, as environment rather than `git config --global`,
+      # which a self-hosted runner (CI_LINUX_RUNNER) would keep for every later
+      # job. Nothing is pushed from the stamp.
       - name: A stamped product builds from these packages
+        env:
+          GIT_AUTHOR_NAME: nativeweb-release
+          GIT_AUTHOR_EMAIL: nativeweb-release@users.noreply.github.com
+          GIT_COMMITTER_NAME: nativeweb-release
+          GIT_COMMITTER_EMAIL: nativeweb-release@users.noreply.github.com
         run: |
-          git config --global user.name  'nativeweb-release'
-          git config --global user.email 'nativeweb-release@users.noreply.github.com'
           deno run -A tools/stamp-check.ts --packages-from artifacts/packages --dest "$RUNNER_TEMP/stamp/releasecheck" --name Releasecheck --slug releasecheck
 
       # No --skip-duplicate, and that is the deliberate half of this step.

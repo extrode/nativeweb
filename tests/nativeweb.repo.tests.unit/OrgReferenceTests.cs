@@ -66,24 +66,47 @@ public sealed partial class OrgReferenceTests
 
     /// <remarks>
     /// The packages moved to nuget.org on 2026-10-20, so no committed config or workflow
-    /// restores from a GitHub Packages feed, in any org. release.yml is the one file left out:
-    /// its github job pushes each release to the repository's own feed, which
-    /// ReleaseWorkflowTests covers, and nothing restores from there.
+    /// restores from a GitHub Packages feed, in any org. One mention is allowed: the
+    /// <c>--source</c> of release.yml's <c>dotnet nuget push</c>, which publishes each release
+    /// to the repository's own feed (ReleaseWorkflowTests covers that job). Any other
+    /// mention, in release.yml or anywhere else, fails.
     /// </remarks>
     [Fact]
     public void NoPackageFeedIsOnGitHubPackages()
     {
         string root = RepoRoot();
-        string[] candidates = [.. NuGetConfigFiles(root), .. WorkflowFiles(root)
-            .Where(p => Path.GetFileName(p) != "release.yml")];
+        string[] candidates = [.. NuGetConfigFiles(root), .. WorkflowFiles(root)];
 
-        (string File, string Owner)[] feeds = OwnersIn(root, candidates, FeedHostPattern());
+        (string File, string Owner)[] feeds = [.. candidates.SelectMany(p => FeedsOutsideAPush(File.ReadAllText(p))
+            .Select(owner => (Path.GetRelativePath(root, p), owner)))];
 
         Assert.True(
             feeds.Length == 0,
             "These files resolve packages through GitHub Packages: "
                 + $"{string.Join(", ", feeds.Select(f => $"{f.File} ({f.Owner})"))}. Every framework "
                 + "package is on nuget.org, and a GitHub feed needs a credential even to read.");
+    }
+
+    [Fact]
+    public void FeedsOutsideAPush_AllowsOnlyAPushSource()
+    {
+        string text = string.Join('\n',
+            "dotnet nuget push \"a.nupkg\" \\",
+            "  --source \"https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json\" \\",
+            "dotnet restore \\",
+            "  --source \"https://nuget.pkg.github.com/other/index.json\"");
+
+        Assert.Equal(["other"], FeedsOutsideAPush(text));
+    }
+
+    private static string[] FeedsOutsideAPush(string text)
+    {
+        string[] lines = text.Split('\n');
+
+        return [.. lines.Select((line, i) => (line, i))
+            .Where(l => !(l.line.TrimStart().StartsWith("--source", StringComparison.Ordinal)
+                && l.i > 0 && lines[l.i - 1].Contains("dotnet nuget push", StringComparison.Ordinal)))
+            .SelectMany(l => FeedHostPattern().Matches(l.line).Select(m => m.Groups["owner"].Value))];
     }
 
     private static (string File, string Owner)[] OwnersIn(string root, string[] paths, Regex pattern)

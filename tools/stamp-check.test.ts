@@ -55,6 +55,22 @@ Deno.test("withLocalFeed maps only Extrode.NativeWeb.* to the folder and leaves 
   assertStringIncludes(config, '<packageSource key="nuget.org">\n      <package pattern="*" />');
 });
 
+Deno.test("withLocalFeed extends a config indented with tabs and escapes the folder", () => {
+  const config = withLocalFeed(
+    "<configuration>\n\t<packageSources>\n\t</packageSources>\n\t<packageSourceMapping>\n\t</packageSourceMapping>\n</configuration>\n",
+    '/w/a&b"c',
+  );
+
+  assertEquals(
+    config,
+    "<configuration>\n\t<packageSources>\n" +
+      '    <add key="local-packages" value="/w/a&amp;b&quot;c" />\n' +
+      "\t</packageSources>\n\t<packageSourceMapping>\n" +
+      '    <packageSource key="local-packages">\n      <package pattern="Extrode.NativeWeb.*" />\n    </packageSource>\n' +
+      "\t</packageSourceMapping>\n</configuration>\n",
+  );
+});
+
 Deno.test("withLocalFeed refuses a config it cannot extend", () => {
   assertThrows(() => withLocalFeed("<configuration />", "/w/pkgs"), Error, "packageSourceMapping");
 });
