@@ -9,7 +9,7 @@ public sealed partial class RunnerSelectionTests
 
     [Theory]
     [InlineData("ci.yml")]
-    [InlineData("publish.yml")]
+    [InlineData("release.yml")]
     public void EveryJob_PicksItsRunnerFromARepoVariable_FallingBackToAHostedOne(string file)
     {
         Assert.All(Jobs(file), job =>
@@ -24,7 +24,7 @@ public sealed partial class RunnerSelectionTests
 
     [Theory]
     [InlineData("ci.yml")]
-    [InlineData("publish.yml")]
+    [InlineData("release.yml")]
     public void EveryJob_RestoresIntoACacheTheRunnerEmptiesPerJob(string file)
     {
         Assert.All(Jobs(file), job =>

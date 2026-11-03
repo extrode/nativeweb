@@ -170,7 +170,7 @@ public sealed partial class PackageFeedConfigTests
     /// <para>
     /// `dotnet nuget update source` with no --configfile writes to the nearest config that
     /// declares the source, which in this repository is the committed nuget.config. Three CI
-    /// jobs and publish.yml did that, so a GITHUB_TOKEN -- including publish.yml's, which holds
+    /// jobs and release.yml did that, so a GITHUB_TOKEN -- including release.yml's, which holds
     /// `packages: write` -- sat in the workspace in clear text for the rest of the job. Job
     /// scoped and ephemeral, and still the wrong file. Found reviewing spec 028, fixed 2026-09-05.
     /// </para>
@@ -260,7 +260,7 @@ public sealed partial class PackageFeedConfigTests
     /// </remarks>
     [Theory]
     [InlineData("ci.yml", "")]
-    [InlineData("publish.yml", "")]
+    [InlineData("release.yml", "")]
     public void Workflow_CredentialsOnlyTheJobThatRestoresTheStampedProduct(string file, string job)
     {
         string[] expected = job.Length == 0 ? [] : [job];

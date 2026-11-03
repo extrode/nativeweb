@@ -31,7 +31,7 @@
        a version that was never published.
 
        KNOWN GAP, and it is now half the size it was: spec 028 built the pack
-       and the tag-triggered publish (.github/workflows/publish.yml), so a
+       and the tag-triggered publish (.github/workflows/release.yml), so a
        release puts these versions on the feed. Until a v0.1.0 tag is pushed
        nothing is there to restore, and a local sibling checkout of NativeWeb
        (its checkout mode is still the default) stays the working path. JauntyQ

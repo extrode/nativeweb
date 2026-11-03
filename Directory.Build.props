@@ -48,7 +48,7 @@
        something marks the build as local ; makes an unmarked pack
        indistinguishable from a release, and a package that claims to be a
        release and is not is the one thing a feed must never receive. Only
-       .github/workflows/publish.yml sets it, and only after checking the tag
+       .github/workflows/release.yml sets it, and only after checking the tag
        against VersionPrefix.
 
        (XML forbids a double hyphen inside a comment, as nuget.config also notes.
