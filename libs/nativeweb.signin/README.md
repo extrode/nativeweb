@@ -13,7 +13,7 @@ anywhere in this library's source.
 <ProjectReference Include="..\..\libs\nativeweb.signin\nativeweb.signin.csproj" />
 ```
 
-Published as `NativeWeb.SignIn` for consumers building against packages. The skeleton carries
+Published as `Extrode.NativeWeb.SignIn` for consumers building against packages. The skeleton carries
 both forms; `tools/new-product.ps1` stamps a product with the section already wired.
 
 ## The whole wiring
@@ -79,7 +79,7 @@ that will not parse throws at startup naming its own full path, not at the first
 | `SignedOutPath` | no | `/` | Where sign-out lands. |
 | `DefaultReturnPath` | no | `/` | Where a sign-in with no `returnTo` lands. |
 | `FailurePath` | no | `/` | Where a FAILED sign-in lands, carrying `?error=`. Cannot be `LoginPath` or `CallbackPath`; startup refuses either. |
-| `FlowLifetimeSeconds` | no | 900 | How long an in-flight sign-in may take. |
+| `FlowLifetimeSeconds` | no | 1800 | How long an in-flight sign-in may take. |
 | `SessionLifetimeSeconds` | no | 1209600 | Fourteen days. |
 | `RefreshSkewSeconds` | no | 120 | How early an access token is refreshed. |
 | `IntrospectionCacheLifetimeSeconds` | no | 30 | Short on purpose: a revoked token stays live for this long. |
@@ -117,7 +117,9 @@ process instead — which means sessions do not survive a restart, and it is for
 `LoginPath` is a GET and carries no antiforgery token, which is not an oversight: it takes no
 action on the user's behalf and reads no session, so the worst a forced navigation achieves is a
 login prompt the visitor can decline. `state` is what defends the callback, which is the request
-that acts.
+that acts. A GET to `LoginPath` also ends any sign-in the browser had in progress (the newest flow
+wins), so a forced navigation can cancel an in-progress sign-in, which the old cookie overwrite
+already did.
 
 `?returnTo=` on `LoginPath` is where the visitor lands afterwards. It is sanitised to a local path
 — an absolute URL, a scheme-relative one and a backslash-smuggled one all fall back to
@@ -125,7 +127,8 @@ that acts.
 
 A failed sign-in lands at `FailurePath` as `?error=<code>`, one of
 `callback_incomplete`, `state_used`, `state_expired`, `state_unknown`, `state_mismatch`, `signin_failed`,
-`provider_unavailable`, `refused` (`SignInFailureCode`). **No provider-supplied string is ever
+`provider_unavailable`, `refused` (`SignInFailureCode`). The in-memory store reports a replayed
+callback as `state_unknown`, not `state_used`. **No provider-supplied string is ever
 rendered**: the provider's own `error` and `error_description` are upstream text, and a page that
 echoes them is a page that renders whatever the provider felt like sending. Render your own copy
 per code.

@@ -34,7 +34,7 @@ export function versionPrefixOf(propsXml: string): string {
   if (matches.length !== 1) {
     throw new Error(
       `Expected exactly one <VersionPrefix> in Directory.Build.props, found ${matches.length}. ` +
-        "It is the source of truth for every NativeWeb.* package version.",
+        "It is the source of truth for every Extrode.NativeWeb.* package version.",
     );
   }
 
@@ -428,7 +428,7 @@ export async function strayPackages(out: string, expected: string[]): Promise<st
  * Every `<None Include="dir\**\*" Pack="true" PackagePath="target\" />` in a
  * csproj, as the project-relative directory and the path it packs to.
  *
- * The two that exist today are `wwwroot` and `templates` in `NativeWeb.Web`, and
+ * The two that exist today are `wwwroot` and `templates` in `Extrode.NativeWeb.Web`, and
  * they are the whole of what a consumer receives that is not an assembly.
  */
 export function packedDirectories(xml: string): { directory: string; packagePath: string }[] {
@@ -530,7 +530,7 @@ async function packedLayoutProblem(
  * package that verified clean here.
  */
 const requiredPackagePaths: Record<string, string[]> = {
-  "NativeWeb.Web": [
+  "Extrode.NativeWeb.Web": [
     "templates/shared/antiforgery.html",
     "templates/shared/bot-traps.html",
     "templates/shared/banner-ok.html",

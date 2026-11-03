@@ -1,6 +1,6 @@
 # The Linux runner image for .github/workflows/ci.yml. The workflow assumes what GitHub's
 # ubuntu-latest has preinstalled, and it has no setup step for any of it: the .NET 10 SDK, pwsh
-# (Playwright's install script is playwright.ps1), psql, and gh (publish.yml's preconditions call
+# (Playwright's install script is playwright.ps1), psql, and gh (release.yml's preconditions call
 # `gh api`). clang and zlib1g-dev are installed
 # by the workflow itself with sudo, but they are baked in too, so that step is a no-op here.
 FROM ghcr.io/actions/actions-runner:latest

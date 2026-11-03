@@ -1,11 +1,11 @@
-name: Publish
+name: release
 
 # Spec 028 R6. A tag and nothing else.
 #
 # No push:branches, no pull_request, no workflow_dispatch. Every one of those
 # would put a package on the feed from a commit nobody decided to release, and
-# a version already on GitHub Packages cannot be replaced -- only deleted and
-# re-pushed, which breaks any consumer that already restored it. The manual
+# a version already on nuget.org can never be deleted or replaced, only
+# unlisted, so an accidental publish burns that version number for good. The manual
 # trigger is the tempting one to add and the one that most reliably ships
 # something by accident.
 #
@@ -16,13 +16,20 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
-# packages:write is the whole reason this file is separate from ci.yml. CI runs
-# on every push with packages:read; giving that job write access so it could
-# also publish would mean every branch push held a token that can overwrite the
-# framework's own feed.
+# Trusted publishing (OIDC), as JauntyQ publishes: there is no stored
+# nuget.org key to rotate or leak. tools/nuget-login.ts trades this job's OIDC
+# token for a key valid one hour, at the push step. id-token: write only lets
+# the job ask for that token; nuget.org decides whether to honour it by matching
+# it against the trusted-publishing policy, which must name this repository,
+# workflow file release.yml and no environment.
+#
+# The grant is the whole reason this file is separate from ci.yml. CI runs on
+# every push; giving it id-token: write so it could also publish would let every
+# branch push mint a key that can put a permanent version on nuget.org.
+# GITHUB_TOKEN needs only to read the repository and its check runs.
 permissions:
   contents: read
-  packages: write
+  id-token: write
 
 env:
   # No JauntyQ sibling checkout on a runner; the pinned packages come from
@@ -79,26 +86,10 @@ jobs:
           fi
           echo "Releasing $declared"
 
-      # A package pushed to GitHub Packages is linked to the repository named in
-      # its nuspec <repository url> and inherits that repository's visibility.
-      # The packages are proprietary framework source, so a public repository
-      # would publish them. The visibility is a precondition, checked rather
-      # than assumed.
-      #
       # Not the JauntyQ licence: no packable library references JauntyQ, only
       # apps/sample and skeleton/ do, and neither is packed. pack.ts refuses a
       # package carrying a JauntyQ path, which is what keeps that true.
-      - name: The repository is private
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          private="$(gh api "repos/$GITHUB_REPOSITORY" --jq .private)"
-          if [ "$private" != "true" ]; then
-            echo "$GITHUB_REPOSITORY is public, so every pushed package would be too." >&2
-            echo "AGENTS.md forbids redistributing JauntyQ. Nothing is published." >&2
-            exit 1
-          fi
-
+      #
       # The tag is the only gate on this workflow, and a tag can be placed on any
       # commit -- including one whose suite never went green. These two are the
       # guards over this workflow and over the version stamping it depends on, so
@@ -107,6 +98,7 @@ jobs:
       - name: The release guards
         run: |
           deno test -A tools/pack.test.ts
+          deno test -A tools/nuget-login.test.ts
           dotnet test --project tests/nativeweb.repo.tests.unit -v q $DOTNET_BUILD_ARGS
 
       # The guards above are the cheap ones, and they are not the suite. CI runs
@@ -114,13 +106,19 @@ jobs:
       # so requiring it here costs one API call and closes the case a tag on an
       # untested commit opens. A missing conclusion fails the same as a failing
       # one: "CI never ran on this commit" is not a reason to publish it.
+      #
+      # The verdict is the newest COMPLETED run of each job, from GitHub Actions
+      # alone. filter=all, because the default filter=latest can hand back a
+      # re-run still in progress, whose conclusion is empty. Completed only, for
+      # the same reason. Actions only, because another app may report a check of
+      # the same name. Newest, so a red re-run outranks an older green one.
       - name: CI passed on this commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for job in test aot-publish skeleton-stamp; do
-            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" \
-              --jq ".check_runs[] | select(.name==\"$job\") | .conclusion" | head -1)"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?filter=all&per_page=100" \
+              --jq "[.check_runs[] | select(.name==\"$job\" and .app.slug==\"github-actions\" and .conclusion != null)] | sort_by(.completed_at) | last | .conclusion // empty")"
             if [ "$conclusion" != "success" ]; then
               echo "CI job '$job' on $GITHUB_SHA is '${conclusion:-absent}', not success." >&2
               echo "Tag a commit CI has passed. Nothing is published." >&2
@@ -132,11 +130,6 @@ jobs:
       - name: Pack
         run: deno run -A tools/pack.ts --release $DOTNET_BUILD_ARGS
 
-      # repository_owner rather than a literal org. The 2026-08-26 move from
-      # extrode-legacy-org to extrode cost three days of red CI because a feed URL was
-      # written out by hand in one file and not another; OrgReferenceTests bans
-      # the old name, and this form cannot acquire a new one to ban.
-      #
       # No --skip-duplicate, and that is the deliberate half of this step.
       #
       # The flag was here so a publish that died halfway could be re-run. It
@@ -149,15 +142,27 @@ jobs:
       # in the run can see it: verify reads local files only.
       #
       # Without the flag a partial publish fails loudly on the second attempt,
-      # and recovery is a human decision: delete the partial version from the
-      # feed, then re-run the tag. That is the right cost. A version already
-      # restored by a consumer cannot be fixed by pushing over it either way.
+      # and recovery is a human decision. nuget.org never deletes or replaces a
+      # version, so the packages already pushed stay; unlist them and release
+      # the next patch version from one commit. That is the right cost.
       #
       # The glob is safe because pack.ts refuses to run when the output directory
       # holds a .nupkg it will not produce: everything matched here has been
       # packed and verified by the step above.
+      #
+      # The key is minted here, in the step that spends it, so it lives in one
+      # shell variable for one step and never reaches $GITHUB_ENV or an output.
+      # It is masked before anything could print it. That confines the key, not
+      # the right to mint one: id-token: write is granted per job, so every step
+      # above, the Deno installer and the restore's packages included, could ask
+      # nuget.org for a key of its own. NUGET_USER is the nuget.org
+      # profile name that created the policy, not an email address.
       - name: Push
-        run: >
-          dotnet nuget push "artifacts/packages/*.nupkg"
-          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
-          --api-key ${{ secrets.GITHUB_TOKEN }}
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER }}
+        run: |
+          key="$(deno run -A tools/nuget-login.ts)"
+          echo "::add-mask::$key"
+          dotnet nuget push "artifacts/packages/*.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "$key"

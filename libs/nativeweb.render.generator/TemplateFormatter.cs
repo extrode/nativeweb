@@ -44,8 +44,8 @@ internal static class TemplateFormatter
 {
     // The depth-set accumulation is iterative: call-site depths from callers that
     // later bail still consume slots before convergence, so the cap must leave
-    // headroom above the real variant count (manzil converges on 3 variants but
-    // needs 8 slots to get there). Each variant is one small RenderAtD method.
+    // headroom above the real variant count (an app measured converging on 3
+    // variants needed 8 slots to get there). Each variant is one small RenderAtD method.
     private const int MaxDepthVariants = 8;
 
     private static readonly HashSet<string> VoidElements = new(StringComparer.Ordinal)

@@ -156,7 +156,7 @@ not the identity, which this layer does not own.
 ## What it deliberately does not do
 
 - **No identity.** The subject is the `NameIdentifier` claim, whatever issued it. No credential,
-  no profile field, no user table. epass.io owns identity; this reads a string. Nothing here
+  no profile field, no user table. The identity provider owns identity; this reads a string. Nothing here
   depends on `nativeweb.signin`.
 
   **Which claim is configurable** — see *Naming the subject* below. A host whose scheme surfaces

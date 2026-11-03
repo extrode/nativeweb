@@ -81,7 +81,7 @@ public sealed class PortAllocationTests
     /// <remarks>
     /// <para>
     /// This host binds <c>::1</c>, so <c>LoopbackV6Bindable</c> is true here and the branch the
-    /// justsmtp.com finding is about never executes on it. That was reported as untestable on
+    /// consumer's finding is about never executes on it. That was reported as untestable on
     /// 2026-09-05 and it was not: the decision was hard-wired into the allocator, so the only way
     /// in was a differently-configured machine. Passing the predicate makes the loop's handling of
     /// a refusing <c>::1</c> assertable here, which is what this does: a predicate that never

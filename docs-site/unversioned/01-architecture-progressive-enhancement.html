@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -127,16 +127,14 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#philosophy">Philosophy</a><a class="toc-l2" href="#the-enhancement-layer-bootjs">The enhancement layer: boot.js</a><a class="toc-l2" href="#attribute-conventions">Attribute conventions</a><a class="toc-l2" href="#core-rules">Core rules</a><a class="toc-l2" href="#post-only-endpoints">POST-only endpoints</a><a class="toc-l2" href="#html-ownership">HTML ownership</a><a class="toc-l2" href="#built-in-ux-defaults-spec-005">Built-in UX defaults (spec 005)</a><a class="toc-l3" href="#busy-states-r3">Busy states (R3)</a><a class="toc-l3" href="#focus-after-swap-r6">Focus after swap (R6)</a><a class="toc-l3" href="#flash-messages-r4">Flash messages (R4)</a><a class="toc-l3" href="#keyboard-r5">Keyboard (R5)</a><a class="toc-l3" href="#validation-r7-r8">Validation (R7, R8)</a><a class="toc-l3" href="#version-and-error-pages-r1-r2">/version and error pages (R1, R2)</a><a class="toc-l3" href="#browser-native-first">Browser-native first</a><a class="toc-l3" href="#any-content-type-r12">Any content type (R12)</a><a class="toc-l2" href="#considered-and-rejected-from-the-v2-handoff">Considered and rejected (from the v2 handoff)</a><a class="toc-l2" href="#guarantee">Guarantee</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#philosophy">Philosophy</a><a class="toc-l2" href="#the-enhancement-layer-bootjs">The enhancement layer: boot.js</a><a class="toc-l2" href="#attribute-conventions">Attribute conventions</a><a class="toc-l2" href="#core-rules">Core rules</a><a class="toc-l2" href="#post-only-endpoints">POST-only endpoints</a><a class="toc-l2" href="#html-ownership">HTML ownership</a><a class="toc-l2" href="#built-in-ux-defaults">Built-in UX defaults</a><a class="toc-l3" href="#busy-states">Busy states</a><a class="toc-l3" href="#focus-after-swap">Focus after swap</a><a class="toc-l3" href="#flash-messages">Flash messages</a><a class="toc-l3" href="#keyboard">Keyboard</a><a class="toc-l3" href="#validation">Validation</a><a class="toc-l3" href="#version-and-error-pages">/version and error pages</a><a class="toc-l3" href="#browser-native-first">Browser-native first</a><a class="toc-l3" href="#any-content-type">Any content type</a><a class="toc-l2" href="#considered-and-rejected-from-the-v2-handoff">Considered and rejected (from the v2 handoff)</a><a class="toc-l2" href="#guarantee">Guarantee</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Architecture &#8250; Lean Native Web: Progressive Enhancement Layer</nav>
         <article>
 <h1 id="lean-native-web-progressive-enhancement-layer">Lean Native Web: Progressive Enhancement Layer</h1>
-<p>The frontend enhancement conventions for Lean Native Web (spec 004, R1–R8; extended by spec
-005's built-in UX defaults). Mandatory for all browser-facing pages in every LNW app. Decided
-2026-08-01: attributes are <code>data-nw-*</code>, endpoints are POST-only, and <code>boot.js</code> is the only
-enhancement mechanism. The v2 conventions handoff was folded in here on 2026-08-02 (adopted
-items merged below, rejected items recorded at the end) and deleted.</p>
+<p>The frontend enhancement conventions for Lean Native Web. Mandatory for all browser-facing
+pages in every LNW app. Attributes are <code>data-nw-*</code>, endpoints are POST-only, and <code>boot.js</code> is
+the only enhancement mechanism.</p>
 <hr />
 <h2 id="philosophy">Philosophy</h2>
 <p>Every page must be fully functional without JavaScript. JavaScript exists solely to
@@ -151,10 +149,10 @@ experience changes; business logic never changes.</p>
 enhancement. Never reverse it.</p>
 <hr />
 <h2 id="the-enhancement-layer-bootjs">The enhancement layer: boot.js</h2>
-<p>Each app serves a vendored copy of <code>boot.js</code> (canonical source:
-<code>libs/nativeweb.assets/boot.js</code>; vendored at <code>wwwroot/vendor/nativeweb/boot.js</code>, guarded by a
-byte-parity unit test). It is loaded with <code>defer</code> <strong>before</strong> htmx, so its normalization runs
-before htmx processes the document.</p>
+<p><code>boot.js</code> lives in <code>libs/nativeweb.web/wwwroot/_nativeweb/</code> and reaches every app through
+<code>libs/nativeweb.web/build/NativeWeb.Web.targets</code>, which serves it at <code>/_nativeweb/boot.js</code>. It is
+loaded with <code>defer</code> <strong>before</strong> htmx, so its normalization runs before htmx processes the
+document.</p>
 <p>Its only responsibility is an HTML normalization pass:</p>
 <ul>
 <li>Detect elements that opt in with a <code>data-nw-*</code> attribute.</li>
@@ -165,14 +163,9 @@ before htmx processes the document.</p>
 stores application state, never duplicates server validation, never replaces server routing.</p>
 <p>Two hooks cover every element: a <code>DOMContentLoaded</code> sweep for the initial document, and an
 <code>htmx:before:process</code> listener for fragments swapped in by htmx. Normalization is idempotent.</p>
-<p>Under htmx 2 the second hook needed a workaround: htmx snapshotted the elements it would
-initialize <em>before</em> the event fired, so an element that became enhanceable only through the
-attributes the sweep had just added (say, a swapped-in <code>&lt;a data-nw-target&gt;</code>) was not in that
-snapshot, and boot.js had to re-submit everything it modified to <code>htmx.process()</code> on a
-microtask. <strong>htmx 4 dispatches <code>htmx:before:process</code> and only then queries the subtree</strong>, so
-attributes added by the sweep are picked up by the very pass that follows and the
-re-submission is gone (spec 012 T4, removed on a browser assertion rather than on reading the
-source).</p>
+<p>htmx 4 dispatches <code>htmx:before:process</code> and only then queries the subtree, so attributes added
+by the sweep are picked up by the very pass that follows. boot.js needs no <code>htmx.process()</code>
+re-submission.</p>
 <hr />
 <h2 id="attribute-conventions">Attribute conventions</h2>
 <p>An element opts in by carrying any <code>data-nw-*</code> attribute. The vocabulary:</p>
@@ -261,81 +254,71 @@ identical on both paths.</p>
 <p>The server owns HTML generation. htmx only transports HTML. Alpine.js only manages local UI
 state (menus, toggles, purely visual concerns). Business state never lives in JavaScript.</p>
 <hr />
-<h2 id="built-in-ux-defaults-spec-005">Built-in UX defaults (spec 005)</h2>
-<p>The layer every LNW app gets for free, on top of normalization. All shipped in both apps and
-the skeleton; the e2e suites enforce them.</p>
-<h3 id="busy-states-r3">Busy states (R3)</h3>
+<h2 id="built-in-ux-defaults">Built-in UX defaults</h2>
+<p>The layer every LNW app gets for free, on top of normalization. It ships in the sample app and
+the skeleton.</p>
+<h3 id="busy-states">Busy states</h3>
 <p>boot.js owns in-flight feedback: on <code>htmx:before:request</code> it resolves the triggering submit
 control (from <code>ctx.request.submitter</code>) and sets <code>disabled</code>, <code>aria-busy=&quot;true&quot;</code> and class
 <code>nw-busy</code>; on <strong><code>htmx:finally:request</code></strong> it restores, and re-focuses the control when the swap
 dropped focus to <code>&lt;body&gt;</code>. No per-form markup, no <code>hx-indicator</code> repetition; each app styles
 <code>.nw-busy</code> in its own <code>components.css</code>. <strong>Accepted posture:</strong> busy treatment covers submit
 controls only — links and background triggers stay unstyled.</p>
-<p><strong>Restore is on <code>finally:</code>, not <code>after:</code>, and the difference is the one that matters.</strong> htmx 2's
-<code>afterRequest</code> fired on success, error, timeout and abort alike. htmx 4's <code>after:request</code> fires
-only once the response body has been read and is cancelable, so a dropped connection skips it
-entirely — restoring there would leave the submit control disabled with no way back.
+<p><strong>Restore is on <code>finally:</code>, not <code>after:</code>.</strong> htmx 4's <code>after:request</code> fires only once the response
+body has been read and is cancelable, so a dropped connection skips it entirely — restoring there
+would leave the submit control disabled with no way back.
 <code>finally:request</code> sits in the request's actual <code>finally</code> block and covers every path, including
-a <code>before:request</code> that another listener cancelled. Pinned by
-<code>BusyState_RestoredWhenTheRequestFailsOutright</code>.</p>
-<h3 id="focus-after-swap-r6">Focus after swap (R6)</h3>
+a <code>before:request</code> that another listener cancelled..</p>
+<h3 id="focus-after-swap">Focus after swap</h3>
 <p>boot.js recovers focus only when it saw the swap take it: at <code>htmx:before:swap</code> it records
 whether the focused element (or the busy-disabled submitter, whose <code>disabled</code> is what drops
 focus to <code>&lt;body&gt;</code>) sits inside the swap target; on <code>htmx:after:swap</code> with that record set it
 focuses the first <code>[autofocus]</code> inside the swapped content, else the swapped root via
 <code>tabindex=&quot;-1&quot;</code>. A polling or load-triggered swap that fires while focus is already on
 <code>&lt;body&gt;</code> deliberately does not autofocus, and focus that survived the swap is never stolen.</p>
-<p><strong>Where the swapped content is read from changed in htmx 4.</strong> htmx 2 dispatched <code>afterSwap</code> on
-each swapped-in element, so the handler could fall back to <code>event.target</code>. htmx 4 dispatches
-<code>after:swap</code> on <code>ctx.sourceElement</code> — the element that <em>issued</em> the request — so <code>event.target</code>
-is now the wrong node and may not be in the swapped region at all. The live content is reached
-through <code>event.detail.ctx.target</code>. This one fails silently rather than loudly: the old fallback
-still resolves to <em>an</em> element, so focus would land somewhere plausible and accessibility would
-regress with nothing erroring.</p>
+<p>htmx 4 dispatches <code>after:swap</code> on <code>ctx.sourceElement</code> — the element that <em>issued</em> the request —
+so <code>event.target</code> may not be in the swapped region at all. boot.js reads the live content through
+<code>event.detail.ctx.target</code>. Reading <code>event.target</code> fails silently: focus lands somewhere
+plausible and accessibility regresses with nothing erroring.</p>
 <p>Layouts must not carry their own <code>after:swap</code> autofocus script — boot.js is the single owner.</p>
-<h3 id="flash-messages-r4">Flash messages (R4)</h3>
+<h3 id="flash-messages">Flash messages</h3>
 <p><code>Flash.Set(context, kind, message)</code> before a success redirect writes a <code>__Host-nw-flash</code>
 cookie (&quot;ok:&quot;/&quot;err:&quot; prefix, escaped, 300-char cap with surrogate-safe truncation, 5-minute
 MaxAge); the next full-page render takes it read-once (expiring the cookie in the same
 response) and shows the standard banner. One mechanism covers both transports because success
 navigation is already unified: a real redirect no-JS, <code>HX-Redirect</code> enhanced — either way the
-next request renders the full layout. <code>Flash.cs</code> is pattern-copied per app (the established
-cross-app C# convention); the take happens explicitly at full-page render sites, never in a
+next request renders the full layout. <code>Flash</code> lives in <code>libs/nativeweb.web</code>; the take happens explicitly at full-page render sites, never in a
 fragment path, or a fragment render would consume the flash invisibly. <strong>Accepted posture:</strong>
 under same-site prerender a flash can double-show or be consumed silently — cosmetic, accepted.</p>
-<h3 id="keyboard-r5">Keyboard (R5)</h3>
-<p>Skip link first in the tab order, <code>main tabindex=&quot;-1&quot;</code>, <code>:focus-visible</code> rings — plus two or
-three access keys per app on primary actions, carried as <code>accesskey</code> + <code>aria-keyshortcuts</code> +
-the combo in <code>title</code>. Chosen letters: IdP — settings <code>Alt+S</code>, admin <code>Alt+A</code>; manzil — new
-bookmark <code>Alt+N</code>, search <code>Alt+S</code>, settings <code>Alt+O</code>.</p>
-<h3 id="validation-r7-r8">Validation (R7, R8)</h3>
+<h3 id="keyboard">Keyboard</h3>
+<p>Skip link first in the tab order, <code>main tabindex=&quot;-1&quot;</code>, <code>:focus-visible</code> rings. An app may add
+access keys on its primary actions, carried as <code>accesskey</code> + <code>aria-keyshortcuts</code> + the combo in
+<code>title</code>.</p>
+<h3 id="validation">Validation</h3>
 <p>Server validation is authoritative, always; the browser's native layer mirrors it for free.
 Form fields carry <code>required</code>, <code>minlength</code>/<code>maxlength</code>/<code>pattern</code>/<code>inputmode</code> matching the server
-rules (a unit test pins the mirrored constants where they duplicate server values). Server-side
+rules. Server-side
 failures render <strong>field-level errors</strong>: the input gets <code>aria-invalid=&quot;true&quot;</code> and
 <code>aria-describedby=&quot;{id}-error&quot;</code> (chaining any always-on hint), and an adjacent
 <code>&lt;p class=&quot;field__hint field__hint--error&quot; id=&quot;{id}-error&quot; role=&quot;alert&quot;&gt;</code> carries the message.
 Non-field failures keep the page banner. <strong>Boundary:</strong> sign-in and other credential failures
 stay generic banners — enumeration defense forbids saying which part was wrong; integration
 tests pin this.</p>
-<h3 id="version-and-error-pages-r1-r2"><code>/version</code> and error pages (R1, R2)</h3>
+<h3 id="version-and-error-pages"><code>/version</code> and error pages</h3>
 <p>Designed error pages (400–500 range) via <code>ErrorPageMiddleware</code> + <code>StaticErrorShell</code>, HX-aware.
-<code>/version</code> beside <code>/healthz</code> returns <code>InformationalVersion</code> (<code>&lt;Version&gt;</code> + short git SHA
-stamped by the per-app <code>StampSourceRevision</code> MSBuild target, &quot;dev&quot; fallback), unauthenticated,
-in robots.txt disallow. <strong>Accepted posture:</strong> the SHA is disclosed deliberately — it identifies
+<code>/version</code> beside <code>/healthz</code> returns <code>InformationalVersion</code> (<code>&lt;Version&gt;</code>, plus a short git SHA
+with a &quot;dev&quot; fallback where the product's csproj carries the <code>StampSourceRevision</code> MSBuild target,
+as the skeleton's does), unauthenticated, in robots.txt disallow. <strong>Accepted posture:</strong> the SHA is disclosed deliberately — it identifies
 a public commit, not a secret.</p>
 <h3 id="browser-native-first">Browser-native first</h3>
 <p>Before reaching for JavaScript or a library, check whether the browser already ships the
 feature. Prefer <code>&lt;dialog&gt;</code>, <code>&lt;details&gt;</code>/<code>&lt;summary&gt;</code>, popover, <code>&lt;template&gt;</code>, native form
 validation, lazy loading, and view transitions over rebuilding them; do not build replacements
 for browser capabilities.</p>
-<h3 id="any-content-type-r12">Any content type (R12)</h3>
+<h3 id="any-content-type">Any content type</h3>
 <p>LNW apps answer the web's text formats through one typed helper each, and offer several
 representations of one route through one mapping call
-(decision 009, spec 021).
-This section used to say the opposite — &quot;no framework machinery, no content-negotiation layer&quot; —
-and that stance was withdrawn when the sample became the first product to rebuild the same five
-things by hand.</p>
+(decision 009).</p>
 <ul>
 <li><strong>One call per format.</strong> <code>FormatResults</code> in <code>libs/nativeweb.render</code> has <code>Text</code>, <code>Markdown</code>,
 <code>Json</code> (source-generated <code>JsonTypeInfo&lt;T&gt;</code> only, so it trims), <code>Xml</code> (an <code>XmlWriter</code> callback),
@@ -349,8 +332,9 @@ specificity, then the first offer. An extension the route does not offer is a 40
 <code>Accept</code> that admits nothing is a 406, both <code>text/plain</code> naming the offers and neither
 reaching the handler. The extensionless route says <code>Vary: Accept</code> on every response.</li>
 <li><strong>A page is cached only when every render is the same page.</strong> <code>apps/sample</code> declares <code>/</code>,
-<code>/tags</code> and <code>/tags/{slug}</code> with <code>AsPublicPage</code> and leaves <code>/articles/{slug}</code> out of the cache
-on purpose: that page counts a view per render, and a cached copy would count one visit a
+<code>/tags</code>, <code>/tags/{slug}</code>, <code>/feed</code>, <code>/sitemap.xml</code>, <code>/robots.txt</code> and <code>/about</code> with
+<code>AsPublicPage</code> and leaves <code>/articles/{slug}</code> out of the cache on purpose: that page counts a
+view per render, and a cached copy would count one visit a
 minute. The three 404s an article slug can earn — unknown, unpublished, malformed — are one
 response, so the page never says which.</li>
 <li><strong>The cache keys on the choice.</strong> <code>PublicPageCachePolicy</code> runs the same chooser and varies its
@@ -379,9 +363,8 @@ their inputs.</li>
 <li><strong><code>RequestContext</code> wrapper</strong>: rejected — the per-request <code>Chrome</code>/<code>FormChrome</code> values built
 at render sites already carry what templates need without a context object drifting toward
 a service locator.</li>
-<li><strong>Strongly-typed IDs</strong>: deferred, not rejected — waiting on JauntyQ converter support
-(tracked in <code>work/todo.md</code>).</li>
-<li><strong>Resource-oriented <code>Features/</code> folders</strong>: rejected — both apps and the skeleton already
+<li><strong>Strongly-typed IDs</strong>: deferred, not rejected — waiting on JauntyQ converter support.</li>
+<li><strong>Resource-oriented <code>Features/</code> folders</strong>: rejected — the sample and the skeleton already
 follow the flat <code>apps//libs//tests/</code> layout with per-area endpoint files; a restructure
 buys navigation churn, not clarity.</li>
 <li><strong>Fragment URLs</strong> (<code>GET /todos:list</code>) <strong>as first-class outputs</strong>: rejected as a URL scheme —

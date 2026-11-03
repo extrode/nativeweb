@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -284,7 +284,7 @@ assert the refusal). A future options class must either keep that shape or regis
 rule closes.</p>
 <h2 id="progressive-enhancement-specs-004-005">Progressive enhancement (specs 004, 005)</h2>
 <p>Browser-facing markup uses the <code>data-nw-*</code> enhancement layer, normalized to <code>hx-*</code> by the
-vendored <code>boot.js</code> (canonical source <code>libs/nativeweb.assets/boot.js</code>, loaded <code>defer</code> before
+vendored <code>boot.js</code> (source <code>libs/nativeweb.web/wwwroot/_nativeweb/boot.js</code>, delivered by <code>NativeWeb.Web.targets</code>, loaded <code>defer</code> before
 htmx). State-changing endpoints are POST-only verb routes; transport is derived from the
 element's own <code>method</code>/<code>action</code>/<code>href</code>, and an authored <code>hx-*</code> attribute always wins. On top
 of that sit the spec 005 UX defaults: boot.js busy states and focus-after-swap, cookie flash

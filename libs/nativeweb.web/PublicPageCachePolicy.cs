@@ -17,8 +17,6 @@ namespace NativeWeb.Web;
 /// entry per campaign; the locale is taken from the negotiated value rather
 /// than the raw Accept-Language, which collapses every hostile spelling of a
 /// header onto the small set of catalogs actually shipped.
-///
-/// Pattern-copied from apps/manzil and kept structurally identical to it.
 /// </summary>
 public sealed class PublicPageCachePolicy : IOutputCachePolicy
 {

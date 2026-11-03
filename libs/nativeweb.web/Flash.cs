@@ -16,11 +16,8 @@ public enum FlashKind
 // be planted from a subdomain. Self-expires quickly in case the follow-up
 // render never happens.
 //
-// Pattern-copied from manzil's Auth/Flash.cs — keep structurally identical to
-// THAT copy: Take returns an (Ok, Error) pair of empty strings feeding the
-// layout's zero-length call-site guards, the shape template-rendered apps
-// use. apps/web's Flash differs deliberately (a nullable (Success, Message)
-// tuple feeding its C# Banner rendering); do not sync against it.
+// Take returns an (Ok, Error) pair of empty strings feeding the layout's
+// zero-length call-site guards, the shape template-rendered apps use.
 //
 // Set has no caller here yet by design: the skeleton ships the slot wired
 // (layout params + read-once Take at every full-page render site) so a

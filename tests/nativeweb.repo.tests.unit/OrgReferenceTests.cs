@@ -5,7 +5,7 @@ using Xunit;
 namespace NativeWeb.Repo.Tests.Unit;
 
 /// <summary>
-/// Every workflow checkout and package feed resolves through the current org.
+/// Every workflow checkout resolves through the current org, and no package feed is on GitHub Packages.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -60,24 +60,23 @@ public sealed partial class OrgReferenceTests
                 + "GitHub's redirect only for as long as GitHub keeps redirecting it.");
     }
 
+    /// <remarks>
+    /// The packages moved to nuget.org on 2026-10-20, so no committed config or workflow
+    /// names a GitHub Packages feed at all, in any org.
+    /// </remarks>
     [Fact]
-    public void EveryPackageFeedIsTheCurrentOrgs()
+    public void NoPackageFeedIsOnGitHubPackages()
     {
         string root = RepoRoot();
-        string[] configs = NuGetConfigFiles(root);
-        string[] candidates = [.. configs, .. WorkflowFiles(root)];
+        string[] candidates = [.. NuGetConfigFiles(root), .. WorkflowFiles(root)];
 
         (string File, string Owner)[] feeds = OwnersIn(root, candidates, FeedHostPattern());
 
-        Assert.NotEmpty(feeds);
-
-        string[] offenders = [.. feeds.Where(f => f.Owner != Org).Select(f => $"{f.File} ({f.Owner})")];
-
         Assert.True(
-            offenders.Length == 0,
-            $"These files resolve packages through an org other than '{Org}': "
-                + $"{string.Join(", ", offenders)}. A GITHUB_TOKEN cannot read another org's "
-                + "packages, so this fails on a runner with 403 and never fails locally.");
+            feeds.Length == 0,
+            "These files resolve packages through GitHub Packages: "
+                + $"{string.Join(", ", feeds.Select(f => $"{f.File} ({f.Owner})"))}. Every framework "
+                + "package is on nuget.org, and a GitHub feed needs a credential even to read.");
     }
 
     private static (string File, string Owner)[] OwnersIn(string root, string[] paths, Regex pattern)

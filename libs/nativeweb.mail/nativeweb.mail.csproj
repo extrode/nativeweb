@@ -7,7 +7,7 @@
        note in nativeweb.security.csproj. -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.Mail</PackageId>
+    <PackageId>Extrode.NativeWeb.Mail</PackageId>
     <Description>NativeWeb framework: AOT-safe SMTP transport and email templating.</Description>
   </PropertyGroup>
 

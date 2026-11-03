@@ -390,6 +390,12 @@ public sealed class SignInOptionsTests
     }
 
     [Fact]
+    public void Defaults_FlowLifetimeMatchesTheProvidersThirtyMinutes()
+    {
+        Assert.Equal(TimeSpan.FromMinutes(30), new SignInOptions().FlowLifetime);
+    }
+
+    [Fact]
     public void Defaults_NameNoProviderAndStayInsideTheApplication()
     {
         var options = new SignInOptions();

@@ -34,7 +34,7 @@ project memory lives in docs/lessons/.
 Specs, plans, designs and architecture notes live under `docs/`, committed, never in a
 dot-directory and never untracked — they exist to be reviewed in a diff.
 
-```
+```text
 docs/
   specs/001-a-new-way-for-the-api/          # one dir per spec
     001-spec.md  001-plan.md  001-tasks.md
@@ -53,7 +53,7 @@ docs/
 `work/` holds the files that answer "what is going on here" without reading the code.
 They are updated as part of the work, in the same branch, not batched to the end of a session.
 
-```
+```text
 CHANGELOG.md            # what shipped. At the ROOT, and written at release, not per commit.
 work/
   tasklist.md           # every task for the body of work underway. Stays put.
@@ -162,7 +162,7 @@ rule closes.
 ## Progressive enhancement (specs 004, 005)
 
 Browser-facing markup uses the `data-nw-*` enhancement layer, normalized to `hx-*` by the
-vendored `boot.js` (canonical source `libs/nativeweb.assets/boot.js`, loaded `defer` before
+vendored `boot.js` (source `libs/nativeweb.web/wwwroot/_nativeweb/boot.js`, delivered by `NativeWeb.Web.targets`, loaded `defer` before
 htmx). State-changing endpoints are POST-only verb routes; transport is derived from the
 element's own `method`/`action`/`href`, and an authored `hx-*` attribute always wins. On top
 of that sit the spec 005 UX defaults: boot.js busy states and focus-after-swap, cookie flash

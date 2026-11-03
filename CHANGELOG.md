@@ -9,7 +9,26 @@ An entry is added when `dev` merges to `main` and gets its semver tag. Work that
 Format is [Keep a Changelog](https://keepachangelog.com/), versions are semver. Use only the
 sections that apply; drop the empty ones rather than leaving them blank.
 
-## [Unreleased]
+## [0.1.0] — 2026-11-04
+
+### Changed
+
+- **Package ids are `Extrode.NativeWeb.*`.** Every packable library under `libs/` changes its
+  `PackageId` from `NativeWeb.X` to `Extrode.NativeWeb.X`, matching JauntyQ's `Extrode.JauntyQ.*`.
+  Namespaces and assembly names stay `NativeWeb.*`. `release.yml` pushes to nuget.org instead of
+  GitHub Packages, by trusted publishing (OIDC) through `tools/nuget-login.ts` rather than a
+  stored key; it needs a nuget.org policy for `release.yml` and the `NUGET_USER` variable.
+  `skeleton/nuget.config` declares nuget.org alone. Nothing had been published under the old ids. See
+  `docs/02-reference/breaking-changes.md`.
+- **`nativeweb.signin`: the newest sign-in wins.** `GET LoginPath` consumes the browser's unfinished
+  flow before starting a new one, and the callback clears the flow cookie only when its state
+  matches, so a stale or forced callback no longer ends the flow in progress. The flow cookie
+  outlives the flow by one `FlowLifetime`, so a callback arriving within that window after expiry
+  reports `state_expired` (or `state_unknown` once the store has swept the row) rather than
+  `state_mismatch`; later than that, the cookie is gone and it is `state_mismatch` again.
+  `InMemoryLoginFlowStore` reports a missing row as `state_unknown`, not `state_used`.
+  `FlowLifetime` defaults to 30 minutes (was 15). Plan:
+  `docs/plans/2026-11-03-015-signin-newest-flow-wins.md`.
 
 ### Added
 
@@ -1905,10 +1924,3 @@ Merged into `dev`, not yet tagged.
   fixture's `DisposeAsync` goes through the same hardened stop path as the failure paths rather
   than repeating the unguarded kill it documents as unsafe; and the log tail is its own type so
   its bound is tested by pushing past it rather than by hoping the app logged enough.
-
----
-
-## [0.1.0] — <date>
-
-### Added
-- (nothing yet)

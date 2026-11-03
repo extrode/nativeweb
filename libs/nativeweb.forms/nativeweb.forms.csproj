@@ -13,7 +13,7 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.Forms</PackageId>
+    <PackageId>Extrode.NativeWeb.Forms</PackageId>
     <Description>NativeWeb framework: declarative form-binding attributes and the guards the generated binder attaches.</Description>
   </PropertyGroup>
   <ItemGroup>

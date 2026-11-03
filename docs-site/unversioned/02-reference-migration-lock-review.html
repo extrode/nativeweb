@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Migration lock duration — review before pointing `migrate.sh` at a live database — nativeweb docs</title>
+<title>Migration lock duration: review before pointing `migrate.sh` at a live database — nativeweb docs</title>
 <link rel="stylesheet" href="site.css">
 <script>
 /* Inline, in the head, and before anything paints. A saved preference applied
@@ -56,7 +56,7 @@
     <button class="hamburger" aria-label="Toggle navigation" onclick="toggleNav()">&#9776;</button>
     <div class="header-brand">
       <span class="brand-name">nativeweb</span>
-      <span class="brand-crumb">Reference &#8250; Migration lock duration — review before pointing `migrate.sh` at a live database</span>
+      <span class="brand-crumb">Reference &#8250; Migration lock duration: review before pointing `migrate.sh` at a live database</span>
     </div>
     <div class="header-spacer"></div>
     <div class="header-tools">
@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html" class="active" aria-current="page">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html" class="active" aria-current="page">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -127,19 +127,19 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#the-rule-of-thumb">The rule of thumb</a><a class="toc-l2" href="#files-that-would-hurt">Files that would hurt</a><a class="toc-l2" href="#what-to-do-if-it-comes-to-that">What to do if it comes to that</a><a class="toc-l2" href="#what-was-checked-and-is-fine">What was checked and is fine</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#the-rule-of-thumb">The rule of thumb</a><a class="toc-l2" href="#files-that-need-care">Files that need care</a><a class="toc-l2" href="#what-to-do-about-it">What to do about it</a><a class="toc-l2" href="#expand-now-contract-later">Expand now, contract later</a></nav>
       <div class="content-inner">
-        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Migration lock duration — review before pointing `migrate.sh` at a live database</nav>
+        <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; Migration lock duration: review before pointing `migrate.sh` at a live database</nav>
         <article>
-<h1 id="migration-lock-duration--review-before-pointing-migratesh-at-a-live-database">Migration lock duration — review before pointing <code>migrate.sh</code> at a live database</h1>
-<p>Reviewed 2026-08-18, against <code>db/migrations/0001</code>–<code>0055</code>.</p>
-<p><code>db/migrate.sh</code> wraps each migration file in one transaction (2026-08-17), which is right for
-atomicity and costs lock duration: every lock a file takes is now held until its last statement
-commits, where autocommit released them statement by statement. Against a provisioning database
-that is free — which is the only thing these migrations have ever run against. Against a database
-serving traffic it blocks readers and writers for the length of the file.</p>
-<p><strong>Nothing here needs changing today.</strong> This is the list to act on if, and only if, migrations are
-ever applied to a live epass.io database rather than to a freshly provisioned one.</p>
+<h1 id="migration-lock-duration-review-before-pointing-migratesh-at-a-live-database">Migration lock duration: review before pointing <code>migrate.sh</code> at a live database</h1>
+<p><code>db/migrate.sh</code> wraps each migration file in one transaction. That is right for atomicity and
+costs lock duration: every lock a file takes is held until its last statement commits, where
+autocommit would release them statement by statement. Against a freshly provisioned database that
+is free. Against a database serving traffic it blocks readers and writers for the length of the
+file.</p>
+<p>The migrations in <code>db/sample/</code> run against a database being built, so nothing there needs
+changing. This is the checklist for writing migrations that will run against a live database, such
+as a stamped product's own <code>db/migrations/</code>.</p>
 <h2 id="the-rule-of-thumb">The rule of thumb</h2>
 <table>
 <thead>
@@ -187,68 +187,35 @@ ever applied to a live epass.io database rather than to a freshly provisioned on
 </tr>
 </tbody>
 </table>
-<h2 id="files-that-would-hurt">Files that would hurt</h2>
+<h2 id="files-that-need-care">Files that need care</h2>
 <p>Only wrapped files are affected. A file carrying <code>-- @no-transaction</code> is applied statement by
-statement exactly as before, so every <code>CONCURRENTLY</code> migration is already out of scope.</p>
-<table>
-<thead>
-<tr>
-<th>File</th>
-<th>Shape</th>
-<th>Why it matters</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>0021_realm_scoping</strong></td>
-<td>32 statements, 20 <code>ALTER TABLE</code>, 6 unqualified <code>UPDATE</code>, 4 <code>CREATE INDEX</code></td>
-<td>The worst by a wide margin. For each of six tables — <code>users</code>, <code>applications</code>, <code>temp_users</code>, <code>temp_codes</code>, <code>email_addresses</code>, <code>phone_numbers</code> — it runs <code>ADD COLUMN</code> → whole-table <code>UPDATE</code> → <code>SET NOT NULL</code> → <code>ADD CONSTRAINT … FOREIGN KEY</code> → <code>CREATE INDEX</code>. Wrapped, that holds <code>ACCESS EXCLUSIVE</code> on <strong>all six tables at once</strong> until the last statement commits, which is every table the IdP reads on a sign-in</td>
-</tr>
-<tr>
-<td><strong>0013_cascades_and_fk_indexes</strong></td>
-<td>13 statements, 7 <code>ALTER TABLE</code> adding FK cascades, 6 non-concurrent <code>CREATE INDEX</code></td>
-<td>Seven tables locked together; each FK validates with a full scan and each index blocks writes for its build</td>
-</tr>
-<tr>
-<td><strong>0029_contact_encryption</strong></td>
-<td>8 <code>ALTER TABLE</code>, two of them <code>ALTER COLUMN … TYPE text</code></td>
-<td>Two full table rewrites. Already <code>@no-transaction</code> for its <code>CONCURRENTLY</code> indexes, so the rewrites are at least not held open alongside them</td>
-</tr>
-<tr>
-<td><strong>0027_totp_hardening</strong></td>
-<td><code>ALTER COLUMN totp_secret TYPE VARCHAR(128)</code> on <code>users</code></td>
-<td>One rewrite of the largest table</td>
-</tr>
-<tr>
-<td><strong>0022_realm_unique_constraints</strong></td>
-<td>12 <code>ALTER TABLE</code>, but <code>CONCURRENTLY</code> throughout</td>
-<td>Already unwrapped. Listed so it is not re-reviewed as a suspect</td>
-</tr>
-</tbody>
-</table>
-<h2 id="what-to-do-if-it-comes-to-that">What to do if it comes to that</h2>
+statement, so every <code>CREATE INDEX CONCURRENTLY</code> migration must carry the marker. Watch for:</p>
+<ul>
+<li>Several tables altered in one file. Each <code>ALTER TABLE</code> holds its lock until the file commits, so
+the tables are locked together, not one after another.</li>
+<li><code>ADD COLUMN</code> then a whole-table <code>UPDATE</code> then <code>SET NOT NULL</code> then <code>ADD CONSTRAINT ... FOREIGN KEY</code> then <code>CREATE INDEX</code> on one table, repeated across tables. That sequence is the worst shape.</li>
+<li><code>ALTER COLUMN ... TYPE</code>, which rewrites the table under <code>ACCESS EXCLUSIVE</code>.</li>
+<li>Non-concurrent <code>CREATE INDEX</code> on a table that takes writes.</li>
+</ul>
+<h2 id="what-to-do-about-it">What to do about it</h2>
 <p>In order of preference:</p>
 <ol>
-<li><strong>Provision fresh instead.</strong> Every one of these was written for a database being built, not
-migrated. If the cutover creates a new database and imports data, none of this applies.</li>
-<li><strong>Split 0021 per table.</strong> Six files, one per table, each with its own <code>@no-transaction</code> where
-it needs one. Each still atomic in the sense that matters — a half-applied <em>table</em> is
-recoverable, a half-applied <em>schema</em> is not — and no two tables are locked simultaneously.</li>
+<li><strong>Provision fresh instead.</strong> If the cutover creates a new database and imports data, none of
+this applies.</li>
+<li><strong>Split by table.</strong> One file per table, each with its own <code>@no-transaction</code> where it needs one.
+Each is still atomic in the sense that matters (a half-applied <em>table</em> is recoverable, a
+half-applied <em>schema</em> is not), and no two tables are locked simultaneously.</li>
 <li><strong><code>ADD CONSTRAINT … NOT VALID</code>, then <code>VALIDATE CONSTRAINT</code> separately.</strong> The second takes only
-<code>SHARE UPDATE EXCLUSIVE</code> and does not block writes. No migration here uses <code>NOT VALID</code> today.</li>
+<code>SHARE UPDATE EXCLUSIVE</code> and does not block writes.</li>
 <li><strong>Make the non-concurrent <code>CREATE INDEX</code> statements concurrent</strong>, which moves those files to
 <code>@no-transaction</code>.</li>
 <li><strong>Set a <code>lock_timeout</code></strong> for the run so a migration that cannot get its lock quickly fails
 instead of queuing behind — and ahead of — application traffic.</li>
 </ol>
-<h2 id="what-was-checked-and-is-fine">What was checked and is fine</h2>
-<ul>
-<li>Every <code>CONCURRENTLY</code> migration already carries <code>@no-transaction</code>, so the transaction wrap never
-applies to one. Verified by <code>MigrateRunnerTests.EveryMigrationNeedingTheMarker_CarriesIt</code>.</li>
-<li>No migration adds a column with a <strong>volatile</strong> default, which would force a rewrite on PG 11+.</li>
-<li>The data migrations (0049, 0054, 0055) touch <code>bff_store</code> only, which is session state rather
-than user data, and 0054 manages its own transaction.</li>
-</ul>
+<h2 id="expand-now-contract-later">Expand now, contract later</h2>
+<p><code>deploy.sh</code> runs migrations while the previous release is still serving, so a migration must not
+drop or rename anything the running version reads. See the runbook:
+<a href="02-reference-deployment.html#migrations-run-against-the-previous-release">deployment.md</a>.</p>
 
         </article>
         <div class="page-nav" id="page-nav">

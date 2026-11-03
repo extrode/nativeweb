@@ -22,8 +22,8 @@ and is not written to be read straight through.
   wrong or absent value actually costs.
 - **[Template diagnostics](../02-reference/template-diagnostics.md)** — `NWT001`–`NWT016`, what
   each build error means and how to fix it.
-- **[Security baseline](../02-reference/security-baseline.md)** — the ASVS-derived checklist the
-  identity provider is held to.
+- **[Security baseline](../02-reference/security-baseline.md)** — the ASVS-derived checklist
+  NativeWeb and the products stamped from it are held to.
 - **[Migration lock review](../02-reference/migration-lock-review.md)** — how long `db/migrate.sh`
   holds its locks. Read before pointing it at a live database.
 

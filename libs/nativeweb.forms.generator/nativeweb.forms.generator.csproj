@@ -16,7 +16,7 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.Forms.Generator</PackageId>
+    <PackageId>Extrode.NativeWeb.Forms.Generator</PackageId>
     <Description>NativeWeb framework: declarative form-binding source generator and the missing-antiforgery analyzer.</Description>
     <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeBuildOutput>false</IncludeBuildOutput>

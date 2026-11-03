@@ -14,7 +14,7 @@ CREATE DATABASE __product___dev OWNER __product___app;
 
 Then apply the schema and start the app:
 
-```
+```bash
 bash db/migrate.sh
 dotnet run --project apps/__product__
 ```
@@ -26,13 +26,13 @@ The connection string lives in user-secrets locally
 sibling checkout by default, so `../NativeWeb` must exist — or pass the path explicitly. JauntyQ
 resolves from packages and needs no sibling.
 
-```
+```bash
 dotnet run --project apps/__product__ -p:NativeWebRoot=<path>
 ```
 
 ## Build and test
 
-```
+```bash
 export __PRODUCT____Db__ConnectionString="Host=127.0.0.1;Database=__product___dev;Username=__product___app;Password=..."
 dotnet build
 dotnet test --project tests/__product__.tests.unit
@@ -43,8 +43,7 @@ dotnet test --project tests/__product__.tests.e2e
 Integration tests need a real PostgreSQL instance; e2e publishes the app and drives it with
 Playwright. All three tiers pass before anything merges.
 
-Two things about the last two tiers are not obvious, and both were found by stamping a product and
-running them rather than by reading anything:
+Two things about the last two tiers are not obvious:
 
 - **The integration tier reads `__PRODUCT____Db__ConnectionString` from the environment.** Without
   it the tier still runs, but `/readyz` reports `ServiceUnavailable` and one fact fails. The
@@ -54,7 +53,7 @@ running them rather than by reading anything:
   e2e tier, because that tier's fixture shells out to its own `dotnet publish` and command-line
   properties do not cross into a child process. Environment variables do:
 
-  ```
+  ```bash
   export NativeWebRoot=/path/to/nativeweb
   ```
 
@@ -63,7 +62,7 @@ running them rather than by reading anything:
 
 ## Publish
 
-```
+```bash
 dotnet publish apps/__product__ -c Release
 ```
 
@@ -97,7 +96,7 @@ properties, so one definition covers all of it.
 
 The workspace is laid out as **siblings**, with this product in `product/`:
 
-```
+```text
 $GITHUB_WORKSPACE/
   product/     <- this repository
   NativeWeb/
@@ -106,21 +105,18 @@ $GITHUB_WORKSPACE/
 That is required, not tidiness. `Directory.Packages.props` discovery walks up from each project
 and does not stop at a repository boundary, so a framework clone placed *inside* `product/`
 inherits this repo's copy — which sets `ManagePackageVersionsCentrally=true` over a repository
-that does not expect it. Measured 2026-08-17 against the jauntyq clone this workspace used to
-carry: NU1008 on both JauntyQ projects, where the sibling layout built clean. `defaults.run.working-directory: product` is
-what keeps every `run:` step pointed at this repository.
+that does not expect it (NU1008 on both JauntyQ projects). `defaults.run.working-directory: product`
+is what keeps every `run:` step pointed at this repository.
 
-**Set the `FRAMEWORK_CHECKOUT_TOKEN` repository secret** before the first run. The NativeWeb repo
-is private and the default `GITHUB_TOKEN` is scoped to this repository only, so without it the
-checkout step fails with `Repository not found`.
+The framework repository is public, so the workflow checks it out with the default
+`GITHUB_TOKEN` and needs no repository secret.
 
 **NativeWeb package mode (`-p:NativeWebUsePackages=true`) still exists and is still unusable:**
-no `NativeWeb.*` package has published, so a package-mode restore of the framework cannot succeed
-anywhere. CI used to force it and died at Restore on every run; it no longer depends on it.
+the `Extrode.NativeWeb.*` packages will come from nuget.org, but none has been released yet, so
+a package-mode restore of the framework cannot succeed anywhere. CI does not use it.
 
-**JauntyQ went the other way on 2026-09-05 and packages are its default.** Nothing needs to be
-passed for the default: the pins are `Extrode.JauntyQ.*`, public on nuget.org since core 0.5.0, and
-restore with no credential. Checkout mode, `-p:JauntyQUsePackages=false`, builds against a sibling
+**JauntyQ packages are its default.** Nothing needs to be passed: the pins are
+`Extrode.JauntyQ.*`, public on nuget.org, and restore with no credential. Checkout mode, `-p:JauntyQUsePackages=false`, builds against a sibling
 clone of the public core (`github.com/extrode/jauntyq`). The JauntyQ license limits generated
 output to self-hosted use, which is also why enabling this workflow in a repository outside those
 terms is not permitted.
@@ -137,12 +133,10 @@ The stamp leaves deliberate placeholders. Replace every one before the product f
 - `wwwroot/img/logo.svg` — the placeholder logo.
 - `deploy/__product__.service` / `install-windows-service.ps1` — connection string and URLs.
 - `docs/security-baseline.md` — tick the checklist, honestly.
-- **The `FRAMEWORK_CHECKOUT_TOKEN` repository secret.** The one setup step with no artifact in
-  this repo, so nothing here will remind you: CI cannot check out the framework without it.
-- `nuget.config` — the `framework-github` source points at `extrode`'s registry. Repoint it if
-  your framework packages publish elsewhere; the `packageSourceMapping` beside it is what keeps
-  `NativeWeb.*`/`JauntyQ.*` from ever resolving against nuget.org, so keep the two in step.
-- `.github/workflows/ci.yml` — the `extrode/nativeweb` checkout target and its `ref: dev`. Pin
+- `nuget.config` — nuget.org alone, with a `*` source mapping. Every pin, `Extrode.NativeWeb.*`
+  and `Extrode.JauntyQ.*`, restores from it with no credential. Add a mapping for any source you
+  add beside it.
+- `.github/workflows/ci.yml` — the `extrode/nativeweb` checkout target and its `ref: main`. Pin
   that to a tag once the framework publishes one.
 
 ## Status

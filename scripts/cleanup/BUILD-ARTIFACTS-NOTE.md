@@ -1,219 +1,28 @@
 # Build artifacts cleanup
 
-Written 2026-09-16 during a machine-wide disk-space audit. This project was carrying
-**2.87 GB** across 184 build/tool-output directories (bin, obj, node_modules, dist,
-and similar -- see `build-artifacts-cleanup-2026-09-16.ps1` in this same folder for the exact
-list and sizes at the time this was written).
+`build-artifacts-cleanup-2026-09-16.ps1`, in this folder, deletes build and tool-output
+directories (`bin`, `obj`, `dist`, published `wwwroot/vendor` copies, scratch output under `tmp/`)
+to reclaim disk space. The directories it removes are listed inside the script.
 
-## What this is
-
-`build-artifacts-cleanup-2026-09-16.ps1` deletes exactly the directories listed inside it. It:
+## What it does
 
 - **Does nothing by default.** Bare invocation is a dry run.
 - Deletes only with `-e` / `--execute`.
-- Re-checks every path against `git ls-files` at run time before deleting it, and refuses
-  (leaves alone) anything git tracks -- even if it's on the list below, even if this note is
-  stale. A stale list makes the script a no-op on those entries, not a data-loss risk.
+- Re-checks every path against `git ls-files` at run time and leaves alone anything git tracks,
+  even if the path is on its list. A stale list makes the script a no-op on those entries, not a
+  data-loss risk.
 - Reports "already gone" instead of erroring on anything already cleaned up by hand.
 
 Run it from PowerShell, from anywhere (it resolves its own repo root):
 
-```
+```powershell
 pwsh -NoProfile scripts/cleanup/build-artifacts-cleanup-2026-09-16.ps1        # dry run
 pwsh -NoProfile scripts/cleanup/build-artifacts-cleanup-2026-09-16.ps1 -e     # delete
 ```
 
-## Keep this updated
+## Keep it updated
 
-**If the build/artifact layout changes -- new output directories, moved paths, renamed or removed
-projects inside this repo -- update the list inside the `.ps1`, not just this note.** The script
-is the source of truth for what gets deleted; this file just explains why it exists. A stale
-script isn't dangerous (the git-tracked check protects committed content either way), but it will
-silently stop reclaiming space as new artifact directories appear that aren't on its list.
-
-## What was on the list as of 2026-09-16
-
-- `apps/sample/bin` (688 MB)
-- `apps/sample/obj` (331 MB)
-- `tests/nativeweb.signin.tests.aot/probe-host/bin` (307 MB)
-- `tests/nativeweb.scaffold.tests.e2e/bin` (110 MB)
-- `tests/nativeweb.signin.tests.e2e/bin` (109 MB)
-- `tests/nativeweb.forms.tests.e2e/bin` (109 MB)
-- `tests/nativeweb.permissions.tests.e2e/bin` (108 MB)
-- `skeleton/tests/__product__.tests.e2e/bin` (97 MB)
-- `tests/nativeweb.signin.tests.aot/probe-host/obj` (90 MB)
-- `tests/nativeweb.web.tests.unit/bin` (65 MB)
-- `tests/nativeweb.render.tests.unit/bin` (45 MB)
-- `tests/nativeweb.scaffold.tests.integration/bin` (43 MB)
-- `tests/nativeweb.sample.tests.integration/bin` (42 MB)
-- `tests/nativeweb.permissions.tests.integration/bin` (42 MB)
-- `tmp/probe/023f/bin` (40 MB)
-- `tmp/probe/023claims/bin` (40 MB)
-- `tmp/stamp015c/tests/stampcheck.tests.integration/bin` (39 MB)
-- `tmp/adopt-probe/probe-tests/bin` (38 MB)
-- `tests/nativeweb.signin.tests.integration/bin` (36 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/tests/nativeweb.signin.tests.integration/bin` (36 MB)
-- `dist` (31 MB)
-- `tests/nativeweb.sample.tests.unit/bin` (30 MB)
-- `tmp/probe/m/bin` (27 MB)
-- `tmp/stamp015-old/tests/stampcheck.tests.unit/bin` (25 MB)
-- `tmp/stamp015c/tests/stampcheck.tests.unit/bin` (25 MB)
-- `tmp/sectest/apps/sectest/bin` (23 MB)
-- `tmp/probe-sec2/apps/sectest/bin` (23 MB)
-- `tests/nativeweb.signin.tests.unit/bin` (23 MB)
-- `tests/nativeweb.security.tests.unit/bin` (23 MB)
-- `tests/nativeweb.scaffold.tests.unit/bin` (23 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/tests/nativeweb.signin.tests.unit/bin` (23 MB)
-- `tests/nativeweb.permissions.tests.unit/bin` (22 MB)
-- `tests/nativeweb.forms.tests.unit/bin` (22 MB)
-- `tmp/stamp015-old/apps/stampcheck/bin` (20 MB)
-- `tmp/stamp015c/apps/stampcheck/bin` (20 MB)
-- `tmp/adopt-probe/your-product/bin` (20 MB)
-- `tmp/nuget-pkgs/netstandard.library/2.0.3/build` (19 MB)
-- `tmp/fmtlit/bin` (16 MB)
-- `tests/nativeweb.mail.tests.unit/bin` (7 MB)
-- `libs/nativeweb.mail/bin` (6 MB)
-- `tests/nativeweb.repo.tests.unit/bin` (6 MB)
-- `tests/nativeweb.forms.tests.integration/bin` (5 MB)
-- `tests/nativeweb.signin.tests.aot/bin` (5 MB)
-- `tests/nativeweb.web.tests.unit/obj` (2 MB)
-- `tests/nativeweb.scaffold.tests.integration/obj` (2 MB)
-- `tests/nativeweb.signin.tests.unit/obj` (1 MB)
-- `tmp/wsl-publish-probe/wwwroot/vendor` (1 MB)
-- `tmp/t14-publish/wwwroot/vendor` (1 MB)
-- `tmp/samplepub/wwwroot/vendor` (1 MB)
-- `tmp/publish-028/wwwroot/vendor` (1 MB)
-- `tmp/probe/021-publish/wwwroot/vendor` (1 MB)
-- `tmp/perfprobe/wwwroot/vendor` (1 MB)
-- `tmp/perf/web/wwwroot/vendor` (1 MB)
-- `tmp/bench/publish/wwwroot/vendor` (1 MB)
-- `tmp/aot-no-msvc/wwwroot/vendor` (1 MB)
-- `tmp/aotcheck/wwwroot/vendor` (1 MB)
-- `tmp/stamp015-old/apps/stampcheck/wwwroot/vendor` (1 MB)
-- `tmp/stamp015-old/apps/stampcheck/obj` (1 MB)
-- `tmp/stamp015c/apps/stampcheck/wwwroot/vendor` (1 MB)
-- `tmp/shallow-probe/skeleton/apps/__product__/wwwroot/vendor` (1 MB)
-- `tmp/shallow-probe/apps/web/wwwroot/vendor` (1 MB)
-- `tmp/sectest/apps/sectest/wwwroot/vendor` (1 MB)
-- `tmp/sectest/apps/sectest/obj` (1 MB)
-- `tmp/probe-sec2/apps/sectest/wwwroot/vendor` (1 MB)
-- `tmp/probe-sec2/apps/sectest/obj` (1 MB)
-- `tests/nativeweb.sample.tests.unit/obj` (1 MB)
-- `tests/nativeweb.render.tests.unit/obj` (1 MB)
-- `skeleton/apps/__product__/wwwroot/vendor` (1 MB)
-- `apps/sample/wwwroot/vendor` (1 MB)
-- `.worktrees/pin-3bc0496/skeleton/apps/__product__/wwwroot/vendor` (1 MB)
-- `.worktrees/pin-3bc0496/apps/sample/wwwroot/vendor` (1 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/skeleton/apps/__product__/wwwroot/vendor` (1 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/apps/sample/wwwroot/vendor` (1 MB)
-- `.worktrees/epass-pin/skeleton/apps/__product__/wwwroot/vendor` (1 MB)
-- `.worktrees/epass-pin/apps/sample/wwwroot/vendor` (1 MB)
-- `tmp/stamp015c/apps/stampcheck/obj` (1 MB)
-- `tests/nativeweb.sample.tests.integration/obj` (1 MB)
-- `tests/nativeweb.permissions.tests.integration/obj` (1 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/tests/nativeweb.signin.tests.unit/obj` (1 MB)
-- `libs/nativeweb.signin/obj` (1 MB)
-- `tests/nativeweb.repo.tests.unit/obj` (1 MB)
-- `tests/nativeweb.permissions.tests.unit/obj` (1 MB)
-- `tests/nativeweb.scaffold.tests.unit/obj` (1 MB)
-- `tests/nativeweb.signin.tests.integration/obj` (1 MB)
-- `tmp/t7probe/obj` (1 MB)
-- `libs/nativeweb.signin.testing/bin` (1 MB)
-- `libs/nativeweb.web/obj` (1 MB)
-- `tmp/probe/023claims/obj` (1 MB)
-- `tests/nativeweb.scaffold.tests.e2e/obj` (1 MB)
-- `tmp/probe/023f/obj` (1 MB)
-- `tests/nativeweb.forms.tests.unit/obj` (1 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/tests/nativeweb.signin.tests.integration/obj` (1 MB)
-- `libs/nativeweb.signin/bin` (1 MB)
-- `tmp/stamp015c/tests/stampcheck.tests.integration/obj` (1 MB)
-- `libs/nativeweb.web/bin` (1 MB)
-- `tmp/probe/m/obj` (1 MB)
-- `tests/nativeweb.security.tests.unit/obj` (1 MB)
-- `tmp/t7probe/bin` (1 MB)
-- `tmp/adopt-probe/probe-tests/obj` (1 MB)
-- `libs/nativeweb.scaffold.generator/obj` (1 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.signin/obj` (1 MB)
-- `tests/nativeweb.forms.tests.integration/obj` (1 MB)
-- `skeleton/apps/__product__/obj` (1 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/libs/nativeweb.signin/obj` (1 MB)
-- `libs/nativeweb.render.generator/obj` (0 MB)
-- `tmp/adopt-probe/your-product/obj` (0 MB)
-- `tmp/stamp015c/tests/stampcheck.tests.unit/obj` (0 MB)
-- `libs/nativeweb.permissions/obj` (0 MB)
-- `tests/nativeweb.forms.tests.e2e/obj` (0 MB)
-- `tests/nativeweb.signin.tests.e2e/obj` (0 MB)
-- `tests/nativeweb.permissions.tests.integration/public-read-host/obj` (0 MB)
-- `tests/nativeweb.mail.tests.unit/obj` (0 MB)
-- `tests/nativeweb.permissions.tests.e2e/obj` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.web/obj` (0 MB)
-- `tmp/stamp015-old/tests/stampcheck.tests.unit/obj` (0 MB)
-- `libs/nativeweb.signin.testing/obj` (0 MB)
-- `skeleton/tests/__product__.tests.integration/obj` (0 MB)
-- `tests/nativeweb.permissions.tests.integration/public-read-host/bin` (0 MB)
-- `skeleton/tests/__product__.tests.unit/obj` (0 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/libs/nativeweb.signin.testing/bin` (0 MB)
-- `tests/nativeweb.signin.tests.aot/obj` (0 MB)
-- `libs/nativeweb.forms.generator/obj` (0 MB)
-- `libs/nativeweb.render/obj` (0 MB)
-- `tmp/fmtlit/obj` (0 MB)
-- `libs/nativeweb.permissions.generator/obj` (0 MB)
-- `.worktrees/epass-pin/libs/nativeweb.render/obj` (0 MB)
-- `skeleton/tests/__product__.tests.e2e/obj` (0 MB)
-- `libs/nativeweb.permissions/bin` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.signin/bin` (0 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/libs/nativeweb.signin/bin` (0 MB)
-- `libs/nativeweb.security/obj` (0 MB)
-- `libs/nativeweb.scaffold/obj` (0 MB)
-- `libs/nativeweb.scaffold.generator/bin` (0 MB)
-- `libs/nativeweb.forms/obj` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.web/bin` (0 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/libs/nativeweb.signin.testing/obj` (0 MB)
-- `.worktrees/epass-pin/libs/nativeweb.security/obj` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.render.generator/obj` (0 MB)
-- `libs/nativeweb.mail/obj` (0 MB)
-- `libs/nativeweb.render.generator/bin` (0 MB)
-- `skeleton/libs/__product__.data/obj` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.render/obj` (0 MB)
-- `libs/nativeweb.security/bin` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.security/obj` (0 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/libs/nativeweb.security/obj` (0 MB)
-- `tmp/nuget-pkgs/microsoft.dotnet.ilcompiler/10.0.7/build` (0 MB)
-- `libs/nativeweb.render/bin` (0 MB)
-- `.worktrees/epass-pin/libs/nativeweb.render/bin` (0 MB)
-- `tmp/stamp015-old/libs/stampcheck.data/obj` (0 MB)
-- `tmp/stamp015c/libs/stampcheck.data/obj` (0 MB)
-- `tmp/sectest/libs/sectest.data/obj` (0 MB)
-- `tmp/probe-sec2/libs/sectest.data/obj` (0 MB)
-- `libs/nativeweb.forms.generator/bin` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.render.generator/bin` (0 MB)
-- `.worktrees/epass-pin/libs/nativeweb.security/bin` (0 MB)
-- `libs/nativeweb.scaffold/bin` (0 MB)
-- `libs/nativeweb.forms/bin` (0 MB)
-- `libs/nativeweb.permissions.generator/bin` (0 MB)
-- `skeleton/libs/__product__.data/bin` (0 MB)
-- `tmp/watchprobe/app/obj` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.render/bin` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.security/bin` (0 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/libs/nativeweb.security/bin` (0 MB)
-- `tmp/stamp015-old/libs/stampcheck.data/bin` (0 MB)
-- `tmp/stamp015c/libs/stampcheck.data/bin` (0 MB)
-- `tmp/sectest/libs/sectest.data/bin` (0 MB)
-- `tmp/probe-sec2/libs/sectest.data/bin` (0 MB)
-- `tmp/nuget-pkgs/microsoft.net.illink.tasks/10.0.7/tools/netframework/build` (0 MB)
-- `tmp/nuget-pkgs/microsoft.net.illink.tasks/10.0.7/tools/net/build` (0 MB)
-- `tmp/nuget-pkgs/microsoft.net.illink.tasks/10.0.7/build` (0 MB)
-- `tmp/t7probe/pub/wwwroot/vendor` (0 MB)
-- `libs/nativeweb.web/build` (0 MB)
-- `.worktrees/pin-3bc0496/libs/nativeweb.web/build` (0 MB)
-- `.worktrees/epass-pin/libs/nativeweb.web/build` (0 MB)
-- `tmp/nuget-pkgs/jauntyq.generator/0.4.0/build` (0 MB)
-- `.worktrees/fix-signin-conformance-refresh-collision/libs/nativeweb.web/build` (0 MB)
-- `tmp/nuget-pkgs/fido2/4.0.1/build` (0 MB)
-- `tmp/watchprobe/app/bin` (0 MB)
-- `tmp/t7probe/wwwroot/vendor` (0 MB)
-- `skeleton/tests/__product__.tests.unit/bin` (0 MB)
-- `skeleton/tests/__product__.tests.integration/bin` (0 MB)
-- `skeleton/apps/__product__/bin` (0 MB)
-- `obj` (0 MB)
-- `bin` (0 MB)
+If the build or artifact layout changes (new output directories, moved paths, renamed or removed
+projects), update the list inside the `.ps1`. The script is the source of truth for what gets
+deleted; this file only explains it. A stale script is not dangerous, but it silently stops
+reclaiming space for artifact directories that are not on its list.

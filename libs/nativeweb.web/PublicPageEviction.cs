@@ -15,7 +15,7 @@ namespace NativeWeb.Web;
 ///
 /// The skeleton has no accounts and so no write route to attach this to; it
 /// ships here so a product that grows one has the mechanism rather than
-/// reinventing it. Pattern-copied from apps/manzil, structurally identical.
+/// reinventing it.
 /// </summary>
 public static class PublicPageEviction
 {

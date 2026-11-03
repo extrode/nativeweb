@@ -36,7 +36,7 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.SignIn</PackageId>
+    <PackageId>Extrode.NativeWeb.SignIn</PackageId>
     <Description>NativeWeb framework: the OAuth 2.0 relying party — authorization-code with PKCE, a server-side session, silent refresh, and bearer introspection. Client only; never an issuer.</Description>
   </PropertyGroup>
 
@@ -59,7 +59,7 @@
 
     <!-- Spec 016 R20, inherited from spec 009 R3. A consumer's integration tests
          need a signed-in browser, and the only honest way to get one is this
-         library's own minting code: the alternative, which justsmtp did under
+         library's own minting code: the alternative, which a consumer did under
          008, is a test that reimplements the session format by hand and therefore
          keeps passing when the format changes.
 

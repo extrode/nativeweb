@@ -31,7 +31,7 @@
        a version that was never published.
 
        KNOWN GAP, and it is now half the size it was: spec 028 built the pack
-       and the tag-triggered publish (.github/workflows/publish.yml), so a
+       and the tag-triggered publish (.github/workflows/release.yml), so a
        release puts these versions on the feed. Until a v0.1.0 tag is pushed
        nothing is there to restore, and a local sibling checkout of NativeWeb
        (its checkout mode is still the default) stays the working path. JauntyQ
@@ -40,11 +40,11 @@
   <ItemGroup>
     <PackageVersion Include="Extrode.JauntyQ.Generator" Version="0.5.1" />
     <PackageVersion Include="Extrode.JauntyQ.Runtime" Version="0.5.1" />
-    <PackageVersion Include="NativeWeb.Security" Version="0.1.0" />
-    <PackageVersion Include="NativeWeb.Render" Version="0.1.0" />
-    <PackageVersion Include="NativeWeb.Render.Generator" Version="0.1.0" />
-    <PackageVersion Include="NativeWeb.Web" Version="0.1.0" />
-    <PackageVersion Include="NativeWeb.SignIn" Version="0.1.0" />
+    <PackageVersion Include="Extrode.NativeWeb.Security" Version="0.1.0" />
+    <PackageVersion Include="Extrode.NativeWeb.Render" Version="0.1.0" />
+    <PackageVersion Include="Extrode.NativeWeb.Render.Generator" Version="0.1.0" />
+    <PackageVersion Include="Extrode.NativeWeb.Web" Version="0.1.0" />
+    <PackageVersion Include="Extrode.NativeWeb.SignIn" Version="0.1.0" />
   </ItemGroup>
 
   <!-- Test-only packages. Referenced solely by tests/*, never by shipping code. -->

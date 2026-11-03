@@ -155,6 +155,30 @@ public sealed class RoundTripTests
     }
 
     [Fact]
+    public async Task Callback_FromAnEarlierSignIn_LeavesTheNewerOneToFinish()
+    {
+        await using SignInHost host = await SignInHost.StartAsync();
+        using var browser = new Browser(host.Client());
+
+        using HttpResponseMessage firstRedirect = await browser.GetOnceAsync("/signin");
+        using HttpResponseMessage firstBack =
+            await browser.GetOnceAsync(firstRedirect.Headers.Location!.ToString());
+        using HttpResponseMessage secondRedirect = await browser.GetOnceAsync("/signin");
+        using HttpResponseMessage secondBack =
+            await browser.GetOnceAsync(secondRedirect.Headers.Location!.ToString());
+
+        using HttpResponseMessage stale =
+            await browser.GetOnceAsync(firstBack.Headers.Location!.ToString());
+        using HttpResponseMessage current =
+            await browser.GetOnceAsync(secondBack.Headers.Location!.ToString());
+
+        Assert.Contains(
+            "error=state_mismatch", stale.Headers.Location!.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("error=", current.Headers.Location!.ToString(), StringComparison.Ordinal);
+        Assert.Equal(1, host.Provider.TokenRequests);
+    }
+
+    [Fact]
     public async Task Callback_WithAStateNothingStarted_MintsNoSession()
     {
         await using SignInHost host = await SignInHost.StartAsync();

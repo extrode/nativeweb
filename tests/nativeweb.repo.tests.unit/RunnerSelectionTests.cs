@@ -9,7 +9,7 @@ public sealed partial class RunnerSelectionTests
 
     [Theory]
     [InlineData("ci.yml")]
-    [InlineData("publish.yml")]
+    [InlineData("release.yml")]
     public void EveryJob_PicksItsRunnerFromARepoVariable_FallingBackToAHostedOne(string file)
     {
         Assert.All(Jobs(file), job =>
@@ -24,7 +24,7 @@ public sealed partial class RunnerSelectionTests
 
     [Theory]
     [InlineData("ci.yml")]
-    [InlineData("publish.yml")]
+    [InlineData("release.yml")]
     public void EveryJob_RestoresIntoACacheTheRunnerEmptiesPerJob(string file)
     {
         Assert.All(Jobs(file), job =>
@@ -46,12 +46,10 @@ public sealed partial class RunnerSelectionTests
     [InlineData("ci.yml")]
     public void EveryAddSource_GoesIntoAConfigTheSameJobWroteFresh(string file)
     {
-        int adds = 0;
         foreach ((string name, string body) in Jobs(file))
         {
             foreach (Match add in AddSourcePattern().Matches(body))
             {
-                adds++;
                 string source = add.Groups["name"].Value;
                 string config = add.Groups["config"].Value;
                 string before = body[..add.Index];
@@ -65,8 +63,6 @@ public sealed partial class RunnerSelectionTests
                     $"{file} job '{name}' writes {config} under a condition, so '{source}' can meet an earlier job's entry.");
             }
         }
-
-        Assert.True(adds > 0, $"{file} adds no source at all.");
     }
 
     [Fact]

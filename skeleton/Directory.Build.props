@@ -66,7 +66,7 @@
        The framework repository made the same flip in the same change; its
        Directory.Build.props carries the full reasoning.
 
-       NativeWebUsePackages below is NOT flipped with it: the NativeWeb.*
+       NativeWebUsePackages below is NOT flipped with it: the Extrode.NativeWeb.*
        packages have never been published, so a stamped product still needs the
        framework checkout. -->
   <PropertyGroup>
@@ -87,7 +87,7 @@
   </Target>
 
   <!-- Local checkout of NativeWeb (the framework libs: security, auth, render
-       + render generator), referenced by project until the NativeWeb.* packages
+       + render generator), referenced by project until the Extrode.NativeWeb.* packages
        publish. Single-depth probe: a stamped product repo sits beside its
        framework, so the sibling resolves one level up. Override with
        -p:NativeWebRoot=... if your checkout lives elsewhere.
@@ -108,7 +108,7 @@
 
   <!-- Dual-mode NativeWeb resolution, same split as JauntyQ above:
        - local checkout (the default) => ProjectReference for co-development;
-       - -p:NativeWebUsePackages=true => the pinned NativeWeb.* packages
+       - -p:NativeWebUsePackages=true => the pinned Extrode.NativeWeb.* packages
          (versions in Directory.Packages.props).
        Package mode is opt-in ONLY, same as JauntyQ; MSBuild also reads bare
        environment variables as properties, so an ambient NativeWebUsePackages
@@ -128,7 +128,7 @@
     <Message Importance="high" Condition="'$(NativeWebUsePackages)' != 'true'"
              Text="NativeWeb: checkout mode ($(NativeWebRoot))" />
     <Message Importance="high" Condition="'$(NativeWebUsePackages)' == 'true'"
-             Text="NativeWeb: PACKAGE mode (pinned NativeWeb.* packages, not a checkout)" />
+             Text="NativeWeb: PACKAGE mode (pinned Extrode.NativeWeb.* packages, not a checkout)" />
     <Message Importance="high" Condition="'$(JauntyQUsePackages)' != 'false'"
              Text="JauntyQ: PACKAGE mode (pinned Extrode.JauntyQ.* packages, not a checkout)" />
     <Message Importance="high" Condition="'$(JauntyQUsePackages)' == 'false'"

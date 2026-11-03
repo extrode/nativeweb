@@ -135,8 +135,9 @@ The line this repository holds, on the Django model: Django ships contrib.auth a
 leaves the OAuth2/OIDC server to a third-party package. Hashing, opaque tokens, bot traps
 and a data protector are framework primitives and belong here. A token issuer, consent
 screen, realm resolver, SSO mode, client registry or identity schema does not belong here
-and never will. An identity provider was removed from this repository on 2026-08-31 for
-that reason, and this library is small on purpose: a candidate type that serves one
+and never will (see
+[the decision record](../../docs/decisions/2026-08-31-007-idp-leaves-nativeweb.md)). This
+library is small on purpose: a candidate type that serves one
 product's sign-in flow rather than any consumer of the primitive has crossed the line,
 and the answer is removal, not accommodation.
 

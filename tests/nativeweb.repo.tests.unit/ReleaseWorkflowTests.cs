@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace NativeWeb.Repo.Tests.Unit;
@@ -7,8 +8,8 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A version already on GitHub Packages cannot be replaced, only deleted and
-/// re-pushed, which breaks every consumer that has restored it. So the cost of
+/// A version already on nuget.org can never be deleted or replaced, only
+/// unlisted. So the cost of
 /// an accidental publish is not a wasted run: it is a version number that has
 /// to be burned. The trigger this guards against is <c>workflow_dispatch</c>,
 /// which is the one someone adds while debugging the workflow and does not
@@ -29,14 +30,14 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// what this class is named for.
 /// </para>
 /// </remarks>
-public sealed class PublishWorkflowTests
+public sealed partial class ReleaseWorkflowTests
 {
-    private const string PublishWorkflow = ".github/workflows/publish.yml";
+    private const string ReleaseWorkflow = ".github/workflows/release.yml";
 
     [Fact]
     public void PublishTriggersOnTagsAndNothingElse()
     {
-        string on = TopLevelBlock(File.ReadAllText(Path.Combine(RepoRoot(), PublishWorkflow)), "on");
+        string on = TopLevelBlock(File.ReadAllText(Path.Combine(RepoRoot(), ReleaseWorkflow)), "on");
 
         string[] triggers = [.. Keys(on, indent: 2)];
 
@@ -56,10 +57,10 @@ public sealed class PublishWorkflowTests
     }
 
     [Fact]
-    public void PublishHoldsWriteAccessToPackagesAndNothingMore()
+    public void PublishHoldsReadAccessAndAnOidcTokenAndNothingMore()
     {
         string permissions = TopLevelBlock(
-            File.ReadAllText(Path.Combine(RepoRoot(), PublishWorkflow)),
+            File.ReadAllText(Path.Combine(RepoRoot(), ReleaseWorkflow)),
             "permissions");
 
         string[] granted = [.. permissions
@@ -67,7 +68,74 @@ public sealed class PublishWorkflowTests
             .Select(line => line.Trim())
             .Where(line => line.Length > 0 && !line.StartsWith('#'))];
 
-        Assert.Equal(["contents: read", "packages: write"], granted);
+        Assert.Equal(["contents: read", "id-token: write"], granted);
+    }
+
+    [Fact]
+    public void PublishReadsNoStoredSecretButGitHubsOwnToken()
+    {
+        string[] secrets = [.. File
+            .ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))
+            .Where(line => !line.TrimStart().StartsWith('#'))
+            .SelectMany(line => SecretReference().Matches(line))
+            .Select(match => match.Groups[1].Value)
+            .Distinct()];
+
+        Assert.Equal(["GITHUB_TOKEN"], secrets);
+    }
+
+    [Fact]
+    public void TheCiGateReadsEveryCheckRunNotOnlyTheLatest()
+    {
+        string[] queries = [.. File
+            .ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))
+            .Where(line => !line.TrimStart().StartsWith('#'))
+            .Select(line => CheckRunsQuery().Match(line))
+            .Where(match => match.Success)
+            .Select(match => match.Groups[1].Value)];
+
+        string query = Assert.Single(queries);
+
+        Assert.Contains("filter=all", query.Split('&'));
+    }
+
+    [Fact]
+    public void CiRunsOnBranchPushesNotOnTheReleaseTag()
+    {
+        string on = TopLevelBlock(
+            File.ReadAllText(Path.Combine(RepoRoot(), ".github", "workflows", "ci.yml")),
+            "on");
+
+        Assert.Equal(["pull_request", "push"], Keys(on, indent: 2));
+        Assert.Equal(["branches"], Keys(on, indent: 4));
+    }
+
+    [Theory]
+    [InlineData("${{ secrets.NUGET_API_KEY }}", "NUGET_API_KEY")]
+    [InlineData("${{ secrets['NUGET_API_KEY'] }}", "NUGET_API_KEY")]
+    [InlineData("${{ secrets[\"NUGET_API_KEY\"] }}", "NUGET_API_KEY")]
+    public void SecretReference_ReadsEverySpelling(string line, string name) =>
+        Assert.Equal(name, SecretReference().Match(line).Groups[1].Value);
+
+    [Fact]
+    public void ThePushSpendsAKeyMintedInTheSameStep()
+    {
+        string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))];
+
+        int push = Array.FindIndex(lines, IsANuGetPush);
+
+        Assert.True(push >= 0, "The workflow has no nuget push.");
+
+        int step = Array.FindLastIndex(lines, push, line => line.TrimStart().StartsWith("- name:", StringComparison.Ordinal));
+
+        Assert.True(step >= 0, "The nuget push sits in no named step.");
+
+        int login = Array.FindIndex(lines, step, line => !line.TrimStart().StartsWith('#')
+            && line.Contains("tools/nuget-login.ts", StringComparison.Ordinal));
+
+        Assert.True(
+            login > step && login < push,
+            "The push step does not mint its own key with tools/nuget-login.ts before pushing.");
     }
 
     /// <summary>
@@ -89,14 +157,14 @@ public sealed class PublishWorkflowTests
             .GetFiles(Path.Combine(root, ".github", "workflows"))
             .Where(p => p.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
                 || p.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))
-            .Where(p => Path.GetRelativePath(root, p).Replace('\\', '/') != PublishWorkflow)
+            .Where(p => Path.GetRelativePath(root, p).Replace('\\', '/') != ReleaseWorkflow)
             .Where(p => File.ReadAllLines(p).Any(IsANuGetPush))
             .Select(p => Path.GetRelativePath(root, p))];
 
         Assert.True(
             offenders.Length == 0,
             $"These workflows push a package: {string.Join(", ", offenders)}. Only "
-                + $"{PublishWorkflow} may, because it is the only one whose trigger is a version "
+                + $"{ReleaseWorkflow} may, because it is the only one whose trigger is a version "
                 + "tag. Everything else runs on every push to every branch.");
     }
 
@@ -104,7 +172,7 @@ public sealed class PublishWorkflowTests
     public void ThePushDoesNotSkipDuplicates()
     {
         string[] pushLines = [.. File
-            .ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))
+            .ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))
             .SkipWhile(line => !IsANuGetPush(line))];
 
         Assert.NotEmpty(pushLines);
@@ -125,7 +193,7 @@ public sealed class PublishWorkflowTests
     [Fact]
     public void PublishRefusesACommitCiHasNotPassed()
     {
-        string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))];
+        string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))];
 
         int gate = Array.FindIndex(lines, line => line.Contains("check-runs", StringComparison.Ordinal)
             && !line.TrimStart().StartsWith('#'));
@@ -183,7 +251,7 @@ public sealed class PublishWorkflowTests
         string[] lines = yaml.Split('\n');
         int start = Array.FindIndex(lines, line => line.StartsWith($"{key}:", StringComparison.Ordinal));
 
-        Assert.True(start >= 0, $"{PublishWorkflow} declares no top-level '{key}:'.");
+        Assert.True(start >= 0, $"{ReleaseWorkflow} declares no top-level '{key}:'.");
 
         int end = start + 1;
         while (end < lines.Length
@@ -213,6 +281,12 @@ public sealed class PublishWorkflowTests
                 && line.Contains(':', StringComparison.Ordinal))
             .Select(line => line.Trim().Split(':')[0])
             .Order(StringComparer.Ordinal);
+
+    [GeneratedRegex(@"secrets\s*(?:\.|\[\s*['""])([A-Za-z_][A-Za-z0-9_]*)")]
+    private static partial Regex SecretReference();
+
+    [GeneratedRegex(@"/check-runs(?:\?([^""\s]*))?")]
+    private static partial Regex CheckRunsQuery();
 
     private static string RepoRoot()
     {

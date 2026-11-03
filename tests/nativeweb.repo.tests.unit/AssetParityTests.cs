@@ -287,7 +287,7 @@ public sealed partial class AssetParityTests
         string[] sources =
         [
             .. Directory.EnumerateFiles(Path.Combine(root, "apps", "sample"), "*.html", SearchOption.AllDirectories),
-            .. Directory.EnumerateFiles(Path.Combine(root, "apps", "sample", "Render"), "*.cs", SearchOption.AllDirectories),
+            .. Directory.EnumerateFiles(Path.Combine(root, "apps", "sample"), "*.cs", SearchOption.AllDirectories),
             .. Directory.EnumerateFiles(
                 Path.Combine(root, "skeleton", "apps", "__product__", "templates"), "*.html", SearchOption.AllDirectories),
         ];

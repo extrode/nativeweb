@@ -21,7 +21,7 @@ namespace NativeWeb.Web;
 /// pipeline was template text, unchanged, so an existing product's
 /// <c>appsettings.json</c> keeps working. They sit under
 /// <see cref="ConfigurationSection"/>, which defaults to the application name —
-/// <c>Manzil:RateLimit:General:PermitLimit</c>, and so on.
+/// <c>MyApp:RateLimit:General:PermitLimit</c>, and so on.
 /// </para>
 /// </remarks>
 public sealed record NativeWebOptions

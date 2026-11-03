@@ -78,7 +78,7 @@ public sealed class SignInCallbackTests
         DefaultHttpContext replay = await fixture.Callback();
 
         Assert.Equal(exchangesAfterTheFirst, fixture.Provider.Exchanges.Count);
-        Assert.Equal("/signin-failed?error=state_used", replay.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=state_unknown", replay.Response.Headers.Location.ToString());
     }
 
     [Fact]
@@ -92,19 +92,61 @@ public sealed class SignInCallbackTests
             "code-1", "never-minted", error: null, flowCookie: "never-minted");
 
         Assert.Empty(fixture.Provider.Exchanges);
-        Assert.Equal("/signin-failed?error=state_used", context.Response.Headers.Location.ToString());
+        Assert.Equal("/signin-failed?error=state_unknown", context.Response.Headers.Location.ToString());
     }
 
     [Fact]
-    public async Task Callback_ExpiredState_IsRefusedAsExpired()
+    public async Task Callback_ExpiredStateWithFlowCookie_IsRefusedAsExpiredAndClearsIt()
     {
         Fixture fixture = await Started();
-        fixture.Clock.Now = Now.AddMinutes(16);
+        fixture.Clock.Now = Now + fixture.Options.FlowLifetime + TimeSpan.FromMinutes(1);
 
         DefaultHttpContext context = await fixture.Callback();
 
         Assert.Empty(fixture.Provider.Exchanges);
         Assert.Equal("/signin-failed?error=state_expired", context.Response.Headers.Location.ToString());
+        Assert.Contains(
+            context.Response.Headers.SetCookie!,
+            header => header!.StartsWith(
+                SessionManager.FlowCookieName(fixture.Options) + "=;", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Callback_ExpiredAndSweptStateWithFlowCookie_IsRefusedAsUnknown()
+    {
+        Fixture fixture = await Started();
+        fixture.Clock.Now = Now + fixture.Options.FlowLifetime + TimeSpan.FromMinutes(1);
+        await fixture.Flows.SweepAsync(default);
+
+        DefaultHttpContext context = await fixture.Callback();
+
+        Assert.Empty(fixture.Provider.Exchanges);
+        Assert.Equal("/signin-failed?error=state_unknown", context.Response.Headers.Location.ToString());
+    }
+
+    [Fact]
+    public async Task Callback_ExpiredStateWithNoFlowCookie_IsRefusedAsExpired()
+    {
+        Fixture fixture = await Started();
+        fixture.Clock.Now = Now + fixture.Options.FlowLifetime + TimeSpan.FromMinutes(1);
+
+        DefaultHttpContext context = await fixture.Callback(
+            "code-1", state: null, error: null, flowCookie: null);
+
+        Assert.Empty(fixture.Provider.Exchanges);
+        Assert.Equal("/signin-failed?error=state_expired", context.Response.Headers.Location.ToString());
+    }
+
+    [Fact]
+    public async Task Callback_LiveStateWithNoFlowCookie_ConsumesTheFlowAndRefuses()
+    {
+        Fixture fixture = await Started();
+
+        DefaultHttpContext context = await fixture.Callback(
+            "code-1", state: null, error: null, flowCookie: null);
+
+        Assert.Equal("/signin-failed?error=state_mismatch", context.Response.Headers.Location.ToString());
+        Assert.NotEqual(FlowTake.Taken, (await fixture.Flows.TakeAsync(fixture.State, default)).Outcome);
     }
 
     [Fact]
@@ -215,6 +257,90 @@ public sealed class SignInCallbackTests
     }
 
     [Fact]
+    public async Task GetLogin_FlowCookieOutlivesTheFlowByOneLifetime()
+    {
+        SignInOptions options = Options();
+        var clock = new MovableClock(Now);
+        var client = new OAuthClient(
+            new HttpClient(new StubProvider()), options, NullLogger<OAuthClient>.Instance);
+        DefaultHttpContext begin = new DefaultHttpContext().Executable();
+
+        IResult redirect = await SignInEndpoints.GetLoginAsync(
+            begin, client, new InMemoryLoginFlowStore(clock), options, clock, NullLoggerFactory.Instance);
+        await redirect.ExecuteAsync(begin);
+
+        string header = begin.Response.Headers.SetCookie!
+            .Select(h => h!)
+            .Single(h => h.StartsWith(SessionManager.FlowCookieName(options) + "=", StringComparison.Ordinal));
+        string expires = header.Split(';').Select(p => p.Trim())
+            .Single(p => p.StartsWith("expires=", StringComparison.OrdinalIgnoreCase))["expires=".Length..];
+
+        Assert.Equal(
+            Now + (2 * options.FlowLifetime),
+            DateTimeOffset.Parse(expires, System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Theory]
+    [InlineData("%20")]
+    [InlineData("long")]
+    public async Task GetLogin_WithAnUnusableFlowCookie_DoesNotTakeAndStillStarts(string cookie)
+    {
+        SignInOptions options = Options();
+        var clock = new MovableClock(Now);
+        var client = new OAuthClient(
+            new HttpClient(new StubProvider()), options, NullLogger<OAuthClient>.Instance);
+        var flows = new RecordingFlowStore(new InMemoryLoginFlowStore(clock));
+        DefaultHttpContext begin = new DefaultHttpContext().Executable();
+        string value = cookie == "long" ? new string('a', 513) : cookie;
+        begin.Request.Headers.Cookie = $"{SessionManager.FlowCookieName(options)}={value}";
+
+        IResult redirect = await SignInEndpoints.GetLoginAsync(
+            begin, client, flows, options, clock, NullLoggerFactory.Instance);
+        await redirect.ExecuteAsync(begin);
+
+        Assert.Empty(flows.Taken);
+        Assert.Equal(1, flows.Started);
+        Assert.Equal(302, begin.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Callback_WhitespaceState_IsIncomplete()
+    {
+        Fixture fixture = await Started();
+
+        DefaultHttpContext context = await fixture.Callback("1", " ", error: null, flowCookie: null);
+
+        Assert.Equal(
+            "/signin-failed?error=callback_incomplete",
+            context.Response.Headers.Location.ToString());
+        Assert.Empty(fixture.Provider.Exchanges);
+    }
+
+    [Fact]
+    public async Task Callback_WhitespaceCode_IsIncomplete()
+    {
+        Fixture fixture = await Started();
+
+        DefaultHttpContext context = await fixture.Callback(" ");
+
+        Assert.Equal(
+            "/signin-failed?error=callback_incomplete",
+            context.Response.Headers.Location.ToString());
+        Assert.Equal(FlowTake.Taken, (await fixture.Flows.TakeAsync(fixture.State, default)).Outcome);
+    }
+
+    [Fact]
+    public async Task Callback_StoreReportsAlreadyUsed_RedirectsWithStateUsed()
+    {
+        Fixture fixture = await Started(flows: new AlreadyUsedFlowStore());
+
+        DefaultHttpContext context = await fixture.Callback();
+
+        Assert.Equal("/signin-failed?error=state_used", context.Response.Headers.Location.ToString());
+        Assert.Empty(fixture.Provider.Exchanges);
+    }
+
+    [Fact]
     public async Task Callback_WithNoFlowCookie_IsRefusedWithoutATokenRequest()
     {
         Fixture fixture = await Started();
@@ -252,17 +378,37 @@ public sealed class SignInCallbackTests
     }
 
     [Fact]
-    public async Task Callback_Refused_StillClearsTheFlowCookie()
+    public async Task Callback_StaleState_LeavesTheFlowCookieAndTheNewerFlow()
     {
         Fixture fixture = await Started();
 
         DefaultHttpContext context = await fixture.Callback(
-            "code-1", state: null, error: null, flowCookie: null);
+            "code-1", "stale-state", error: null, flowCookie: fixture.State);
 
-        Assert.Contains(
-            context.Response.Headers.SetCookie!,
+        Assert.Equal("/signin-failed?error=state_mismatch", context.Response.Headers.Location.ToString());
+        Assert.DoesNotContain(
+            context.Response.Headers.SetCookie,
             header => header!.StartsWith(
-                SessionManager.FlowCookieName(fixture.Options) + "=;", StringComparison.Ordinal));
+                SessionManager.FlowCookieName(fixture.Options) + "=", StringComparison.Ordinal));
+        Assert.Equal(FlowTake.Taken, (await fixture.Flows.TakeAsync(fixture.State, default)).Outcome);
+    }
+
+    [Fact]
+    public async Task GetLogin_WithAnUnfinishedFlow_ConsumesItAndTheNewFlowCompletes()
+    {
+        Fixture fixture = await Started();
+
+        string newer = await fixture.Restart();
+
+        DefaultHttpContext stale = await fixture.Callback(
+            "code-1", fixture.State, error: null, flowCookie: fixture.State);
+        Assert.Empty(fixture.Provider.Exchanges);
+        Assert.Equal("/signin-failed?error=state_unknown", stale.Response.Headers.Location.ToString());
+
+        DefaultHttpContext current = await fixture.Callback(
+            "code-1", newer, error: null, flowCookie: newer);
+        Assert.Equal("/", current.Response.Headers.Location.ToString());
+        Assert.Equal(1, fixture.Sessions.Count);
     }
 
     [Fact]
@@ -367,6 +513,20 @@ public sealed class SignInCallbackTests
         string Verifier,
         string FlowCookieOnTheWayOut)
     {
+        /// <summary>Begins a second sign-in from the same browser and returns its state.</summary>
+        internal async Task<string> Restart()
+        {
+            DefaultHttpContext begin = new DefaultHttpContext().Executable();
+            begin.Request.Headers.Cookie = $"{SessionManager.FlowCookieName(Options)}={State}";
+
+            IResult redirect = await SignInEndpoints.GetLoginAsync(
+                begin, Client, Flows, Options, Clock, NullLoggerFactory.Instance);
+            await redirect.ExecuteAsync(begin);
+
+            return System.Web.HttpUtility
+                .ParseQueryString(new Uri(begin.Response.Headers.Location.ToString()).Query)["state"]!;
+        }
+
         internal Task<DefaultHttpContext> Callback(
             string code = "code-1", string? state = null, string? error = null) =>
             Callback(code, state, error, flowCookie: State);
@@ -459,6 +619,42 @@ public sealed class SignInCallbackTests
 
         public Task<FlowTakeResult> TakeAsync(string state, CancellationToken ct) =>
             Task.FromResult(FlowTakeResult.Taken(new LoginFlow("verifier-1", returnTo)));
+
+        public Task SweepAsync(CancellationToken ct) => Task.CompletedTask;
+    }
+
+    private sealed class RecordingFlowStore(ILoginFlowStore inner) : ILoginFlowStore
+    {
+        internal List<string> Taken { get; } = [];
+
+        internal int Started { get; private set; }
+
+        public Task StartAsync(
+            string state, string verifier, string to, DateTimeOffset expiresAt, CancellationToken ct)
+        {
+            Started++;
+
+            return inner.StartAsync(state, verifier, to, expiresAt, ct);
+        }
+
+        public Task<FlowTakeResult> TakeAsync(string state, CancellationToken ct)
+        {
+            Taken.Add(state);
+
+            return inner.TakeAsync(state, ct);
+        }
+
+        public Task SweepAsync(CancellationToken ct) => inner.SweepAsync(ct);
+    }
+
+    private sealed class AlreadyUsedFlowStore : ILoginFlowStore
+    {
+        public Task StartAsync(
+            string state, string verifier, string to, DateTimeOffset expiresAt, CancellationToken ct) =>
+            Task.CompletedTask;
+
+        public Task<FlowTakeResult> TakeAsync(string state, CancellationToken ct) =>
+            Task.FromResult(FlowTakeResult.AlreadyUsed());
 
         public Task SweepAsync(CancellationToken ct) => Task.CompletedTask;
     }

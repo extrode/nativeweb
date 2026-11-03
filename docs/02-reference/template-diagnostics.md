@@ -1,13 +1,12 @@
 # NWT template diagnostics
 
-Every mistake in a `.html` template is a **build error**, never a runtime blank (spec 003 R12).
+Every mistake in a `.html` template is a **build error**, never a runtime blank.
 The `nativeweb.render.generator` source generator raises them as `NWT001`–`NWT016`, category
 `NativeWeb.Render`, all `DiagnosticSeverity.Error` and all enabled by default. There is no
 suppression story on purpose: a suppressed template error is a page that renders wrong in
 production instead of failing on the build machine.
 
-Each one carries a real file and line since `feat/render-diagnostics-locations` (2026-08-17), so
-a build-log entry is clickable. Descriptors: `libs/nativeweb.render.generator/TemplateDiagnostics.cs`.
+Each one carries a real file and line, so a build-log entry is clickable. Descriptors: `libs/nativeweb.render.generator/TemplateDiagnostics.cs`.
 Every example below is taken from a passing fact in
 `tests/nativeweb.render.tests.unit/GeneratorDiagnosticsTests.cs` — if an example here stops
 triggering its diagnostic, that test file is what to trust.

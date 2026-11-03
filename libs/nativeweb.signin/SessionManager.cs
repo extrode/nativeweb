@@ -442,7 +442,7 @@ public sealed partial class SessionManager(
     /// </summary>
     /// <remarks>
     /// This was a plain assignment until the first consumer of the sign-out seam was reviewed
-    /// under spec 009. justsmtp's dashboard gate sets
+    /// under spec 009. That consumer's dashboard gate sets
     /// <c>no-store, no-cache, must-revalidate, max-age=0</c> before the request reaches the
     /// account lookup that decides to sign out; the assignment left one directive of the four and
     /// an orphaned <c>Pragma: no-cache</c> beside it, on the one response whose cache posture
@@ -553,19 +553,25 @@ public sealed partial class SessionManager(
     /// <param name="context">The response to write the cookie onto.</param>
     /// <param name="options">The scheme's options.</param>
     /// <param name="state">The state minted for this flow.</param>
-    /// <param name="expiresAt">When the flow itself expires.</param>
+    /// <param name="expiresAt">
+    /// When the flow expires. The cookie outlives it by <c>FlowLifetime</c>: a callback that
+    /// arrives within that window after the flow expired still carries this browser's cookie, so
+    /// it is reported as <c>state_expired</c> (row not yet swept) or <c>state_unknown</c> (swept)
+    /// rather than <c>state_mismatch</c>.
+    /// </param>
     internal static void WriteFlowCookie(
         HttpContext context, SignInOptions options, string state, DateTimeOffset expiresAt)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
 
-        context.Response.Cookies.Append(FlowCookieName(options), state, CookieOptionsFor(expiresAt));
+        context.Response.Cookies.Append(
+            FlowCookieName(options), state, CookieOptionsFor(expiresAt + options.FlowLifetime));
     }
 
     /// <summary>
-    /// Deletes the flow cookie. Called on EVERY exit from the callback, taken or refused, so one
-    /// abandoned attempt cannot supply the correlator for the next.
+    /// Deletes the flow cookie. Called by the callback only when its state matches the cookie, so
+    /// a stale or forced callback cannot end the newer flow the cookie points at.
     /// </summary>
     /// <param name="context">The response to write the deletion onto.</param>
     /// <param name="options">The scheme's options.</param>

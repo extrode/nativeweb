@@ -46,7 +46,7 @@ Deno.test("isPackable reads the property, not the word", () => {
 });
 
 Deno.test("packageIdOf returns null when there is none", () => {
-  assertEquals(packageIdOf("<PackageId>NativeWeb.Render</PackageId>"), "NativeWeb.Render");
+  assertEquals(packageIdOf("<PackageId>Extrode.NativeWeb.Render</PackageId>"), "Extrode.NativeWeb.Render");
   assertEquals(packageIdOf("<Project />"), null);
 });
 
@@ -67,7 +67,7 @@ Deno.test("diagnosticsIn ignores lines that carry the word and mean nothing", ()
   const output = [
     "  0 Warning(s)",
     "  nativeweb.web -> C:\\src\\nativeweb\\libs\\nativeweb.web\\ErrorPageMiddleware.cs",
-    "  The package NativeWeb.Render.Generator.0.1.0-dev is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why.",
+    "  The package Extrode.NativeWeb.Render.Generator.0.1.0-dev is missing a readme. Go to https://aka.ms/nuget/authoring-best-practices/readme to learn why.",
   ].join("\n");
 
   assertEquals(diagnosticsIn(output), []);
@@ -75,13 +75,13 @@ Deno.test("diagnosticsIn ignores lines that carry the word and mean nothing", ()
 
 Deno.test("nuspecFacts reads the repository attributes and the readme", () => {
   const facts = nuspecFacts(`<package><metadata>
-    <id>NativeWeb.Render</id>
+    <id>Extrode.NativeWeb.Render</id>
     <version>0.1.0-dev</version>
     <readme>README.md</readme>
     <repository type="git" url="https://github.com/extrode/nativeweb" commit="abc123" />
   </metadata></package>`);
 
-  assertEquals(facts.id, "NativeWeb.Render");
+  assertEquals(facts.id, "Extrode.NativeWeb.Render");
   assertEquals(facts.version, "0.1.0-dev");
   assertEquals(facts.readme, "README.md");
   assertEquals(facts.repositoryUrl, "https://github.com/extrode/nativeweb");
@@ -90,7 +90,7 @@ Deno.test("nuspecFacts reads the repository attributes and the readme", () => {
 
 Deno.test("nuspecFacts reports a repository element with no url", () => {
   const facts = nuspecFacts(
-    `<id>NativeWeb.Web</id><version>0.1.0</version><repository type="git" commit="abc123" />`,
+    `<id>Extrode.NativeWeb.Web</id><version>0.1.0</version><repository type="git" commit="abc123" />`,
   );
 
   assertEquals(facts.repositoryUrl, null);
@@ -171,7 +171,7 @@ Deno.test("verify accepts a package carrying everything spec 028 asks for", asyn
 
   assertEquals(
     await verify(
-      { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+      { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
       path,
       "0.1.0-dev",
     ),
@@ -183,7 +183,7 @@ Deno.test("verify rejects a version that does not match", async () => {
   const path = await writeTempNupkg(goodNuspec(), { readme: true });
 
   const problem = await verify(
-    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
     path,
     "0.2.0",
   );
@@ -198,7 +198,7 @@ Deno.test("verify rejects a repository element with no url", async () => {
   );
 
   const problem = await verify(
-    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
     path,
     "0.1.0-dev",
   );
@@ -210,7 +210,7 @@ Deno.test("verify rejects a package whose NOTICE.md was dropped", async () => {
   const path = await writeTempNupkg(goodNuspec(), { readme: true, notice: false });
 
   const problem = await verify(
-    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
     path,
     "0.1.0-dev",
   );
@@ -224,7 +224,7 @@ Deno.test("verify rejects a project with a README whose package has none", async
   });
 
   const problem = await verify(
-    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
     path,
     "0.1.0-dev",
   );
@@ -236,13 +236,13 @@ Deno.test("verify accepts a generator, which has no README by design", async () 
   const path = await writeTempNupkg(
     goodNuspec()
       .replace("<readme>README.md</readme>", "")
-      .replace("NativeWeb.Render", "NativeWeb.Render.Generator"),
+      .replace("Extrode.NativeWeb.Render", "Extrode.NativeWeb.Render.Generator"),
     { readme: false },
   );
 
   assertEquals(
     await verify(
-      { csproj: "x", directory: "y", packageId: "NativeWeb.Render.Generator", hasReadme: false },
+      { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render.Generator", hasReadme: false },
       path,
       "0.1.0-dev",
     ),
@@ -254,7 +254,7 @@ Deno.test("verify refuses a package with no assembly in it", async () => {
   const path = await writeTempNupkg(goodNuspec(), { readme: true, assembly: false });
 
   const problem = await verify(
-    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
     path,
     "0.1.0-dev",
   );
@@ -266,7 +266,7 @@ Deno.test("verify accepts a generator whose assembly is under analyzers", async 
   const path = await writeTempNupkg(
     goodNuspec()
       .replace("<readme>README.md</readme>", "")
-      .replace("NativeWeb.Render", "NativeWeb.Render.Generator"),
+      .replace("Extrode.NativeWeb.Render", "Extrode.NativeWeb.Render.Generator"),
     {
       readme: false,
       assembly: false,
@@ -276,7 +276,7 @@ Deno.test("verify accepts a generator whose assembly is under analyzers", async 
 
   assertEquals(
     await verify(
-      { csproj: "x", directory: "y", packageId: "NativeWeb.Render.Generator", hasReadme: false },
+      { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render.Generator", hasReadme: false },
       path,
       "0.1.0-dev",
     ),
@@ -286,7 +286,7 @@ Deno.test("verify accepts a generator whose assembly is under analyzers", async 
 
 Deno.test("verify reports a package that pack said it produced and did not", async () => {
   const problem = await verify(
-    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
     `${await Deno.makeTempDir()}/absent.nupkg`,
     "0.1.0-dev",
   );
@@ -307,7 +307,7 @@ Deno.test("verify refuses a package carrying JauntyQ, which may not be redistrib
   });
 
   const problem = await verify(
-    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
     path,
     "0.1.0-dev",
   );
@@ -317,12 +317,12 @@ Deno.test("verify refuses a package carrying JauntyQ, which may not be redistrib
 
 Deno.test("verify names the package it cannot read rather than throwing out of the run", async () => {
   const directory = await Deno.makeTempDir();
-  const path = `${directory}/NativeWeb.Render.0.1.0-dev.nupkg`;
+  const path = `${directory}/Extrode.NativeWeb.Render.0.1.0-dev.nupkg`;
 
   await Deno.writeFile(path, new TextEncoder().encode("PK not really a zip"));
 
   const problem = await verify(
-    { csproj: "x", directory: "y", packageId: "NativeWeb.Render", hasReadme: true },
+    { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
     path,
     "0.1.0-dev",
   );
@@ -335,27 +335,27 @@ Deno.test("verify names the package it cannot read rather than throwing out of t
 Deno.test("strayPackages passes a directory holding only what this run produces", async () => {
   const out = await Deno.makeTempDir();
 
-  await Deno.writeTextFile(`${out}/NativeWeb.Render.0.1.0-dev.nupkg`, "");
+  await Deno.writeTextFile(`${out}/Extrode.NativeWeb.Render.0.1.0-dev.nupkg`, "");
 
-  assertEquals(await strayPackages(out, ["NativeWeb.Render.0.1.0-dev.nupkg"]), []);
+  assertEquals(await strayPackages(out, ["Extrode.NativeWeb.Render.0.1.0-dev.nupkg"]), []);
 });
 
 Deno.test("strayPackages finds a release package left beside a dev one", async () => {
   const out = await Deno.makeTempDir();
 
-  await Deno.writeTextFile(`${out}/NativeWeb.Render.0.1.0-dev.nupkg`, "");
-  await Deno.writeTextFile(`${out}/NativeWeb.Render.0.1.0.nupkg`, "");
+  await Deno.writeTextFile(`${out}/Extrode.NativeWeb.Render.0.1.0-dev.nupkg`, "");
+  await Deno.writeTextFile(`${out}/Extrode.NativeWeb.Render.0.1.0.nupkg`, "");
 
   assertEquals(
-    await strayPackages(out, ["NativeWeb.Render.0.1.0-dev.nupkg"]),
-    ["NativeWeb.Render.0.1.0.nupkg"],
+    await strayPackages(out, ["Extrode.NativeWeb.Render.0.1.0-dev.nupkg"]),
+    ["Extrode.NativeWeb.Render.0.1.0.nupkg"],
   );
 });
 
 Deno.test("strayPackages ignores files that are not packages", async () => {
   const out = await Deno.makeTempDir();
 
-  await Deno.writeTextFile(`${out}/NativeWeb.Render.0.1.0-dev.snupkg`, "");
+  await Deno.writeTextFile(`${out}/Extrode.NativeWeb.Render.0.1.0-dev.snupkg`, "");
   await Deno.writeTextFile(`${out}/notes.txt`, "");
 
   assertEquals(await strayPackages(out, []), []);
@@ -370,12 +370,12 @@ Deno.test("packableProjects finds a project nested below the library directory",
   await Deno.writeTextFile(
     `${libs}/nativeweb.render/inner/nativeweb.render.csproj`,
     "<Project><PropertyGroup><IsPackable>true</IsPackable>" +
-      "<PackageId>NativeWeb.Render</PackageId></PropertyGroup></Project>",
+      "<PackageId>Extrode.NativeWeb.Render</PackageId></PropertyGroup></Project>",
   );
 
   const found = await packableProjects(libs);
 
-  assertEquals(found.map((project) => project.packageId), ["NativeWeb.Render"]);
+  assertEquals(found.map((project) => project.packageId), ["Extrode.NativeWeb.Render"]);
 });
 
 Deno.test("packableProjects skips build output", async () => {
@@ -385,7 +385,7 @@ Deno.test("packableProjects skips build output", async () => {
   await Deno.writeTextFile(
     `${libs}/nativeweb.render/obj/copied.csproj`,
     "<Project><PropertyGroup><IsPackable>true</IsPackable>" +
-      "<PackageId>NativeWeb.Render</PackageId></PropertyGroup></Project>",
+      "<PackageId>Extrode.NativeWeb.Render</PackageId></PropertyGroup></Project>",
   );
 
   assertEquals(await packableProjects(libs), []);
@@ -408,7 +408,7 @@ Deno.test("packableProjects refuses a packable project with no PackageId", async
 function goodNuspec(): string {
   return `<?xml version="1.0" encoding="utf-8"?>
 <package><metadata>
-  <id>NativeWeb.Render</id>
+  <id>Extrode.NativeWeb.Render</id>
   <version>0.1.0-dev</version>
   <readme>README.md</readme>
   <repository type="git" url="https://github.com/extrode/nativeweb" commit="abc123" />
@@ -457,13 +457,13 @@ Deno.test("verify accepts a package that kept the packed directory's shape", asy
   assertEquals(await verify(project, path, "0.1.0-dev"), null);
 });
 
-Deno.test("verify rejects a NativeWeb.Web package whose templates moved off their path", async () => {
+Deno.test("verify rejects an Extrode.NativeWeb.Web package whose templates moved off their path", async () => {
   // The csproj and the package agree, so the layout check above passes: this is
   // the wrong-PackagePath failure, which only the required-paths rule can see.
   const project = await projectPacking("templates", ["shared/banner-ok.html"], "content");
-  project.packageId = "NativeWeb.Web";
+  project.packageId = "Extrode.NativeWeb.Web";
 
-  const path = await writeTempNupkg(goodNuspec().replace("NativeWeb.Render", "NativeWeb.Web"), {
+  const path = await writeTempNupkg(goodNuspec().replace("Extrode.NativeWeb.Render", "Extrode.NativeWeb.Web"), {
     readme: true,
     extra: { "content/shared/banner-ok.html": "<div></div>" },
   });
@@ -493,7 +493,7 @@ async function projectPacking(directory: string, relatives: string[], packagePat
     await Deno.writeTextFile(full, "<div></div>");
   }
 
-  return { csproj, directory: root, packageId: "NativeWeb.Render", hasReadme: true };
+  return { csproj, directory: root, packageId: "Extrode.NativeWeb.Render", hasReadme: true };
 }
 
 async function writeTempNupkg(

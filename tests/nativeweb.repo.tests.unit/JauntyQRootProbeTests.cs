@@ -190,7 +190,10 @@ public sealed partial class JauntyQRootProbeTests
         // a `NativeWeb` directory and resolves to the string `...\nativeweb`, which is a different
         // string naming the same directory -- asserting Ordinal here would fail on the platform
         // where the code is correct, and pass for the wrong reason on the one where it matters.
-        StringComparison comparison = OperatingSystem.IsWindows()
+        // The filesystem is asked rather than the OS: macOS's default APFS volume is
+        // case-insensitive too, and a case-sensitive one exists on both.
+        bool caseInsensitive = Directory.Exists(layout.Path("org", checkoutName.ToUpperInvariant()));
+        StringComparison comparison = caseInsensitive
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
 

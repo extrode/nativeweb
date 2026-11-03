@@ -15,7 +15,7 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>NativeWeb.Scaffold.Generator</PackageId>
+    <PackageId>Extrode.NativeWeb.Scaffold.Generator</PackageId>
     <Description>NativeWeb framework: build-time CRUD scaffolding source generator.</Description>
     <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeBuildOutput>false</IncludeBuildOutput>

@@ -92,8 +92,8 @@ public sealed class SignInOptions
     /// <summary>How the client authenticates at the token and introspection endpoints.</summary>
     public ClientAuthenticationMode ClientAuthentication { get; set; } = ClientAuthenticationMode.ClientSecretBasic;
 
-    /// <summary>How long a started sign-in stays usable. Default 15 minutes.</summary>
-    public TimeSpan FlowLifetime { get; set; } = TimeSpan.FromMinutes(15);
+    /// <summary>How long a started sign-in stays usable. Default 30 minutes.</summary>
+    public TimeSpan FlowLifetime { get; set; } = TimeSpan.FromMinutes(30);
 
     /// <summary>How long a minted session is accepted for. Default 14 days.</summary>
     public TimeSpan SessionLifetime { get; set; } = TimeSpan.FromDays(14);

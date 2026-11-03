@@ -19,7 +19,7 @@
 #   PGHOST            default 127.0.0.1
 #   PGPORT            default 5432
 #   PGDATABASE        default nativeweb_dev -- this repo provisions its own
-#                     database (never epass.io's live one); the test tiers'
+#                     database (never a live one); the test tiers'
 #                     fallback connection strings assume the same name
 #   APP_ROLE          default nativeweb_app -- PGPASSWORD (or ~/.pgpass) must
 #                     authenticate this role for every migration except the
@@ -33,7 +33,7 @@
 # transaction, so a crash cannot commit one without the other. See mode_of()
 # below for the two kinds of file that cannot be wrapped and why.
 #
-# ONE THING THIS MADE WORSE, and it matters at the epass.io cutover: locks are now
+# ONE THING THIS MADE WORSE, and it matters against a live database: locks are now
 # held for the whole file rather than released statement by statement. Under the
 # old autocommit behaviour a multi-ALTER TABLE migration took and released each
 # lock in turn; now every lock the file takes is held until its last statement

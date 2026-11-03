@@ -17,10 +17,9 @@ start. **Start with the guides at the top and come back here when you need a spe
 
 ## Which path is yours
 
-There used to be two audiences here, and one of them has gone: this repository held an identity
-provider as well as the framework, and maintaining it was a whole reading path of its own. It left
-on 2026-08-31 ([decision 007](decisions/2026-08-31-007-idp-leaves-nativeweb.md)), so **there is one
-path now** — you are building your own application on the framework.
+NativeWeb is a framework, not an identity provider
+([decision 007](decisions/2026-08-31-007-idp-leaves-nativeweb.md)), so **there is one path**: you
+are building your own application on it.
 
 - [`00-quick-start/getting-started.md`](00-quick-start/getting-started.md) — clone, build, green
   suite, then `tools/new-product.ps1` for your own product, role and database.
@@ -43,13 +42,13 @@ Answers to specific questions. Not written to be read in order.
 
 | Document | Answers |
 | --- | --- |
-| [`01-architecture/native-web-architecture.md`](01-architecture/native-web-architecture.md) | Why the stack is what it is: Minimal APIs, NativeAOT, server-rendered HTML, JauntyQ. The 430-line spec everything else assumes. |
+| [`01-architecture/native-web-architecture.md`](01-architecture/native-web-architecture.md) | Why the stack is what it is: Minimal APIs, NativeAOT, server-rendered HTML, JauntyQ. The spec everything else assumes. |
 | [`02-reference/configuration.md`](02-reference/configuration.md) | Every setting, default, and failure mode. |
 | [`01-architecture/progressive-enhancement.md`](01-architecture/progressive-enhancement.md) | HTMX and Alpine conventions. Mandatory for every browser-facing page. |
 | [`02-reference/template-diagnostics.md`](02-reference/template-diagnostics.md) | `NWT001`–`NWT016`: what each template build error means and how to fix it. |
 | [`02-reference/versioning.md`](02-reference/versioning.md) | What a `NativeWeb.*` version promises, what counts as breaking, how long a released minor is supported, how a library is retired, and how a release is cut. |
 | [`02-reference/breaking-changes.md`](02-reference/breaking-changes.md) | Every change that makes a consumer's code stop compiling or stop behaving as it did, newest first, with the edit. |
-| [`02-reference/security-baseline.md`](02-reference/security-baseline.md) | The security checklist and what has been verified against it. Written against the identity provider that has since left; read it as the posture a stamped product inherits. |
+| [`02-reference/security-baseline.md`](02-reference/security-baseline.md) | The security checklist. Read it as the posture a stamped product inherits; rows that cite code outside this repository describe the application they were verified against. |
 | [`02-reference/migration-lock-review.md`](02-reference/migration-lock-review.md) | How long `db/migrate.sh` holds its locks. Read before pointing it at a live database. |
 | [`02-reference/performance.md`](02-reference/performance.md) | Every load measurement taken here, what changed between them, and the bottlenecks found — including the one that cost 35% of page throughput to a header nobody was setting. |
 | [`02-reference/deployment.md`](02-reference/deployment.md) | The production runbook: provisioning, blue/green release, rollback, backups, restore, disaster recovery. Carries its own list of what has never been executed. |
@@ -68,7 +67,7 @@ Each library documents itself. These are reference, not tutorial.
 - [`../libs/nativeweb.signin/README.md`](../libs/nativeweb.signin/README.md) — the OAuth relying party.
 - [`../libs/nativeweb.signin.testing/README.md`](../libs/nativeweb.signin.testing/README.md) — the store conformance suites a consumer derives against its own implementation.
 - [`../libs/nativeweb.mail/README.md`](../libs/nativeweb.mail/README.md) — the outbound e-mail seam.
-- [`../libs/nativeweb.assets/README.md`](../libs/nativeweb.assets/README.md) — vendored HTMX and Alpine. Not a .NET project.
+- [`../libs/nativeweb.assets/README.md`](../libs/nativeweb.assets/README.md) — where the framework's browser assets and templates live, and the rollback copy of the previous htmx build. Not a .NET project.
 
 The three `.generator` projects have no README of their own: a consumer references one as an
 analyzer and never calls anything it defines, so each is documented in the runtime library it

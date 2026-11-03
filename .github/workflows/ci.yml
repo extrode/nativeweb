@@ -7,29 +7,19 @@ on:
     # feature branch -- but the merge itself is what nothing verified, and a
     # push straight to dev (the ordinary end state of finished work here) ran
     # no CI at all.
+    #
+    # Branches only, so a tag push runs nothing here. The tagged commit already
+    # passed on the branch it was tagged from, and release.yml's gate reads that
+    # run; a second run started by the tag would race the gate with no result.
+    branches: ["**"]
   pull_request:
 
-# Least privilege, and packages:read is the point: skeleton-stamp restores the
-# stamped product from the framework feed on GitHub Packages, which requires
-# auth even for a public feed. Until 2026-09-24 this repository's own JauntyQ.*
-# restore read that feed too, which worked with the job's own GITHUB_TOKEN only
-# because the extrode org granted this repo read access to the jauntyq
-# packages; without that grant the restore 401s.
-#
-# That grant is per-repository and does not survive an org move. Both repos
-# moved from extrode-legacy-org to extrode on 2026-08-26, the packages did not follow --
-# they stayed under extrode-legacy-org, unlinked from any repository -- and every run from
-# then until 2026-08-27 died with NU1301 "403 (Forbidden)" against the old org's
-# feed. The URL itself is not repeated here: OrgReferenceTests bans that host
-# string outright, because in a workflow file a feed host cannot be told apart
-# from a live pointer. A GITHUB_TOKEN is scoped to its own repository,
-# so it can never read a private package owned by a different org, which is why
-# the fix was to republish under extrode rather than to widen a token. The
-# packages stay PRIVATE: AGENTS.md forbids redistributing JauntyQ binaries, so
-# a public feed is not an available shortcut here.
+# Least privilege. No job reads a package feed that needs a credential: since
+# 2026-10-20 every framework package, like every JauntyQ one, is on nuget.org,
+# so packages:read went with the GitHub Packages feed it served.
+# OrgReferenceTests fails if a GitHub Packages feed host comes back.
 permissions:
   contents: read
-  packages: read
 
 env:
   # No JauntyQ sibling checkout exists in CI. Package mode is the default now, so
@@ -73,9 +63,7 @@ jobs:
           # nativeweb_app completes the neutral-naming rename (spec 002 R11):
           # no migration references the role by name, so CI just provisions
           # the neutral name and local dev carries a nativeweb_app role that
-          # owns nativeweb_dev (created 2026-07-31; epass_app itself was left
-          # untouched because it also owns other projects' local
-          # databases).
+          # owns nativeweb_dev (created 2026-07-31).
           POSTGRES_USER: nativeweb_app
           POSTGRES_PASSWORD: ci_test_password
           POSTGRES_DB: nativeweb_test
@@ -204,7 +192,7 @@ jobs:
         run: deno test -A tools/stamp-check.test.ts
 
       # Spec 028 R5: prove the pack path on every push, publishing nothing. The
-      # release version is produced only by publish.yml, so what this builds is
+      # release version is produced only by release.yml, so what this builds is
       # X.Y.Z-dev and goes no further than the runner's disk. Without it the
       # publish workflow would be the first place a pack failure was ever seen,
       # which is the worst place: mid-release, with a tag already pushed.
@@ -325,9 +313,9 @@ jobs:
   # passes 47 unit, 7 integration and 2 e2e facts.
   #
   # This job does NOT run skeleton/.github/workflows/ci.yml. That file is the
-  # stamped product's own workflow, it clones both framework repositories with a
-  # token this repository does not have, and a workflow cannot invoke another
-  # repository's workflow file from a working directory anyway. What is checked
+  # stamped product's own workflow, it clones the framework from the public
+  # repository at main rather than testing this commit, and a workflow cannot
+  # invoke another repository's workflow file from a working directory anyway. What is checked
   # here is the thing that file assumes: that the skeleton stamps into something
   # that builds and passes.
   # ---------------------------------------------------------------------------
@@ -433,39 +421,6 @@ jobs:
           SUPERUSER_ROLE: postgres
           PGPASSWORD: ci_test_password
         run: bash db/migrate.sh
-
-      # The stamped product's nuget.config names its framework feed
-      # "framework-github" -- it is a generic product config, not this
-      # repository's, which declares nuget.org alone since 2026-09-24, so this is
-      # the one job that needs a credential. Package source mapping sends JauntyQ.* and
-      # NativeWeb.* there and everything else to nuget.org, and the feed needs
-      # auth even to read.
-      # Written to the runner's user-level NuGet config, never to a file in the
-      # workspace. `dotnet nuget update source` with no --configfile writes to the
-      # nearest config that declares the source -- which is this repository's
-      # committed one -- so the token sat in the checkout for the rest of the job.
-      # It has to be `add`, not `update`: update with --configfile throws
-      # "Object reference not set to an instance of an object" when the target file
-      # does not already declare that source. Verified locally 2026-09-05.
-      - name: Authenticate to GitHub Packages
-        working-directory: ciprobe
-        run: |
-          mkdir -p "$HOME/.nuget/NuGet"
-          # `add source --configfile` does not create the file: it exits 1 with
-          # "File '...' does not exist." A runner image is not guaranteed to have
-          # a user-level config, so write a minimal one. The sources it would
-          # otherwise carry are irrelevant here; nuget.config clears them before
-          # declaring its own.
-          # Written fresh every job, not only when absent: a self-hosted runner
-          # keeps this file between jobs, and `add` exits 1 on a URL an earlier
-          # job's entry already holds, under whatever name that job gave it.
-          printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' > "$HOME/.nuget/NuGet/NuGet.Config"
-          dotnet nuget add source https://nuget.pkg.github.com/extrode/index.json \
-            --name framework-github \
-            --username ${{ github.actor }} \
-            --password ${{ secrets.GITHUB_TOKEN }} \
-            --store-password-in-clear-text \
-            --configfile "$HOME/.nuget/NuGet/NuGet.Config"
 
       - name: Restore
         working-directory: ciprobe

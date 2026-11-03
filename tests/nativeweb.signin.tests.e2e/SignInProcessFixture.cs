@@ -169,7 +169,7 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     /// message blaming port availability, sending whoever reads it after the exclusion ranges.
     /// </para>
     /// <para>
-    /// Reported by justsmtp.com on 2026-09-05, in the same exchange that corrected the wildcard
+    /// Reported by a consumer on 2026-09-05, in the same exchange that corrected the wildcard
     /// probe here. Tried once because the answer cannot change while the process runs, and a bind
     /// per attempt would pay for it 32 times over.
     /// </para>
@@ -181,7 +181,7 @@ public sealed class SignInProcessFixture : IAsyncLifetime
     /// The <c>v6Accepts</c> parameter on <see cref="Probe"/> exists so a test can pass something
     /// else. Until 2026-09-05 this decision was reachable only by running on a machine whose IPv6
     /// was switched off, which is a platform this repository does not have and cannot stand up --
-    /// so the branch that the justsmtp.com finding is about went untested, and the gap was written
+    /// so the branch that the consumer's finding is about went untested, and the gap was written
     /// up as a property of the machine when it was a property of this code. It is a parameter now,
     /// and both sides of it are asserted.
     /// </remarks>

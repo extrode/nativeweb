@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html" class="active" aria-current="page">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html" class="active" aria-current="page">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -135,7 +135,7 @@
 <p>Every load measurement taken on this repository, newest first, with what changed between one row
 and the next. <code>tools/bench/README.md</code> explains the harness; this file is the record it produces.</p>
 <p><strong>Numbers here are machine-bound and comparable only to each other.</strong> All of them were taken on
-<code>bench-host</code> (16 logical cores, Windows 11 10.0.26200), against <code>apps/sample</code> published Release with
+one workstation (16 logical cores, Windows 11), against <code>apps/sample</code> published Release with
 NativeAOT, over plain HTTP on loopback, 16 concurrent workers, three timed runs of 10 s averaged
 after a discarded warmup. <code>tools/bench/baseline.json</code> carries the machine fingerprint and the
 harness records rather than compares when it does not match.</p>
@@ -147,7 +147,6 @@ anything about a page.</p>
 <table>
 <thead>
 <tr>
-<th>Date</th>
 <th>Change</th>
 <th><code>articles</code> req/s</th>
 <th>p50</th>
@@ -159,7 +158,6 @@ anything about a page.</p>
 </thead>
 <tbody>
 <tr>
-<td>2026-08-31</td>
 <td><strong>Compression moved to Caddy</strong> — current baseline</td>
 <td><strong>16,528.8</strong></td>
 <td>0.93ms</td>
@@ -169,8 +167,7 @@ anything about a page.</p>
 <td>0.713</td>
 </tr>
 <tr>
-<td>2026-08-31</td>
-<td>Framework web pipeline adopted (spec 015), compressing in-process</td>
+<td>Framework web pipeline adopted, compressing in-process</td>
 <td>6,440.5</td>
 <td>2.30ms</td>
 <td>6.52ms</td>
@@ -179,8 +176,7 @@ anything about a page.</p>
 <td>0.330</td>
 </tr>
 <tr>
-<td>2026-08-31</td>
-<td>Phase 1 close: review fixes (author match, <code>Take</code> echoed)</td>
+<td>Review fixes (author match, <code>Take</code> echoed)</td>
 <td>18,958.6</td>
 <td>0.70ms</td>
 <td>2.30ms</td>
@@ -189,7 +185,6 @@ anything about a page.</p>
 <td>0.813</td>
 </tr>
 <tr>
-<td>2026-08-31</td>
 <td><strong>Content-Length declared</strong> on template pages</td>
 <td>19,051.8</td>
 <td>0.69ms</td>
@@ -199,8 +194,7 @@ anything about a page.</p>
 <td>0.841</td>
 </tr>
 <tr>
-<td>2026-08-31</td>
-<td>Rendering through compiled templates (T3/T4)</td>
+<td>Rendering through compiled templates</td>
 <td>12,124.2</td>
 <td>1.18ms</td>
 <td>3.76ms</td>
@@ -209,8 +203,7 @@ anything about a page.</p>
 <td>0.538</td>
 </tr>
 <tr>
-<td>2026-08-31</td>
-<td>Design system + styled page (T1/T2)</td>
+<td>Design system + styled page</td>
 <td>18,453.4</td>
 <td>0.67ms</td>
 <td>2.74ms</td>
@@ -219,7 +212,6 @@ anything about a page.</p>
 <td>0.881</td>
 </tr>
 <tr>
-<td>2026-08-31</td>
 <td>Baseline, hand-written StringBuilder renderer</td>
 <td>19,937.6</td>
 <td>—</td>
@@ -237,9 +229,7 @@ ten middleware where there were none costs <code>articles</code> <strong>12.8%</
 35.6 → 54.0 MB, which is ten registrations of services that were absent before.</p>
 <p>The second row is what the same pipeline cost while it compressed in-process, and it is kept
 because the difference between the two rows is the whole of bottleneck 4: one middleware was
-worth 157% of this page's throughput. <code>tools/bench/baseline.json</code> was re-recorded twice on
-2026-08-31 — once for the pipeline as first adopted, once after compression moved — because a
-baseline that is red on every run gates nothing.</p>
+worth 157% of this page's throughput.</p>
 <p>Between the third and fourth rows, two behavioural fixes, not a perf change: matching authors as
 well as titles adds one null-checked <code>Contains</code> per row over at most twenty rows, and echoing
 <code>Take</code> adds one integer to the render. Both are inside the noise, which the ratio moving 0.841 →
@@ -408,7 +398,7 @@ output-cache hit was recompressed. The cache never recovered the codec cost for 
 public traffic it exists to serve, and moving compression below the cache in-app would have
 forced <code>Accept-Encoding</code> into the cache key.</li>
 <li>Buffering in a middleware to restore <code>Content-Length</code> is not an option here:
-<code>TemplateWriter</code> streams UTF-8 to the body writer by design (spec 003 R41), and these pages only
+<code>TemplateWriter</code> streams UTF-8 to the body writer by design, and these pages only
 behave as materialized because 3 KB fits in Kestrel's pipe before a flush. That is an emergent
 property, not a contract.</li>
 </ul>
@@ -430,9 +420,8 @@ exactly the traffic the cache exists for.</p>
 <li><strong>Under load with PostgreSQL.</strong> Every row here runs against the in-memory store, so the
 measurement is the render path and the pipeline, not the query path. A JauntyQ-backed run is a
 different harness and a different baseline.</li>
-<li><strong>On the deployment target.</strong> Every row here was taken on this workstation. Spec 011's T15
-ran on real hosts on 2026-09-05 and the deployment reference now carries measured numbers,
-but what it measured is deploy, restore and rebuild elapsed time. No render or throughput
+<li><strong>On the deployment target.</strong> Every row here was taken on this workstation. The deployment reference
+carries measured numbers, but what it measured is deploy, restore and rebuild elapsed time. No render or throughput
 figure has ever been taken on a deployed host.</li>
 <li><strong>Concurrency other than 16.</strong> The harness takes <code>--concurrency</code>; nothing has used it.</li>
 </ul>
@@ -441,10 +430,10 @@ figure has ever been taken on a deployed host.</li>
         <div class="page-nav" id="page-nav">
           <div class="prev-next"><a class="pn-prev" href="02-reference-migration-lock-review.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">Migration lock duration — review before pointing migrate.sh at a live database</span>
+  <span class="pn-title">Migration lock duration: review before pointing migrate.sh at a live database</span>
 </a><a class="pn-next" href="02-reference-security-baseline.html">
   <span class="pn-label">next &#8594;</span>
-  <span class="pn-title">Security baseline (spec 003, R29)</span>
+  <span class="pn-title">Security baseline</span>
 </a></div>
         </div>
       </div>

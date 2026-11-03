@@ -8,7 +8,7 @@
 # than being folded into deploy.sh.
 #
 #   wsl
-#   cd /mnt/c/home/code/extrode.com/nativeweb
+#   cd /mnt/c/path/to/nativeweb
 #   scripts/deploy/build.sh
 #
 # Output: dist/nativeweb-<short-sha>.tar.zst, containing the publish directory

@@ -1,4 +1,4 @@
-# Islamic Software License - Network Copyleft (ISL-NETC), Version 1.1
+# Islamic Software License - Network Copyleft (ISL-NETC), Version 1.2
 
 **Effective Date:** August 2026
 
@@ -12,17 +12,22 @@ This license is rooted in the principles of Islam, which commands justice (*'adl
 forbids oppression (*dhulm*), and prohibits that which is harmful (*haram*) to individuals
 and societies. The Quran states:
 
-> *"Cooperate with one another in goodness and righteousness, and do not cooperate in sin
-> and transgression."* — Quran 5:2
+> *"...And cooperate in righteousness and piety, but do not cooperate in sin and
+> aggression..."* — Quran 5:2
 
-> *"O you who believe, do not consume one another's wealth unjustly but only in lawful
-> transactions by mutual consent."* — Quran 4:29
+> *"O you who have believed, do not consume one another's wealth unjustly but only [in
+> lawful] business by mutual consent..."* — Quran 4:29
 
-> *"And whoever kills a soul — it is as if he had slain all of mankind. And whoever saves
-> one — it is as if he had saved all of mankind."* — Quran 5:32
+> *"...whoever kills a soul unless for a soul or for corruption [done] in the land - it is
+> as if he had slain mankind entirely. And whoever saves one - it is as if he had saved
+> mankind entirely..."* — Quran 5:32
 
-Islamic tradition recognizes the institution of *waqf* — a perpetual charitable
-endowment — and the related concept of *sadaqah jariyah*, a continuing charity whose
+Quotations from the Quran are the Saheeh International translation (Al-Muntada Al-Islami /
+Abul-Qasim Publishing House), reproduced verbatim; an ellipsis marks words omitted from a
+verse.
+
+Islamic tradition recognizes the institution of *waqf* -- a perpetual charitable
+endowment -- and the related concept of *sadaqah jariyah*, a continuing charity whose
 benefit flows to the community in perpetuity and may not be withdrawn, enclosed, or sold
 by any single possessor. This License applies that principle to software: what the
 Licensor endows to the community of users remains endowed. A person who builds upon this
@@ -34,8 +39,8 @@ generation of Derivative Work.
 An endowment kept for the community can be quietly enclosed without ever changing hands.
 A steward who never conveys a single copy of a Modified Version, but instead operates it
 on servers of their own and lets others use it only as a remote service, receives the same
-benefit that Distribution would have conveyed — the labor of every prior contributor to
-the endowment — while returning nothing to the users who depend on that Modified Version
+benefit that Distribution would have conveyed -- the labor of every prior contributor to
+the endowment -- while returning nothing to the users who depend on that Modified Version
 and nothing to the community whose endowment it remains. That is enclosure by another
 name, a *waqf* held privately rather than shared, and it is no more permissible than
 enclosure by outright sale. Section 3.6 of this License therefore treats Remote Network
@@ -54,17 +59,17 @@ ethically restricted software license**.
 ## Notice on Reproducing This License
 
 This document (the text of this License) may be copied, reproduced, published, and
-distributed, verbatim and unmodified in its entirety, by any person and for any purpose —
+distributed, verbatim and unmodified in its entirety, by any person and for any purpose --
 including to apply it to a work, to catalogue or reference it (e.g., in an SPDX license
-list or license-comparison resource), or to critique or compare it — without such
+list or license-comparison resource), or to critique or compare it -- without such
 reproduction, by itself, constituting a Prohibited Activity or being subject to Section 4
 or Section 5 of this License. This right extends only to the unmodified text of this
 License document; it does not extend to the Software distributed under it, and does not
 permit publishing a modified version of this text under an "ISL" name.
 
-Completing the bracketed fields this License provides for — the copyright line at the top,
+Completing the bracketed fields this License provides for -- the copyright line at the top,
 the `[LICENSOR]` placeholder in the Licensor definition, and any further bracketed placeholder
-this variant defines — is not a modification of this text for the purposes of this notice. A
+this variant defines -- is not a modification of this text for the purposes of this notice. A
 copy so completed remains an unmodified reproduction of this License, and may be published,
 distributed, and applied to a work under its ISL name. A copy in which those fields are left
 unfilled is likewise unmodified, but names no Licensor and grants nothing anyone can rely on.
@@ -78,7 +83,7 @@ files made available under this License.
 
 **1.2 "Licensor"** means **Extrode LLC** and any authorized successors or assigns.
 
-> **Completing this definition.** `[LICENSOR]` is the party applying this License to a work — fill
+> **Completing this definition.** `[LICENSOR]` is the party applying this License to a work -- fill
 > in your legal name or entity where you apply it, alongside the copyright line above. Where Ikhbat
 > Foundation licenses its own work under this text, the Foundation is the Licensor. A copy left
 > unfilled names no one, and grants nothing anyone can rely on.
@@ -220,8 +225,8 @@ rights, subject to Section 8 (Termination).
 
 **3.5 Copyleft; Corresponding Source.** Any Derivative Work, and any modified copy of the
 Software, that a Licensee Distributes must be licensed as a whole, at no separate charge
-for the license itself, under this License — ISL-NETC 1.1 or, at the Licensee's option, a
-later version published by the Licensor under Section 14 (Future Versions) — and the
+for the license itself, under this License -- ISL-NETC 1.2 or, at the Licensee's option, a
+later version published by the Licensor under Section 14 (Future Versions) -- and the
 Licensee must make the Corresponding Source available to every recipient by:
   - (a) accompanying the Object Form with the Corresponding Source on a durable medium;
   - (b) accompanying the Object Form with a written offer, valid for at least three (3)
@@ -240,7 +245,7 @@ operates a Modified Version and thereby engages in Remote Network Interaction wi
 User, that Licensee must, without further request and by a reasonably prominent means
 (such as a link, notice, or menu item presented within the interface through which the
 interaction occurs), offer to every such User an opportunity to receive the Corresponding
-Source of that exact Modified Version, at no charge, under this License — ISL-NETC 1.1 or,
+Source of that exact Modified Version, at no charge, under this License -- ISL-NETC 1.2 or,
 at the Licensee's option, a later version published by the Licensor under Section 14
 (Future Versions).
 
@@ -263,8 +268,8 @@ This obligation:
 the endowment described in the Preamble, and every User who interacts with it is a
 beneficiary of that endowment in exactly the way a recipient of a distributed copy would
 be. Confining the copyleft obligation to acts of conveyance would let an operator draw the
-full benefit of the endowment — the accumulated work of the Licensor and every prior
-Contributor — while withholding from Users the one thing the endowment was meant to
+full benefit of the endowment -- the accumulated work of the Licensor and every prior
+Contributor -- while withholding from Users the one thing the endowment was meant to
 guarantee them: access to the source. This Section closes that gap. It does not create a
 new obligation in substance; it recognizes that, for software increasingly used as a
 service rather than a delivered copy, Remote Network Interaction is Distribution's
@@ -289,8 +294,8 @@ engaged in, and not having a Material Association with, any of the following.
 
 The Quran states:
 
-> *"Indeed, Allah does not forgive association with Him, but He forgives what is less than
-> that for whom He wills."* — Quran 4:48
+> *"Indeed, Allāh does not forgive association with Him, but He forgives what is less than
+> that for whom He wills..."* — Quran 4:48
 
 The Software may not be used by any entity whose Primary Business involves:
   - (a) the promotion, propagation, or organized facilitation of polytheism (*shirk*),
@@ -384,12 +389,12 @@ The Software may not be used by any entity whose Primary Business involves:
 
 The Quran states:
 
-> *"And do not cause corruption on the earth after it has been set in order. That is
-> better for you, if you are believers."* — Quran 7:85
+> *"...and cause not corruption upon the earth after its reformation. That is better for
+> you, if you should be believers."* — Quran 7:85
 
-> *"And of the people are some who say, 'We believe in Allah and the Last Day,' but they
-> are not believers. They seek to deceive Allah and those who believe, but they deceive
-> not except themselves and perceive it not."* — Quran 2:8-9
+> *"And of the people are some who say, "We believe in Allāh and the Last Day," but they
+> are not believers. They [think to] deceive Allāh and those who believe, but they deceive
+> not except themselves and perceive [it] not."* — Quran 2:8-9
 
 The Software may not be used by any entity whose Primary Business involves:
   - (a) the organized promotion, propagation, or institutional advocacy of atheism,
@@ -414,10 +419,10 @@ restricted.
 
 The Quran states:
 
-> *"He created you from one soul. Then He made from it its mate."* — Quran 39:6
+> *"He created you from one soul. Then He made from it its mate..."* — Quran 39:6
 
-> *"[Satan said]: 'I will command them and they will change the creation of Allah.'"*
-> — Quran 4:119
+> *"...and I will command them so they will change the creation of Allāh..."*
+> — Quran 4:119, Satan's words continuing from 4:118
 
 The Software may not be used by any entity whose Primary Business involves:
   - (a) the promotion, facilitation, or provision of surgical or hormonal procedures for
@@ -443,8 +448,9 @@ The Quran states:
 > *"And do not approach unlawful sexual intercourse. Indeed, it is ever an immorality
 > and is evil as a way."* — Quran 17:32
 
-> *"Those who love that immorality should be spread among the believers will have a
-> painful punishment in this world and the Hereafter."* — Quran 24:19
+> *"Indeed, those who like that immorality should be spread [or publicized] among those
+> who have believed will have a painful punishment in this world and the Hereafter..."*
+> — Quran 24:19
 
 The Software may not be used by any entity whose Primary Business involves:
   - (a) the operation of platforms, applications, or services whose primary purpose is
@@ -468,7 +474,8 @@ The Quran states:
 > *"And do not kill your children for fear of poverty. We provide for them and for you.
 > Indeed, their killing is ever a great sin."* — Quran 17:31
 
-> *"And when the girl buried alive is asked for what sin she was killed."* — Quran 81:8-9
+> *"And when the girl [who was] buried alive is asked*
+> *For what sin she was killed"* — Quran 81:8-9
 
 The Software may not be used by any entity whose Primary Business involves:
   - (a) the performance or provision of abortion procedures as a primary medical service,
@@ -567,7 +574,7 @@ journalists, academics, and civil society groups operating within or from a coun
 identified under this Section are not subject to this restriction solely by reason of
 their nationality or residence, provided they are not themselves engaged in or materially
 associated with the Prohibited Activities described herein. This License does not
-collectively punish populations — it restricts complicit entities.
+collectively punish populations -- it restricts complicit entities.
 
 ---
 
@@ -611,11 +618,11 @@ Licensee shall have sixty (60) days from receipt of such notice to:
 **7.3 Governing Principles.** In the event of ambiguity in the interpretation of this
 License, the following principles of Islamic jurisprudence (*usul al-fiqh*) shall guide
 interpretation:
-  - (a) **La darar wa la dirar** — No harm shall be inflicted or reciprocated;
-  - (b) **Al-umur bi-maqasidiha** — Matters are judged by their purposes and intentions;
-  - (c) **Dar' al-mafasid muqaddam 'ala jalb al-masalih** — Preventing harm takes
+  - (a) **La darar wa la dirar**: No harm shall be inflicted or reciprocated;
+  - (b) **Al-umur bi-maqasidiha**: Matters are judged by their purposes and intentions;
+  - (c) **Dar' al-mafasid muqaddam 'ala jalb al-masalih**: Preventing harm takes
     precedence over securing benefit; and
-  - (d) **Al-yaqin la yazul bi'l-shakk** — Certainty is not overturned by doubt.
+  - (d) **Al-yaqin la yazul bi'l-shakk**: Certainty is not overturned by doubt.
 
 **7.4 Governing Law.** This License shall be governed by and construed in accordance with
 the laws of the jurisdiction in which the Licensor resides, without regard to conflict of
@@ -728,17 +735,17 @@ Licensor.
 Include the following notice in your source files:
 
 ```
-SPDX-License-Identifier: LicenseRef-ISL-NETC-1.1
+SPDX-License-Identifier: LicenseRef-ISL-NETC-1.2
 
 Copyright (c) [Year] [Copyright Holder]
 
 Licensed under the Islamic Software License - Network Copyleft (ISL-NETC),
-Version 1.1 (the "License"). You may use, copy, modify, merge, publish,
+Version 1.2 (the "License"). You may use, copy, modify, merge, publish,
 distribute, sublicense, and sell copies of this Software, for commercial or
 non-commercial purposes, subject to the Ethical Use Restrictions in
 Sections 4 and 5 of the License and the copyleft obligations in Section
 3.5, which require any derivative work you distribute to be licensed
-under ISL-NETC 1.1 (or a later version) with Corresponding Source made
+under ISL-NETC 1.2 (or a later version) with Corresponding Source made
 available. If you run a modified version of this Software to provide a
 service to users over a network, Section 3.6 requires you to offer those
 users the Corresponding Source of that exact modified version, at no
@@ -753,7 +760,7 @@ This Software is provided "AS IS", without warranty of any kind.
 
 ---
 
-*The Islamic Software License - Network Copyleft (ISL-NETC) v1.1 was drafted to align
+*The Islamic Software License - Network Copyleft (ISL-NETC) v1.2 was drafted to align
 network/SaaS-aware copyleft software licensing with Islamic ethical principles and
 universal human rights. It is a source-available, ethically restricted license. It is not
 certified by the Open Source Initiative or the Free Software Foundation and does not claim

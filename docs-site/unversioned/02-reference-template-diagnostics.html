@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html" class="active" aria-current="page">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html" class="active" aria-current="page">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -132,13 +132,12 @@
         <nav class="breadcrumb" aria-label="Breadcrumb">Reference &#8250; NWT template diagnostics</nav>
         <article>
 <h1 id="nwt-template-diagnostics">NWT template diagnostics</h1>
-<p>Every mistake in a <code>.html</code> template is a <strong>build error</strong>, never a runtime blank (spec 003 R12).
+<p>Every mistake in a <code>.html</code> template is a <strong>build error</strong>, never a runtime blank.
 The <code>nativeweb.render.generator</code> source generator raises them as <code>NWT001</code>–<code>NWT016</code>, category
 <code>NativeWeb.Render</code>, all <code>DiagnosticSeverity.Error</code> and all enabled by default. There is no
 suppression story on purpose: a suppressed template error is a page that renders wrong in
 production instead of failing on the build machine.</p>
-<p>Each one carries a real file and line since <code>feat/render-diagnostics-locations</code> (2026-08-17), so
-a build-log entry is clickable. Descriptors: <code>libs/nativeweb.render.generator/TemplateDiagnostics.cs</code>.
+<p>Each one carries a real file and line, so a build-log entry is clickable. Descriptors: <code>libs/nativeweb.render.generator/TemplateDiagnostics.cs</code>.
 Every example below is taken from a passing fact in
 <code>tests/nativeweb.render.tests.unit/GeneratorDiagnosticsTests.cs</code> — if an example here stops
 triggering its diagnostic, that test file is what to trust.</p>
@@ -443,7 +442,7 @@ shapes that must <strong>not</strong> raise NWT016 than of shapes that must.</p>
         <div class="page-nav" id="page-nav">
           <div class="prev-next"><a class="pn-prev" href="02-reference-security-baseline.html">
   <span class="pn-label">&#8592; prev</span>
-  <span class="pn-title">Security baseline (spec 003, R29)</span>
+  <span class="pn-title">Security baseline</span>
 </a><a class="pn-next" href="02-reference-versioning.html">
   <span class="pn-label">next &#8594;</span>
   <span class="pn-title">Versioning and release</span>

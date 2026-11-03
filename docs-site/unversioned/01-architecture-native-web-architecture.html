@@ -118,7 +118,7 @@
     <span class="nav-chev">›</span>
     <span class="nav-group-label">Reference</span>
   </div>
-  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration — review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline (spec 003, R29)</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
+  <div class="nav-group-items">  <a href="02-reference-breaking-changes.html">Breaking changes</a>  <a href="02-reference-configuration.html">Configuration reference</a>  <a href="02-reference-continuous-audit.html">Continuous audit</a>  <a href="02-reference-deployment.html">Deployment runbook</a>  <a href="02-reference-migration-lock-review.html">Migration lock duration: review before pointing migrate.sh at a live database</a>  <a href="02-reference-performance.html">Performance log</a>  <a href="02-reference-security-baseline.html">Security baseline</a>  <a href="02-reference-template-diagnostics.html">NWT template diagnostics</a>  <a href="02-reference-versioning.html">Versioning and release</a>  </div>
 </div>
 
       </div>
@@ -127,19 +127,14 @@
 
     <!-- content -->
     <main class="jt-content has-toc" id="jt-content">
-      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#status">Status</a><a class="toc-l2" href="#1-vision">1. Vision</a><a class="toc-l2" href="#2-core-principles">2. Core Principles</a><a class="toc-l2" href="#3-technology-stack">3. Technology Stack</a><a class="toc-l2" href="#4-technologies-explicitly-avoided">4. Technologies Explicitly Avoided</a><a class="toc-l2" href="#5-project-structure">5. Project Structure</a><a class="toc-l2" href="#6-data-access--jauntyq">6. Data Access — JauntyQ</a><a class="toc-l2" href="#7-dependency-injection">7. Dependency Injection</a><a class="toc-l2" href="#8-where-htmx-goes-where-alpine-goes-where-neither-goes">8. Where HTMX goes, where Alpine goes, where neither goes</a><a class="toc-l2" href="#9-web-components">9. Web Components</a><a class="toc-l2" href="#10-authentication--authorization">10. Authentication &amp; Authorization</a><a class="toc-l2" href="#11-static-assets-serialization-configuration">11. Static Assets, Serialization, Configuration</a><a class="toc-l2" href="#12-error-handling">12. Error Handling</a><a class="toc-l2" href="#13-migration-from-svelte--deno-bff">13. Migration from Svelte + Deno BFF</a><a class="toc-l2" href="#14-measured-benchmarks">14. Measured Benchmarks</a><a class="toc-l2" href="#15-upgrading-to-htmx-40">15. Upgrading to htmx 4.0</a><a class="toc-l2" href="#16-handoff-checklist--the-original-open-risks-kept-as-a-record">16. Handoff Checklist — the original open risks, kept as a record</a></nav>
+      <nav class="toc" aria-label="On this page"><button class="toc-tab" type="button" onclick="toggleToc()" title="Show on this page (o)">On this page</button><div class="toc-title"><span>On this page</span><button class="toc-toggle" type="button" onclick="toggleToc()" title="Hide or show (o)"></button></div><a class="toc-l2" href="#status">Status</a><a class="toc-l2" href="#1-vision">1. Vision</a><a class="toc-l2" href="#2-core-principles">2. Core Principles</a><a class="toc-l2" href="#3-technology-stack">3. Technology Stack</a><a class="toc-l2" href="#4-technologies-explicitly-avoided">4. Technologies Explicitly Avoided</a><a class="toc-l2" href="#5-project-structure">5. Project Structure</a><a class="toc-l2" href="#6-data-access--jauntyq">6. Data Access — JauntyQ</a><a class="toc-l2" href="#7-dependency-injection">7. Dependency Injection</a><a class="toc-l2" href="#8-where-htmx-goes-where-alpine-goes-where-neither-goes">8. Where HTMX goes, where Alpine goes, where neither goes</a><a class="toc-l2" href="#9-web-components">9. Web Components</a><a class="toc-l2" href="#10-authentication--authorization">10. Authentication &amp; Authorization</a><a class="toc-l2" href="#11-static-assets-serialization-configuration">11. Static Assets, Serialization, Configuration</a><a class="toc-l2" href="#12-error-handling">12. Error Handling</a><a class="toc-l2" href="#13-migration-from-svelte--deno-bff">13. Migration from Svelte + Deno BFF</a><a class="toc-l2" href="#14-measured-benchmarks">14. Measured Benchmarks</a><a class="toc-l2" href="#15-htmx-4">15. htmx 4</a><a class="toc-l2" href="#16-handoff-checklist--the-original-open-risks-kept-as-a-record">16. Handoff Checklist — the original open risks, kept as a record</a></nav>
       <div class="content-inner">
         <nav class="breadcrumb" aria-label="Breadcrumb">Architecture &#8250; Lean Native Web (LNW) — Architecture Specification &amp; Handoff</nav>
         <article>
 <h1 id="lean-native-web-lnw--architecture-specification--handoff">Lean Native Web (LNW) — Architecture Specification &amp; Handoff</h1>
 <h2 id="status">Status</h2>
-<p><strong>Rewritten 2026-08-31.</strong> What stood here described the four throwaway apps this document was
-originally written from — <code>htmx-skeleton.zip</code>, <code>bare-kestrel.zip</code>, a JSON API variant and a
-SvelteKit+Deno app — and said JauntyQ was &quot;decided, not yet wired&quot; and JWT bearer was the default
-auth. All three statements outlived the code they described by months. The sections below are the
-design; this block is what of it exists.</p>
-<p><strong>Built, and in this repository.</strong> Everything §2 states as a principle is enforced by something
-that fails when it is broken:</p>
+<p>The sections below are the design; this block is what of it exists. Everything §2 states as a
+principle is enforced by something that fails when it is broken:</p>
 <table>
 <thead>
 <tr>
@@ -152,7 +147,7 @@ that fails when it is broken:</p>
 <tr>
 <td>Minimal APIs, server-rendered HTML</td>
 <td><code>libs/nativeweb.web</code>, <code>libs/nativeweb.render</code></td>
-<td>8 test suites, 657 facts</td>
+<td>the test projects under <code>tests/</code></td>
 </tr>
 <tr>
 <td>NativeAOT, no trim warnings</td>
@@ -161,8 +156,8 @@ that fails when it is broken:</p>
 </tr>
 <tr>
 <td>Compile-time HTML, forms and CRUD</td>
-<td>the three source generators under <code>libs/</code></td>
-<td>no runtime reflection outside one documented <code>/version</code> read</td>
+<td>the source generators under <code>libs/</code></td>
+<td>the generated code is the only code path; no runtime reflection outside the one assembly-attribute read behind <code>/version</code></td>
 </tr>
 <tr>
 <td>JauntyQ for all data access</td>
@@ -171,8 +166,8 @@ that fails when it is broken:</p>
 </tr>
 <tr>
 <td>HTMX + Alpine, vendored</td>
-<td><code>libs/nativeweb.assets</code></td>
-<td>served from the assembly, no CDN</td>
+<td>framework assets in <code>libs/nativeweb.web/wwwroot/_nativeweb/</code>; htmx and Alpine.js in <code>apps/sample/wwwroot/vendor/</code></td>
+<td>served from the app's own files, no CDN. Alpine.js is loaded but no page uses it yet</td>
 </tr>
 <tr>
 <td>The reference application</td>
@@ -188,14 +183,11 @@ that fails when it is broken:</p>
 </table>
 <p><strong>Decided, and deliberately absent.</strong> Auth is not the framework's to pick, so §10's JWT-bearer
 default is a recommendation to a product rather than a description of this repo: <code>apps/sample</code>
-uses a cookie and a demo sign-in, and the framework registers no authentication scheme. The
-identity provider that once made this section's auth claims true left on 2026-08-31
-(decision 007); the line NativeWeb holds is
-Django's, where <code>contrib.auth</code> ships and the OAuth2/OIDC server does not.</p>
-<p><strong>Open, and tracked elsewhere rather than here.</strong> Deployment against a real host is unexecuted
-(spec 011 T15), and <code>libs/nativeweb.security</code> and <code>libs/nativeweb.mail</code> carry no tests — their
-coverage left with the identity provider. <code>work/todo.md</code> and <code>work/milestones.md</code> are where those
-live; §16's checklist below is the original list and is kept for the reasoning in it, not as a
+uses a cookie and a demo sign-in, and the framework registers no authentication scheme.
+<code>libs/nativeweb.signin</code> is a relying party (client) only; there is no identity provider in this
+repository (decision 007). The line
+NativeWeb holds is Django's, where <code>contrib.auth</code> ships and the OAuth2/OIDC server does not.</p>
+<p>§16's checklist is the original list of open risks, kept for the reasoning in it, not as a
 current to-do.</p>
 <hr />
 <h2 id="1-vision">1. Vision</h2>
@@ -272,7 +264,7 @@ Locator, dynamic plugins</li>
 ├── Auth/
 ├── Models/
 └── wwwroot/
-    ├── htmx.min.js, alpine.min.js   vendored, not CDN-loaded
+    ├── vendor/              htmx, Alpine.js and fonts, vendored, not CDN-loaded
     ├── css/
     └── components/       hand-written or Lit-based Web Components (see §9)
 </code></pre>
@@ -458,10 +450,9 @@ either way.</p>
 <h2 id="11-static-assets-serialization-configuration">11. Static Assets, Serialization, Configuration</h2>
 <p><strong>Static assets:</strong> <code>wwwroot/</code>, vendored htmx/Alpine, no CDN dependency, no npm chain for a
 simple application. Use <code>MapStaticAssets</code> (not <code>UseStaticFiles</code>) for build-time
-compression and content-hash fingerprinting — see §14 for the caching detail.</p>
+compression and content-hash fingerprinting.</p>
 <p><strong>Serialization:</strong> always source-generated <code>System.Text.Json</code> (a <code>JsonSerializerContext</code>
-with <code>[JsonSerializable]</code> per DTO). Reflection-based serialization is prohibited — this is
-already how the JSON-API variant built in this process works.</p>
+with <code>[JsonSerializable]</code> per DTO). Reflection-based serialization is prohibited.</p>
 <p><strong>Configuration:</strong> strongly typed configuration objects, loaded once, not <code>IConfiguration</code>
 injected throughout. One thing worth being explicit about, since it's easy to get
 half-right: <code>IConfiguration.Bind()</code>/<code>.Get&lt;T&gt;()</code> are reflection-based <strong>by default</strong> and
@@ -480,10 +471,11 @@ HTTP status codes.</li>
 <li><strong>HTML/htmx routes</strong>: a real HTML fragment shaped for the target it'll be swapped into —
 not <code>ProblemDetails</code> JSON, which would render as a broken blob of text in the DOM.</li>
 </ul>
-<p>This distinction matters more than it used to: htmx 4.0 swaps 4xx/5xx responses into the
-target by default (2.x silently drops them) — see §15. Decide the error-fragment shape for
-htmx routes now, or explicitly set <code>htmx.config.noSwap</code> after upgrading, but don't leave it
-undecided in a codebase that serves both response types from the same host.</p>
+<p>This distinction matters: htmx 4 swaps 4xx/5xx responses into the target by default. The layouts
+set <code>htmx-config</code> <code>noSwap</code> to <code>[204, 304, &quot;4xx&quot;, &quot;5xx&quot;]</code>, so a guard rejection (415, 400
+antiforgery) does not render its body inside the page — see §15. Decide the error-fragment shape
+for htmx routes, but don't leave it undecided in a codebase that serves both response types from
+the same host.</p>
 <p>Avoid exception-driven business logic; logging stays on the built-in <code>ILogger</code>, added only
 where needed.</p>
 <hr />
@@ -573,101 +565,62 @@ middleware — measured ~1.8–2.2x higher throughput and ~28% less idle memory 
 APIs. Real, but not adopted as the default: it costs the &quot;boring, AI/human-legible, huge
 corpus&quot; property that makes Minimal APIs the maintainability winner, and per §7, &quot;DI alone&quot;
 was never isolated as the specific variable responsible for the gain.</p>
-<p><strong>Never re-run, and never re-runnable — these figures are frozen.</strong> They came from a
-purpose-built pair of minimal apps load-tested with <code>wrk</code> in a single-vCPU sandbox. Neither app
-is in this repo and the sandbox is gone, so nothing can reproduce them and nothing should be
-compared against them. They stand as the relative comparison they were made for: HTMX+ASP.NET
-Core against Svelte+Deno, ~13.8x on the same page. Not as a target.</p>
-<p><strong>What replaced them for regression work: <code>tools/bench/</code></strong> (spec 012 R16, 2026-08-29). A Deno
-load driver with a committed <code>baseline.json</code> and a <code>--check</code> mode. <strong>Its first baseline is also
-frozen and also unreproducible</strong>, for the same class of reason: it measured the published
-<code>apps/web</code> binary, and <code>apps/web</code> left this repository on 2026-08-31 with the identity provider
-(decision <code>2026-08-31-007</code>). Those figures — bench-host, 16 cpu, win-x64: <code>/healthz</code> 18,067.2 req/s,
-0.83 ms p50, 74.4 MB peak RSS; <code>GET /</code> 6,998.0 req/s, 2.11 ms p50, 60.9 MB, zero errors — are
-kept here as a record and are <strong>not</strong> a target for anything now in the tree. The harness itself
-survives, retargeted at <code>apps/sample</code>, and its baseline was re-measured rather than carried
-over: a smaller app measured against a larger one's ceiling passes for the wrong reason. The
-figures <code>--check</code> compares against now, recorded 2026-08-31 on the same bench-host: <code>/healthz</code> 23,068.6
-req/s, 0.60 ms p50, 45.0 MB peak RSS; <code>/articles</code> 19,937.6 req/s, 0.61 ms p50, 40.3 MB, zero
-errors. <code>/articles</code>, not <code>/</code>, because <code>/</code> on <code>apps/sample</code> was a 302 when the baseline was taken
-and would have measured the router; since spec 022 it is a cached home page, and the baseline
-was not re-taken.
-Tolerances stay 20% down on throughput and 25% up on RSS, sized from a measured 16.3%
-run-to-run spread. <code>tools/bench/README.md</code> has the rest.</p>
-<p>What the htmx upgrade itself changed was the client asset, and that was measured directly — the
-minified library went from 51,238 B to 36,716 B, a 28.3% reduction, one fewer 14 KB download per
-cold page load. It could not have moved a server-side throughput number: htmx runs in the browser
-and does not appear in the request path either harness measures.</p>
+<p><strong>These figures are frozen.</strong> They came from a purpose-built pair of minimal apps load-tested
+with <code>wrk</code> in a single-vCPU sandbox. Neither app is in this repo, so nothing can reproduce them
+and nothing should be compared against them. They stand as the relative comparison they were
+made for: HTMX+ASP.NET Core against Svelte+Deno, ~13.8x on the same page. Not as a target.</p>
+<p><strong>For regression work, use <code>tools/bench/</code>.</strong> A Deno load driver that measures <code>apps/sample</code>
+against a committed <code>baseline.json</code>; <code>--check</code> exits 1 on a regression (20% down on throughput,
+25% up on RSS). The baseline is only comparable on the machine and harness settings it was
+recorded with. <code>tools/bench/README.md</code> has the commands and exit codes.</p>
+<p>The htmx 4 upgrade changed the client asset: the minified library went from 51,238 B to
+36,716 B, a 28.3% reduction. It does not move a server-side throughput number: htmx runs in the
+browser and does not appear in the request path either harness measures.</p>
 <hr />
-<h2 id="15-upgrading-to-htmx-40">15. Upgrading to htmx 4.0</h2>
-<p><strong>The mechanical part is cheap, by construction</strong> — and it was, but it was not the cost. htmx
-isn't a package dependency here: one vendored file (<code>wwwroot/vendor/htmx/htmx.min.js</code>)
-referenced from a single <code>&lt;script src&gt;</code>, plus <code>hx-*</code> attribute strings inside C# string
-literals. Upgrading never forces a C# recompile on its own. What it did force was rewriting
-every htmx event listener in the enhancement layer, because 4.0 changed the payload those
-listeners read and, in two places, when they fire at all. See &quot;What the upgrade actually cost&quot;
-below.</p>
-<p><strong>Done, 2026-08-29 (spec 012).</strong> htmx 4.0.0 was released 2026-08-28 and is vendored here now.
-4.0 ships as the <code>next</code> dist-tag; 2.x holds <code>latest</code> until early 2027, so this was an early
-adoption taken deliberately rather than a forced move. The checklist below is closed out.</p>
-<p><strong>Checklist, closed:</strong></p>
-<ul class="contains-task-list">
-<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Re-verify no <code>hx-*</code> attribute relies on implicit inheritance from a parent — <strong>clean, and
-structurally so.</strong> Every <code>hx-*</code> attribute in this codebase is derived by boot.js onto the same
-element that carries the <code>data-nw-*</code>, so no parent ever configures a descendant and
-<code>:inherited</code> is needed nowhere. <code>implicitInheritance</code> left at its <code>false</code> default.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Decide the 4xx/5xx response shape — <strong><code>noSwap</code> set.</strong> Correction to the note this
-checklist carried: the config takes an <em>array</em>, defaulting to <code>[204, 304]</code>, and the matcher
+<h2 id="15-htmx-4">15. htmx 4</h2>
+<p>htmx isn't a package dependency here: one vendored file (<code>wwwroot/vendor/htmx/htmx.min.js</code> in
+<code>apps/sample</code> and in the skeleton) referenced from a single <code>&lt;script src&gt;</code>, plus <code>hx-*</code> attribute
+strings inside templates. The vendored version is htmx 4, which ships under the <code>next</code> dist-tag
+while 2.x holds <code>latest</code>. The previous 2.x file is kept at
+<code>libs/nativeweb.assets/rollback/htmx-2.0.10.min.js</code>, outside every <code>wwwroot</code> so a superseded
+library is not served or shipped in the published output. Rollback is copying it over the
+vendored <code>htmx.min.js</code> files.</p>
+<p>How the codebase meets htmx 4's changed defaults:</p>
+<ul>
+<li><strong>No implicit inheritance.</strong> Every <code>hx-*</code> attribute is derived by boot.js onto the same
+element that carries the <code>data-nw-*</code>, so no parent configures a descendant and <code>:inherited</code> is
+needed nowhere. <code>implicitInheritance</code> stays at its <code>false</code> default.</li>
+<li><strong>4xx/5xx are not swapped.</strong> <code>noSwap</code> takes an <em>array</em> defaulting to <code>[204, 304]</code>; the matcher
 tests the status against <code>&quot;404&quot;</code>, <code>&quot;40x&quot;</code> and <code>&quot;4xx&quot;</code> in turn, so the value is
-<code>[204, 304, &quot;4xx&quot;, &quot;5xx&quot;]</code> and not a bare <code>['4xx','5xx']</code>. Validation errors here already
-return <code>200 OK</code> with a fragment and were never affected; the 4xx paths are guards (415
-content-type, 400 antiforgery, OAuth RFC JSON), whose bodies would otherwise have rendered
-inside the page. Pinned by <code>GuardRejection_DoesNotSwapItsBodyIntoThePage</code>. htmx 4 also adds a
-per-element <code>hx-status:4xx</code> attribute if a finer rule is ever wanted.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> If <code>hx-boost</code> is in use — <strong>not in use.</strong> Zero occurrences outside the vendored library.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Grep for <code>hx-vars</code> and <code>hx-disable</code> — <strong>neither appears.</strong> Recorded for anyone starting
-from the skeleton: in htmx 4 <code>hx-disable</code> means &quot;disable this control during the request&quot;
-(htmx 2's <code>hx-disabled-elt</code>), and htmx 2's &quot;don't process this subtree&quot; meaning moved to
+<code>[204, 304, &quot;4xx&quot;, &quot;5xx&quot;]</code>, not a bare <code>['4xx','5xx']</code>. Validation errors return <code>200 OK</code> with
+a fragment and are unaffected; the 4xx paths are guards (415 content-type, 400 antiforgery),
+whose bodies would otherwise render inside the page. htmx 4 also has a per-element
+<code>hx-status:4xx</code> attribute if a finer rule is wanted.</li>
+<li><strong>No <code>hx-boost</code>.</strong> Nothing in the templates uses it.</li>
+<li><strong><code>hx-disable</code> means something else.</strong> In htmx 4 it means &quot;disable this control during the
+request&quot; (htmx 2's <code>hx-disabled-elt</code>), and htmx 2's &quot;don't process this subtree&quot; moved to
 <code>hx-ignore</code>. Same attribute name, different job, no error if you get it wrong.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Check for any endpoint that could run past 60 seconds — <strong>none can.</strong> <code>Program.cs</code> sets a
-<code>RequestTimeoutPolicy</code> default of 30 s and Npgsql's command timeout is 30 s, both inside
-htmx 4's new 60,000 ms <code>defaultTimeout</code>. No allowance set.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Pull the new file from the project's own distribution — <strong>done</strong>, and the beta-era warning
-about the filename is void: 4.0.0 ships <code>dist/htmx.min.js</code> as before. (<code>htmax.js</code> is a
-separate bundle of htmx plus extensions, not a rename.)</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Stage with a compat shim — <strong>declined.</strong> No compat layer exists for 4.0 anyway, and the
-inheritance audit above was cheap enough that a flag would have been a permanent fixture in a
-template other projects copy. <code>implicitInheritance: true</code> was considered and rejected.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>Re-run §14's benchmark suite — NOT DONE, and not doable as written.</strong> §14's figures came
-from an ad-hoc comparative experiment (htmx-skeleton vs C# JSON API vs Deno) run during
-architecture exploration; no runnable harness was ever committed, so there is nothing here to
-re-run and no reproducible 2.x baseline to compare against. The one measured client-side
-delta: the minified library went <strong>51,238 B → 36,716 B, 28.3% smaller</strong>. Server throughput and
-RSS under 4.0 are <strong>unmeasured</strong>. Spec 012 R16 is therefore unmet.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Keep the previous file around — <strong>kept at <code>libs/nativeweb.assets/rollback/htmx-2.0.10.min.js</code></strong>,
-outside every <code>wwwroot</code> so a superseded library is not served or shipped in the published
-output. Rollback is copying it over the two vendored <code>htmx.min.js</code> files.</li>
+<li><strong>Timeouts.</strong> <code>NativeWebOptions.RequestTimeout</code> defaults to 30 s, inside htmx 4's 60,000 ms
+<code>defaultTimeout</code>, so no allowance is set.</li>
+<li><strong>No compat shim.</strong> <code>implicitInheritance: true</code> is not used.</li>
 </ul>
-<p><strong>What the upgrade actually cost</strong>, for the next time: not the renames. Three behaviours changed
-under the same-looking API. <code>after:request</code> stopped covering error/timeout/abort (restore moved
-to <code>finally:request</code>), <code>after:swap</code> moved its dispatch from the swapped-in element to the
-issuing one, and every payload moved from flat <code>detail.*</code> fields onto <code>detail.ctx</code>. The first
-two fail silently — a mechanical rename leaves a permanently disabled button and a focus bug,
-both green in CI.</p>
-<p><strong>Watch, don't act on yet:</strong> 4.0's declarative signals may let some of §8's Alpine rows
-move to plain htmx; a proposed <code>hx-drag</code> extension could shrink the &quot;Island&quot; row for simple
-drag-and-drop cases. Worth a second pass over §8's table now that 4.0 has shipped. The
-<code>hx-alpine-compat</code> extension is evaluated and declined in spec 012 — see there.</p>
+<p><strong>What to watch for in an upgrade:</strong> not the renames. Three behaviours changed under the
+same-looking API. <code>after:request</code> stopped covering error/timeout/abort (restore moved to
+<code>finally:request</code>), <code>after:swap</code> moved its dispatch from the swapped-in element to the issuing
+one, and every payload moved from flat <code>detail.*</code> fields onto <code>detail.ctx</code>. The first two fail
+silently — a mechanical rename leaves a permanently disabled button and a focus bug, both green
+in CI.</p>
+<p><strong>Watch, don't act on yet:</strong> htmx 4's declarative signals may let some of §8's Alpine rows move
+to plain htmx, and a proposed <code>hx-drag</code> extension could shrink the &quot;Island&quot; row for simple
+drag-and-drop cases. The <code>hx-alpine-compat</code> extension is not used.</p>
 <hr />
 <h2 id="16-handoff-checklist--the-original-open-risks-kept-as-a-record">16. Handoff Checklist — the original open risks, kept as a record</h2>
 <blockquote>
-<p><strong>This list is historical, not a to-do.</strong> It was written before any of this existed, when the
-artifacts were four throwaway apps. Most of it has since been answered by building the thing:
-the AOT publish runs in CI against the real dependency graph, JauntyQ drives <code>apps/sample</code> and
-<code>db/sample</code> rather than an in-memory list, and there is no strangler-fig window because there
-was no legacy stack to strangle. It is kept for the reasoning inside each item, which is still
-the reasoning that applies. What is genuinely open lives in <code>work/todo.md</code> and
-<code>work/milestones.md</code>, and the Status block at the top of this document names the two that matter.</p>
+<p><strong>This list is historical, not a to-do.</strong> It was written before any of this existed. Most of it
+has since been answered by building the thing: the AOT publish runs in CI against the real
+dependency graph, JauntyQ drives <code>apps/sample</code> and <code>db/sample</code>, and there is no strangler-fig
+window because there was no legacy stack to strangle. It is kept for the reasoning inside each
+item, which still applies.</p>
 </blockquote>
 <ul class="contains-task-list">
 <li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>Auth AOT compatibility</strong> for whatever scheme is actually configured (§10) — the one
@@ -679,9 +632,6 @@ its own check.</li>
 <li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>Session/auth state during the strangler-fig window</strong> (§13) — if a session must
 survive a request being routed to a <em>different</em> backend mid-session, the session store
 needs to be readable by both stacks during the transition.</li>
-<li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>Wire JauntyQ into the actual skeleton</strong> — the built-and-verified skeleton (§ Status)
-still uses a placeholder in-memory list; the <code>.sql</code>-file/schema-snapshot workflow hasn't
-been exercised against it yet.</li>
 <li class="task-list-item"><input disabled="disabled" type="checkbox" /> <strong>Confirm the config-binding source generator and <code>TypedResults</code></strong> are actually used
 in the real codebase, not just specified here (§5, §11) — both are opt-in, not automatic.</li>
 </ul>
