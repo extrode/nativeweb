@@ -10,8 +10,9 @@ content-hashed asset URLs by hand. All five ship in `libs/nativeweb.web`.
 
 ## 1. Reference the framework
 
-**Checkout mode is the supported way to consume NativeWeb.** Clone this repository as a
-**sibling** of your product:
+**This page uses checkout mode**, which suits adopting one library at a time; packages work too
+(see **Checkout references or packages** below). Clone this repository as a **sibling** of your
+product:
 
 ```text
 your-org/
@@ -62,17 +63,16 @@ worktree fails:
 <NativeWebRoot Condition="'$(NativeWebRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\..\nativeweb')">$(MSBuildThisFileDirectory)..\..\..\nativeweb</NativeWebRoot>
 ```
 
-### Why not packages
+### Checkout references or packages
 
 The thirteen packable projects under `libs/` carry `IsPackable` and a `PackageId`, and
-`skeleton/Directory.Build.props` already has a `-p:NativeWebUsePackages=true` mode. **Do not use
-it yet.** The packages publish to nuget.org as `Extrode.NativeWeb.*` from a `v*` tag
-([`../02-reference/versioning.md`](../02-reference/versioning.md)), but none has been released, so
-package mode has never restored end to end. There is also no stated semver guarantee, support
-window or deprecation path for a consumed library yet. See
-[`../decisions/2026-08-30-004-package-mode-for-consumers.md`](../decisions/2026-08-30-004-package-mode-for-consumers.md)
-for what it obliges. Until that lands, a checkout is the supported model and you upgrade by
-pulling.
+`skeleton/Directory.Build.props` resolves them as packages by default. The packages publish to
+nuget.org as `Extrode.NativeWeb.*` from a `v*` tag, and `v0.1.0` and `v0.1.1` are out; what a
+version promises, the support window and the deprecation path are in
+[`../02-reference/versioning.md`](../02-reference/versioning.md). This page still shows checkout
+references, because an existing app adopting one library at a time usually wants to read and
+change the framework beside it. For packages instead, add a `PackageReference` per library and
+pin its version in your `Directory.Packages.props`, the way `skeleton/` does.
 
 ### The project references
 

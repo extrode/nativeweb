@@ -6,6 +6,7 @@ import {
   databaseHint,
   diagnosticsIn,
   missingFromCache,
+  NUGET_ORG,
   nativeWebPins,
   occupants,
   packageEnvironment,
@@ -13,6 +14,7 @@ import {
   stampEnvironment,
   stampStepEnvironment,
   testsRun,
+  withLocalFeed,
 } from "./stamp-check.ts";
 
 Deno.test("parseArgs stamps Stampcheck into tmp by default", () => {
@@ -26,7 +28,35 @@ Deno.test("parseArgs stamps Stampcheck into tmp by default", () => {
 });
 
 Deno.test("parseArgs takes --packages", () => {
-  assertEquals(parseArgs(["--packages"]).packages, true);
+  const options = parseArgs(["--packages"]);
+
+  assertEquals(options.packages, true);
+  assertEquals(options.packagesFrom, null);
+});
+
+Deno.test("parseArgs takes --packages-from, which implies --packages", () => {
+  const options = parseArgs(["--packages-from", "artifacts/packages"]);
+
+  assertEquals(options.packages, true);
+  assertEquals(options.packagesFrom, "artifacts/packages");
+});
+
+Deno.test("withLocalFeed maps only Extrode.NativeWeb.* to the folder and leaves the catch-all", async () => {
+  const config = withLocalFeed(
+    await Deno.readTextFile(new URL("../skeleton/nuget.config", import.meta.url)),
+    "/w/pkgs",
+  );
+
+  assertStringIncludes(config, '<add key="local-packages" value="/w/pkgs" />');
+  assertStringIncludes(
+    config,
+    '<packageSource key="local-packages">\n      <package pattern="Extrode.NativeWeb.*" />',
+  );
+  assertStringIncludes(config, '<packageSource key="nuget.org">\n      <package pattern="*" />');
+});
+
+Deno.test("withLocalFeed refuses a config it cannot extend", () => {
+  assertThrows(() => withLocalFeed("<configuration />", "/w/pkgs"), Error, "packageSourceMapping");
 });
 
 Deno.test("packageEnvironment resolves both frameworks from packages into the given cache", () => {
@@ -65,19 +95,52 @@ Deno.test("nativeWebPins reads the skeleton's own pins", async () => {
   assertEquals(nativeWebPins(props).length, 5);
 });
 
+async function cacheWith(dir: string, id: string, version: string, source: string | null) {
+  const entry = join(dir, id, version);
+
+  await Deno.mkdir(entry, { recursive: true });
+  if (source !== null) {
+    await Deno.writeTextFile(join(entry, ".nupkg.metadata"), JSON.stringify({ version: 2, source }));
+  }
+}
+
 Deno.test("missingFromCache names the pins the cache does not hold", async () => {
   const dir = await Deno.makeTempDir();
 
   try {
-    await Deno.mkdir(join(dir, "extrode.nativeweb.render", "0.1.1"), { recursive: true });
+    await cacheWith(dir, "extrode.nativeweb.render", "0.1.1", NUGET_ORG);
 
     assertEquals(
       await missingFromCache([
         { id: "Extrode.NativeWeb.Render", version: "0.1.1" },
         { id: "Extrode.NativeWeb.Web", version: "0.1.1" },
         { id: "Extrode.NativeWeb.Render", version: "0.1.0" },
-      ], dir),
+      ], dir, NUGET_ORG),
       ["Extrode.NativeWeb.Web 0.1.1", "Extrode.NativeWeb.Render 0.1.0"],
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("missingFromCache names a pin restored from another source", async () => {
+  const dir = await Deno.makeTempDir();
+
+  try {
+    await cacheWith(dir, "extrode.nativeweb.render", "0.1.1", NUGET_ORG);
+    await cacheWith(dir, "extrode.nativeweb.web", "0.1.1", "/w/pkgs/");
+    await cacheWith(dir, "extrode.nativeweb.forms", "0.1.1", null);
+
+    assertEquals(
+      await missingFromCache([
+        { id: "Extrode.NativeWeb.Render", version: "0.1.1" },
+        { id: "Extrode.NativeWeb.Web", version: "0.1.1" },
+        { id: "Extrode.NativeWeb.Forms", version: "0.1.1" },
+      ], dir, "/W/pkgs"),
+      [
+        `Extrode.NativeWeb.Render 0.1.1 (from ${NUGET_ORG})`,
+        "Extrode.NativeWeb.Forms 0.1.1",
+      ],
     );
   } finally {
     await Deno.remove(dir, { recursive: true });
@@ -119,13 +182,13 @@ Deno.test("stampEnvironment resolves NativeWeb by checkout and JauntyQ by packag
 
   assertEquals(env.NativeWebRoot, "C:/repo");
   assertEquals(env.JauntyQUsePackages, "true");
-  assertEquals(env.NativeWebUsePackages, "");
+  assertEquals(env.NativeWebUsePackages, "false");
 });
 
-Deno.test("stampEnvironment blanks the switches an exporting shell would flip", () => {
+Deno.test("stampEnvironment overrides the switches an exporting shell would flip", () => {
   const env = stampEnvironment("C:/repo");
 
-  assertEquals(env.NativeWebUsePackages, "");
+  assertEquals(env.NativeWebUsePackages, "false");
   assertEquals(env.JauntyQRoot, "");
 });
 

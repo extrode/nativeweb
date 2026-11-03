@@ -118,12 +118,18 @@ would otherwise reach the feed, and the JauntyQ licence bars that (see `AGENTS.m
 1. Read the branch's `CHANGELOG.md` under `## [Unreleased]` and decide the number against
    **What each component means** above.
 2. Bump `VersionPrefix` in `Directory.Build.props` and the five `Extrode.NativeWeb.*` pins in
-   `skeleton/Directory.Packages.props` — `PackageVersionTests` fails if they disagree.
+   `skeleton/Directory.Packages.props` — `PackageVersionTests` fails if they disagree. **Bump in
+   the release change itself, right before the tag, never earlier.** A stamped product resolves
+   NativeWeb from those pins by default, so from the bump until the tag publishes, every stamp
+   names a version nuget.org does not have and fails restore with NU1101.
 3. Move the changelog's `## [Unreleased]` entries under a `## [X.Y.Z]` heading, dated.
 4. Merge `dev` into `main` with `--no-ff`, tag `vX.Y.Z`, and push the tag.
 
-The tag is what publishes. `release.yml` refuses a tag that disagrees with `VersionPrefix` before
-it packs anything, so a mistyped tag costs a failed run rather than a burned version — and a
+The tag is what publishes. Before anything is pushed, the publish job stamps a throwaway product
+and builds it against the packages it just packed
+(`deno run -A tools/stamp-check.ts --packages-from artifacts/packages`), so a release whose
+packages a fresh product cannot restore or build stops before nuget.org sees it.
+`release.yml` refuses a tag that disagrees with `VersionPrefix` before it packs anything, so a mistyped tag costs a failed run rather than a burned version — and a
 version on nuget.org can never be deleted or replaced, only unlisted.
 
 ## Related
