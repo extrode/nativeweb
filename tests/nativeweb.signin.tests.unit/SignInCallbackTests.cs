@@ -112,6 +112,19 @@ public sealed class SignInCallbackTests
     }
 
     [Fact]
+    public async Task Callback_ExpiredAndSweptStateWithFlowCookie_IsRefusedAsUnknown()
+    {
+        Fixture fixture = await Started();
+        fixture.Clock.Now = Now + fixture.Options.FlowLifetime + TimeSpan.FromMinutes(1);
+        await fixture.Flows.SweepAsync(default);
+
+        DefaultHttpContext context = await fixture.Callback();
+
+        Assert.Empty(fixture.Provider.Exchanges);
+        Assert.Equal("/signin-failed?error=state_unknown", context.Response.Headers.Location.ToString());
+    }
+
+    [Fact]
     public async Task Callback_ExpiredStateWithNoFlowCookie_IsRefusedAsExpired()
     {
         Fixture fixture = await Started();
@@ -244,7 +257,7 @@ public sealed class SignInCallbackTests
     }
 
     [Fact]
-    public async Task GetLogin_FlowCookieExpiresWithTheFlow()
+    public async Task GetLogin_FlowCookieOutlivesTheFlowByOneLifetime()
     {
         SignInOptions options = Options();
         var clock = new MovableClock(Now);
@@ -263,7 +276,7 @@ public sealed class SignInCallbackTests
             .Single(p => p.StartsWith("expires=", StringComparison.OrdinalIgnoreCase))["expires=".Length..];
 
         Assert.Equal(
-            Now + options.FlowLifetime,
+            Now + (2 * options.FlowLifetime),
             DateTimeOffset.Parse(expires, System.Globalization.CultureInfo.InvariantCulture));
     }
 
