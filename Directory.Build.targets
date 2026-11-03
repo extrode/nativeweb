@@ -71,6 +71,9 @@
          also notes. Write dashes as semicolons or commas here.) -->
     <Authors>Extrode LLC</Authors>
     <PackageProjectUrl>https://github.com/extrode/nativeweb</PackageProjectUrl>
+    <!-- 128x128 render of docs/images/nativeweb-mark.svg, as JauntyQ ships its mark.
+         nuget.org shows a default icon for a package that names none. -->
+    <PackageIcon>nativeweb-icon-128.png</PackageIcon>
 
     <!-- Provenance (spec 028 R3). The nuspec already carried a `commit` before
          this line existed, because the SDK picks SourceRevisionId up on its own ;
@@ -114,6 +117,7 @@
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="" Visible="false" />
     <None Include="$(MSBuildThisFileDirectory)NOTICE.md" Pack="true" PackagePath="" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)docs/images/nativeweb-icon-128.png" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
 </Project>

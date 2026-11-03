@@ -3,6 +3,7 @@ import { assertEquals, assertRejects, assertStringIncludes, assertThrows } from 
 import {
   diagnosticsIn,
   expectedVersion,
+  iconProblem,
   isPackable,
   nuspecFacts,
   packableProjects,
@@ -86,6 +87,32 @@ Deno.test("nuspecFacts reads the repository attributes and the readme", () => {
   assertEquals(facts.readme, "README.md");
   assertEquals(facts.repositoryUrl, "https://github.com/extrode/nativeweb");
   assertEquals(facts.repositoryCommit, "abc123");
+});
+
+Deno.test("nuspecFacts reads the icon", () => {
+  const facts = nuspecFacts(
+    `<id>Extrode.NativeWeb.Web</id><version>0.1.0</version><icon>nativeweb-icon-128.png</icon>`,
+  );
+
+  assertEquals(facts.icon, "nativeweb-icon-128.png");
+});
+
+Deno.test("iconProblem passes a named icon the package carries", () => {
+  const facts = nuspecFacts(`<id>A</id><version>0.1.0</version><icon>i.png</icon>`);
+
+  assertEquals(iconProblem(facts, new Set(["i.png", "A.nuspec"])), null);
+});
+
+Deno.test("iconProblem refuses a nuspec that names no icon", () => {
+  const facts = nuspecFacts(`<id>A</id><version>0.1.0</version>`);
+
+  assertStringIncludes(iconProblem(facts, new Set(["i.png"])) ?? "", "names no <icon>");
+});
+
+Deno.test("iconProblem refuses an icon the package does not carry", () => {
+  const facts = nuspecFacts(`<id>A</id><version>0.1.0</version><icon>i.png</icon>`);
+
+  assertStringIncludes(iconProblem(facts, new Set(["A.nuspec"])) ?? "", "does not contain it");
 });
 
 Deno.test("nuspecFacts reports a repository element with no url", () => {
@@ -204,6 +231,18 @@ Deno.test("verify rejects a repository element with no url", async () => {
   );
 
   assertStringIncludes(problem ?? "", "missing url or commit");
+});
+
+Deno.test("verify rejects a package whose icon was dropped", async () => {
+  const path = await writeTempNupkg(goodNuspec(), { readme: true, icon: false });
+
+  const problem = await verify(
+    { csproj: "x", directory: "y", packageId: "Extrode.NativeWeb.Render", hasReadme: true },
+    path,
+    "0.1.0-dev",
+  );
+
+  assertStringIncludes(problem ?? "", "nativeweb-icon-128.png");
 });
 
 Deno.test("verify rejects a package whose NOTICE.md was dropped", async () => {
@@ -411,6 +450,7 @@ function goodNuspec(): string {
   <id>Extrode.NativeWeb.Render</id>
   <version>0.1.0-dev</version>
   <readme>README.md</readme>
+  <icon>nativeweb-icon-128.png</icon>
   <repository type="git" url="https://github.com/extrode/nativeweb" commit="abc123" />
 </metadata></package>`;
 }
@@ -501,6 +541,7 @@ async function writeTempNupkg(
   options: {
     readme: boolean;
     notice?: boolean;
+    icon?: boolean;
     assembly?: boolean;
     extra?: Record<string, string>;
   },
@@ -509,6 +550,7 @@ async function writeTempNupkg(
 
   const entries: [string, string][] = [[`${id}.nuspec`, nuspec], ["LICENSE.md", "license"]];
   if (options.notice !== false) entries.push(["NOTICE.md", "notice"]);
+  if (options.icon !== false) entries.push(["nativeweb-icon-128.png", "png"]);
   if (options.assembly !== false) entries.push([`lib/net10.0/${id}.dll`, "MZ"]);
   if (options.readme) entries.push(["README.md", "# readme"]);
   for (const [name, content] of Object.entries(options.extra ?? {})) entries.push([name, content]);
