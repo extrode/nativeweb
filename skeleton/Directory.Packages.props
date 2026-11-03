@@ -19,8 +19,9 @@
 
   <!-- Package pins for the source-generator/framework dependencies. The
        Extrode.JauntyQ.* pair applies to every build: package mode is JauntyQ's
-       default since 2026-09-05. The NativeWeb.* five apply in package mode only
-       (-p:NativeWebUsePackages=true).
+       default since 2026-09-05. The NativeWeb.* five apply in package mode, which is
+       NativeWeb's default since 2026-11-04; -p:NativeWebUsePackages=false ignores
+       them and builds against a checkout.
 
        THE NativeWeb.* PINS ARE NOT FREE TEXT. Directory.Build.props in the
        NativeWeb repository declares one VersionPrefix and every NativeWeb.*
@@ -30,14 +31,14 @@
        disagreement should surface, because there it surfaces as NU1101 against
        a version that was never published.
 
-       KNOWN GAP, and it is now half the size it was: spec 028 built the pack
-       and the tag-triggered publish (.github/workflows/release.yml), so a
-       release puts these versions on the feed, and v0.1.0 is there. Until a
-       stamped product is shown to restore from nuget.org, a local sibling
-       checkout of NativeWeb (its checkout mode is still the default) stays the
-       working path. JauntyQ
-       needs no fallback: its core is public on nuget.org as Extrode.JauntyQ.*
-       from 0.5.0, so these two pins restore with no credential. -->
+       Because package mode is the default, a stamp is only as good as these
+       pins: stamped between a VersionPrefix bump and that version's release, a
+       product asks nuget.org for a version it does not have yet and the
+       restore fails NU1101. The framework bumps VersionPrefix in the release
+       change itself, right before the tag, so that window is the length of one
+       release run (docs/02-reference/versioning.md). JauntyQ's core is public
+       on nuget.org as Extrode.JauntyQ.* from 0.5.0, so its two pins restore
+       with no credential as well. -->
   <ItemGroup>
     <PackageVersion Include="Extrode.JauntyQ.Generator" Version="0.5.1" />
     <PackageVersion Include="Extrode.JauntyQ.Runtime" Version="0.5.1" />

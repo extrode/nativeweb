@@ -64,11 +64,8 @@
        package IDs did not change, so package mode is the path that kept working
        (core 0.5.0 renamed them later, to Extrode.JauntyQ.*).
        The framework repository made the same flip in the same change; its
-       Directory.Build.props carries the full reasoning.
-
-       NativeWebUsePackages below is NOT flipped with it: the Extrode.NativeWeb.*
-       packages have never been published, so a stamped product still needs the
-       framework checkout. -->
+       Directory.Build.props carries the full reasoning. NativeWeb made the same
+       flip on 2026-11-04, once Extrode.NativeWeb.* was on nuget.org; see below. -->
   <PropertyGroup>
     <JauntyQUsePackages Condition="'$(JauntyQUsePackages)' == ''">true</JauntyQUsePackages>
   </PropertyGroup>
@@ -87,8 +84,8 @@
   </Target>
 
   <!-- Local checkout of NativeWeb (the framework libs: security, auth, render
-       + render generator), referenced by project until the Extrode.NativeWeb.* packages
-       publish. Single-depth probe: a stamped product repo sits beside its
+       + render generator), referenced by project in checkout mode only; the
+       default is the nuget.org packages. Single-depth probe: a stamped product repo sits beside its
        framework, so the sibling resolves one level up. Override with
        -p:NativeWebRoot=... if your checkout lives elsewhere.
 
@@ -107,13 +104,21 @@
   </PropertyGroup>
 
   <!-- Dual-mode NativeWeb resolution, same split as JauntyQ above:
-       - local checkout (the default) => ProjectReference for co-development;
-       - -p:NativeWebUsePackages=true => the pinned Extrode.NativeWeb.* packages
-         (versions in Directory.Packages.props).
-       Package mode is opt-in ONLY, same as JauntyQ; MSBuild also reads bare
-       environment variables as properties, so an ambient NativeWebUsePackages
-       flips the mode silently — the message below makes the resolved mode
-       visible in every build log. -->
+       - the default => the pinned Extrode.NativeWeb.* packages (versions in
+         Directory.Packages.props), from nuget.org;
+       - -p:NativeWebUsePackages=false => ProjectReference into a local checkout,
+         for co-developing the framework and the product.
+
+       Checkout mode was the default until 2026-11-04, while no Extrode.NativeWeb.*
+       version had been published. The packages are the default now because they
+       are a fixed version: a checkout builds against whatever commit it happens
+       to be on, so two machines building the same product commit could get two
+       different frameworks. MSBuild also reads bare environment variables as
+       properties, so an ambient NativeWebUsePackages flips the mode silently;
+       the message below makes the resolved mode visible in every build log. -->
+  <PropertyGroup>
+    <NativeWebUsePackages Condition="'$(NativeWebUsePackages)' == ''">true</NativeWebUsePackages>
+  </PropertyGroup>
 
   <!-- Same MSB9008 trap as JauntyQ: an unresolved NativeWebRoot silently drops
        the ProjectReferences and surfaces as downstream CS0246s. Fail fast —
@@ -121,7 +126,7 @@
        csproj probe for the same reason as EnsureJauntyQRoot. -->
   <Target Name="EnsureNativeWebRoot" BeforeTargets="BeforeBuild"
           Condition="'$(NativeWebUsePackages)' != 'true' and !Exists('$(NativeWebRoot)\libs\nativeweb.render\nativeweb.render.csproj')">
-    <Error Text="NativeWeb checkout not found at '$(NativeWebRoot)'. Pass -p:NativeWebRoot=&lt;path&gt; or build with -p:NativeWebUsePackages=true." />
+    <Error Text="NativeWeb checkout not found at '$(NativeWebRoot)'. Pass -p:NativeWebRoot=&lt;path&gt;, or drop -p:NativeWebUsePackages=false to build against the pinned packages." />
   </Target>
 
   <Target Name="ReportFrameworkResolution" BeforeTargets="BeforeBuild">

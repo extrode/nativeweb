@@ -54,13 +54,19 @@ public sealed class JauntyQResolutionModeTests
     }
 
     /// <summary>
-    /// The framework's own resolution is not flipped with JauntyQ's: no NativeWeb.* package has
-    /// published, so a stamped product still needs the framework checkout.
+    /// The framework's own resolution followed JauntyQ's on 2026-11-04, once Extrode.NativeWeb.*
+    /// was on nuget.org: a stamped product builds against its pinned packages with no checkout.
     /// </summary>
     [Fact]
-    public void TheSkeletonStillDefaultsToANativeWebCheckout()
+    public void TheSkeletonDefaultsToNativeWebPackages()
     {
-        Assert.Equal(string.Empty, Property(SkeletonProject, "NativeWebUsePackages"));
+        Assert.Equal("true", Property(SkeletonProject, "NativeWebUsePackages"));
+    }
+
+    [Fact]
+    public void TheSkeletonReachesANativeWebCheckoutByAskingForIt()
+    {
+        Assert.Equal("false", Property(SkeletonProject, "NativeWebUsePackages", "NativeWebUsePackages=false"));
     }
 
     [Fact]

@@ -108,7 +108,7 @@ foreach ($file in $files) {
 }
 
 Write-Host '-- 2. git init (main, initial commit, dev branch)'
-Write-Host "-- 3. reminder: set NativeWebRoot or -p:NativeWebUsePackages=true; JauntyQ resolves from packages by default. See the stamped README"
+Write-Host "-- 3. reminder: NativeWeb and JauntyQ both resolve from nuget.org packages by default; -p:NativeWebUsePackages=false builds against a NativeWeb checkout instead. See the stamped README"
 
 if (-not $Execute) {
     Write-Host 'Dry run complete; nothing written.'
@@ -153,5 +153,5 @@ finally {
 }
 
 Write-Host "Stamped $Name into $Destination (git: main + dev)."
-Write-Host 'Next: create the database + role (see db/README.md), run the migrate script, then build in checkout mode.'
+Write-Host 'Next: create the database + role (see db/README.md), run the migrate script, then build (NativeWeb and JauntyQ restore from nuget.org).'
 exit 0
