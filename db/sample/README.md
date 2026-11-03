@@ -35,6 +35,15 @@ psql -U postgres -c "CREATE DATABASE nativeweb_sample_test OWNER nativeweb_app"
 for f in db/sample/migrations/*.sql; do psql -U nativeweb_app -d nativeweb_sample_test -v ON_ERROR_STOP=1 -f "$f"; done
 ```
 
+A full local `dotnet test` starts every test project at once, and on a 10-core machine the
+integration tiers' connection opens then pass Npgsql's 15-second timeout (2026-11-03: 12 of 2480
+failed with `The operation has timed out`, while the server logged no connection errors). Cap the
+modules run in parallel instead:
+
+```bash
+dotnet test --max-parallel-test-modules 4
+```
+
 Re-pull the snapshot after any change to `migrations/`:
 
 ```bash
