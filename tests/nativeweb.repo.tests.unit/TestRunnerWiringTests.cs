@@ -153,7 +153,7 @@ public sealed class TestRunnerWiringTests
         string[] sources =
         [
             ".github/workflows/ci.yml",
-            ".github/workflows/publish.yml",
+            ".github/workflows/release.yml",
             "skeleton/.github/workflows/ci.yml",
             "README.md",
             "skeleton/README.md",

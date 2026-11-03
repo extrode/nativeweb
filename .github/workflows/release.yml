@@ -1,4 +1,4 @@
-name: Publish
+name: release
 
 # Spec 028 R6. A tag and nothing else.
 #
@@ -21,7 +21,7 @@ on:
 # token for a key valid one hour, at the push step. id-token: write only lets
 # the job ask for that token; nuget.org decides whether to honour it by matching
 # it against the trusted-publishing policy, which must name this repository,
-# workflow file publish.yml and no environment.
+# workflow file release.yml and no environment.
 #
 # The grant is the whole reason this file is separate from ci.yml. CI runs on
 # every push; giving it id-token: write so it could also publish would let every

@@ -1,5 +1,5 @@
 # Self-hosted GitHub Actions runner for the Linux jobs in .github/workflows/ci.yml and
-# publish.yml, run on the dev machine while the account's hosted-runner minutes are used up.
+# release.yml, run on the dev machine while the account's hosted-runner minutes are used up.
 # Decision: docs/decisions/2026-09-24-014-self-hosted-ci-runners.md. Setup: README.md here.
 #
 #   cd scripts/ci-runner

@@ -19,7 +19,7 @@ than one.
 
 | version | what it means |
 |---|---|
-| `X.Y.Z` | a release. Built from a `vX.Y.Z` tag by `.github/workflows/publish.yml`, and the only thing ever pushed to the feed |
+| `X.Y.Z` | a release. Built from a `vX.Y.Z` tag by `.github/workflows/release.yml`, and the only thing ever pushed to the feed |
 | `X.Y.Z-dev` | every other build. What a local `deno run -A tools/pack.ts` produces, and what CI packs on every push |
 
 The suffix is opt-in in the safe direction: a release requires `IsReleaseBuild=true`, which only
@@ -99,10 +99,10 @@ skipped these steps.
 
 ## Where the packages go, and where they do not
 
-`.github/workflows/publish.yml` pushes to nuget.org (`https://api.nuget.org/v3/index.json`) by
+`.github/workflows/release.yml` pushes to nuget.org (`https://api.nuget.org/v3/index.json`) by
 trusted publishing, as JauntyQ does: `tools/nuget-login.ts` trades the job's GitHub OIDC
 token for a key valid one hour, so no API key is stored anywhere. It needs a trusted-publishing
-policy on nuget.org naming this repository, workflow file `publish.yml` and no environment, and the
+policy on nuget.org naming this repository, workflow file `release.yml` and no environment, and the
 `NUGET_USER` repository variable set to the nuget.org profile name that created it. The package ids are `Extrode.NativeWeb.*`, matching
 JauntyQ's `Extrode.JauntyQ.*`; namespaces and assembly names stay `NativeWeb.*`. No version has
 been published yet.
@@ -122,7 +122,7 @@ would otherwise reach the feed, and the JauntyQ licence bars that (see `AGENTS.m
 3. Move the changelog's `## [Unreleased]` entries under a `## [X.Y.Z]` heading, dated.
 4. Merge `dev` into `main` with `--no-ff`, tag `vX.Y.Z`, and push the tag.
 
-The tag is what publishes. `publish.yml` refuses a tag that disagrees with `VersionPrefix` before
+The tag is what publishes. `release.yml` refuses a tag that disagrees with `VersionPrefix` before
 it packs anything, so a mistyped tag costs a failed run rather than a burned version — and a
 version on nuget.org can never be deleted or replaced, only unlisted.
 

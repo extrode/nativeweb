@@ -56,7 +56,7 @@ export async function exchange(env: LoginEnv, fetchFn: typeof fetch = fetch): Pr
   if (keyResponse.status !== 200) {
     throw new Error(
       `Token exchange failed (HTTP ${keyResponse.status}) at ${TOKEN_SERVICE}. NUGET_USER must be the `
-        + `policy creator, and the policy must name publish.yml with no environment: ${body}`,
+        + `policy creator, and the policy must name release.yml with no environment: ${body}`,
     );
   }
 

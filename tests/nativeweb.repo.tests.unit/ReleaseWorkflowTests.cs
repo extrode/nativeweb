@@ -30,14 +30,14 @@ namespace NativeWeb.Repo.Tests.Unit;
 /// what this class is named for.
 /// </para>
 /// </remarks>
-public sealed partial class PublishWorkflowTests
+public sealed partial class ReleaseWorkflowTests
 {
-    private const string PublishWorkflow = ".github/workflows/publish.yml";
+    private const string ReleaseWorkflow = ".github/workflows/release.yml";
 
     [Fact]
     public void PublishTriggersOnTagsAndNothingElse()
     {
-        string on = TopLevelBlock(File.ReadAllText(Path.Combine(RepoRoot(), PublishWorkflow)), "on");
+        string on = TopLevelBlock(File.ReadAllText(Path.Combine(RepoRoot(), ReleaseWorkflow)), "on");
 
         string[] triggers = [.. Keys(on, indent: 2)];
 
@@ -60,7 +60,7 @@ public sealed partial class PublishWorkflowTests
     public void PublishHoldsReadAccessAndAnOidcTokenAndNothingMore()
     {
         string permissions = TopLevelBlock(
-            File.ReadAllText(Path.Combine(RepoRoot(), PublishWorkflow)),
+            File.ReadAllText(Path.Combine(RepoRoot(), ReleaseWorkflow)),
             "permissions");
 
         string[] granted = [.. permissions
@@ -75,7 +75,7 @@ public sealed partial class PublishWorkflowTests
     public void PublishReadsNoStoredSecretButGitHubsOwnToken()
     {
         string[] secrets = [.. File
-            .ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))
+            .ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))
             .Where(line => !line.TrimStart().StartsWith('#'))
             .SelectMany(line => SecretReference().Matches(line))
             .Select(match => match.Groups[1].Value)
@@ -88,7 +88,7 @@ public sealed partial class PublishWorkflowTests
     public void TheCiGateReadsEveryCheckRunNotOnlyTheLatest()
     {
         string[] queries = [.. File
-            .ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))
+            .ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))
             .Where(line => !line.TrimStart().StartsWith('#'))
             .Select(line => CheckRunsQuery().Match(line))
             .Where(match => match.Success)
@@ -120,7 +120,7 @@ public sealed partial class PublishWorkflowTests
     [Fact]
     public void ThePushSpendsAKeyMintedInTheSameStep()
     {
-        string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))];
+        string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))];
 
         int push = Array.FindIndex(lines, IsANuGetPush);
 
@@ -157,14 +157,14 @@ public sealed partial class PublishWorkflowTests
             .GetFiles(Path.Combine(root, ".github", "workflows"))
             .Where(p => p.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
                 || p.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))
-            .Where(p => Path.GetRelativePath(root, p).Replace('\\', '/') != PublishWorkflow)
+            .Where(p => Path.GetRelativePath(root, p).Replace('\\', '/') != ReleaseWorkflow)
             .Where(p => File.ReadAllLines(p).Any(IsANuGetPush))
             .Select(p => Path.GetRelativePath(root, p))];
 
         Assert.True(
             offenders.Length == 0,
             $"These workflows push a package: {string.Join(", ", offenders)}. Only "
-                + $"{PublishWorkflow} may, because it is the only one whose trigger is a version "
+                + $"{ReleaseWorkflow} may, because it is the only one whose trigger is a version "
                 + "tag. Everything else runs on every push to every branch.");
     }
 
@@ -172,7 +172,7 @@ public sealed partial class PublishWorkflowTests
     public void ThePushDoesNotSkipDuplicates()
     {
         string[] pushLines = [.. File
-            .ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))
+            .ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))
             .SkipWhile(line => !IsANuGetPush(line))];
 
         Assert.NotEmpty(pushLines);
@@ -193,7 +193,7 @@ public sealed partial class PublishWorkflowTests
     [Fact]
     public void PublishRefusesACommitCiHasNotPassed()
     {
-        string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), PublishWorkflow))];
+        string[] lines = [.. File.ReadAllLines(Path.Combine(RepoRoot(), ReleaseWorkflow))];
 
         int gate = Array.FindIndex(lines, line => line.Contains("check-runs", StringComparison.Ordinal)
             && !line.TrimStart().StartsWith('#'));
@@ -251,7 +251,7 @@ public sealed partial class PublishWorkflowTests
         string[] lines = yaml.Split('\n');
         int start = Array.FindIndex(lines, line => line.StartsWith($"{key}:", StringComparison.Ordinal));
 
-        Assert.True(start >= 0, $"{PublishWorkflow} declares no top-level '{key}:'.");
+        Assert.True(start >= 0, $"{ReleaseWorkflow} declares no top-level '{key}:'.");
 
         int end = start + 1;
         while (end < lines.Length
