@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # signin-newest-flow-wins.sh -- written 2026-11-03 after plan 015 (sign-in newest flow wins)
-# and its review were merged into dev.
+# and its two reviews were merged into dev.
 #
-# 1. Remove the three worker worktrees the work left under .worktrees/. git worktree remove
+# 1. Remove the worker worktrees the work left under .worktrees/. git worktree remove
 #    refuses a dirty tree, and that refusal is left alone.
 # 2. Delete the work's local branches. git branch -d refuses any not merged into dev.
 #
@@ -34,7 +34,9 @@ if [ "$branch" != "dev" ]; then
     exit 0
 fi
 
-workers=(worker-nw-signin-015 worker-nw-signin-rv1 worker-nw-signin-rv1b)
+workers=(
+    worker-nw-signin-015 worker-nw-signin-rv1 worker-nw-signin-rv1b worker-nw-rv015-lib worker-nw-rv015-e2e
+)
 
 printf '\n-- 1. remove worker worktrees --\n'
 for name in "${workers[@]}"; do
@@ -64,6 +66,9 @@ branches=(
     fix/signin-newest-flow-wins
     fix/signin-015-review
     chore/signin-015-cleanup-script
+    chore/worker-nw-rv015-lib
+    chore/worker-nw-rv015-e2e
+    fix/review-2026-11-03-1
 )
 for target in "${branches[@]}"; do
     if ! git rev-parse --verify --quiet "refs/heads/$target" >/dev/null; then
@@ -84,7 +89,7 @@ done
 
 printf '\n-- remaining --\n'
 git worktree list
-git branch --list 'chore/worker-nw-signin-*' 'fix/signin-newest-flow-wins' 'fix/signin-015-review' 'chore/signin-015-cleanup-script'
+git branch --list 'chore/worker-nw-signin-*' 'chore/worker-nw-rv015-*' 'fix/review-2026-11-03-1' 'fix/signin-newest-flow-wins' 'fix/signin-015-review' 'chore/signin-015-cleanup-script'
 
 if [ "$execute" -eq 1 ] && [ "$failed" -eq 1 ]; then exit 1; fi
 exit 0
