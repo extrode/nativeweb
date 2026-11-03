@@ -22,10 +22,10 @@ sections that apply; drop the empty ones rather than leaving them blank.
   `docs/02-reference/breaking-changes.md`.
 - **`nativeweb.signin`: the newest sign-in wins.** `GET LoginPath` consumes the browser's unfinished
   flow before starting a new one, and the callback clears the flow cookie only when its state
-  matches, so a stale or forced callback no longer ends the flow in progress. A callback that
-  arrives after its flow expired keeps the flow cookie for one more `FlowLifetime`, so it reports
-  `state_expired` (or `state_unknown` once the store has swept the row) rather than
-  `state_mismatch`.
+  matches, so a stale or forced callback no longer ends the flow in progress. The flow cookie
+  outlives the flow by one `FlowLifetime`, so a callback arriving within that window after expiry
+  reports `state_expired` (or `state_unknown` once the store has swept the row) rather than
+  `state_mismatch`; later than that, the cookie is gone and it is `state_mismatch` again.
   `InMemoryLoginFlowStore` reports a missing row as `state_unknown`, not `state_used`.
   `FlowLifetime` defaults to 30 minutes (was 15). Plan:
   `docs/plans/2026-11-03-015-signin-newest-flow-wins.md`.

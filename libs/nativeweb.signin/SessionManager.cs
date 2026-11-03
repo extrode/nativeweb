@@ -555,9 +555,9 @@ public sealed partial class SessionManager(
     /// <param name="state">The state minted for this flow.</param>
     /// <param name="expiresAt">
     /// When the flow expires. The cookie outlives it by <c>FlowLifetime</c>: a callback that
-    /// arrives after the flow expired still carries this browser's cookie, so it is reported as
-    /// <c>state_expired</c> (row not yet swept) or <c>state_unknown</c> (swept), never as
-    /// <c>state_mismatch</c>.
+    /// arrives within that window after the flow expired still carries this browser's cookie, so
+    /// it is reported as <c>state_expired</c> (row not yet swept) or <c>state_unknown</c> (swept)
+    /// rather than <c>state_mismatch</c>.
     /// </param>
     internal static void WriteFlowCookie(
         HttpContext context, SignInOptions options, string state, DateTimeOffset expiresAt)
