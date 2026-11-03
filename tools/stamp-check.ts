@@ -19,6 +19,16 @@
  *   deno run -A tools/stamp-check.ts
  *   deno run -A tools/stamp-check.ts --with-database
  *   deno run -A tools/stamp-check.ts --name Widgets --slug widgets
+ *   deno run -A tools/stamp-check.ts --packages
+ *
+ * `--packages` is milestone 6's check instead: NativeWeb by PACKAGES as well,
+ * the pinned `Extrode.NativeWeb.*` versions restored from nuget.org into a cold
+ * cache beside the destination (`<dest>.nuget`), with `NativeWebRoot` pointing
+ * at nothing. A build alone would not prove it, because package mode is a switch
+ * and a switch can be ignored; the run also fails unless every pinned
+ * `Extrode.NativeWeb.*` id and version is in that cold cache afterwards. It
+ * tests what is published, not this working tree, so it fails between a
+ * VersionPrefix bump and that version's release.
  *
  * This script writes and never deletes. It refuses a destination that already
  * holds anything and names it, because removing someone's directory to make room
@@ -32,6 +42,7 @@ export interface Options {
   slug: string;
   destination: string | null;
   withDatabase: boolean;
+  packages: boolean;
 }
 
 export function parseArgs(argv: string[]): Options {
@@ -40,6 +51,7 @@ export function parseArgs(argv: string[]): Options {
     slug: "stampcheck",
     destination: null,
     withDatabase: false,
+    packages: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -61,6 +73,9 @@ export function parseArgs(argv: string[]): Options {
         break;
       case "--with-database":
         options.withDatabase = true;
+        break;
+      case "--packages":
+        options.packages = true;
         break;
       default:
         throw new Error(`Unrecognised argument ${argv[i]}.`);
@@ -103,6 +118,57 @@ export function stampEnvironment(repoRoot: string): Record<string, string> {
     DOTNET_NOLOGO: "1",
     DOTNET_CLI_TELEMETRY_OPTOUT: "1",
   };
+}
+
+/**
+ * The environment for `--packages`: both frameworks from nuget.org, into a cache
+ * nothing has restored into before.
+ *
+ * `NativeWebRoot` names a path under the cache that never exists, not a blank:
+ * blank makes the skeleton probe for a `nativeweb` sibling of the product, and
+ * a `--dest` beside a real checkout would find one.
+ */
+export function packageEnvironment(cacheRoot: string): Record<string, string> {
+  return {
+    NativeWebUsePackages: "true",
+    NativeWebRoot: join(cacheRoot, "no-nativeweb-checkout"),
+    JauntyQUsePackages: "true",
+    JauntyQRoot: "",
+    NUGET_PACKAGES: join(cacheRoot, "packages"),
+    NUGET_HTTP_CACHE_PATH: join(cacheRoot, "http"),
+    DOTNET_NOLOGO: "1",
+    DOTNET_CLI_TELEMETRY_OPTOUT: "1",
+  };
+}
+
+export interface Pin {
+  id: string;
+  version: string;
+}
+
+/** The `Extrode.NativeWeb.*` pins in a stamped product's Directory.Packages.props. */
+export function nativeWebPins(props: string): Pin[] {
+  const withoutComments = props.replace(/<!--[\s\S]*?-->/g, "");
+
+  return [...withoutComments.matchAll(
+    /<PackageVersion\s+Include="(Extrode\.NativeWeb\.[^"]+)"\s+Version="([^"]+)"/g,
+  )].map((match) => ({ id: match[1], version: match[2] }));
+}
+
+/** The pins a restore did not put in the cache, as `id version`. */
+export async function missingFromCache(pins: Pin[], packagesDir: string): Promise<string[]> {
+  const missing: string[] = [];
+
+  for (const pin of pins) {
+    try {
+      await Deno.stat(join(packagesDir, pin.id.toLowerCase(), pin.version.toLowerCase()));
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      missing.push(`${pin.id} ${pin.version}`);
+    }
+  }
+
+  return missing;
 }
 
 /**
@@ -272,7 +338,11 @@ async function main(argv: string[]): Promise<number> {
     ? join(root, "tmp", "stamp-check", options.slug)
     : resolve(options.destination);
 
-  const present = await occupants(destination);
+  const cacheRoot = `${destination}.nuget`;
+  const present = [
+    ...await occupants(destination),
+    ...(options.packages ? (await occupants(cacheRoot)).map((name) => `${cacheRoot}/${name}`) : []),
+  ];
 
   if (present.length > 0) {
     const listed = present.slice(0, 5).join(", ") + (present.length > 5 ? ", ..." : "");
@@ -286,7 +356,7 @@ async function main(argv: string[]): Promise<number> {
     return 1;
   }
 
-  const env = stampEnvironment(root);
+  const env = options.packages ? packageEnvironment(cacheRoot) : stampEnvironment(root);
   const steps: StepResult[] = [];
 
   console.log(`Stamping ${options.name} (${options.slug}) into ${destination}`);
@@ -316,6 +386,22 @@ async function main(argv: string[]): Promise<number> {
         "--nologo",
       ], destination, env),
     );
+  }
+
+  if (options.packages && steps.at(-1)?.code === 0) {
+    const started = performance.now();
+    const pins = nativeWebPins(await Deno.readTextFile(join(destination, "Directory.Packages.props")));
+    const missing = await missingFromCache(pins, env.NUGET_PACKAGES);
+    const failure = pins.length === 0
+      ? "The stamped Directory.Packages.props pins no Extrode.NativeWeb.* package."
+      : `Not restored from the feed, so the build used something else: ${missing.join(", ")}`;
+
+    steps.push({
+      label: `${pins.length} Extrode.NativeWeb.* pins restored from the feed`,
+      code: pins.length > 0 && missing.length === 0 ? 0 : 1,
+      output: pins.length > 0 && missing.length === 0 ? "" : failure,
+      seconds: (performance.now() - started) / 1000,
+    });
   }
 
   if (steps.at(-1)?.code === 0) {
