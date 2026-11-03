@@ -25,7 +25,8 @@ sections that apply; drop the empty ones rather than leaving them blank.
   matches, so a stale or forced callback no longer ends the flow in progress. An expired flow is
   now reported as `state_expired` whether or not the flow cookie is present.
   `InMemoryLoginFlowStore` reports a missing row as `state_unknown`, not `state_used`.
-  `FlowLifetime` defaults to 30 minutes (was 15). Plan: `docs/plans/2026-11-03-015-signin-newest-flow-wins.md`.
+  `FlowLifetime` defaults to 30 minutes (was 15). Plan:
+  `docs/plans/2026-11-03-015-signin-newest-flow-wins.md`.
 
 ### Added
 
