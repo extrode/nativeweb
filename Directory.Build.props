@@ -54,7 +54,7 @@
        (XML forbids a double hyphen inside a comment, as nuget.config also notes.
        Dashes are written as semicolons above.) -->
   <PropertyGroup>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.1.1</VersionPrefix>
     <VersionSuffix Condition="'$(IsReleaseBuild)' != 'true'">dev</VersionSuffix>
   </PropertyGroup>
 
