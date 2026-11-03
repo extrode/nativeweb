@@ -1,10 +1,14 @@
+import { join } from "jsr:@std/path@1";
 import { assertEquals, assertStringIncludes, assertThrows } from "jsr:@std/assert@1";
 
 import {
   DATABASE_FREE_FILTER,
   databaseHint,
   diagnosticsIn,
+  missingFromCache,
+  nativeWebPins,
   occupants,
+  packageEnvironment,
   parseArgs,
   stampEnvironment,
   stampStepEnvironment,
@@ -18,6 +22,66 @@ Deno.test("parseArgs stamps Stampcheck into tmp by default", () => {
   assertEquals(options.slug, "stampcheck");
   assertEquals(options.destination, null);
   assertEquals(options.withDatabase, false);
+  assertEquals(options.packages, false);
+});
+
+Deno.test("parseArgs takes --packages", () => {
+  assertEquals(parseArgs(["--packages"]).packages, true);
+});
+
+Deno.test("packageEnvironment resolves both frameworks from packages into the given cache", () => {
+  const env = packageEnvironment("/w/p.nuget");
+
+  assertEquals(env.NativeWebUsePackages, "true");
+  assertEquals(env.JauntyQUsePackages, "true");
+  assertEquals(env.NUGET_PACKAGES, "/w/p.nuget/packages");
+  assertEquals(env.NUGET_HTTP_CACHE_PATH, "/w/p.nuget/http");
+});
+
+Deno.test("packageEnvironment points NativeWebRoot at nothing rather than blanking it", () => {
+  const env = packageEnvironment("/w/p.nuget");
+
+  assertEquals(env.NativeWebRoot, "/w/p.nuget/no-nativeweb-checkout");
+  assertEquals(env.JauntyQRoot, "");
+});
+
+Deno.test("nativeWebPins reads the NativeWeb pins and skips JauntyQ and comments", () => {
+  const props = [
+    '<!-- <PackageVersion Include="Extrode.NativeWeb.Old" Version="0.0.1" /> -->',
+    '<PackageVersion Include="Extrode.JauntyQ.Runtime" Version="0.5.1" />',
+    '<PackageVersion Include="Extrode.NativeWeb.Render" Version="0.1.1" />',
+    '<PackageVersion Include="Extrode.NativeWeb.Render.Generator" Version="0.1.1" />',
+  ].join("\n");
+
+  assertEquals(nativeWebPins(props), [
+    { id: "Extrode.NativeWeb.Render", version: "0.1.1" },
+    { id: "Extrode.NativeWeb.Render.Generator", version: "0.1.1" },
+  ]);
+});
+
+Deno.test("nativeWebPins reads the skeleton's own pins", async () => {
+  const props = await Deno.readTextFile(new URL("../skeleton/Directory.Packages.props", import.meta.url));
+
+  assertEquals(nativeWebPins(props).length, 5);
+});
+
+Deno.test("missingFromCache names the pins the cache does not hold", async () => {
+  const dir = await Deno.makeTempDir();
+
+  try {
+    await Deno.mkdir(join(dir, "extrode.nativeweb.render", "0.1.1"), { recursive: true });
+
+    assertEquals(
+      await missingFromCache([
+        { id: "Extrode.NativeWeb.Render", version: "0.1.1" },
+        { id: "Extrode.NativeWeb.Web", version: "0.1.1" },
+        { id: "Extrode.NativeWeb.Render", version: "0.1.0" },
+      ], dir),
+      ["Extrode.NativeWeb.Web 0.1.1", "Extrode.NativeWeb.Render 0.1.0"],
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
 });
 
 Deno.test("parseArgs takes a name, a slug and a destination", () => {

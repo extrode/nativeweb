@@ -9,7 +9,7 @@ wish list; the value is in recording the ones nobody has got to yet.
 
 ## Now-ish
 
-- **`skeleton/nuget.config` still maps `JauntyQ.*` and the two premium ids to `framework-github`.**
+- ~~**`skeleton/nuget.config` still maps `JauntyQ.*` and the two premium ids to `framework-github`.**~~ **CLOSED 2026-11-04**: it declares nuget.org alone with a single `*` mapping, as the 0.1.0 changelog records.
   The root config retired its `jauntyq-github` source on 2026-09-24 (it served nothing pinned,
   and the vulnerable package gate got 403 from it). The skeleton's source stays, since it serves
   `NativeWeb.*`, but its JauntyQ patterns are dead weight a stamped product inherits. Same
