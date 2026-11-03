@@ -214,18 +214,22 @@ export const NUGET_ORG = "https://api.nuget.org/v3/index.json";
  * catch-all `*` on nuget.org still serves everything else, JauntyQ included.
  */
 export function withLocalFeed(config: string, dir: string): string {
-  const source = `    <add key="local-packages" value="${dir}" />\n`;
+  const value = dir.replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;");
+  const source = `    <add key="local-packages" value="${value}" />\n`;
   const mapping = `    <packageSource key="local-packages">\n` +
     `      <package pattern="Extrode.NativeWeb.*" />\n` +
     `    </packageSource>\n`;
 
-  if (!config.includes("</packageSources>") || !config.includes("</packageSourceMapping>")) {
+  const sources = /^[ \t]*<\/packageSources>/m;
+  const mappings = /^[ \t]*<\/packageSourceMapping>/m;
+
+  if (!sources.test(config) || !mappings.test(config)) {
     throw new Error("The stamped nuget.config has no packageSources and packageSourceMapping to extend.");
   }
 
   return config
-    .replace("  </packageSources>", `${source}  </packageSources>`)
-    .replace("  </packageSourceMapping>", `${mapping}  </packageSourceMapping>`);
+    .replace(sources, (close) => `${source}${close}`)
+    .replace(mappings, (close) => `${mapping}${close}`);
 }
 
 /**
