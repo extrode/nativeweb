@@ -249,15 +249,18 @@ pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe        
 pwsh tools/new-product.ps1 -Name Probe -Slug probe -Destination ../probe -Execute
 ```
 
-By default the stamped app references the NativeWeb libraries from a checkout of this repository
-sitting next to it. With `-p:NativeWebUsePackages=true` it restores `Extrode.NativeWeb.*` from
-nuget.org instead and needs no checkout at all. JauntyQ comes from nuget.org either way.
+By default the stamped app restores `Extrode.NativeWeb.*` and `Extrode.JauntyQ.*` from nuget.org
+and needs no checkout at all. With `-p:NativeWebUsePackages=false` it references the NativeWeb
+libraries from a checkout of this repository sitting next to it instead, for working on the
+framework and a product together.
 
 To check that `skeleton/` still builds before you stamp the app you mean to keep,
-`deno run -A tools/stamp-check.ts` stamps a throwaway copy into `tmp/`, builds it and runs its
-tests. Add `--packages` to build that copy from the published packages alone, with a cold NuGet
+`deno run -A tools/stamp-check.ts` stamps a throwaway copy into `tmp/`, builds it against this
+checkout and runs its tests. Add `--packages` to build that copy from the published packages alone, with a cold NuGet
 cache and no checkout; it fails if any pinned `Extrode.NativeWeb.*` version did not come from the
 feed, and between a version bump and its release it fails because that version is not out yet.
+`--packages-from <dir>` does the same against a directory of packed `.nupkg` files; the release
+workflow runs it on the packages it is about to push.
 
 [Getting started](docs/00-quick-start/getting-started.md) walks through stamping and running your
 first app. [Adopting in an existing app](docs/00-quick-start/adopting-in-an-existing-app.md) covers

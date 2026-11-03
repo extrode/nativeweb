@@ -30,11 +30,11 @@ over PostgreSQL.
 - JauntyQ for ALL data access. No EF Core, no Dapper, no hand-written ADO.NET.
 - HTMX + Alpine.js, vendored into the repo. No CDN references.
 - PostgreSQL only.
-- The NativeWeb framework libs (security, render + render generator) resolve dual-mode:
-  local checkout (`$(NativeWebRoot)`, probed in `Directory.Build.props`) for co-development, or
-  pinned `NativeWeb.*` packages via `-p:NativeWebUsePackages=true`.
-- JauntyQ is the other way round: the pinned `Extrode.JauntyQ.*` packages on nuget.org are the
-  default, and a local checkout (`$(JauntyQRoot)`) is the opt-in via `-p:JauntyQUsePackages=false`.
+- The NativeWeb framework libs resolve dual-mode: the pinned `Extrode.NativeWeb.*` packages on
+  nuget.org are the default, and a local checkout (`$(NativeWebRoot)`, probed in
+  `Directory.Build.props`) is the opt-in for co-development via `-p:NativeWebUsePackages=false`.
+- JauntyQ works the same way: the pinned `Extrode.JauntyQ.*` packages are the default, and a local
+  checkout (`$(JauntyQRoot)`) is the opt-in via `-p:JauntyQUsePackages=false`.
 
 ## Tooling runtime: Deno, never Node
 Deno is a first-class citizen here and Node is not. Any new script that would have been

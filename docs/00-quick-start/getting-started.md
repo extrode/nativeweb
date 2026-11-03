@@ -20,9 +20,9 @@ cd NativeWeb
 Anywhere you like. JauntyQ restores from packages, so nothing here looks for a sibling checkout
 unless you build with `-p:JauntyQUsePackages=false`.
 
-The directory can be called `NativeWeb` or `nativeweb`. A stamped product probes for both. It
-matters only on a case-sensitive filesystem with a third name: then set `NativeWebRoot` instead of
-relying on the probe.
+The directory can be called `NativeWeb` or `nativeweb`. A stamped product built in checkout mode
+(`NativeWebUsePackages=false`) probes for both. It matters only on a case-sensitive filesystem
+with a third name: then set `NativeWebRoot` instead of relying on the probe.
 
 ## 2. Build
 
@@ -190,12 +190,14 @@ dotnet test --project tests/probe.tests.e2e
 - **The integration tier needs `<Product>__Db__ConnectionString` in the environment.** Without it
   the tier runs, but `/readyz` reports `ServiceUnavailable` and one fact fails. The double
   underscore is the environment form of `Probe:Db:ConnectionString`.
-- **If the product is not beside NativeWeb, set the root as an environment variable, not a `-p:`
-  flag.** `-p:NativeWebRoot=...` works for `dotnet build` and then fails the e2e tier, because that
-  tier's fixture runs its own `dotnet publish` and command-line properties do not cross into a
-  child process. Environment variables do:
+- **The product restores NativeWeb from nuget.org by default.** It needs this checkout only when
+  you build it against unreleased framework changes. Then set the switch and the root as
+  environment variables, not `-p:` flags: `-p:NativeWebRoot=...` works for `dotnet build` and then
+  fails the e2e tier, because that tier's fixture runs its own `dotnet publish` and command-line
+  properties do not cross into a child process. Environment variables do:
 
   ```bash
+  export NativeWebUsePackages=false
   export NativeWebRoot=/path/to/NativeWeb
   ```
 

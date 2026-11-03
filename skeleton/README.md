@@ -22,12 +22,13 @@ dotnet run --project apps/__product__
 The connection string lives in user-secrets locally
 (`__PRODUCT__:Db:ConnectionString`), not in `appsettings.json`.
 
-**Checkout mode, for NativeWeb only.** The build resolves the NativeWeb framework libs from a
-sibling checkout by default, so `../NativeWeb` must exist — or pass the path explicitly. JauntyQ
-resolves from packages and needs no sibling.
+**Both frameworks come from packages.** The build restores the pinned `Extrode.NativeWeb.*` and
+`Extrode.JauntyQ.*` versions in `Directory.Packages.props` from nuget.org, with no credential and
+no sibling checkout. To build against a NativeWeb checkout instead, for a framework change that
+is not released yet, opt in; `../NativeWeb` is probed, or pass the path:
 
 ```bash
-dotnet run --project apps/__product__ -p:NativeWebRoot=<path>
+dotnet run --project apps/__product__ -p:NativeWebUsePackages=false -p:NativeWebRoot=<path>
 ```
 
 ## Build and test
@@ -48,12 +49,13 @@ Two things about the last two tiers are not obvious:
 - **The integration tier reads `__PRODUCT____Db__ConnectionString` from the environment.** Without
   it the tier still runs, but `/readyz` reports `ServiceUnavailable` and one fact fails. The
   double-underscore spelling is the environment form of `__PRODUCT__:Db:ConnectionString`.
-- **If this product is not beside NativeWeb, set the roots as environment variables, not `-p:`
-  flags.** `-p:NativeWebRoot=... -p:JauntyQRoot=...` satisfies `dotnet build` and then fails the
+- **In checkout mode, set the switch and the roots as environment variables, not `-p:` flags.**
+  `-p:NativeWebUsePackages=false -p:NativeWebRoot=...` satisfies `dotnet build` and then fails the
   e2e tier, because that tier's fixture shells out to its own `dotnet publish` and command-line
   properties do not cross into a child process. Environment variables do:
 
   ```bash
+  export NativeWebUsePackages=false
   export NativeWebRoot=/path/to/nativeweb
   ```
 
@@ -87,34 +89,18 @@ Agent instructions are in `AGENTS.md`. `CLAUDE.md` is a one-line shim that impor
 
 ## How CI resolves the framework
 
-`.github/workflows/ci.yml` resolves NativeWeb in **checkout mode**, the same mode a developer
-machine uses, and JauntyQ from packages. A runner has no sibling checkout, so the workflow clones
-`extrode/nativeweb` and points `NativeWebRoot` at it. That is a workflow-level *environment*
-variable rather than a `-p:` flag, because `dotnet list package` accepts no `-p:` and the e2e
-fixture's NativeAOT publish runs as a child process — MSBuild reads bare environment variables as
-properties, so one definition covers all of it.
+`.github/workflows/ci.yml` builds what a developer machine builds: NativeWeb and JauntyQ from the
+pinned packages on nuget.org, with no framework checkout and no repository secret. A framework
+push cannot turn this product red; only a change to the pins here can.
 
-The workspace is laid out as **siblings**, with this product in `product/`:
-
-```text
-$GITHUB_WORKSPACE/
-  product/     <- this repository
-  NativeWeb/
-```
-
-That is required, not tidiness. `Directory.Packages.props` discovery walks up from each project
-and does not stop at a repository boundary, so a framework clone placed *inside* `product/`
-inherits this repo's copy — which sets `ManagePackageVersionsCentrally=true` over a repository
-that does not expect it (NU1008 on both JauntyQ projects). `defaults.run.working-directory: product`
-is what keeps every `run:` step pointed at this repository.
-
-The framework repository is public, so the workflow checks it out with the default
-`GITHUB_TOKEN` and needs no repository secret.
-
-**NativeWeb package mode (`-p:NativeWebUsePackages=true`)** restores the pinned
-`Extrode.NativeWeb.*` versions from nuget.org and needs no framework checkout. This workflow does
-not use it yet: add the flag here once the pins in `Directory.Packages.props` name a released
-version, and the framework checkout step can go.
+This product is checked out into `product/`, not the workspace root, and
+`defaults.run.working-directory: product` keeps every `run:` step there. No clone sits beside it
+today, but a product that adds one back, to build against an unreleased framework change, needs
+that layout: `Directory.Packages.props` discovery walks up from each project and does not stop at
+a repository boundary, so a clone placed *inside* `product/` would inherit this repo's copy
+(NU1008). Check the framework out beside `product/` and set `NativeWebUsePackages: "false"` and
+`NativeWebRoot` as workflow-level *environment* variables rather than `-p:` flags: `dotnet list
+package` accepts no `-p:`, and the e2e fixture's NativeAOT publish runs as a child process.
 
 **JauntyQ packages are its default.** Nothing needs to be passed: the pins are
 `Extrode.JauntyQ.*`, public on nuget.org, and restore with no credential. Checkout mode, `-p:JauntyQUsePackages=false`, builds against a sibling
