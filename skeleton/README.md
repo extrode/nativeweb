@@ -111,9 +111,10 @@ is what keeps every `run:` step pointed at this repository.
 The framework repository is public, so the workflow checks it out with the default
 `GITHUB_TOKEN` and needs no repository secret.
 
-**NativeWeb package mode (`-p:NativeWebUsePackages=true`) still exists and is still unusable:**
-the `Extrode.NativeWeb.*` packages will come from nuget.org, but none has been released yet, so
-a package-mode restore of the framework cannot succeed anywhere. CI does not use it.
+**NativeWeb package mode (`-p:NativeWebUsePackages=true`)** restores the pinned
+`Extrode.NativeWeb.*` versions from nuget.org and needs no framework checkout. This workflow does
+not use it yet: add the flag here once the pins in `Directory.Packages.props` name a released
+version, and the framework checkout step can go.
 
 **JauntyQ packages are its default.** Nothing needs to be passed: the pins are
 `Extrode.JauntyQ.*`, public on nuget.org, and restore with no credential. Checkout mode, `-p:JauntyQUsePackages=false`, builds against a sibling
