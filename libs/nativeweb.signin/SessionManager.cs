@@ -554,8 +554,7 @@ public sealed partial class SessionManager(
     /// <param name="options">The scheme's options.</param>
     /// <param name="state">The state minted for this flow.</param>
     /// <param name="expiresAt">
-    /// When the flow itself expires. The cookie outlives it by <c>FlowLifetime</c>, so a callback
-    /// that arrives after the row expired still carries the cookie and is restarted, not refused.
+    /// When the flow expires. The cookie expires with it.
     /// </param>
     internal static void WriteFlowCookie(
         HttpContext context, SignInOptions options, string state, DateTimeOffset expiresAt)
@@ -564,7 +563,7 @@ public sealed partial class SessionManager(
         ArgumentNullException.ThrowIfNull(options);
 
         context.Response.Cookies.Append(
-            FlowCookieName(options), state, CookieOptionsFor(expiresAt + options.FlowLifetime));
+            FlowCookieName(options), state, CookieOptionsFor(expiresAt));
     }
 
     /// <summary>
